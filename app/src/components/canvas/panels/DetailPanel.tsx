@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { X, Users, ExternalLink, ArrowUpRight, Sparkles, Loader2, Lightbulb, Target, TrendingUp } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { ProductNodeData, ExamplePostNodeData, GeneratedPostNodeData, RewriteOption } from '@/types';
+import type { ProductNodeData, SubredditNodeData, ExamplePostNodeData, GeneratedPostNodeData, RewriteOption } from '@/types';
+import type { SubredditAnalysis } from '@/lib/ai/prompts';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -61,6 +62,9 @@ export function DetailPanel() {
         <div className="p-4 space-y-4">
           {node.data.type === 'product' && (
             <ProductDetailPanel nodeId={node.id} data={node.data as ProductNodeData} />
+          )}
+          {node.data.type === 'subreddit' && (
+            <SubredditDetailPanel data={node.data as SubredditNodeData} />
           )}
           {node.data.type === 'example-post' && (
             <ExamplePostDetailPanel data={node.data as ExamplePostNodeData} />
@@ -142,6 +146,197 @@ function ProductDetailPanel({ nodeId, data }: { nodeId: string; data: ProductNod
           </SelectContent>
         </Select>
       </div>
+    </>
+  );
+}
+
+function SubredditDetailPanel({ data }: { data: SubredditNodeData }) {
+  const { nodes } = useCanvasStore();
+  const [analysis, setAnalysis] = useState<SubredditAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const formatNumber = (n: number | null | undefined) => {
+    if (n == null) return '—';
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+    return String(n);
+  };
+
+  async function handleAnalyze() {
+    if (data.posts.length === 0) {
+      toast.error('Wait for posts to load first');
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const productNode = nodes.find((n) => n.data.type === 'product');
+      const pd = productNode?.data as ProductNodeData | undefined;
+
+      const res = await fetch('/api/ai/analyze-subreddit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subredditName: data.name,
+          posts: data.posts.map((p) => ({
+            title: p.title,
+            body: p.selftext || null,
+            score: p.score,
+            num_comments: p.num_comments,
+            author: p.author,
+          })),
+          product: pd ? {
+            name: pd.name,
+            description: pd.description,
+            audience: pd.audience || undefined,
+          } : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setAnalysis(json);
+    } catch {
+      toast.error('Analysis failed. Check your API key.');
+    }
+    setAnalyzing(false);
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+          <Users className="h-4 w-4 text-blue-500" />
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold">r/{data.name}</h4>
+          {data.subscribers !== null && (
+            <p className="text-xs text-muted-foreground">{formatNumber(data.subscribers)} members</p>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      {data.description && (
+        <p className="text-xs text-muted-foreground leading-relaxed">{data.description}</p>
+      )}
+
+      {/* Link + sort */}
+      <div className="flex items-center justify-between">
+        <a
+          href={`https://reddit.com/r/${data.name}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-blue-500 hover:underline"
+        >
+          <ExternalLink className="h-3 w-3" />
+          View on Reddit
+        </a>
+        <span className="text-[10px] text-muted-foreground">
+          {data.posts.length} posts · <span className="capitalize">{data.sortBy}</span>
+        </span>
+      </div>
+
+      {/* Analyze button */}
+      {!analysis && (
+        <Button
+          size="sm"
+          className="w-full h-9 text-xs bg-blue-500 hover:bg-blue-600 text-white"
+          onClick={handleAnalyze}
+          disabled={analyzing || data.posts.length === 0}
+        >
+          {analyzing ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              Analyzing posts...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              Analyze for Marketing Potential
+            </>
+          )}
+        </Button>
+      )}
+
+      {/* Analysis results */}
+      {analysis && (
+        <div className="space-y-4">
+          {/* Subreddit insight */}
+          <div className="rounded-lg bg-blue-500/10 p-3 space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-blue-500">
+              <Lightbulb className="h-3 w-3" />
+              Subreddit Insight
+            </div>
+            <p className="text-xs leading-relaxed">{analysis.subredditInsight}</p>
+          </div>
+
+          {/* Tailored recommendation */}
+          {analysis.recommendation && (
+            <div className="rounded-lg bg-green-500/10 p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-green-500">
+                <Target className="h-3 w-3" />
+                Recommendation for Your Product
+              </div>
+              <p className="text-xs leading-relaxed">{analysis.recommendation}</p>
+            </div>
+          )}
+
+          {/* High-conversion posts */}
+          {analysis.conversionPosts.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <TrendingUp className="h-3 w-3" />
+                High-Conversion Posts
+              </div>
+              <div className="space-y-2">
+                {analysis.conversionPosts.map((post, i) => (
+                  <div key={i} className="rounded-lg border p-2.5 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-medium leading-tight line-clamp-2">{post.title}</p>
+                      <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                        <ArrowUpRight className="h-2.5 w-2.5" />
+                        {formatNumber(post.score)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">{post.why}</p>
+                    <span className="inline-block text-[10px] font-medium bg-purple-500/10 text-purple-500 rounded-full px-2 py-0.5">
+                      {post.strategy}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Winning patterns */}
+          {analysis.winningPatterns.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Winning Patterns</p>
+              <div className="space-y-2">
+                {analysis.winningPatterns.map((pattern, i) => (
+                  <div key={i} className="rounded-lg bg-muted/50 p-2.5 space-y-1">
+                    <p className="text-xs font-semibold">{pattern.pattern}</p>
+                    <p className="text-[11px] text-muted-foreground leading-snug">{pattern.description}</p>
+                    <p className="text-[11px] italic text-muted-foreground">&ldquo;{pattern.example}&rdquo;</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Re-analyze */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-8 text-xs"
+            onClick={() => { setAnalysis(null); handleAnalyze(); }}
+            disabled={analyzing}
+          >
+            {analyzing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+            Re-analyze
+          </Button>
+        </div>
+      )}
     </>
   );
 }
