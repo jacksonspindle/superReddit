@@ -23,6 +23,7 @@ import { GeneratedPostNode } from './nodes/GeneratedPostNode';
 import { CanvasToolbar } from './panels/CanvasToolbar';
 import { DetailPanel } from './panels/DetailPanel';
 import { DraftsPanel } from './panels/DraftsPanel';
+import { BookmarksPanel } from './panels/BookmarksPanel';
 import { OnboardingWizard } from './OnboardingWizard';
 import { slideInRightVariants } from '@/lib/motion';
 import type { Project } from '@/types';
@@ -66,6 +67,7 @@ function CanvasInner({ project }: CanvasProps) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [canvasLoaded, setCanvasLoaded] = useState(false);
   const [draftsOpen, setDraftsOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
 
@@ -193,11 +195,17 @@ function CanvasInner({ project }: CanvasProps) {
           }}
         />
         <Panel position="top-center">
-          <CanvasToolbar project={project} onToggleDrafts={() => setDraftsOpen(!draftsOpen)} draftsOpen={draftsOpen} />
+          <CanvasToolbar
+            project={project}
+            onToggleDrafts={() => { setDraftsOpen(!draftsOpen); setBookmarksOpen(false); }}
+            draftsOpen={draftsOpen}
+            onToggleBookmarks={() => { setBookmarksOpen(!bookmarksOpen); setDraftsOpen(false); }}
+            bookmarksOpen={bookmarksOpen}
+          />
         </Panel>
       </ReactFlow>
       <AnimatePresence>
-        {selectedNodeId && !draftsOpen && (
+        {selectedNodeId && !draftsOpen && !bookmarksOpen && (
           <motion.div
             key="detail-panel"
             variants={slideInRightVariants}
@@ -227,6 +235,28 @@ function CanvasInner({ project }: CanvasProps) {
             </div>
             <div className="h-[calc(100%-52px)]">
               <DraftsPanel />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {bookmarksOpen && (
+          <motion.div
+            key="bookmarks-panel"
+            variants={slideInRightVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute right-0 top-0 h-full w-80 border-l bg-card shadow-xl z-10"
+          >
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h3 className="font-semibold text-sm">Bookmarks</h3>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setBookmarksOpen(false)}>
+                <span className="text-lg leading-none">&times;</span>
+              </Button>
+            </div>
+            <div className="h-[calc(100%-52px)]">
+              <BookmarksPanel />
             </div>
           </motion.div>
         )}

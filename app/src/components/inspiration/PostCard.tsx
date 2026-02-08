@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUpRight, MessageSquare, ExternalLink, Clock } from 'lucide-react';
+import { ArrowUpRight, MessageSquare, ExternalLink, Clock, Bookmark, BookmarkCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,9 +10,11 @@ import type { RedditPost } from '@/types';
 interface PostCardProps {
   post: RedditPost;
   onUsePost?: (post: RedditPost) => void;
+  isBookmarked?: boolean;
+  onToggleBookmark?: (post: RedditPost) => void;
 }
 
-export function PostCard({ post, onUsePost }: PostCardProps) {
+export function PostCard({ post, onUsePost, isBookmarked, onToggleBookmark }: PostCardProps) {
   const timeAgo = (timestamp: number) => {
     const seconds = Math.floor(Date.now() / 1000 - timestamp);
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -67,6 +69,20 @@ export function PostCard({ post, onUsePost }: PostCardProps) {
               </div>
 
               <div className="flex items-center gap-2 pt-1">
+                {onToggleBookmark && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 p-0"
+                    onClick={() => onToggleBookmark(post)}
+                  >
+                    {isBookmarked ? (
+                      <BookmarkCheck className="h-4 w-4 text-orange-500 fill-orange-500" />
+                    ) : (
+                      <Bookmark className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
                 {onUsePost && (
                   <Button
                     variant="outline"

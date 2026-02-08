@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Sparkles, Loader2, FileText, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Plus, Sparkles, Loader2, FileText, Bookmark, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import type { Project, ExamplePostNodeData, ProductNodeData, GeneratedPostNodeDa
 import type { SuggestedSubreddit } from '@/lib/ai/prompts';
 import { toast } from 'sonner';
 
-export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project: Project; onToggleDrafts?: () => void; draftsOpen?: boolean }) {
+export function CanvasToolbar({ project, onToggleDrafts, draftsOpen, onToggleBookmarks, bookmarksOpen }: { project: Project; onToggleDrafts?: () => void; draftsOpen?: boolean; onToggleBookmarks?: () => void; bookmarksOpen?: boolean }) {
   const { addNode, nodes, edges, setEdges, getSelectedExamplePosts, getProductNode, updateNodeData } = useCanvasStore();
   const [subredditInput, setSubredditInput] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -358,6 +358,21 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
           >
             <FileText className="mr-1 h-3.5 w-3.5" />
             Drafts ({draftCount})
+          </Button>
+        </>
+      )}
+
+      {onToggleBookmarks && (
+        <>
+          <div className="h-6 w-px bg-border" />
+          <Button
+            variant={bookmarksOpen ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={onToggleBookmarks}
+          >
+            <Bookmark className="mr-1 h-3.5 w-3.5" />
+            Bookmarks
           </Button>
         </>
       )}
