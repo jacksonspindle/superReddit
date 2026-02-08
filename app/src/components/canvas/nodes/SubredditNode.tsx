@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Users, ArrowUpRight, MessageSquare, Loader2 } from 'lucide-react';
+import { Users, ArrowUpRight, MessageSquare, ExternalLink, Loader2 } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -132,7 +132,7 @@ export const SubredditNode = memo(function SubredditNode({ id, data, selected }:
             <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
           </div>
         ) : (
-          <ScrollArea className="h-56">
+          <ScrollArea className="nowheel h-56">
             <div className="space-y-1">
               {data.posts.map((post) => (
                 <div
@@ -153,14 +153,24 @@ export const SubredditNode = memo(function SubredditNode({ id, data, selected }:
                       <span>u/{post.author}</span>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={() => handleUsePost(post)}
-                  >
-                    Use
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => handleUsePost(post)}
+                    >
+                      Use
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => window.open(`https://reddit.com${post.permalink}`, '_blank')}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
               {data.posts.length === 0 && !localLoading && (

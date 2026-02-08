@@ -12,7 +12,6 @@ import {
   Panel,
   type Viewport,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -182,7 +181,7 @@ function CanvasInner({ project }: CanvasProps) {
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="hsl(var(--muted-foreground) / 0.15)" />
-        <Controls className="rounded-lg border bg-card shadow-sm" />
+        <Controls />
         <MiniMap
           className="rounded-lg border bg-card shadow-sm"
           nodeColor={(node) => {
