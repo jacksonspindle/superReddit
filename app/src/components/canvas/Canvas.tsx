@@ -12,7 +12,6 @@ import {
   Panel,
   type Viewport,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { useCanvasStore } from '@/stores/canvas-store';

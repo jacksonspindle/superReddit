@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@xyflow/react/dist/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -125,14 +126,14 @@
   }
 }
 
-/* React Flow Controls — theme-aware overrides */
-.react-flow__controls {
+/* React Flow Controls — theme-aware overrides (high specificity to beat library CSS) */
+.react-flow .react-flow__controls {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
 }
 
-.react-flow__controls-button {
+.react-flow .react-flow__controls .react-flow__controls-button {
   background: var(--card) !important;
   border: 1px solid var(--border) !important;
   border-radius: 0 !important;
@@ -144,23 +145,23 @@
   transition: background 0.15s ease;
 }
 
-.react-flow__controls-button:hover {
+.react-flow .react-flow__controls .react-flow__controls-button:hover {
   background: var(--accent) !important;
 }
 
-.react-flow__controls-button:first-child {
+.react-flow .react-flow__controls .react-flow__controls-button:first-child {
   border-radius: var(--radius) var(--radius) 0 0 !important;
 }
 
-.react-flow__controls-button:last-child {
+.react-flow .react-flow__controls .react-flow__controls-button:last-child {
   border-radius: 0 0 var(--radius) var(--radius) !important;
 }
 
-.react-flow__controls-button + .react-flow__controls-button {
+.react-flow .react-flow__controls .react-flow__controls-button + .react-flow__controls-button {
   border-top: none !important;
 }
 
-.react-flow__controls-button svg {
+.react-flow .react-flow__controls .react-flow__controls-button svg {
   max-width: 14px !important;
   max-height: 14px !important;
   fill: var(--foreground) !important;
