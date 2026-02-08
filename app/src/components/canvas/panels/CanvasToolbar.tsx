@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Sparkles, Loader2, FileText } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Sparkles, Loader2, FileText, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Project, ExamplePostNodeData, ProductNodeData, GeneratedPostNodeData } from '@/types';
+import type { SuggestedSubreddit } from '@/lib/ai/prompts';
 import { toast } from 'sonner';
 
 export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project: Project; onToggleDrafts?: () => void; draftsOpen?: boolean }) {
@@ -20,19 +22,57 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
   const [subredditInput, setSubredditInput] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [suggestions, setSuggestions] = useState<SuggestedSubreddit[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
 
-  function handleAddSubreddit() {
-    const name = subredditInput.trim().replace(/^r\//, '');
-    if (!name) return;
+  const fetchSuggestions = useCallback(async () => {
+    const productNode = nodes.find((n) => n.data.type === 'product');
+    if (!productNode) return;
+    const pd = productNode.data as ProductNodeData;
 
-    const id = `subreddit-${name}`;
+    setSuggestionsLoading(true);
+    setSuggestionsError(null);
+    try {
+      const res = await fetch('/api/ai/suggest-subreddits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: pd.name,
+          description: pd.description,
+          url: pd.url || undefined,
+          audience: pd.audience || undefined,
+          tone: pd.tone,
+        }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setSuggestions(json.subreddits || []);
+      setSuggestionsLoaded(true);
+    } catch {
+      setSuggestionsError('Failed to load suggestions');
+    }
+    setSuggestionsLoading(false);
+  }, [nodes]);
+
+  useEffect(() => {
+    if (dialogOpen && !suggestionsLoaded && !suggestionsLoading) {
+      fetchSuggestions();
+    }
+  }, [dialogOpen, suggestionsLoaded, suggestionsLoading, fetchSuggestions]);
+
+  function addSubredditByName(name: string) {
+    const cleanName = name.trim().replace(/^r\//, '');
+    if (!cleanName) return;
+
+    const id = `subreddit-${cleanName}`;
     const existing = nodes.find((n) => n.id === id);
     if (existing) {
-      toast.error(`r/${name} is already on the canvas`);
+      toast.error(`r/${cleanName} is already on the canvas`);
       return;
     }
 
-    // Find product node for edge
     const productNode = nodes.find((n) => n.data.type === 'product');
     const subredditCount = nodes.filter((n) => n.data.type === 'subreddit').length;
 
@@ -42,7 +82,7 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
       position: { x: 400, y: 50 + subredditCount * 400 },
       data: {
         type: 'subreddit',
-        name,
+        name: cleanName,
         subscribers: null,
         description: null,
         posts: [],
@@ -51,7 +91,6 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
       },
     });
 
-    // Connect product → subreddit
     if (productNode) {
       const currentEdges = useCanvasStore.getState().edges;
       setEdges([
@@ -65,8 +104,21 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
       ]);
     }
 
+    return cleanName;
+  }
+
+  function handleAddSubreddit() {
+    if (!subredditInput.trim()) return;
+    addSubredditByName(subredditInput);
     setSubredditInput('');
     setDialogOpen(false);
+  }
+
+  function handleAddSuggestion(name: string) {
+    addSubredditByName(name);
+    // Remove from suggestions list
+    setSuggestions((prev) => prev.filter((s) => s.name !== name));
+    toast.success(`Added r/${name} to canvas`);
   }
 
   async function handleGenerate() {
@@ -196,7 +248,7 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
             Add Subreddit
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add Subreddit</DialogTitle>
           </DialogHeader>
@@ -208,6 +260,73 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen }: { project
               onKeyDown={(e) => e.key === 'Enter' && handleAddSubreddit()}
             />
             <Button onClick={handleAddSubreddit}>Add</Button>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">AI Suggestions</p>
+              {suggestionsLoaded && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[10px] text-muted-foreground"
+                  onClick={() => { setSuggestionsLoaded(false); fetchSuggestions(); }}
+                >
+                  Refresh
+                </Button>
+              )}
+            </div>
+
+            {suggestionsLoading && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-xs text-muted-foreground">Finding subreddits for your product...</span>
+              </div>
+            )}
+
+            {suggestionsError && (
+              <p className="text-xs text-destructive py-2">{suggestionsError}</p>
+            )}
+
+            {!suggestionsLoading && suggestions.length > 0 && (
+              <ScrollArea className="h-64">
+                <div className="space-y-1.5 pr-3">
+                  {suggestions.map((s) => {
+                    const alreadyAdded = nodes.some((n) => n.id === `subreddit-${s.name}`);
+                    return (
+                      <button
+                        key={s.name}
+                        disabled={alreadyAdded}
+                        onClick={() => handleAddSuggestion(s.name)}
+                        className="w-full text-left rounded-lg border p-2.5 hover:bg-muted/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">r/{s.name}</span>
+                          <span className={`flex items-center gap-1 text-[10px] font-medium rounded-full px-2 py-0.5 ${
+                            s.risk === 'low' ? 'bg-green-500/10 text-green-500' :
+                            s.risk === 'medium' ? 'bg-yellow-500/10 text-yellow-500' :
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {s.risk === 'low' ? <ShieldCheck className="h-2.5 w-2.5" /> :
+                             s.risk === 'medium' ? <ShieldAlert className="h-2.5 w-2.5" /> :
+                             <AlertTriangle className="h-2.5 w-2.5" />}
+                            {s.risk}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.reason}</p>
+                        {alreadyAdded && (
+                          <p className="text-[10px] text-muted-foreground mt-1 italic">Already on canvas</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+
+            {!suggestionsLoading && suggestionsLoaded && suggestions.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">All suggestions have been added!</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
