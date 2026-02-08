@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ArrowRight, ArrowLeft, Sparkles, Loader2, CheckCircle2, AlertTriangle, Shield, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { scaleFadeVariants, slideHorizontalVariants } from '@/lib/motion';
 import type { Project } from '@/types';
 import type { SuggestedSubreddit } from '@/lib/ai/prompts';
 
@@ -22,6 +24,7 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState(0);
+  const directionRef = useRef(1);
 
   // Step 1: Product details
   const [productName, setProductName] = useState(project.product_name);
@@ -41,6 +44,11 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
   const [loadingPosts, setLoadingPosts] = useState(false);
 
   const { updateNodeData, addNode, nodes, edges, setEdges } = useCanvasStore();
+
+  function goToStep(next: number) {
+    directionRef.current = next > step ? 1 : -1;
+    setStep(next);
+  }
 
   async function handleFetchSuggestions() {
     setLoadingSuggestions(true);
@@ -158,8 +166,19 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-2xl border bg-card shadow-2xl overflow-hidden">
+    <motion.div
+      variants={scaleFadeVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+    >
+      <motion.div
+        variants={scaleFadeVariants}
+        initial="hidden"
+        animate="visible"
+        className="w-full max-w-2xl rounded-2xl border bg-card shadow-2xl overflow-hidden"
+      >
         {/* Progress bar */}
         <div className="flex gap-1 p-4 pb-0">
           {[0, 1, 2].map((s) => (
@@ -173,204 +192,230 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
         </div>
 
         <div className="p-6">
-          {/* Step 0: Confirm product details */}
-          {step === 0 && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-xl font-bold">Let&apos;s set up your campaign</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Confirm your product details. The AI uses this to find the right subreddits and generate content.
-                </p>
-              </div>
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Product Name</Label>
-                    <Input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="My Product" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">URL (optional)</Label>
-                    <Input value={productUrl} onChange={(e) => setProductUrl(e.target.value)} placeholder="https://..." />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">What does it do?</Label>
-                  <Textarea value={productDesc} onChange={(e) => setProductDesc(e.target.value)} placeholder="Describe your product in 2-3 sentences..." rows={3} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Target Audience</Label>
-                    <Input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="Indie hackers, developers..." />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Tone</Label>
-                    <Select value={tone} onValueChange={setTone}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {TONES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => { setStep(1); handleFetchSuggestions(); }}
-                  disabled={!productName.trim() || !productDesc.trim()}
-                >
-                  Find Subreddits <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 1: Subreddit suggestions */}
-          {step === 1 && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-xl font-bold">Pick your target subreddits</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  AI-recommended subreddits for <strong>{productName}</strong>. Select the ones you want to target.
-                </p>
-              </div>
-
-              {/* Manual entry */}
-              <div className="flex gap-2">
-                <Input
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddManual()}
-                  placeholder="Type a subreddit name to add manually..."
-                  className="text-sm"
-                />
-                <Button variant="outline" size="sm" onClick={handleAddManual} disabled={!manualInput.trim()}>
-                  Add
-                </Button>
-              </div>
-
-              {loadingSuggestions ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-                  <p className="text-sm text-muted-foreground">Finding the best subreddits for your product...</p>
-                </div>
-              ) : suggestError && suggestions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-                  <AlertTriangle className="h-8 w-8 text-yellow-500" />
-                  <p className="text-sm font-medium">Couldn&apos;t fetch AI suggestions</p>
-                  <p className="text-xs text-muted-foreground max-w-sm">
-                    Use the input above to add subreddits manually, or click Retry to try again.
+          <AnimatePresence mode="wait" custom={directionRef.current}>
+            {/* Step 0: Confirm product details */}
+            {step === 0 && (
+              <motion.div
+                key="step-0"
+                custom={directionRef.current}
+                variants={slideHorizontalVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-5"
+              >
+                <div>
+                  <h2 className="text-xl font-bold">Let&apos;s set up your campaign</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Confirm your product details. The AI uses this to find the right subreddits and generate content.
                   </p>
-                  <Button variant="outline" size="sm" onClick={handleFetchSuggestions}>
-                    Retry
+                </div>
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Product Name</Label>
+                      <Input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="My Product" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">URL (optional)</Label>
+                      <Input value={productUrl} onChange={(e) => setProductUrl(e.target.value)} placeholder="https://..." />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">What does it do?</Label>
+                    <Textarea value={productDesc} onChange={(e) => setProductDesc(e.target.value)} placeholder="Describe your product in 2-3 sentences..." rows={3} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Target Audience</Label>
+                      <Input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="Indie hackers, developers..." />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Tone</Label>
+                      <Select value={tone} onValueChange={setTone}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {TONES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => { goToStep(1); handleFetchSuggestions(); }}
+                    disabled={!productName.trim() || !productDesc.trim()}
+                  >
+                    Find Subreddits <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
-              ) : (
-                <>
-                  <ScrollArea className="h-72">
-                    <div className="space-y-2 pr-3">
-                      {suggestions.map((sub) => {
-                        const isSelected = selectedSubs.has(sub.name);
-                        return (
-                          <button
-                            key={sub.name}
-                            onClick={() => toggleSubreddit(sub.name)}
-                            className={`w-full text-left rounded-xl border p-3 transition-all ${
-                              isSelected
-                                ? 'border-orange-500 bg-orange-500/5 ring-1 ring-orange-500/20'
-                                : 'border-border hover:border-muted-foreground/30'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm">r/{sub.name}</span>
-                                  <Badge variant="outline" className={`text-[10px] h-5 gap-1 ${riskColors[sub.risk]}`}>
-                                    {riskIcons[sub.risk]}
-                                    {sub.risk} risk
-                                  </Badge>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">{sub.reason}</p>
-                                <p className="text-xs text-muted-foreground/70 mt-0.5 italic">{sub.approach}</p>
-                              </div>
-                              <div className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                                isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-muted-foreground/30'
-                              }`}>
-                                {isSelected && <Check className="h-3 w-3" />}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                  <div className="flex items-center justify-between">
-                    <Button variant="ghost" onClick={() => setStep(0)}>
-                      <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </motion.div>
+            )}
+
+            {/* Step 1: Subreddit suggestions */}
+            {step === 1 && (
+              <motion.div
+                key="step-1"
+                custom={directionRef.current}
+                variants={slideHorizontalVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-5"
+              >
+                <div>
+                  <h2 className="text-xl font-bold">Pick your target subreddits</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    AI-recommended subreddits for <strong>{productName}</strong>. Select the ones you want to target.
+                  </p>
+                </div>
+
+                {/* Manual entry */}
+                <div className="flex gap-2">
+                  <Input
+                    value={manualInput}
+                    onChange={(e) => setManualInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddManual()}
+                    placeholder="Type a subreddit name to add manually..."
+                    className="text-sm"
+                  />
+                  <Button variant="outline" size="sm" onClick={handleAddManual} disabled={!manualInput.trim()}>
+                    Add
+                  </Button>
+                </div>
+
+                {loadingSuggestions ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                    <p className="text-sm text-muted-foreground">Finding the best subreddits for your product...</p>
+                  </div>
+                ) : suggestError && suggestions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+                    <AlertTriangle className="h-8 w-8 text-yellow-500" />
+                    <p className="text-sm font-medium">Couldn&apos;t fetch AI suggestions</p>
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      Use the input above to add subreddits manually, or click Retry to try again.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={handleFetchSuggestions}>
+                      Retry
                     </Button>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">{selectedSubs.size} selected</span>
-                      <Button onClick={() => setStep(2)} disabled={selectedSubs.size === 0}>
-                        Continue <ArrowRight className="ml-2 h-4 w-4" />
+                  </div>
+                ) : (
+                  <>
+                    <ScrollArea className="h-72">
+                      <div className="space-y-2 pr-3">
+                        {suggestions.map((sub) => {
+                          const isSelected = selectedSubs.has(sub.name);
+                          return (
+                            <button
+                              key={sub.name}
+                              onClick={() => toggleSubreddit(sub.name)}
+                              className={`w-full text-left rounded-xl border p-3 transition-all ${
+                                isSelected
+                                  ? 'border-orange-500 bg-orange-500/5 ring-1 ring-orange-500/20'
+                                  : 'border-border hover:border-muted-foreground/30'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm">r/{sub.name}</span>
+                                    <Badge variant="outline" className={`text-[10px] h-5 gap-1 ${riskColors[sub.risk]}`}>
+                                      {riskIcons[sub.risk]}
+                                      {sub.risk} risk
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">{sub.reason}</p>
+                                  <p className="text-xs text-muted-foreground/70 mt-0.5 italic">{sub.approach}</p>
+                                </div>
+                                <div className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                                  isSelected ? 'bg-orange-500 border-orange-500 text-white' : 'border-muted-foreground/30'
+                                }`}>
+                                  {isSelected && <Check className="h-3 w-3" />}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                    <div className="flex items-center justify-between">
+                      <Button variant="ghost" onClick={() => goToStep(0)}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back
                       </Button>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">{selectedSubs.size} selected</span>
+                        <Button onClick={() => goToStep(2)} disabled={selectedSubs.size === 0}>
+                          Continue <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+
+            {/* Step 2: Confirm & launch */}
+            {step === 2 && (
+              <motion.div
+                key="step-2"
+                custom={directionRef.current}
+                variants={slideHorizontalVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-5"
+              >
+                <div>
+                  <h2 className="text-xl font-bold">Ready to go!</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    We&apos;ll add these subreddits to your canvas and start loading top posts.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border p-4 space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Product</p>
+                    <p className="font-medium text-sm">{productName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Target Subreddits</p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {Array.from(selectedSubs).map((sub) => (
+                        <Badge key={sub} variant="secondary" className="text-xs">
+                          r/{sub}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Step 2: Confirm & launch */}
-          {step === 2 && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-xl font-bold">Ready to go!</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  We&apos;ll add these subreddits to your canvas and start loading top posts.
-                </p>
-              </div>
-
-              <div className="rounded-xl border p-4 space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Product</p>
-                  <p className="font-medium text-sm">{productName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Target Subreddits</p>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {Array.from(selectedSubs).map((sub) => (
-                      <Badge key={sub} variant="secondary" className="text-xs">
-                        r/{sub}
-                      </Badge>
-                    ))}
+                  <div className="text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">Next steps on the canvas:</p>
+                    <ol className="list-decimal list-inside space-y-0.5">
+                      <li>Browse the top posts in each subreddit</li>
+                      <li>Click &quot;Use&quot; on 2-3 posts that match the style you want</li>
+                      <li>Select them (green checkboxes) and hit &quot;Generate&quot;</li>
+                    </ol>
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground mb-1">Next steps on the canvas:</p>
-                  <ol className="list-decimal list-inside space-y-0.5">
-                    <li>Browse the top posts in each subreddit</li>
-                    <li>Click &quot;Use&quot; on 2-3 posts that match the style you want</li>
-                    <li>Select them (green checkboxes) and hit &quot;Generate&quot;</li>
-                  </ol>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between">
-                <Button variant="ghost" onClick={() => setStep(1)}>
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                </Button>
-                <Button onClick={handleFinish} disabled={loadingPosts}>
-                  {loadingPosts ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                  )}
-                  Launch Canvas
-                </Button>
-              </div>
-            </div>
-          )}
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" onClick={() => goToStep(1)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                  </Button>
+                  <Button onClick={handleFinish} disabled={loadingPosts}>
+                    {loadingPosts ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Launch Canvas
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -4,10 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, Loader2, Bot, User } from 'lucide-react';
+import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { scaleFadeVariants, staggerContainerVariants, staggerItemVariants, fadeUpVariants } from '@/lib/motion';
 import type { Project } from '@/types';
 
 interface Message {
@@ -197,7 +199,12 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
       <ScrollArea className="flex-1 px-4" ref={scrollRef}>
         <div className="mx-auto max-w-2xl py-6 space-y-6">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
+            <motion.div
+              variants={scaleFadeVariants}
+              initial="hidden"
+              animate="visible"
+              className="flex flex-col items-center justify-center py-12"
+            >
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500 text-white mb-4">
                 <Bot className="h-8 w-8" />
               </div>
@@ -206,21 +213,33 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
                 Your Reddit marketing strategist. Ask about subreddit targeting, post writing,
                 engagement strategies, and avoiding bans.
               </p>
-              <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
+              <motion.div
+                variants={staggerContainerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid grid-cols-2 gap-2 w-full max-w-lg"
+              >
                 {suggestedPrompts.map((prompt) => (
-                  <button
+                  <motion.button
                     key={prompt}
+                    variants={staggerItemVariants}
                     onClick={() => setInput(prompt)}
                     className="rounded-lg border p-3 text-left text-xs text-muted-foreground hover:bg-muted transition-colors"
                   >
                     {prompt}
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           ) : (
             messages.map((message, i) => (
-              <div key={i} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
+              <motion.div
+                key={i}
+                variants={fadeUpVariants}
+                initial="hidden"
+                animate="visible"
+                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}
+              >
                 {message.role === 'assistant' && (
                   <Avatar className="h-7 w-7 shrink-0 mt-0.5">
                     <AvatarFallback className="bg-orange-500 text-white text-xs">
@@ -247,7 +266,7 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
                     </AvatarFallback>
                   </Avatar>
                 )}
-              </div>
+              </motion.div>
             ))
           )}
         </div>

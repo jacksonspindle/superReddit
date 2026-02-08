@@ -13,6 +13,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { AnimatePresence, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { createClient } from '@/lib/supabase/client';
@@ -24,6 +25,7 @@ import { CanvasToolbar } from './panels/CanvasToolbar';
 import { DetailPanel } from './panels/DetailPanel';
 import { DraftsPanel } from './panels/DraftsPanel';
 import { OnboardingWizard } from './OnboardingWizard';
+import { slideInRightVariants } from '@/lib/motion';
 import type { Project } from '@/types';
 
 const nodeTypes = {
@@ -195,23 +197,46 @@ function CanvasInner({ project }: CanvasProps) {
           <CanvasToolbar project={project} onToggleDrafts={() => setDraftsOpen(!draftsOpen)} draftsOpen={draftsOpen} />
         </Panel>
       </ReactFlow>
-      {selectedNodeId && !draftsOpen && <DetailPanel />}
-      {draftsOpen && (
-        <div className="absolute right-0 top-0 h-full w-80 border-l bg-card shadow-xl z-10">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <h3 className="font-semibold text-sm">Drafts</h3>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDraftsOpen(false)}>
-              <span className="text-lg leading-none">&times;</span>
-            </Button>
-          </div>
-          <div className="h-[calc(100%-52px)]">
-            <DraftsPanel />
-          </div>
-        </div>
-      )}
-      {showOnboarding && canvasLoaded && (
-        <OnboardingWizard project={project} onComplete={() => setShowOnboarding(false)} />
-      )}
+      <AnimatePresence>
+        {selectedNodeId && !draftsOpen && (
+          <motion.div
+            key="detail-panel"
+            variants={slideInRightVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <DetailPanel />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {draftsOpen && (
+          <motion.div
+            key="drafts-panel"
+            variants={slideInRightVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute right-0 top-0 h-full w-80 border-l bg-card shadow-xl z-10"
+          >
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h3 className="font-semibold text-sm">Drafts</h3>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDraftsOpen(false)}>
+                <span className="text-lg leading-none">&times;</span>
+              </Button>
+            </div>
+            <div className="h-[calc(100%-52px)]">
+              <DraftsPanel />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showOnboarding && canvasLoaded && (
+          <OnboardingWizard project={project} onComplete={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
