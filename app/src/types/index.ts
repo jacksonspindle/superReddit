@@ -70,6 +70,24 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface Bookmark {
+  id: string;
+  user_id: string;
+  reddit_id: string;
+  subreddit: string;
+  title: string;
+  body: string | null;
+  author: string;
+  score: number;
+  num_comments: number;
+  url: string;
+  permalink: string;
+  created_utc: number;
+  link_flair_text: string | null;
+  thumbnail: string | null;
+  created_at: string;
+}
+
 export interface CanvasState {
   id: string;
   project_id: string;

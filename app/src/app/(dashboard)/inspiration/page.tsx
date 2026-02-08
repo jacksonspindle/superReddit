@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageTransition } from '@/components/motion';
 import { StaggerList, StaggerItem } from '@/components/motion';
 import { staggerContainerVariants, staggerItemVariants } from '@/lib/motion';
+import { useBookmarkStore } from '@/stores/bookmark-store';
 import type { RedditPost, Project } from '@/types';
 import { toast } from 'sonner';
 
@@ -33,10 +34,12 @@ export default function InspirationPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   const supabase = createClient();
+  const { fetchBookmarks, addBookmark, removeBookmark, isBookmarked } = useBookmarkStore();
 
   useEffect(() => {
     fetchPosts();
     loadProjects();
+    fetchBookmarks();
   }, []);
 
   useEffect(() => {
@@ -151,6 +154,16 @@ export default function InspirationPage() {
     }
 
     toast.success('Post added to project canvas!');
+  }
+
+  async function handleToggleBookmark(post: RedditPost) {
+    if (isBookmarked(post.id)) {
+      await removeBookmark(post.id);
+      toast.success('Bookmark removed');
+    } else {
+      await addBookmark(post);
+      toast.success('Post bookmarked!');
+    }
   }
 
   return (
@@ -269,6 +282,8 @@ export default function InspirationPage() {
                     <PostCard
                       post={post}
                       onUsePost={selectedProjectId ? handleUsePost : undefined}
+                      isBookmarked={isBookmarked(post.id)}
+                      onToggleBookmark={handleToggleBookmark}
                     />
                   </StaggerItem>
                 ))}

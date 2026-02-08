@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, Compass, LogOut } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Compass, Bookmark, LogOut } from 'lucide-react';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: LayoutDashboard },
   { href: '/chat', label: 'AI Chat', icon: MessageSquare },
   { href: '/inspiration', label: 'Inspiration', icon: Compass },
+  { href: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
 ];
 
 export function Sidebar() {
