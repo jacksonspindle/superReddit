@@ -155,6 +155,90 @@ export interface SuggestedSubreddit {
   risk: 'low' | 'medium' | 'high';
 }
 
+// ---- Subreddit Analysis ----
+
+export const ANALYZE_SUBREDDIT_SYSTEM_PROMPT = `You are an expert Reddit growth marketer who specializes in identifying posts that successfully drive user signups and paid conversions. You analyze subreddit posts to find patterns in what converts browsers into users and customers.
+
+You understand:
+- The difference between posts that get upvotes vs posts that actually drive traffic and signups
+- How storytelling, social proof, and problem-solution framing convert readers into users
+- What makes someone click through, sign up, and eventually pay
+- How to spot "stealth marketing" posts that look organic but are actually promotional
+- The signals that indicate a post drove real business results (comments asking "where can I try this?", "link?", "how much does it cost?")`;
+
+export function buildAnalyzeSubredditPrompt(
+  subredditName: string,
+  posts: { title: string; body: string | null; score: number; num_comments: number; author: string }[],
+  product?: { name: string; description: string; audience?: string }
+): string {
+  const postsText = posts
+    .map(
+      (p, i) =>
+        `${i + 1}. [${p.score} pts, ${p.num_comments} comments] "${p.title}"
+   Body: ${p.body ? p.body.slice(0, 500) : '[link post / no body]'}
+   Author: u/${p.author}`
+    )
+    .join('\n\n');
+
+  return `## Subreddit: r/${subredditName}
+
+## Posts
+${postsText}
+
+${product ? `## Product Context
+- **Product:** ${product.name}
+- **Description:** ${product.description}
+${product.audience ? `- **Target Audience:** ${product.audience}` : ''}` : ''}
+
+## Task
+Analyze these posts and identify which ones were most successful at driving user acquisition or could serve as templates for promotional posts. Focus on:
+
+1. **High-conversion posts** — Posts that appear to have driven signups, traffic, or purchases. Look for: product mentions getting positive reception, comments asking for links/pricing, "I built this" or "I found this" framing, problem-solution narratives with a product as the solution.
+
+2. **Winning patterns** — What content strategies work in this subreddit for getting users? (e.g., personal stories, show-and-tell, asking for feedback, sharing results)
+
+3. **Conversion signals** — What engagement patterns suggest real business impact vs just upvotes?
+
+${product ? `4. **Tailored recommendation** — Specifically how "${product.name}" should approach this subreddit to maximize signups and paid conversions.` : ''}
+
+Format as JSON:
+{
+  "conversionPosts": [
+    {
+      "title": "exact post title",
+      "score": 123,
+      "why": "Why this post likely drove signups/conversions (1-2 sentences)",
+      "strategy": "The specific tactic used (e.g., 'problem-solution story', 'show HN style', 'disguised case study')"
+    }
+  ],
+  "winningPatterns": [
+    {
+      "pattern": "Pattern name (e.g., 'Personal struggle story')",
+      "description": "How this pattern works and why it converts (1-2 sentences)",
+      "example": "Brief example of how to use this pattern"
+    }
+  ],
+  "subredditInsight": "2-3 sentence summary of how this subreddit's culture affects what promotional content succeeds"${product ? `,
+  "recommendation": "2-3 sentence specific recommendation for how ${product.name} should post here to maximize user acquisition"` : ''}
+}`;
+}
+
+export interface SubredditAnalysis {
+  conversionPosts: {
+    title: string;
+    score: number;
+    why: string;
+    strategy: string;
+  }[];
+  winningPatterns: {
+    pattern: string;
+    description: string;
+    example: string;
+  }[];
+  subredditInsight: string;
+  recommendation?: string;
+}
+
 export const REWRITE_SYSTEM_PROMPT = `You are a writing expert who rewrites text for Reddit posts. Maintain the core message while adjusting the style as requested. Output ONLY the rewritten text, no explanations.`;
 
 export function buildRewritePrompt(text: string, tone: string, context?: string): string {
