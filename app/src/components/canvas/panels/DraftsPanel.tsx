@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { FileText, Copy, Check, ChevronDown, ChevronUp, Sparkles, ExternalLink } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { GeneratedPostNodeData } from '@/types';
 import { toast } from 'sonner';
+
+const ease = [0.25, 0.1, 0.25, 1] as const;
 
 export function DraftsPanel() {
   const { nodes, updateNodeData } = useCanvasStore();
@@ -101,66 +104,77 @@ export function DraftsPanel() {
               </button>
 
               {/* Expanded content */}
-              {isExpanded && (
-                <div className="border-t px-3 pb-3 pt-2 space-y-2.5">
-                  {/* Title with copy */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Title ({titleLength} chars)</span>
-                      <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => handleCopyTitle(data.title)}>
-                        <Copy className="h-2.5 w-2.5 mr-1" /> Copy
-                      </Button>
-                    </div>
-                    <p className="text-xs font-medium bg-muted rounded-md p-2">{data.title}</p>
-                  </div>
+              <AnimatePresence initial={false}>
+                {isExpanded && (
+                  <motion.div
+                    key="content"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t px-3 pb-3 pt-2 space-y-2.5">
+                      {/* Title with copy */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Title ({titleLength} chars)</span>
+                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => handleCopyTitle(data.title)}>
+                            <Copy className="h-2.5 w-2.5 mr-1" /> Copy
+                          </Button>
+                        </div>
+                        <p className="text-xs font-medium bg-muted rounded-md p-2">{data.title}</p>
+                      </div>
 
-                  {/* Body with copy */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Body ({bodyLength} chars)</span>
-                      <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => handleCopyBody(data.body)}>
-                        <Copy className="h-2.5 w-2.5 mr-1" /> Copy
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground bg-muted rounded-md p-2 whitespace-pre-wrap max-h-40 overflow-auto">
-                      {data.body}
-                    </p>
-                  </div>
+                      {/* Body with copy */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Body ({bodyLength} chars)</span>
+                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => handleCopyBody(data.body)}>
+                            <Copy className="h-2.5 w-2.5 mr-1" /> Copy
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground bg-muted rounded-md p-2 whitespace-pre-wrap max-h-40 overflow-auto">
+                          {data.body}
+                        </p>
+                      </div>
 
-                  {/* Strategy note */}
-                  {data.strategyNote && (
-                    <p className="text-[10px] text-purple-600 dark:text-purple-400 italic">
-                      {data.strategyNote}
-                    </p>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs flex-1"
-                      onClick={() => handleCopy(id, data.title, data.body)}
-                    >
-                      {copiedId === id ? (
-                        <><Check className="mr-1 h-3 w-3" /> Copied</>
-                      ) : (
-                        <><Copy className="mr-1 h-3 w-3" /> Copy All</>
+                      {/* Strategy note */}
+                      {data.strategyNote && (
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400 italic">
+                          {data.strategyNote}
+                        </p>
                       )}
-                    </Button>
-                    {data.status !== 'posted' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs flex-1"
-                        onClick={() => handleMarkPosted(id)}
-                      >
-                        <ExternalLink className="mr-1 h-3 w-3" /> Mark Posted
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs flex-1"
+                          onClick={() => handleCopy(id, data.title, data.body)}
+                        >
+                          {copiedId === id ? (
+                            <><Check className="mr-1 h-3 w-3" /> Copied</>
+                          ) : (
+                            <><Copy className="mr-1 h-3 w-3" /> Copy All</>
+                          )}
+                        </Button>
+                        {data.status !== 'posted' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs flex-1"
+                            onClick={() => handleMarkPosted(id)}
+                          >
+                            <ExternalLink className="mr-1 h-3 w-3" /> Mark Posted
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

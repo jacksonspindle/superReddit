@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Canvas } from '@/components/canvas/Canvas';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FadeIn } from '@/components/motion';
 import type { Project } from '@/types';
 import Link from 'next/link';
 
@@ -48,7 +49,7 @@ export default function ProjectCanvasPage() {
   if (!project) return null;
 
   return (
-    <div className="flex h-full flex-col">
+    <FadeIn className="flex h-full flex-col">
       <div className="flex h-12 items-center gap-3 border-b bg-card px-4">
         <Link href="/projects">
           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -66,6 +67,6 @@ export default function ProjectCanvasPage() {
       <div className="flex-1">
         <Canvas project={project} />
       </div>
-    </div>
+    </FadeIn>
   );
 }
