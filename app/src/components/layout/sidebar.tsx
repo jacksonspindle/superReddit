@@ -6,6 +6,7 @@ import { LayoutDashboard, MessageSquare, Compass, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const navItems = [
   { href: '/projects', label: 'Projects', icon: LayoutDashboard },
@@ -56,7 +57,11 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t p-3">
+      <div className="border-t p-3 space-y-1">
+        <div className="flex items-center justify-between px-3 py-1">
+          <span className="text-xs text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"

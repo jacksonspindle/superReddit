@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Sparkles, Target, MessageSquare, Compass, Zap, Shield } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function LandingPage() {
   return (
@@ -13,6 +14,7 @@ export default function LandingPage() {
           <span className="font-bold text-xl">SuperReddit</span>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link
             href="/login"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
