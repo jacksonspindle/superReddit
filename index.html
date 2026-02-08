@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuperReddit — Research Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: { cyan: '#06b6d4', blue: '#3b82f6' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; }
+    .card { background: #1e293b; border: 1px solid #334155; }
+    .nav-link { cursor: pointer; }
+    .nav-link:hover { background: rgba(6, 182, 212, 0.08); }
+    .nav-link.active { color: #06b6d4; border-left-color: #06b6d4; background: rgba(6, 182, 212, 0.08); }
+    .gradient-text { background: linear-gradient(135deg, #06b6d4, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .accent-border { border-left: 3px solid #06b6d4; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #334155; color: #e2e8f0; padding: 10px 14px; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 10px 14px; border-bottom: 1px solid #334155; color: #cbd5e1; font-size: 0.875rem; }
+    tr:hover td { background: #1e293b; }
+    .metric-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; }
+    .metric-card:hover { border-color: #06b6d4; }
+    @media (max-width: 1023px) {
+      #sidebar { transform: translateX(-100%); position: fixed; z-index: 50; height: 100vh; transition: transform 0.3s; }
+      #sidebar.open { transform: translateX(0); }
+      #overlay { display: none; }
+      #overlay.open { display: block; }
+    }
+    .quote-card { border-left: 3px solid #06b6d4; background: rgba(6, 182, 212, 0.05); }
+    li, p { color: #cbd5e1; }
+  </style>
+</head>
+<body class="font-sans text-slate-300 antialiased">
+
+  <!-- Mobile Top Bar -->
+  <div class="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+    <button id="menuBtn" class="text-slate-300 hover:text-cyan-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <span class="text-white font-bold text-lg">Super<span class="text-cyan-400">Reddit</span></span>
+    <div class="w-6"></div>
+  </div>
+
+  <!-- Overlay -->
+  <div id="overlay" class="fixed inset-0 bg-black/50 z-40" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed top-0 left-0 w-64 h-screen bg-slate-900 border-r border-slate-700 overflow-y-auto z-50 lg:translate-x-0 lg:z-30">
+    <div class="p-6 border-b border-slate-700">
+      <h1 class="text-xl font-bold text-white">Super<span class="text-cyan-400">Reddit</span></h1>
+      <p class="text-xs text-slate-500 mt-1">Research Hub</p>
+    </div>
+    <nav class="p-4 space-y-1">
+      <a href="#overview" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Overview</a>
+      <a href="#product-analysis" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">SuperX Product Analysis</a>
+      <a href="#growth-playbook" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Growth Playbook</a>
+      <a href="#customer-voice" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Customer Voice</a>
+      <a href="#technical-blueprint" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Technical Blueprint</a>
+      <a href="#reddit-opportunity" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Reddit Opportunity</a>
+      <a href="#superreddit-concept" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">SuperReddit Concept</a>
+      <div class="border-t border-slate-700 my-3 mx-3"></div>
+      <p class="px-3 text-[10px] text-slate-600 uppercase tracking-widest mb-1">Feasibility Research</p>
+      <a href="#competitor-crowdreply" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">CrowdReply Analysis</a>
+      <a href="#competitor-mediafast" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">MediaFast Analysis</a>
+      <a href="#feasibility" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Feasibility Report</a>
+    </nav>
+    <div class="p-4 mx-4 mb-4 rounded-lg bg-slate-800 border border-slate-700">
+      <p class="text-xs text-slate-500">Research compiled</p>
+      <p class="text-sm text-slate-300 font-medium">February 7, 2026</p>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="lg:ml-64 pt-16 lg:pt-0">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-24">
+
+      <!-- ========== SECTION 1: OVERVIEW ========== -->
+      <section id="overview" class="scroll-mt-20">
+        <div class="mb-10">
+          <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Executive Summary</p>
+          <h2 class="text-4xl sm:text-5xl font-extrabold text-white leading-tight">The AI-powered Chrome extension that helps you <span class="gradient-text">grow on Reddit</span> without getting banned.</h2>
+          <p class="mt-4 text-lg text-slate-400 max-w-3xl">SuperReddit applies the proven SuperX playbook — Chrome extension + free analytics lead magnets + build-in-public marketing + AI-powered features — redesigned entirely for Reddit's community-first, karma-driven, anti-marketing culture.</p>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Reddit DAUs</p>
+            <p class="text-3xl font-bold text-white mt-1">116M+</p>
+            <p class="text-xs text-cyan-400 mt-1">Q3 2025</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Market Opportunity</p>
+            <p class="text-3xl font-bold text-white mt-1">$80-180M</p>
+            <p class="text-xs text-cyan-400 mt-1">/year mid-market SAM</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Google Visibility</p>
+            <p class="text-3xl font-bold text-white mt-1">1,348%</p>
+            <p class="text-xs text-cyan-400 mt-1">Growth in 2025</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">SuperX Benchmark</p>
+            <p class="text-3xl font-bold text-white mt-1">$25K</p>
+            <p class="text-xs text-cyan-400 mt-1">MRR in ~8 months</p>
+          </div>
+        </div>
+
+        <!-- Why Now -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Why Now?</h3>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="flex gap-3">
+              <span class="text-cyan-400 text-lg mt-0.5">&#x2022;</span>
+              <p><strong class="text-white">GummySearch shut down Dec 2025</strong> — the leading Reddit audience research tool ($29-199/mo) left paying customers stranded</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-cyan-400 text-lg mt-0.5">&#x2022;</span>
+              <p><strong class="text-white">Fragmented tooling</strong> — users need 3-5 separate tools to manage their Reddit presence. No all-in-one exists.</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-cyan-400 text-lg mt-0.5">&#x2022;</span>
+              <p><strong class="text-white">Mid-market gap</strong> — between free Reddit Pro and $500+/mo enterprise tools, almost nothing exists</p>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-cyan-400 text-lg mt-0.5">&#x2022;</span>
+              <p><strong class="text-white">Reddit's explosive growth</strong> — $1.8B+ ad revenue, 84% YoY growth in advertising</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Not Just SuperX Clone -->
+        <div class="card rounded-xl p-6 mt-6">
+          <h3 class="text-lg font-semibold text-white mb-4">SuperReddit is NOT "SuperX with Reddit API plugged in"</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>SuperX (Twitter/X)</th><th>SuperReddit (Reddit)</th></tr></thead>
+              <tbody>
+                <tr><td>Follower growth optimization</td><td class="text-white">Subreddit intelligence &amp; karma strategy</td></tr>
+                <tr><td>Personal brand building</td><td class="text-white">Community reputation building</td></tr>
+                <tr><td>Engagement pods &amp; auto-liking</td><td class="text-white">Ban-safe authentic engagement</td></tr>
+                <tr><td>Algorithm gaming</td><td class="text-white">Subreddit rule compliance</td></tr>
+                <tr><td>Content lifespan: hours</td><td class="text-white">Content lifespan: months/years (SEO value)</td></tr>
+                <tr><td>High marketing tolerance</td><td class="text-white">Hostile to obvious marketing</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 2: PRODUCT ANALYSIS ========== -->
+      <section id="product-analysis" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Deep Dive</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">SuperX Product Analysis</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">SuperX (superx.so) is an AI-powered Chrome extension and web app for X creators. It combines real-time analytics, AI writing tools, scheduling, and automation into a single sidebar on the X timeline. ~102.8K monthly visits, 5.0/5 Chrome Web Store rating.</p>
+
+        <!-- Feature Grid -->
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-2">Analytics &amp; Insights</h4>
+            <ul class="space-y-1 text-sm">
+              <li>GitHub-style streak tracker</li>
+              <li>Tweet performance table (impressions, likes, retweets)</li>
+              <li>Follower growth (daily/weekly/monthly)</li>
+              <li>Media performance comparison</li>
+              <li>Interaction matrix between profiles</li>
+              <li>Competitive analysis of any public account</li>
+              <li>Shareable analytics charts</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-2">AI Content Tools</h4>
+            <ul class="space-y-1 text-sm">
+              <li>AI Chat that learns your voice</li>
+              <li>AI Writer with engaging hooks</li>
+              <li>AI Rewriter (witty, professional, sarcastic)</li>
+              <li>Fact-Check scan for any tweet</li>
+              <li>Built-in web search for research</li>
+              <li>Chat with any X profile</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-2">Scheduling &amp; Productivity</h4>
+            <ul class="space-y-1 text-sm">
+              <li>Optimal posting time suggestions</li>
+              <li>Visual content calendar</li>
+              <li>Thread scheduling across time zones</li>
+              <li>Cross-posting to Bluesky</li>
+              <li>Custom timelines &amp; inbox</li>
+              <li>Quick-action shortcuts</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-2">Algorithm Simulator</h4>
+            <ul class="space-y-1 text-sm">
+              <li>A/B test tweets before publishing</li>
+              <li>Simulate X algorithm reactions</li>
+              <li>Forecast engagement potential</li>
+              <li class="text-cyan-400 font-medium">Unique — no competitor has this</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-2">Automation (Advanced)</h4>
+            <ul class="space-y-1 text-sm">
+              <li>Auto Retweet best content</li>
+              <li>Auto Delete underperformers</li>
+              <li>Auto Plug promotional replies</li>
+              <li>15+ automation features</li>
+              <li>Smart targeting of likely followers</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-2">Content Discovery</h4>
+            <ul class="space-y-1 text-sm">
+              <li>10M+ viral posts library</li>
+              <li>Semantic search by topic</li>
+              <li>Trending content scanner</li>
+              <li>Viral format identification</li>
+              <li>Emerging pattern detection</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Pricing</h3>
+          <div class="grid sm:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">Free</p>
+              <p class="text-2xl font-bold text-white mt-1">$0</p>
+              <p class="text-sm mt-2">Basic analytics, Chrome extension, limited AI</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4 border border-cyan-400/30">
+              <p class="text-cyan-400 text-xs uppercase tracking-wider">Pro</p>
+              <p class="text-2xl font-bold text-white mt-1">$29<span class="text-sm text-slate-500">/mo</span></p>
+              <p class="text-sm mt-2">Advanced scheduling, cross-posting, core AI, enhanced analytics</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">Advanced</p>
+              <p class="text-2xl font-bold text-white mt-1">$49<span class="text-sm text-slate-500">/mo</span></p>
+              <p class="text-sm mt-2">Everything in Pro + all automation features + full AI</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Competitive Landscape -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Competitive Landscape</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Tool</th><th>Price</th><th>Key Strength</th><th>Key Weakness</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">SuperX</td><td>$29-49/mo</td><td>AI voice learning + algorithm simulator</td><td>X-only, credit limits</td></tr>
+                <tr><td class="text-white font-medium">Tweet Hunter</td><td>$49-99/mo</td><td>3M+ viral tweet library</td><td>Expensive, X-only</td></tr>
+                <tr><td class="text-white font-medium">Hypefury</td><td>$29-97/mo</td><td>Content recycling/automation</td><td>Less AI sophistication</td></tr>
+                <tr><td class="text-white font-medium">Typefully</td><td>$12.50-29/mo</td><td>Beautiful writing interface</td><td>Shallow analytics</td></tr>
+                <tr><td class="text-white font-medium">Buffer</td><td>$6/mo/channel</td><td>Simple, affordable, multi-platform</td><td>Basic X features</td></tr>
+                <tr><td class="text-white font-medium">Hootsuite</td><td>$99+/mo</td><td>Enterprise collaboration</td><td>Expensive, bloated</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Key Differentiators -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">SuperX's Key Differentiators</h3>
+          <div class="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+            <div class="flex gap-3"><span class="text-cyan-400 font-bold">1.</span><p><strong class="text-white">Authenticity-first AI</strong> — learns YOUR voice from past tweets</p></div>
+            <div class="flex gap-3"><span class="text-cyan-400 font-bold">2.</span><p><strong class="text-white">Chrome extension model</strong> — lives where users already work</p></div>
+            <div class="flex gap-3"><span class="text-cyan-400 font-bold">3.</span><p><strong class="text-white">Algorithm Simulator</strong> — unique, no competitor has it</p></div>
+            <div class="flex gap-3"><span class="text-cyan-400 font-bold">4.</span><p><strong class="text-white">Best free tier</strong> — strongest free offering among competitors</p></div>
+            <div class="flex gap-3"><span class="text-cyan-400 font-bold">5.</span><p><strong class="text-white">All-in-one sidebar</strong> — analytics + AI + scheduling in one tool</p></div>
+            <div class="flex gap-3"><span class="text-cyan-400 font-bold">6.</span><p><strong class="text-white">Competitive price</strong> — undercuts TweetHunter and Hootsuite</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 3: GROWTH PLAYBOOK ========== -->
+      <section id="growth-playbook" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Growth Strategy</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Growth Playbook</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">SuperX grew from $0 to ~$25K MRR through founder-led marketing, build-in-public storytelling, a natural viral loop, aggressive SEO, and a freemium funnel. Their playbook is highly replicable for SuperReddit.</p>
+
+        <!-- Revenue Milestones -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Revenue Milestones</h3>
+          <div class="flex flex-wrap gap-3">
+            <div class="bg-slate-900/50 rounded-lg px-4 py-3 text-center">
+              <p class="text-xs text-slate-500">Launch</p>
+              <p class="text-lg font-bold text-white">$0</p>
+            </div>
+            <div class="text-slate-600 flex items-center">&rarr;</div>
+            <div class="bg-slate-900/50 rounded-lg px-4 py-3 text-center">
+              <p class="text-xs text-slate-500">No marketing</p>
+              <p class="text-lg font-bold text-white">$1K</p>
+            </div>
+            <div class="text-slate-600 flex items-center">&rarr;</div>
+            <div class="bg-slate-900/50 rounded-lg px-4 py-3 text-center">
+              <p class="text-xs text-slate-500">Public launch</p>
+              <p class="text-lg font-bold text-white">$2K</p>
+            </div>
+            <div class="text-slate-600 flex items-center">&rarr;</div>
+            <div class="bg-slate-900/50 rounded-lg px-4 py-3 text-center">
+              <p class="text-xs text-slate-500">~10 months</p>
+              <p class="text-lg font-bold text-white">$10K</p>
+            </div>
+            <div class="text-slate-600 flex items-center">&rarr;</div>
+            <div class="bg-slate-900/50 rounded-lg px-4 py-3 text-center border border-cyan-400/30">
+              <p class="text-xs text-cyan-400">Current</p>
+              <p class="text-lg font-bold text-white">$25K</p>
+            </div>
+          </div>
+          <p class="text-sm text-slate-500 mt-3">All MRR figures. Zero paid advertising spend.</p>
+        </div>
+
+        <!-- Marketing Channels -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Twitter/X as Primary Channel</h4>
+            <ul class="space-y-2 text-sm">
+              <li><strong class="text-white">The platform IS the channel</strong> — marketing on the same platform the product serves</li>
+              <li><strong class="text-white">Build-in-public</strong> — sharing revenue milestones ("$1K MRR", "$10K MRR") publicly</li>
+              <li><strong class="text-white">Personal storytelling</strong> — Rob shared being hospitalized from stress, building deep connection</li>
+              <li><strong class="text-white">No paid ads</strong> — growth purely from product quality + founder marketing</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">SEO / Content Marketing</h4>
+            <ul class="space-y-2 text-sm">
+              <li><strong class="text-white">Aggressive blog</strong> targeting long-tail keywords</li>
+              <li>"How to increase followers on twitter", "twitter analytics guide"</li>
+              <li>Multiple articles per topic cluster to capture keyword variations</li>
+              <li>Listicle-style "Best X Tools" posts for comparison searches</li>
+              <li>Blog doubles as top-of-funnel lead generation</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Natural Viral Loop</h4>
+            <ol class="space-y-2 text-sm list-decimal list-inside">
+              <li>Creator uses SuperX to write better tweets</li>
+              <li>Creator posts better content, gets more engagement</li>
+              <li>Followers notice growth, ask "how?"</li>
+              <li>Creator mentions SuperX</li>
+              <li>Followers sign up — loop repeats</li>
+            </ol>
+            <p class="text-xs text-slate-500 mt-2">Same loop that made Canva, Grammarly, and Notion viral.</p>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Free Lead Magnets</h4>
+            <ul class="space-y-2 text-sm">
+              <li><strong class="text-white">Free X Profile Analytics</strong> — no signup required, instant results</li>
+              <li><strong class="text-white">TweepCred Calculator</strong> — free profile insights tool</li>
+              <li><strong class="text-white">Social Hub</strong> — creator directory for networking</li>
+              <li><strong class="text-white">Chrome Extension free tier</strong> — low-friction one-click install</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Launch Strategy -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Launch Strategy</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Phase</th><th>Duration</th><th>Details</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Pre-launch / Stealth</td><td>~6 months</td><td>Closed private beta, building core product</td></tr>
+                <tr><td class="text-white">Soft Launch</td><td>Ongoing</td><td>Screenshots & screen recordings on X to generate curiosity</td></tr>
+                <tr><td class="text-white">Public Launch</td><td>Mid 2025</td><td>Full public availability, 100K+ views within 24hrs</td></tr>
+                <tr><td class="text-white">Growth Phase</td><td>2025-2026</td><td>Scaling from $2K to $25K+ MRR</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Freemium Funnel -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Freemium Conversion Funnel</h3>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1 bg-slate-900/50 rounded-lg p-4 text-center">
+              <p class="text-xs text-slate-500 mb-1">Step 1</p>
+              <p class="text-sm text-white font-medium">Free Entry</p>
+              <p class="text-xs text-slate-500 mt-1">Free analytics tool, no signup</p>
+            </div>
+            <div class="hidden sm:flex items-center text-slate-600">&rarr;</div>
+            <div class="flex-1 bg-slate-900/50 rounded-lg p-4 text-center">
+              <p class="text-xs text-slate-500 mb-1">Step 2</p>
+              <p class="text-sm text-white font-medium">Value Demo</p>
+              <p class="text-xs text-slate-500 mt-1">Users see insights, get hooked</p>
+            </div>
+            <div class="hidden sm:flex items-center text-slate-600">&rarr;</div>
+            <div class="flex-1 bg-slate-900/50 rounded-lg p-4 text-center">
+              <p class="text-xs text-slate-500 mb-1">Step 3</p>
+              <p class="text-sm text-white font-medium">Upgrade Triggers</p>
+              <p class="text-xs text-slate-500 mt-1">AI credits limited, advanced gated</p>
+            </div>
+            <div class="hidden sm:flex items-center text-slate-600">&rarr;</div>
+            <div class="flex-1 bg-slate-900/50 rounded-lg p-4 text-center border border-cyan-400/30">
+              <p class="text-xs text-cyan-400 mb-1">Step 4</p>
+              <p class="text-sm text-white font-medium">Retained</p>
+              <p class="text-xs text-slate-500 mt-1">Daily Chrome use = switching costs</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Replicable Strategies -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Key Takeaways for SuperReddit</h3>
+          <div class="grid sm:grid-cols-2 gap-3 text-sm">
+            <div class="accent-border pl-3 py-1"><strong class="text-white">Build where the audience lives</strong> — market on Reddit for Reddit users</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">Founder-led, build-in-public</strong> — share the journey on the target platform</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">Free tools as lead magnets</strong> — free subreddit analytics, karma calculators</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">Chrome extension distribution</strong> — low-friction adoption</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">SEO content marketing</strong> — "how to grow on Reddit" long-tail keywords</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">Private beta first</strong> — 100-200 power users as evangelists</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">Aggressive pricing undercut</strong> — capture market share on value</div>
+            <div class="accent-border pl-3 py-1"><strong class="text-white">No paid ads needed</strong> — organic growth to $10K+ MRR is achievable</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 4: CUSTOMER VOICE ========== -->
+      <section id="customer-voice" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">User Research</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Customer Voice</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">Real testimonials and sentiment analysis from SuperX's user base. Chrome Web Store rating: 5.0/5 stars, ~10,000 active users, 102.8K monthly visitors.</p>
+
+        <!-- Testimonials -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-8">
+          <div class="quote-card rounded-lg p-4">
+            <p class="text-sm italic text-slate-300">"SuperX is a must-have for any active X users. It's my most favorite chrome extension now."</p>
+            <p class="text-xs text-slate-500 mt-2">— Alexander Isora</p>
+          </div>
+          <div class="quote-card rounded-lg p-4">
+            <p class="text-sm italic text-slate-300">"The UI/UX is already much superior to alternatives. I can't wait until it becomes my go-to growth solution."</p>
+            <p class="text-xs text-slate-500 mt-2">— Dang</p>
+          </div>
+          <div class="quote-card rounded-lg p-4">
+            <p class="text-sm italic text-slate-300">"I really love about SuperX that it copies my style perfectly and helps me to find good tweet ideas without stealing tweets."</p>
+            <p class="text-xs text-slate-500 mt-2">— SuperX User</p>
+          </div>
+          <div class="quote-card rounded-lg p-4">
+            <p class="text-sm italic text-slate-300">"SuperX is a banger product! I've tried various options, even built my own, but I ended up decommissioning it because SuperX has everything I need."</p>
+            <p class="text-xs text-slate-500 mt-2">— SuperX User</p>
+          </div>
+          <div class="quote-card rounded-lg p-4">
+            <p class="text-sm italic text-slate-300">"I've been using SuperX for about a month now, and honestly, I'm hooked... it's been a game-changer for me."</p>
+            <p class="text-xs text-slate-500 mt-2">— TopChromeExtensions Reviewer</p>
+          </div>
+          <div class="quote-card rounded-lg p-4">
+            <p class="text-sm italic text-slate-300">"What used to take me hours now only takes minutes, and I finally feel confident about my social media presence."</p>
+            <p class="text-xs text-slate-500 mt-2">— Medium Author</p>
+          </div>
+        </div>
+
+        <!-- Praise vs Complaints -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-emerald-400 font-semibold mb-3">What Users Love</h4>
+            <ul class="space-y-2 text-sm">
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> Deep analytics beyond native X (no Premium needed)</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> AI writing that matches their authentic voice</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> All-in-one: replaces multiple tools</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> Great value vs. competitors ($29 vs $49-99)</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> Clean, superior UI/UX</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> 10M+ viral posts for inspiration</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> Responsive founder/developer support</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-red-400 font-semibold mb-3">Common Complaints</h4>
+            <ul class="space-y-2 text-sm">
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> Billing/refund frustrations ("free trial charged me")</li>
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> Pricing unclear before login required</li>
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> Occasional UI glitches, data loading failures</li>
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> AI credit limits feel restrictive</li>
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> X-only — no LinkedIn, Instagram support</li>
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> No strategic content guidance layer</li>
+              <li class="flex gap-2"><span class="text-red-400">&#10007;</span> Chrome extension dependency</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Sentiment Table -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Sentiment Summary</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Category</th><th>Sentiment</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Overall Satisfaction</td><td><span class="text-emerald-400 font-medium">Very Positive</span> (5.0/5 Chrome Store)</td></tr>
+                <tr><td class="text-white">Analytics Features</td><td><span class="text-emerald-400 font-medium">Extremely Positive</span> — best-in-class for X</td></tr>
+                <tr><td class="text-white">AI Writing</td><td><span class="text-emerald-400 font-medium">Positive</span> — users love style matching</td></tr>
+                <tr><td class="text-white">Pricing</td><td><span class="text-yellow-400 font-medium">Mixed</span> — good value but transparency issues</td></tr>
+                <tr><td class="text-white">Reliability</td><td><span class="text-yellow-400 font-medium">Mixed</span> — occasional glitches reported</td></tr>
+                <tr><td class="text-white">Platform Scope</td><td><span class="text-red-400 font-medium">Negative</span> — X-only limitation frustrates users</td></tr>
+                <tr><td class="text-white">Support</td><td><span class="text-emerald-400 font-medium">Positive</span> — founder responsive on X</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 5: TECHNICAL BLUEPRINT ========== -->
+      <section id="technical-blueprint" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Under the Hood</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Technical Blueprint</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">How SuperX is built, the APIs it uses, and what we can replicate for SuperReddit.</p>
+
+        <!-- Tech Stack -->
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Marketing Site</h4>
+            <ul class="space-y-1 text-sm">
+              <li><strong class="text-slate-300">Platform:</strong> Framer (no-code)</li>
+              <li><strong class="text-slate-300">Fonts:</strong> Inter + Instrument Serif</li>
+              <li><strong class="text-slate-300">Analytics:</strong> GA4 + Facebook Pixel</li>
+              <li><strong class="text-slate-300">Affiliate:</strong> Rewardful</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Web Application</h4>
+            <ul class="space-y-1 text-sm">
+              <li><strong class="text-slate-300">Framework:</strong> Next.js (RSC)</li>
+              <li><strong class="text-slate-300">Styling:</strong> Tailwind CSS</li>
+              <li><strong class="text-slate-300">Hosting:</strong> Vercel (serverless)</li>
+              <li><strong class="text-slate-300">CDN:</strong> Cloudflare</li>
+              <li><strong class="text-slate-300">PWA:</strong> Supported</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Chrome Extension</h4>
+            <ul class="space-y-1 text-sm">
+              <li><strong class="text-slate-300">Manifest:</strong> V3 (modern)</li>
+              <li><strong class="text-slate-300">Built with:</strong> TypeScript + React</li>
+              <li><strong class="text-slate-300">Permissions:</strong> Minimal</li>
+              <li><strong class="text-slate-300">Auth:</strong> Twitter OAuth</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Architecture Diagram -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Architecture</h3>
+          <div class="bg-slate-900 rounded-lg p-6 font-mono text-sm overflow-x-auto">
+            <pre class="text-slate-400">
+┌───────────────────┐       ┌───────────────────┐       ┌──────────────────┐
+│  Chrome Extension │◄─────►│  SuperX Backend   │◄─────►│  Web App         │
+│  (sidebar on X)   │       │  (Next.js/Vercel) │       │  (app.superx.so) │
+└────────┬──────────┘       └────────┬──────────┘       └────────┬─────────┘
+         │                           │                           │
+         ▼                           ▼                           ▼
+   twitter.com DOM            Twitter API v2              Analytics Dashboard
+   <span class="text-cyan-400">(reads visible data)</span>      <span class="text-cyan-400">(read/write ops)</span>            <span class="text-cyan-400">(charts, metrics)</span></pre>
+          </div>
+        </div>
+
+        <!-- API Usage -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Twitter/X API Usage</h3>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Likely API Endpoints</h5>
+              <ul class="space-y-1 text-sm font-mono">
+                <li><span class="text-cyan-400">GET</span> /2/users/:id/tweets</li>
+                <li><span class="text-cyan-400">GET</span> /2/tweets/:id</li>
+                <li><span class="text-cyan-400">GET</span> /2/users/:id/followers</li>
+                <li><span class="text-emerald-400">POST</span> /2/tweets</li>
+                <li><span class="text-red-400">DELETE</span> /2/tweets/:id</li>
+              </ul>
+            </div>
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Rate Limit Strategy</h5>
+              <ul class="space-y-1 text-sm">
+                <li>API v2: 100 queries/min per OAuth client</li>
+                <li>Chrome extension reads on-page DOM data</li>
+                <li>Hybrid: DOM scraping for reads, API for writes</li>
+                <li>This reduces API costs and rate limit pressure</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dev Tools & Founder -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Development Tools</h4>
+            <ul class="space-y-2 text-sm">
+              <li><strong class="text-white">AI-Assisted Dev:</strong> Started with Cursor AI, switched to <span class="text-cyan-400">Claude Code</span> — "way better at following instructions"</li>
+              <li><strong class="text-white">Cost:</strong> "$1000s of API credits for just $100-200/month"</li>
+              <li><strong class="text-white">Version Control:</strong> GitHub (github.com/robj3d3)</li>
+              <li><strong class="text-white">Languages:</strong> Python, JavaScript, TypeScript, HTML</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Founder: Rob Hallam</h4>
+            <ul class="space-y-2 text-sm">
+              <li><strong class="text-white">Role:</strong> Founder &amp; Solo Developer</li>
+              <li><strong class="text-white">Background:</strong> Software Engineer, University of Birmingham</li>
+              <li><strong class="text-white">Location:</strong> Worcester, UK (travels extensively)</li>
+              <li><strong class="text-white">ML Background:</strong> Zero before building SuperX</li>
+              <li><strong class="text-white">Other projects:</strong> Liftoff, Indiedex.app, Pentestlist.com</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Estimated Costs -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Estimated Infrastructure Costs</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Service</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Vercel Pro</td><td>~$20/mo</td></tr>
+                <tr><td class="text-white">Twitter API (Basic/Pro)</td><td>$100-$5,000/mo</td></tr>
+                <tr><td class="text-white">AI API (OpenAI/Anthropic)</td><td>$500-2,000/mo</td></tr>
+                <tr><td class="text-white">Cloudflare</td><td>Free-$20/mo</td></tr>
+                <tr><td class="text-white">Database hosting</td><td>$25-100/mo</td></tr>
+                <tr><td class="text-white">Domain + misc</td><td>~$20/mo</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 6: REDDIT OPPORTUNITY ========== -->
+      <section id="reddit-opportunity" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Market Analysis</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Reddit Opportunity</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">Reddit is a massive, underserved market for creator and marketing tools. 116M+ DAUs, $1.8B+ ad revenue, and the tooling ecosystem is fragmented and ripe for disruption.</p>
+
+        <!-- Platform Stats -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Daily Active Users</p>
+            <p class="text-2xl font-bold text-white mt-1">116M</p>
+            <p class="text-xs text-cyan-400 mt-1">Q3 2025</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Weekly Active Users</p>
+            <p class="text-2xl font-bold text-white mt-1">443.8M</p>
+            <p class="text-xs text-cyan-400 mt-1">Q3 2025</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">2025 Ad Revenue</p>
+            <p class="text-2xl font-bold text-white mt-1">$1.8B+</p>
+            <p class="text-xs text-cyan-400 mt-1">84% YoY growth</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Revenue Per User</p>
+            <p class="text-2xl font-bold text-white mt-1">$4.53</p>
+            <p class="text-xs text-cyan-400 mt-1">47% jump</p>
+          </div>
+        </div>
+
+        <!-- API Landscape -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit API Landscape</h3>
+          <div class="grid sm:grid-cols-2 gap-6">
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Pricing (Post-2023)</h5>
+              <ul class="space-y-1 text-sm">
+                <li><strong class="text-white">Free Tier:</strong> 100 req/min OAuth, ~10K monthly</li>
+                <li><strong class="text-white">Commercial:</strong> $0.24 per 1,000 calls, pre-approval required</li>
+                <li><strong class="text-white">2025:</strong> Crackdown on personal projects at scale</li>
+              </ul>
+            </div>
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Key Gotchas</h5>
+              <ul class="space-y-1 text-sm">
+                <li class="text-yellow-400">API posts get 2x less engagement, 8x more removals</li>
+                <li>Rate limit exceeded responses still count as billable</li>
+                <li>No native bulk analysis or pattern recognition</li>
+                <li>1,000-post limit per subreddit pagination</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Competitors -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit Tools Ecosystem</h3>
+          <h5 class="text-sm text-white font-medium mb-3">Scheduling Tools</h5>
+          <div class="overflow-x-auto rounded-lg mb-6">
+            <table>
+              <thead><tr><th>Tool</th><th>Price</th><th>Key Features</th><th>Weakness</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">Postpone</td><td>From $7/mo</td><td>11+ platforms, notification-based posting, AI</td><td>May lose Reddit specialization</td></tr>
+                <tr><td class="text-white font-medium">Later for Reddit</td><td>$30/mo (50 posts)</td><td>Reddit-only since 2013, best time finder</td><td>Expensive per post</td></tr>
+                <tr><td class="text-white font-medium">Delay for Reddit</td><td>Free/$20/mo</td><td>~280 posts/mo at paid tier</td><td>Basic features, limited analytics</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h5 class="text-sm text-white font-medium mb-3">Analytics &amp; Research Tools</h5>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Tool</th><th>Price</th><th>Focus</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">GummySearch</td><td>Was $29-199/mo</td><td>Audience research, pain point analysis</td><td class="text-red-400 font-medium">SHUT DOWN Dec 2025</td></tr>
+                <tr><td class="text-white font-medium">Reddit Pro</td><td>Free (official)</td><td>Basic business analytics</td><td class="text-yellow-400">Limited to business accounts</td></tr>
+                <tr><td class="text-white font-medium">Reddalyze</td><td>Varies</td><td>AI-driven subreddit analysis</td><td>Newer entrant</td></tr>
+                <tr><td class="text-white font-medium">PainOnSocial</td><td>Varies</td><td>Pain point discovery</td><td>Market research only</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- User Personas -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Target User Personas</h3>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm">SaaS Marketers &amp; Founders</p>
+              <p class="text-xs text-cyan-400 mb-2">Budget: $30-200/mo</p>
+              <p class="text-xs">Product validation, lead gen, competitive research. Fear of bans.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm">Content Creators</p>
+              <p class="text-xs text-cyan-400 mb-2">Budget: $7-50/mo</p>
+              <p class="text-xs">Drive traffic to YouTube, blogs, newsletters. Shadowban anxiety.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm">Brand/Community Managers</p>
+              <p class="text-xs text-cyan-400 mb-2">Budget: $50-500/mo</p>
+              <p class="text-xs">Official brand presence. Need authentic engagement vs. corporate tone.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm">E-commerce Sellers</p>
+              <p class="text-xs text-cyan-400 mb-2">Budget: $20-100/mo</p>
+              <p class="text-xs">Product promotion, review generation. Reddit hostile to obvious marketing.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm">SEO/Agency Professionals</p>
+              <p class="text-xs text-cyan-400 mb-2">Budget: $50-300/mo</p>
+              <p class="text-xs">Keyword tracking, link building. Leveraging Reddit's 1,348% Google growth.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm">Freelance Reddit Marketers</p>
+              <p class="text-xs text-cyan-400 mb-2">Budget: $20-100/mo</p>
+              <p class="text-xs">Multi-account management for clients. No unified dashboard exists.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pain Points -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Critical Pain Points</h3>
+          <div class="space-y-3">
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">No unified "all-in-one" Reddit tool</p>
+              <p class="text-xs">Users juggle 3-5 separate tools. GummySearch (now dead) + Postpone + SnooSnoop + manual work.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Analytics are shallow or enterprise-only</p>
+              <p class="text-xs">Reddit Pro = basic. Enterprise tools = $500+/mo. The $20-100/mo mid-market has almost nothing.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Fear of bans and shadowbans</p>
+              <p class="text-xs">Reddit aggressively bans self-promotion. Users need subreddit rule guidance and posting frequency limits.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">API posts underperform native posts</p>
+              <p class="text-xs">2x less engagement, 8x more removals. Notification-based posting is needed but clunky.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Karma growth is opaque</p>
+              <p class="text-xs">No tools help strategically build karma for Contributor Program earnings or subreddit posting requirements.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reddit vs X -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit vs. Twitter/X: Key Design Implications</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Dimension</th><th>Twitter/X</th><th>Reddit</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Structure</td><td>Follow-based feed</td><td>Subreddit communities</td></tr>
+                <tr><td class="text-white">Identity</td><td>Personal brand / real name</td><td>Anonymous / pseudonymous</td></tr>
+                <tr><td class="text-white">Content Lifespan</td><td>Hours</td><td>Months to years (SEO)</td></tr>
+                <tr><td class="text-white">Marketing Tolerance</td><td>High</td><td>Very low (bans)</td></tr>
+                <tr><td class="text-white">Discovery</td><td>Algorithm-driven</td><td>Search + subreddit browsing</td></tr>
+                <tr><td class="text-white">Trust Level</td><td>Low (bot concerns)</td><td>High (authentic discussions)</td></tr>
+                <tr><td class="text-white">CPC for Ads</td><td>Higher</td><td>50-70% lower than FB/IG</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 7: SUPERREDDIT CONCEPT ========== -->
+      <section id="superreddit-concept" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Product Concept</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">SuperReddit Concept</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">The full product concept: features, pricing, tech stack, MVP roadmap, go-to-market strategy, and revenue projections.</p>
+
+        <!-- Core Features -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Core Features</h3>
+
+          <h4 class="text-cyan-400 font-semibold text-sm uppercase tracking-wider mt-4 mb-3">Chrome Extension (Primary Interface)</h4>
+          <div class="grid sm:grid-cols-2 gap-4 mb-6">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Subreddit Intelligence Panel</p>
+              <ul class="text-xs space-y-1">
+                <li>Instant stats: growth trends, engagement rates, mod strictness</li>
+                <li>Rule compliance checker for draft content</li>
+                <li>Best time to post in THIS specific subreddit</li>
+                <li>Top-performing content formats breakdown</li>
+                <li>Related subreddits for cross-posting</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Post Composer &amp; Optimizer</p>
+              <ul class="text-xs space-y-1">
+                <li>AI writer matching Reddit's community tone</li>
+                <li>Title optimizer: A/B test before posting</li>
+                <li>"Ban Risk Score" — 1-10 scale for removal likelihood</li>
+                <li>Auto flair suggestion based on content</li>
+                <li>Cross-post builder for multiple subreddits</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Karma &amp; Profile Analytics</p>
+              <ul class="text-xs space-y-1">
+                <li>Real-time karma breakdown by subreddit</li>
+                <li>Karma growth trends (daily/weekly/monthly)</li>
+                <li>"Karma Opportunities" — threads to earn karma</li>
+                <li>Account health / shadowban risk score</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Comment Intelligence</p>
+              <ul class="text-xs space-y-1">
+                <li>Highlights rising comments &amp; engagement opportunities</li>
+                <li>AI-suggested replies matching your style</li>
+                <li>Track comment performance across threads</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 class="text-cyan-400 font-semibold text-sm uppercase tracking-wider mt-6 mb-3">Web Dashboard (app.superreddit.com)</h4>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Analytics Dashboard</p>
+              <ul class="text-xs space-y-1">
+                <li>GitHub-style activity heatmap</li>
+                <li>Cross-subreddit performance comparison</li>
+                <li>Content type performance breakdown</li>
+                <li>Shareable analytics charts</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Subreddit Research Center</p>
+              <ul class="text-xs space-y-1">
+                <li>Discover relevant subreddits (replaces GummySearch)</li>
+                <li>Side-by-side comparison tool</li>
+                <li>AI pain point &amp; topic discovery</li>
+                <li>Keyword tracking across subreddits</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Scheduling &amp; Calendar</p>
+              <ul class="text-xs space-y-1">
+                <li>Notification-based posting (not API)</li>
+                <li>Optimal time per subreddit</li>
+                <li>Drag-and-drop content calendar</li>
+                <li>Cross-post scheduling with timing offsets</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 class="text-cyan-400 font-semibold text-sm uppercase tracking-wider mt-6 mb-3">AI Differentiators</h4>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Subreddit Algorithm Simulator</p>
+              <p class="text-xs">Predict post performance before posting. Factors in time, title format, content type, subreddit velocity, historical patterns. "What-if" testing across subreddits.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Ban Prevention AI</p>
+              <p class="text-xs">Scans drafts against subreddit rules and removal patterns. Warns about self-promotion ratios (Reddit's 10% rule). Suggests authentic rewrites.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Karma Growth Strategist</p>
+              <p class="text-xs">Personalized daily action plan: which threads to comment in, when to post. Tracks progress toward Contributor Program eligibility.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Audience Intelligence</p>
+              <p class="text-xs">Analyze who's engaging with your content. Identify brand advocates. Pain point extraction from target subreddits.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Pricing Strategy</h3>
+          <p class="text-sm mb-4">Transparent pricing (no login required). Undercut competitors. Strong free tier.</p>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-5">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">Free</p>
+              <p class="text-3xl font-bold text-white mt-1">$0</p>
+              <p class="text-xs text-slate-400 mt-2">Basic subreddit analytics, limited karma tracking, Chrome extension basics. No signup for public analytics.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-5">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">Creator</p>
+              <p class="text-3xl font-bold text-white mt-1">$14<span class="text-sm text-slate-500">/mo</span></p>
+              <p class="text-xs text-slate-500">$9/mo annual</p>
+              <p class="text-xs text-slate-400 mt-2">10 posts/mo scheduling, full karma analytics, post optimizer, 500 AI credits/mo.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-5 border border-cyan-400/30">
+              <p class="text-cyan-400 text-xs uppercase tracking-wider">Pro</p>
+              <p class="text-3xl font-bold text-white mt-1">$34<span class="text-sm text-slate-500">/mo</span></p>
+              <p class="text-xs text-slate-500">$24/mo annual</p>
+              <p class="text-xs text-slate-400 mt-2">Unlimited scheduling, full AI, research center, competitor tracking, algorithm simulator, ban prevention.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-5">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">Agency</p>
+              <p class="text-3xl font-bold text-white mt-1">$89<span class="text-sm text-slate-500">/mo</span></p>
+              <p class="text-xs text-slate-500">$64/mo annual</p>
+              <p class="text-xs text-slate-400 mt-2">Multi-account, client reporting, white-label exports, team collaboration, priority support.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Recommended Tech Stack</h3>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-cyan-400 font-semibold text-xs uppercase tracking-wider mb-2">Core</p>
+              <ul class="text-sm space-y-1">
+                <li><strong class="text-white">Extension:</strong> TypeScript + React (Manifest V3)</li>
+                <li><strong class="text-white">Web App:</strong> Next.js 14+ on Vercel</li>
+                <li><strong class="text-white">Styling:</strong> Tailwind CSS</li>
+                <li><strong class="text-white">Marketing:</strong> Framer</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-cyan-400 font-semibold text-xs uppercase tracking-wider mb-2">Backend &amp; Data</p>
+              <ul class="text-sm space-y-1">
+                <li><strong class="text-white">Database:</strong> Supabase (PostgreSQL)</li>
+                <li><strong class="text-white">Caching:</strong> Vercel KV (Redis)</li>
+                <li><strong class="text-white">Auth:</strong> Reddit OAuth2 + Supabase Auth</li>
+                <li><strong class="text-white">Jobs:</strong> Inngest or Trigger.dev</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-cyan-400 font-semibold text-xs uppercase tracking-wider mb-2">AI &amp; Intelligence</p>
+              <ul class="text-sm space-y-1">
+                <li><strong class="text-white">LLM:</strong> Claude API (Anthropic)</li>
+                <li><strong class="text-white">Embeddings:</strong> OpenAI or Voyage</li>
+                <li><strong class="text-white">Vector DB:</strong> Pinecone or pgvector</li>
+                <li><strong class="text-white">Payments:</strong> Stripe</li>
+              </ul>
+            </div>
+          </div>
+          <div class="mt-4 bg-slate-900/50 rounded-lg p-4">
+            <p class="text-sm text-white font-medium mb-2">Estimated Monthly Costs (Early Stage): <span class="text-cyan-400">~$400-1,100/mo</span></p>
+            <p class="text-xs text-slate-500">Vercel Pro ($20) + Supabase Pro ($25) + Reddit API ($100-500) + Claude API ($200-500) + Cloudflare (Free-$20) + Stripe (2.9%)</p>
+          </div>
+        </div>
+
+        <!-- MVP Roadmap -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">MVP Roadmap</h3>
+          <div class="space-y-4">
+            <div class="flex gap-4">
+              <div class="flex-shrink-0 w-20 text-right">
+                <span class="text-xs bg-cyan-400/20 text-cyan-400 rounded-full px-2 py-0.5">v0.1</span>
+                <p class="text-xs text-slate-500 mt-1">4-6 weeks</p>
+              </div>
+              <div class="flex-1 accent-border pl-4">
+                <p class="text-white font-medium text-sm">Chrome Extension Only</p>
+                <p class="text-xs">Subreddit analytics sidebar, basic karma tracking, post timing suggestions, rule summary display.</p>
+              </div>
+            </div>
+            <div class="flex gap-4">
+              <div class="flex-shrink-0 w-20 text-right">
+                <span class="text-xs bg-cyan-400/20 text-cyan-400 rounded-full px-2 py-0.5">v0.2</span>
+                <p class="text-xs text-slate-500 mt-1">4-6 weeks</p>
+              </div>
+              <div class="flex-1 accent-border pl-4">
+                <p class="text-white font-medium text-sm">Add Web Dashboard</p>
+                <p class="text-xs">Activity heatmap, content performance tracking, subreddit discovery, basic notification-based scheduling.</p>
+              </div>
+            </div>
+            <div class="flex gap-4">
+              <div class="flex-shrink-0 w-20 text-right">
+                <span class="text-xs bg-cyan-400/20 text-cyan-400 rounded-full px-2 py-0.5">v0.3</span>
+                <p class="text-xs text-slate-500 mt-1">4-6 weeks</p>
+              </div>
+              <div class="flex-1 accent-border pl-4">
+                <p class="text-white font-medium text-sm">Add AI Features</p>
+                <p class="text-xs">AI post writer (Reddit voice), Ban Risk Score, Algorithm Simulator, viral post library.</p>
+              </div>
+            </div>
+            <div class="flex gap-4">
+              <div class="flex-shrink-0 w-20 text-right">
+                <span class="text-xs bg-blue-400/20 text-blue-400 rounded-full px-2 py-0.5">v1.0</span>
+                <p class="text-xs text-slate-500 mt-1">12-16 wks</p>
+              </div>
+              <div class="flex-1 border-l-[3px] border-blue-500 pl-4">
+                <p class="text-white font-medium text-sm">Full Launch</p>
+                <p class="text-xs">Full scheduling + cross-posting, competitor tracking, karma growth strategist, agency/team features.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GTM Strategy -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Go-to-Market Strategy</h3>
+          <div class="grid sm:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-cyan-400 font-semibold text-sm mb-2">Phase 1: Pre-Launch</p>
+              <p class="text-xs text-slate-500 mb-2">Weeks 1-8</p>
+              <ul class="text-xs space-y-1">
+                <li>Build in public on Reddit (r/SaaS, r/Entrepreneur)</li>
+                <li>Free subreddit analytics tool (no signup)</li>
+                <li>SEO: "GummySearch alternative", "Reddit analytics tool"</li>
+                <li>6-month closed beta, 100-200 power users</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-cyan-400 font-semibold text-sm mb-2">Phase 2: Launch</p>
+              <p class="text-xs text-slate-500 mb-2">Weeks 8-12</p>
+              <ul class="text-xs space-y-1">
+                <li>Reddit-native launch posts (value-first, not spammy)</li>
+                <li>Founder AMA about building Reddit tools</li>
+                <li>Product Hunt launch (SuperX never did this)</li>
+                <li>Chrome Web Store optimization</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-cyan-400 font-semibold text-sm mb-2">Phase 3: Growth</p>
+              <p class="text-xs text-slate-500 mb-2">Month 3-12</p>
+              <ul class="text-xs space-y-1">
+                <li>Affiliate program for Reddit marketers</li>
+                <li>Tool directory listings (10+ directories)</li>
+                <li>Discord community for power users</li>
+                <li>Content marketing flywheel + case studies</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Revenue Projections -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Revenue Projections (Conservative)</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Month</th><th>MRR</th><th>Free Users</th><th>Paid Users</th><th>Milestone</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">1-2</td><td>$0</td><td>500</td><td>0</td><td>Beta launch, free tools live</td></tr>
+                <tr><td class="text-white">3</td><td>$500</td><td>2,000</td><td>30</td><td>First paying users</td></tr>
+                <tr><td class="text-white">4</td><td>$2,000</td><td>5,000</td><td>80</td><td>Product-market fit signal</td></tr>
+                <tr><td class="text-white">6</td><td>$5,000</td><td>10,000</td><td>180</td><td>Chrome extension traction</td></tr>
+                <tr><td class="text-white">9</td><td>$15,000</td><td>25,000</td><td>500</td><td>Sustainable growth</td></tr>
+                <tr><td class="text-white font-medium">12</td><td class="text-cyan-400 font-medium">$30,000</td><td>50,000</td><td>1,000</td><td class="text-cyan-400">Market leadership</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-slate-500 mt-3">Based on SuperX trajectory ($0 → $25K MRR in ~8 months) and the GummySearch vacuum creating immediate demand.</p>
+        </div>
+
+        <!-- Competitive Moats -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Competitive Moats</h3>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Data Network Effect</p>
+              <p class="text-xs">More users = better AI predictions = more users</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Subreddit Intelligence DB</p>
+              <p class="text-xs">Historical performance data that compounds over time</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Chrome Extension Habit</p>
+              <p class="text-xs">Daily browser use creates high switching costs</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">AI Voice Learning</p>
+              <p class="text-xs">Personalization improves with usage — lock-in</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Community Flywheel</p>
+              <p class="text-xs">Active Reddit community creates organic marketing</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Ban Prevention IP</p>
+              <p class="text-xs">Proprietary database of removal patterns</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Risks -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Risks &amp; Mitigations</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Reddit API restrictions tighten</td><td>DOM scraping hybrid reduces API dependency</td></tr>
+                <tr><td class="text-white">Reddit Pro expands features</td><td>Focus on AI/intelligence layer Reddit won't build</td></tr>
+                <tr><td class="text-white">Community backlash</td><td>Position as "authentic engagement" tool, never automate inauthenticity</td></tr>
+                <tr><td class="text-white">Single-platform dependency</td><td>Plan cross-platform expansion after Reddit dominance</td></tr>
+                <tr><td class="text-white">Funded competitor enters</td><td>Move fast, build community, lock in data moat early</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Lessons Applied -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Lessons from SuperX — Applied</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>SuperX Lesson</th><th>SuperReddit Application</th></tr></thead>
+              <tbody>
+                <tr><td>Chrome extension is the killer UX</td><td class="text-white">Build extension-first, dashboard second</td></tr>
+                <tr><td>Free analytics drive adoption</td><td class="text-white">Free subreddit analytics (no signup) as lead magnet</td></tr>
+                <tr><td>AI voice learning is the hook</td><td class="text-white">Learn user's Reddit writing style for authentic content</td></tr>
+                <tr><td>Algorithm Simulator is unique</td><td class="text-white">Build Reddit-specific post performance predictor</td></tr>
+                <tr><td>Build in public drives growth</td><td class="text-white">Build in public ON Reddit, not Twitter</td></tr>
+                <tr><td>Solo dev + AI tools = fast iteration</td><td class="text-white">Use Claude Code + Next.js + Supabase for speed</td></tr>
+                <tr><td>Pricing transparency matters</td><td class="text-white">Show all pricing publicly, no login required</td></tr>
+                <tr><td>Credit limits frustrate users</td><td class="text-white">Generous limits or usage-based at higher tiers</td></tr>
+                <tr><td>Reliability is trust</td><td class="text-white">Invest in extension stability from day 1</td></tr>
+                <tr><td>Strategic guidance > just tools</td><td class="text-white">Karma Growth Strategist: "what to do" not just "how"</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 8: CROWDREPLY ANALYSIS ========== -->
+      <section id="competitor-crowdreply" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Competitor Deep Dive</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">CrowdReply Analysis</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">CrowdReply (crowdreply.io) is a managed Reddit marketing platform that posts comments, launches threads, and buys upvotes/downvotes using their own network of aged, high-karma accounts. Founded by Dawood Khan ("The Reddit Guy").</p>
+
+        <!-- Key Metrics -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Product Hunt</p>
+            <p class="text-2xl font-bold text-white mt-1">214</p>
+            <p class="text-xs text-cyan-400 mt-1">Upvotes on launch</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Trustpilot</p>
+            <p class="text-2xl font-bold text-white mt-1">4.0/5</p>
+            <p class="text-xs text-cyan-400 mt-1">40 reviews</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Removal Rate</p>
+            <p class="text-2xl font-bold text-white mt-1">&lt; 5%</p>
+            <p class="text-xs text-cyan-400 mt-1">vs. 30-50% DIY</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Entry Price</p>
+            <p class="text-2xl font-bold text-white mt-1">$99</p>
+            <p class="text-xs text-cyan-400 mt-1">/month PRO tier</p>
+          </div>
+        </div>
+
+        <!-- How It Works -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">How CrowdReply Works (Technical)</h3>
+          <div class="bg-slate-900 rounded-lg p-6 font-mono text-sm overflow-x-auto mb-4">
+            <pre class="text-slate-400">
+┌─────────────────┐     ┌──────────────────────┐     ┌──────────────────┐
+│  Customer        │────►│  CrowdReply Backend  │────►│  Reddit.com      │
+│  (Web Dashboard) │     │  (Browser Profiles)  │     │  (via browser)   │
+└─────────────────┘     └──────────┬───────────┘     └──────────────────┘
+                                   │
+                        ┌──────────▼───────────┐
+                        │  Aged Account Network │
+                        │  <span class="text-cyan-400">3mo-2yr old accounts</span>  │
+                        │  <span class="text-cyan-400">100-10,000+ karma</span>    │
+                        └──────────────────────┘</pre>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Key Technical Approach</h5>
+              <ul class="space-y-2 text-sm">
+                <li class="flex gap-2"><span class="text-red-400 font-bold">!</span> <strong class="text-white">Does NOT use Reddit API</strong> for posting</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Browser profile automation mimics real users</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Drip-feeds comments with optimized timing</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Real-time removal monitoring</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Upvotes drip-fed to avoid spam filter triggers</li>
+              </ul>
+            </div>
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Account Network</h5>
+              <ul class="space-y-2 text-sm">
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Accounts aged 3 months to 2+ years</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Established karma (100-10,000+)</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Authentic posting histories</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Natural activity patterns</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Also sells accounts directly (individual + bulk)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Services & Pricing -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Services &amp; Credit Pricing</h3>
+          <div class="overflow-x-auto rounded-lg mb-4">
+            <table>
+              <thead><tr><th>Service</th><th>Credit Cost</th><th>Details</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">Buy Reddit Comments</td><td>25-100 credits</td><td>Varies by account karma level</td></tr>
+                <tr><td class="text-white font-medium">Buy Reddit Posts/Threads</td><td>100-300 credits</td><td>Full thread launches</td></tr>
+                <tr><td class="text-white font-medium">Buy Reddit Upvotes</td><td>Varies</td><td>Drip-fed automation</td></tr>
+                <tr><td class="text-white font-medium">Buy Reddit Downvotes</td><td>Varies</td><td>Reputation management</td></tr>
+                <tr><td class="text-white font-medium">Buy Reddit Accounts</td><td>Direct purchase</td><td>Individual or bulk</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">PRO Plan</p>
+              <p class="text-2xl font-bold text-white mt-1">$99<span class="text-sm text-slate-500">/mo</span></p>
+              <p class="text-xs text-slate-400 mt-2">$100 in credits toward comments, replies, or threads</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-slate-500 text-xs uppercase tracking-wider">Credit Bundles</p>
+              <p class="text-2xl font-bold text-white mt-1">$200<span class="text-sm text-slate-500">+</span></p>
+              <p class="text-xs text-slate-400 mt-2">Bulk credit purchases, flexible allocation, top-up anytime</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Platform Features -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Platform Features</h3>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Thread Finder Tool</p>
+              <p class="text-xs">Social listening that discovers threads where your target audience is active. Surfaces threads ranking high on Google.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">AI-Driven Suggestions</p>
+              <p class="text-xs">AI generates comment suggestions and identifies optimal engagement opportunities.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Analytics Dashboard</p>
+              <p class="text-xs">Tracks upvotes, placement, status, subreddit stick rates, and performance metrics in real-time.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">LLM/AI Visibility Tracking</p>
+              <p class="text-xs">Tracks how Reddit threads surface in AI answers (ChatGPT, Claude, Perplexity, Gemini).</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Reputation Management</p>
+              <p class="text-xs">Identify and engage in negative threads to shift sentiment. Downvote service for suppression.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Google Ranking Focus</p>
+              <p class="text-xs">Thread Finder analyzes thread age, upvote velocity, and keyword relevance for Google-ranking threads.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Competitive Context -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Competitive Landscape (2026)</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Tool</th><th>Type</th><th>Pricing</th><th>Key Difference</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">CrowdReply</td><td>Managed service</td><td>$99-200+</td><td>Full service with account network, upvotes, analytics</td></tr>
+                <tr><td class="text-white font-medium">ReplyAgent</td><td>Automated service</td><td>$3/post</td><td>Pay-per-result, AI-driven discovery</td></tr>
+                <tr><td class="text-white font-medium">ReplyGuy</td><td>Monitoring + automation</td><td>$199/month</td><td>Brand monitoring + auto-generated replies</td></tr>
+                <tr><td class="text-white font-medium">Redreach</td><td>Lead generation</td><td>Varies</td><td>Reddit-focused lead gen</td></tr>
+                <tr><td class="text-white font-medium">GummySearch</td><td>Research tool</td><td>N/A</td><td class="text-red-400">Shut down Dec 2025</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- User Reviews -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-emerald-400 font-semibold mb-3">Claimed Results</h4>
+            <ul class="space-y-2 text-sm">
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> 124% increase in productivity vs. manual Reddit marketing</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> 88% revenue growth for e-commerce/agency clients</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> 60% reduction in manual efforts</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> G2: 16 reviews, multiple 5/5 stars</li>
+              <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> Users praise account quality and stick rates</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-yellow-400 font-semibold mb-3">Concerns &amp; Limitations</h4>
+            <ul class="space-y-2 text-sm">
+              <li class="flex gap-2"><span class="text-yellow-400">&#x26A0;</span> Limited transparency — can't see which accounts post for you</li>
+              <li class="flex gap-2"><span class="text-yellow-400">&#x26A0;</span> $200 minimum entry — higher barrier than competitors</li>
+              <li class="flex gap-2"><span class="text-yellow-400">&#x26A0;</span> Ethical gray area — operates in tension with Reddit's ToS</li>
+              <li class="flex gap-2"><span class="text-yellow-400">&#x26A0;</span> Vote manipulation and inauthentic behavior risks</li>
+              <li class="flex gap-2"><span class="text-yellow-400">&#x26A0;</span> Relies on managed account network (fragile moat)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Key Takeaways -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Key Takeaways</h3>
+          <div class="space-y-3">
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Browser automation bypasses Reddit API entirely</p>
+              <p class="text-xs">Likely uses Puppeteer, Playwright, or undetected-chromedriver with residential proxies</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">The managed account model IS the moat</p>
+              <p class="text-xs">Maintaining aged, high-karma accounts with natural histories is expensive and time-consuming to replicate</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Expanding into AI/LLM visibility</p>
+              <p class="text-xs">Tracking how Reddit threads surface in ChatGPT, Claude, Perplexity is a newer differentiator</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Fundamentally a different product category than SuperReddit</p>
+              <p class="text-xs">CrowdReply sells engagement (comments, upvotes, accounts). SuperReddit would empower users to grow authentically.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 9: MEDIAFAST ANALYSIS ========== -->
+      <section id="competitor-mediafast" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Competitor Deep Dive</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">MediaFast Analysis</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">MediaFast (mediafa.st) is a bootstrapped SaaS that helps founders grow on Reddit, LinkedIn, X, and Bluesky without getting suspended. Founded by Arthur Yuzbashew — who was banned from Reddit 6 times and spent 10 months learning what works.</p>
+
+        <!-- Key Metrics -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Monthly Revenue</p>
+            <p class="text-2xl font-bold text-white mt-1">~$5K</p>
+            <p class="text-xs text-cyan-400 mt-1">MRR (verified via TrustMRR)</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Total Revenue</p>
+            <p class="text-2xl font-bold text-white mt-1">$17K+</p>
+            <p class="text-xs text-cyan-400 mt-1">In ~10 months</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Customers</p>
+            <p class="text-2xl font-bold text-white mt-1">274+</p>
+            <p class="text-xs text-cyan-400 mt-1">Founders served</p>
+          </div>
+          <div class="metric-card rounded-xl p-5 transition-colors">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Startup Cost</p>
+            <p class="text-2xl font-bold text-white mt-1">~$12</p>
+            <p class="text-xs text-cyan-400 mt-1">Domain only</p>
+          </div>
+        </div>
+
+        <!-- Founder Story -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">The Founder Story</h3>
+          <div class="quote-card rounded-lg p-4 mb-4">
+            <p class="text-sm italic text-slate-300">"I was banned from Reddit 6 times. I used my dad's email after Reddit banned me. I spent 10 months learning how to market on Reddit without getting suspended. Then I turned that knowledge into a product."</p>
+            <p class="text-xs text-slate-500 mt-2">— Arthur Yuzbashew (@arthuryuzbashew)</p>
+          </div>
+          <p class="text-sm">Arthur's 6 suspensions and 10 months of learning became MediaFast's core knowledge base. The product essentially automates <strong class="text-white">"how to be a good Reddit citizen while also marketing your product."</strong> This authentic origin story is also a powerful marketing differentiator.</p>
+        </div>
+
+        <!-- How It Works -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">How MediaFast Works</h3>
+          <div class="grid sm:grid-cols-2 gap-6">
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Technical Approach</h5>
+              <ul class="space-y-2 text-sm">
+                <li class="flex gap-2"><span class="text-emerald-400 font-bold">&#10003;</span> <strong class="text-white">Uses Reddit's official OAuth2 API</strong></li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Users connect their Reddit account via OAuth</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Reads user profile and posting history</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Schedules and publishes posts on user's behalf</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Tracks karma growth and follower metrics</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> No browser automation or unauthorized scraping</li>
+              </ul>
+            </div>
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Roadmap Generation Process</h5>
+              <ol class="space-y-2 text-sm list-decimal list-inside">
+                <li>User creates a "project" and describes their product</li>
+                <li>User connects their Reddit account</li>
+                <li>MediaFast analyzes niche, audience, and presence</li>
+                <li>System identifies optimal subreddits (rules, mod behavior, survival rates)</li>
+                <li>Generates day-by-day roadmap with specific actions</li>
+                <li>Provides optimal posting times per subreddit</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- Core Features -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Core Features</h3>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Roadmap &amp; Strategy</p>
+              <ul class="text-xs space-y-1">
+                <li>Daily marketing roadmap with specific tasks</li>
+                <li>Monthly/timeline views for long-term planning</li>
+                <li>Platform-specific strategies (Reddit, LinkedIn, X, Bluesky)</li>
+                <li>Data-driven subreddit recommendations</li>
+                <li>Content guidance: tone, format, timing</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Safety &amp; Compliance</p>
+              <ul class="text-xs space-y-1">
+                <li>Subreddit rule analysis before recommending</li>
+                <li>Mod behavior analysis (strictness scoring)</li>
+                <li>Spam filter avoidance via posting cadence</li>
+                <li>Ban prevention guidance (unwritten rules)</li>
+                <li>Account warming for new accounts</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">AI Features</p>
+              <ul class="text-xs space-y-1">
+                <li>"Bear" AI coach: scans profile for personalized advice</li>
+                <li>One-click post generation</li>
+                <li>Auto-comment discovery (best posts to engage with)</li>
+                <li>Content framing guidance (valuable vs. promotional)</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Scheduling &amp; Publishing</p>
+              <ul class="text-xs space-y-1">
+                <li>Reddit post scheduler</li>
+                <li>Multi-platform support (Reddit, LinkedIn, X, Bluesky)</li>
+                <li>Optimal posting times per subreddit</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Analytics &amp; Tracking</p>
+              <ul class="text-xs space-y-1">
+                <li>Project dashboard hub</li>
+                <li>Karma and follower growth tracking</li>
+                <li>Leaderboard and badges (gamification)</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">Engagement</p>
+              <ul class="text-xs space-y-1">
+                <li>Daily email reminders for roadmap tasks</li>
+                <li>Content organization tools</li>
+                <li>Cross-subreddit posting strategy</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anti-Ban Strategy -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Anti-Ban Strategy (The Real Product)</h3>
+          <p class="text-sm mb-4">MediaFast's core innovation isn't technical — it's <strong class="text-white">behavioral intelligence</strong>. The product helps users avoid bans by codifying hard-won knowledge about Reddit's unwritten rules.</p>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Subreddit Rule Compliance</p>
+              <p class="text-xs">Auto-checks rules before recommending where to post</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Mod Behavior Analysis</p>
+              <p class="text-xs">Understands how strictly different subreddits enforce rules</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Posting Cadence Management</p>
+              <p class="text-xs">Spaces out promotional posts to avoid spam filters</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Content Framing</p>
+              <p class="text-xs">Teaches how to frame promotions as valuable contributions</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Karma Building Strategy</p>
+              <p class="text-xs">Non-promotional tasks to build legitimate karma first</p>
+            </div>
+            <div class="accent-border pl-3 py-2">
+              <p class="text-white font-medium text-sm">Account Warming</p>
+              <p class="text-xs">Guides new accounts through warming-up period</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pricing & Revenue -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-8">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Pricing</h4>
+            <div class="space-y-3">
+              <div class="bg-slate-900/50 rounded-lg p-3">
+                <p class="text-xs text-slate-500 uppercase">Monthly</p>
+                <p class="text-xl font-bold text-white">$39<span class="text-sm text-slate-500">/mo</span></p>
+              </div>
+              <div class="bg-slate-900/50 rounded-lg p-3">
+                <p class="text-xs text-slate-500 uppercase">Lifetime</p>
+                <p class="text-xl font-bold text-white">$129-189</p>
+                <p class="text-xs text-slate-500">One-time, all current + future features</p>
+              </div>
+              <div class="bg-slate-900/50 rounded-lg p-3">
+                <p class="text-xs text-slate-500 uppercase">Ghostwriting</p>
+                <p class="text-xl font-bold text-white">$400<span class="text-sm text-slate-500">/mo</span></p>
+                <p class="text-xs text-slate-500">Done-for-you service</p>
+              </div>
+            </div>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-white font-semibold mb-3">Revenue Timeline</h4>
+            <div class="overflow-x-auto rounded-lg">
+              <table>
+                <thead><tr><th>Month</th><th>Revenue</th></tr></thead>
+                <tbody>
+                  <tr><td class="text-white">Feb 2025 (20 days)</td><td>$390</td></tr>
+                  <tr><td class="text-white">Mar 2025</td><td>$764</td></tr>
+                  <tr><td class="text-white">May 2025</td><td>$1,625</td></tr>
+                  <tr><td class="text-white">Jul 2025</td><td>$1,803</td></tr>
+                  <tr><td class="text-white">Sep 2025</td><td>$2,834</td></tr>
+                  <tr><td class="text-white font-medium">~Jan 2026</td><td class="text-cyan-400 font-medium">~$5,000/mo</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Tech Stack</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Component</th><th>Technology</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Framework</td><td>Next.js (React)</td></tr>
+                <tr><td class="text-white">Database</td><td>MongoDB</td></tr>
+                <tr><td class="text-white">Payments</td><td>Stripe (verified via TrustMRR)</td></tr>
+                <tr><td class="text-white">Email</td><td>Resend</td></tr>
+                <tr><td class="text-white">Reddit Access</td><td>Reddit OAuth2 API</td></tr>
+                <tr><td class="text-white">Hosting</td><td>Likely Vercel</td></tr>
+                <tr><td class="text-white">Design</td><td>Figma</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Testimonials -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">User Testimonials</h3>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="quote-card rounded-lg p-4">
+              <p class="text-sm italic text-slate-300">"Your tool made Reddit super easy to understand - I went from zero to posting confidently without getting banned."</p>
+            </div>
+            <div class="quote-card rounded-lg p-4">
+              <p class="text-sm italic text-slate-300">"I was suspended multiple times, but now with MediaFast I finally got on a right path!"</p>
+            </div>
+            <div class="quote-card rounded-lg p-4">
+              <p class="text-sm italic text-slate-300">"Just bought MediaFast lifetime by @arthuryuzbashew because I know Reddit is a goldmine."</p>
+            </div>
+            <div class="quote-card rounded-lg p-4">
+              <p class="text-sm italic text-slate-300">"MediaFast is making my marketing easy."</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key Takeaways -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Key Takeaways for SuperReddit</h3>
+          <div class="space-y-3">
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Strategy-first, tools-second</p>
+              <p class="text-xs">Core value is the roadmap/playbook, not raw analytics. Scheduling and AI are supporting cast.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Reddit API used legitimately</p>
+              <p class="text-xs">Standard OAuth2, no scraping or automation hacks. Works within Reddit's rules.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Real moat is behavioral knowledge</p>
+              <p class="text-xs">Understanding Reddit's unwritten rules, mod behavior, and spam triggers is the defensible advantage.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Revenue is real but modest</p>
+              <p class="text-xs">~$5K/mo MRR verified through Stripe/TrustMRR. Lifestyle business scale, not VC-scale.</p>
+            </div>
+            <div class="accent-border pl-4 py-2">
+              <p class="text-white font-medium text-sm">Growth via meta-marketing</p>
+              <p class="text-xs">Arthur uses Reddit to sell a Reddit tool. Build-in-public + SEO + city-specific guides for long-tail traffic.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 10: FEASIBILITY REPORT ========== -->
+      <section id="feasibility" class="scroll-mt-20">
+        <p class="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-2">Critical Analysis</p>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Feasibility Report</h2>
+        <p class="text-slate-400 mb-8 max-w-3xl">Can SuperReddit actually be built? We investigated all 5 claims about Reddit API restrictions and researched alternative approaches. Here's the honest assessment.</p>
+
+        <!-- Verdict Banner -->
+        <div class="card rounded-xl p-6 mb-8 border-l-4 border-yellow-400">
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">Bottom Line</h3>
+          <p class="text-sm text-slate-300">SuperReddit is <strong class="text-white">feasible but requires a hybrid architecture</strong>. All 5 concerns about Reddit's API restrictions are confirmed. However, competitors like MediaFast prove the concept works using legitimate OAuth2 access, and a Chrome extension + DOM scraping approach (like SuperX uses for Twitter) can significantly reduce API dependency.</p>
+        </div>
+
+        <!-- Critical New Finding -->
+        <div class="card rounded-xl p-6 mb-8 border-l-4 border-red-400">
+          <h3 class="text-lg font-semibold text-red-400 mb-2">Critical Finding: November 2025 API Lockout</h3>
+          <p class="text-sm text-slate-300 mb-3">In November 2025, Reddit escalated restrictions further: <strong class="text-white">new developers can no longer self-serve API credentials</strong>. The "Create App" button is now a submission form for a manual, ticket-based approval process called the "Responsible Builder Policy." If you didn't have an established app before this shift, building new Reddit-based tools via the API requires waiting for approvals that may never come.</p>
+          <p class="text-sm text-slate-300">This makes non-API approaches not just cost-saving alternatives — they are the <strong class="text-white">only viable path</strong> for new developers who cannot get through Reddit's approval process.</p>
+        </div>
+
+        <!-- CQS Explanation -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit's Hidden Scoring System: Contributor Quality Score (CQS)</h3>
+          <p class="text-sm mb-4">Reddit has a hidden scoring system called the <strong class="text-white">Contributor Quality Score (CQS)</strong> that classifies every account into five tiers. This directly impacts how content is treated.</p>
+          <div class="grid sm:grid-cols-5 gap-2 mb-4">
+            <div class="bg-red-400/10 rounded-lg p-3 text-center">
+              <p class="text-red-400 font-bold text-xs">Lowest</p>
+            </div>
+            <div class="bg-red-400/10 rounded-lg p-3 text-center">
+              <p class="text-orange-400 font-bold text-xs">Low</p>
+            </div>
+            <div class="bg-yellow-400/10 rounded-lg p-3 text-center">
+              <p class="text-yellow-400 font-bold text-xs">Moderate</p>
+            </div>
+            <div class="bg-emerald-400/10 rounded-lg p-3 text-center">
+              <p class="text-emerald-400 font-bold text-xs">High</p>
+            </div>
+            <div class="bg-emerald-400/10 rounded-lg p-3 text-center">
+              <p class="text-emerald-400 font-bold text-xs">Highest</p>
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">CQS Factors</h5>
+              <ul class="space-y-1 text-sm">
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Past moderation actions on your account</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Network and location signals</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> Account security (email verification)</li>
+                <li class="flex gap-2"><span class="text-cyan-400">&#x2022;</span> <strong class="text-white">How content is submitted</strong> — API posts get extra scrutiny</li>
+              </ul>
+            </div>
+            <div>
+              <h5 class="text-sm text-white font-medium mb-2">Why This Matters for SuperReddit</h5>
+              <ul class="space-y-1 text-sm">
+                <li class="flex gap-2"><span class="text-yellow-400">!</span> API-submitted posts get additional algorithmic scrutiny</li>
+                <li class="flex gap-2"><span class="text-yellow-400">!</span> Native posts get <strong class="text-white">2x more engagement</strong></li>
+                <li class="flex gap-2"><span class="text-yellow-400">!</span> Native posts are <strong class="text-white">removed 8x less often</strong></li>
+                <li class="flex gap-2"><span class="text-emerald-400">&#10003;</span> Notification-based posting avoids CQS penalties entirely</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5 Claims Verified -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit API Restrictions: All 5 Claims Verified</h3>
+          <div class="space-y-4">
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-400/20 flex items-center justify-center">
+                <span class="text-red-400 font-bold text-sm">1</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-white font-medium text-sm">Commercial data access IS restrictive and expensive</p>
+                <p class="text-xs text-slate-400 mt-1">Commercial access requires pre-approval, with Reddit mandating a license agreement for any revenue-generating use of their data. Enterprise minimum is reportedly $12,000+/year. Even the "free" tier (100 req/min OAuth) is restricted to personal, non-commercial use.</p>
+                <p class="text-xs text-red-400 mt-1 font-medium">CONFIRMED</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-400/20 flex items-center justify-center">
+                <span class="text-red-400 font-bold text-sm">2</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-white font-medium text-sm">Contracts ARE required</p>
+                <p class="text-xs text-slate-400 mt-1">Reddit requires formal license agreements for commercial API usage. The Reddit Data API Terms and Developer Terms were significantly updated in 2023-2024. Any tool generating revenue from Reddit data must have contractual approval.</p>
+                <p class="text-xs text-red-400 mt-1 font-medium">CONFIRMED</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-400/20 flex items-center justify-center">
+                <span class="text-red-400 font-bold text-sm">3</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-white font-medium text-sm">You MUST go through Reddit's app review process</p>
+                <p class="text-xs text-slate-400 mt-1">All applications must complete Reddit's developer review. Commercial applications face additional scrutiny. The process evaluates data usage, compliance with content policy, and business model alignment with Reddit's terms.</p>
+                <p class="text-xs text-red-400 mt-1 font-medium">CONFIRMED</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-400/20 flex items-center justify-center">
+                <span class="text-red-400 font-bold text-sm">4</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-white font-medium text-sm">There IS no self-serve commercial tier</p>
+                <p class="text-xs text-slate-400 mt-1">Unlike Twitter/X (which has clear $100/mo and $5,000/mo tiers), Reddit has no public self-serve commercial pricing page. You must contact Reddit's business development team and negotiate terms. This creates friction and uncertainty for startups.</p>
+                <p class="text-xs text-red-400 mt-1 font-medium">CONFIRMED</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-400/20 flex items-center justify-center">
+                <span class="text-red-400 font-bold text-sm">5</span>
+              </div>
+              <div class="flex-1">
+                <p class="text-white font-medium text-sm">Reddit HAS aggressively enforced its data policies</p>
+                <p class="text-xs text-slate-400 mt-1">Reddit has taken legal action against multiple entities: lawsuit against Anthropic (for training on Reddit data), legal threats against Perplexity AI, significant third-party app shutdowns in 2023 (Apollo, RIF, etc.). Reddit monitors for API misuse and will terminate access.</p>
+                <p class="text-xs text-red-400 mt-1 font-medium">CONFIRMED</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enforcement Actions -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit's Enforcement Actions (2023-2025)</h3>
+          <div class="space-y-3">
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0">
+                <span class="text-xs bg-red-400/20 text-red-400 rounded-full px-2 py-0.5">2023</span>
+              </div>
+              <div>
+                <p class="text-white font-medium text-sm">Third-Party App Shutdown</p>
+                <p class="text-xs text-slate-400">Apollo, Reddit is Fun, Sync, Boost, BaconReader all killed by API pricing changes ($0.24/1K calls)</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0">
+                <span class="text-xs bg-red-400/20 text-red-400 rounded-full px-2 py-0.5">2023</span>
+              </div>
+              <div>
+                <p class="text-white font-medium text-sm">Pushshift Access Revoked</p>
+                <p class="text-xs text-slate-400">Historical data archive (cited in 1,700+ scholarly articles) cut off. Now limited to moderator use only.</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0">
+                <span class="text-xs bg-red-400/20 text-red-400 rounded-full px-2 py-0.5">2025</span>
+              </div>
+              <div>
+                <p class="text-white font-medium text-sm">Lawsuit: Reddit v. Anthropic</p>
+                <p class="text-xs text-slate-400">Sued for using Reddit data to train AI models without licensing agreement</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0">
+                <span class="text-xs bg-red-400/20 text-red-400 rounded-full px-2 py-0.5">Oct 2025</span>
+              </div>
+              <div>
+                <p class="text-white font-medium text-sm">Lawsuit: Reddit v. Perplexity, SerpApi, Oxylabs, AWMProxy</p>
+                <p class="text-xs text-slate-400">Sued for scraping Reddit data via Google search results. Reddit used a honeypot post to prove indirect scraping. 3 billion pages scraped in a two-week span.</p>
+              </div>
+            </div>
+            <div class="flex gap-4 items-start">
+              <div class="flex-shrink-0">
+                <span class="text-xs bg-red-400/20 text-red-400 rounded-full px-2 py-0.5">Nov 2025</span>
+              </div>
+              <div>
+                <p class="text-white font-medium text-sm">New API App Registration Blocked</p>
+                <p class="text-xs text-slate-400">"Create App" button replaced with manual approval form ("Responsible Builder Policy"). New developers cannot self-serve credentials.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- How Competitors Handle It -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">How Competitors Navigate This</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Competitor</th><th>Approach</th><th>API Usage</th><th>Legal Risk</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="text-white font-medium">MediaFast</td>
+                  <td>Legitimate OAuth2 via user tokens</td>
+                  <td class="text-emerald-400">User's own API quota</td>
+                  <td class="text-emerald-400">Low</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">CrowdReply</td>
+                  <td>Browser automation (bypasses API)</td>
+                  <td class="text-yellow-400">No API for posting</td>
+                  <td class="text-red-400">High (ToS violations)</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Postpone</td>
+                  <td>Notification-based posting (user posts manually)</td>
+                  <td class="text-emerald-400">Minimal API use</td>
+                  <td class="text-emerald-400">Low</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Later for Reddit</td>
+                  <td>Reddit API with commercial license</td>
+                  <td class="text-yellow-400">Full API (paid tier)</td>
+                  <td class="text-emerald-400">Low (licensed)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Alternative Approaches -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">6 Alternative Approaches (Without Commercial API)</h3>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-slate-900/50 rounded-lg p-4 border border-emerald-400/20">
+              <p class="text-emerald-400 font-semibold text-xs uppercase tracking-wider mb-1">Recommended</p>
+              <p class="text-white font-semibold text-sm mb-2">1. Chrome Extension DOM Scraping</p>
+              <p class="text-xs">Read subreddit data, post metrics, and user stats directly from the Reddit DOM — just like SuperX does on Twitter. No API needed for reads. This is the <strong class="text-white">proven approach</strong>.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4 border border-emerald-400/20">
+              <p class="text-emerald-400 font-semibold text-xs uppercase tracking-wider mb-1">Recommended</p>
+              <p class="text-white font-semibold text-sm mb-2">2. Notification-Based Posting</p>
+              <p class="text-xs">Instead of API posting (2x less engagement, 8x more removals), send users notifications to post manually. Postpone uses this successfully. Better engagement AND no API dependency.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4 border border-emerald-400/20">
+              <p class="text-emerald-400 font-semibold text-xs uppercase tracking-wider mb-1">Recommended</p>
+              <p class="text-white font-semibold text-sm mb-2">3. User OAuth Tokens</p>
+              <p class="text-xs">Like MediaFast: user connects their own Reddit account via OAuth. API calls are made under the user's own quota. The tool doesn't need its own commercial license for user-initiated actions.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">4. Third-Party Data Providers</p>
+              <p class="text-xs">Services like Data365, ScrapeCreators, and Arctic Shift provide Reddit data without direct API access. Useful for analytics and research features. Adds cost but removes API dependency.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">5. Reddit .json Endpoints</p>
+              <p class="text-xs">Most Reddit pages have a .json suffix (e.g., reddit.com/r/SaaS.json) that returns structured data. Not officially documented for commercial use, but widely used. Lower rate limits than API.</p>
+            </div>
+            <div class="bg-slate-900/50 rounded-lg p-4">
+              <p class="text-white font-semibold text-sm mb-2">6. RSS Feeds</p>
+              <p class="text-xs">Reddit provides RSS feeds for subreddits and user profiles. Useful for monitoring and notifications. Limited data but zero rate limit concerns.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Risk/Reward Table -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">All Approaches: Risk/Reward Matrix</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Approach</th><th>ToS Risk</th><th>Legal Risk</th><th>Scalability</th><th>Write Access</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="text-white font-medium">Chrome Extension DOM</td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td>Per-user</td>
+                  <td>No</td>
+                  <td class="text-emerald-400">Free</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Notification Posting</td>
+                  <td><span class="text-emerald-400">None</span></td>
+                  <td><span class="text-emerald-400">None</span></td>
+                  <td>Per-user</td>
+                  <td>Yes (manual)</td>
+                  <td class="text-emerald-400">App dev</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">User OAuth (own app)</td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td>Per-user</td>
+                  <td>Yes</td>
+                  <td class="text-emerald-400">Free (if approved)</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">.json Endpoints</td>
+                  <td><span class="text-yellow-400">Medium</span></td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td>Moderate</td>
+                  <td>No</td>
+                  <td class="text-emerald-400">Free + proxies</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">RSS Feeds</td>
+                  <td><span class="text-emerald-400">None</span></td>
+                  <td><span class="text-emerald-400">None</span></td>
+                  <td>Moderate</td>
+                  <td>No</td>
+                  <td class="text-emerald-400">Free</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Arctic Shift</td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td><span class="text-emerald-400">Low</span></td>
+                  <td>Bulk</td>
+                  <td>No</td>
+                  <td class="text-emerald-400">Free</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Browser Automation</td>
+                  <td><span class="text-red-400">High</span></td>
+                  <td><span class="text-yellow-400">Medium</span></td>
+                  <td>Low</td>
+                  <td>Yes</td>
+                  <td>Infrastructure</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Google SERP Scraping</td>
+                  <td><span class="text-red-400">Very High</span></td>
+                  <td><span class="text-red-400">Very High</span></td>
+                  <td>High</td>
+                  <td>No</td>
+                  <td>SERP API $$</td>
+                </tr>
+                <tr>
+                  <td class="text-white font-medium">Brandwatch (Licensed)</td>
+                  <td><span class="text-emerald-400">None</span></td>
+                  <td><span class="text-emerald-400">None</span></td>
+                  <td>Unlimited</td>
+                  <td>No</td>
+                  <td class="text-red-400">$$$$</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Realistic Architecture -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Realistic SuperReddit Architecture</h3>
+          <div class="bg-slate-900 rounded-lg p-6 font-mono text-sm overflow-x-auto mb-4">
+            <pre class="text-slate-400">
+┌──────────────────────┐
+│  Chrome Extension     │  <span class="text-emerald-400">DOM SCRAPING (primary data source)</span>
+│  (sidebar on Reddit)  │  Reads: subreddit stats, posts, comments, karma
+│                       │  <span class="text-yellow-400">No API needed for reads</span>
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│  SuperReddit Backend  │  <span class="text-cyan-400">PROCESSING + AI LAYER</span>
+│  (Next.js / Vercel)   │  - Ban Risk Score (LLM-powered)
+│                       │  - Subreddit Algorithm Simulator
+│                       │  - Content optimization
+│                       │  - Scheduling queue
+└──────────┬───────────┘
+           │
+     ┌─────┴──────┐
+     ▼            ▼
+┌─────────┐  ┌──────────────────┐
+│ User    │  │ Notifications     │  <span class="text-emerald-400">NOTIFICATION-BASED POSTING</span>
+│ OAuth   │  │ (push/email/ext)  │  "Time to post in r/SaaS!"
+│ Token   │  │                   │  User posts manually = better engagement
+└─────────┘  └──────────────────┘
+     │
+     ▼  <span class="text-yellow-400">MINIMAL API (user's own quota)</span>
+  Reddit API: profile reads, karma tracking, scheduling (optional)</pre>
+          </div>
+          <p class="text-sm">This architecture combines <strong class="text-white">all 3 recommended approaches</strong>: DOM scraping for analytics, notification-based posting for engagement, and user OAuth for optional API features. It requires <strong class="text-white">zero commercial API license</strong> to start.</p>
+        </div>
+
+        <!-- CrowdReply vs MediaFast vs SuperReddit -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Three Models Compared</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Dimension</th><th>CrowdReply</th><th>MediaFast</th><th>SuperReddit</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white">Model</td><td>Managed service (they post for you)</td><td>Strategy tool (tells you what to post)</td><td class="text-cyan-400">All-in-one (analytics + AI + guidance)</td></tr>
+                <tr><td class="text-white">Reddit API</td><td>None (browser automation)</td><td>OAuth2 (legitimate)</td><td class="text-cyan-400">Hybrid (DOM + user OAuth)</td></tr>
+                <tr><td class="text-white">Legal Risk</td><td class="text-red-400">High (ToS violations)</td><td class="text-emerald-400">Low</td><td class="text-emerald-400">Low</td></tr>
+                <tr><td class="text-white">Platform</td><td>Web app</td><td>Web app</td><td class="text-cyan-400">Chrome extension + web</td></tr>
+                <tr><td class="text-white">Target</td><td>Brands, agencies, e-commerce</td><td>Indie hackers, founders</td><td class="text-cyan-400">Creators, marketers, founders</td></tr>
+                <tr><td class="text-white">Pricing</td><td>$99-200+/mo</td><td>$39/mo or $129-189 lifetime</td><td class="text-cyan-400">Free - $89/mo</td></tr>
+                <tr><td class="text-white">Differentiator</td><td>Managed account network</td><td>Ban prevention knowledge</td><td class="text-cyan-400">Chrome extension UX + AI</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Risks & Mitigations -->
+        <div class="card rounded-xl p-6 mb-8">
+          <h3 class="text-lg font-semibold text-white mb-4">Feasibility Risks &amp; Mitigations</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="text-white">Reddit blocks DOM scraping in Chrome extensions</td>
+                  <td><span class="text-yellow-400 font-medium">Medium</span></td>
+                  <td>Reddit hasn't done this for any existing tool. SuperX has done this on Twitter for years.</td>
+                </tr>
+                <tr>
+                  <td class="text-white">Reddit requires commercial license for user OAuth tools</td>
+                  <td><span class="text-yellow-400 font-medium">Medium</span></td>
+                  <td>MediaFast operates at ~$5K MRR without apparent commercial license. Start small, license when revenue justifies it.</td>
+                </tr>
+                <tr>
+                  <td class="text-white">Reddit changes .json endpoint access</td>
+                  <td><span class="text-red-400 font-medium">High</span></td>
+                  <td>Don't depend on it as primary data source. Use as supplement to DOM scraping.</td>
+                </tr>
+                <tr>
+                  <td class="text-white">Chrome Web Store rejects extension</td>
+                  <td><span class="text-emerald-400 font-medium">Low</span></td>
+                  <td>Many Reddit extensions exist in the store. Follow Manifest V3 best practices.</td>
+                </tr>
+                <tr>
+                  <td class="text-white">Reddit's API pricing increases further</td>
+                  <td><span class="text-yellow-400 font-medium">Medium</span></td>
+                  <td>Hybrid architecture minimizes API dependency. DOM scraping provides most analytics data.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Final Assessment -->
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Final Assessment</h3>
+          <div class="grid sm:grid-cols-3 gap-4 mb-4">
+            <div class="bg-emerald-400/10 border border-emerald-400/30 rounded-lg p-4 text-center">
+              <p class="text-emerald-400 font-bold text-lg">Feasible</p>
+              <p class="text-xs text-slate-400 mt-1">Chrome extension + DOM scraping approach proven by SuperX</p>
+            </div>
+            <div class="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-4 text-center">
+              <p class="text-yellow-400 font-bold text-lg">Requires Hybrid</p>
+              <p class="text-xs text-slate-400 mt-1">Cannot rely solely on Reddit API. Must combine DOM + OAuth + notifications.</p>
+            </div>
+            <div class="bg-cyan-400/10 border border-cyan-400/30 rounded-lg p-4 text-center">
+              <p class="text-cyan-400 font-bold text-lg">Market Validated</p>
+              <p class="text-xs text-slate-400 mt-1">MediaFast ($5K MRR) and CrowdReply prove demand exists.</p>
+            </div>
+          </div>
+          <div class="space-y-2 text-sm">
+            <p><strong class="text-white">Start with zero API dependency.</strong> Build the Chrome extension with DOM scraping for analytics and notification-based posting. This alone delivers 70% of SuperReddit's value proposition.</p>
+            <p><strong class="text-white">Add user OAuth as an enhancement.</strong> Once users connect their Reddit account, unlock advanced features like karma tracking history, scheduling, and profile analytics.</p>
+            <p><strong class="text-white">License the API only when revenue justifies it.</strong> If SuperReddit reaches $5K+ MRR and needs deeper API access, negotiate a commercial license. By then, you'll have leverage and revenue to support the cost.</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 mt-16 py-8 text-center">
+      <p class="text-sm text-slate-500">SuperReddit Research Hub &middot; Compiled February 7, 2026</p>
+      <p class="text-xs text-slate-600 mt-1">Sources: superx.so, Chrome Web Store, Rob Hallam (@robj3d3), SaaS Strats, GummySearch, Postpone, Reddit API docs, Reddit Pro, CrowdReply, MediaFast, TrustMRR, Indie Hackers, Product Hunt, Trustpilot, G2, Arctic Shift, Redlib, Simon Willison, Reddit v. Perplexity lawsuit, hiQ v. LinkedIn, Brandwatch, and 60+ additional sources.</p>
+    </footer>
+  </main>
+
+  <!-- JavaScript: Scroll Spy + Mobile Menu -->
+  <script>
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const menuBtn = document.getElementById('menuBtn');
+
+    // Scroll spy
+    function updateActiveLink() {
+      let current = '';
+      sections.forEach(section => {
+        const top = section.offsetTop - 100;
+        if (window.scrollY >= top) {
+          current = section.getAttribute('id');
+        }
+      });
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+    updateActiveLink();
+
+    // Mobile menu
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+    }
+
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('open');
+    });
+
+    navLinks.forEach(link => {
+      link.addEventListener('click', closeSidebar);
+    });
+  </script>
+</body>
+</html>

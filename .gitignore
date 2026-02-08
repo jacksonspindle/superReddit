@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Next.js
+app/.next/
+app/out/
+
+# Environment variables
+.env*
+app/.env*
+
+# Build
+app/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Misc
+*.pem
