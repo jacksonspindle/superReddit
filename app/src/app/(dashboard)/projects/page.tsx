@@ -223,8 +223,8 @@ export default function ProjectsPage() {
                   whileHover={cardHover}
                   whileTap={cardTap}
                 >
-                  <Card className="group relative cursor-pointer transition-shadow hover:shadow-md">
-                    <div onClick={() => router.push(`/projects/${project.id}`)}>
+                  <Card className="group relative h-full cursor-pointer transition-shadow hover:shadow-md">
+                    <div onClick={() => router.push(`/projects/${project.id}`)} className="flex h-full flex-col">
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-lg">{project.name}</CardTitle>
@@ -246,8 +246,8 @@ export default function ProjectsPage() {
                         </div>
                         <CardDescription>{project.product_name}</CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                      <CardContent className="flex flex-1 flex-col">
+                        <p className="text-sm text-muted-foreground line-clamp-2 flex-1">
                           {project.product_description || 'No description'}
                         </p>
                         <div className="mt-3 flex items-center gap-2">
