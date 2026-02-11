@@ -168,6 +168,8 @@ export interface RedditPost {
   link_flair_text: string | null;
   is_self: boolean;
   thumbnail: string | null;
+  preview_url: string | null;
+  post_hint: string | null;
 }
 
 export interface RedditSubredditInfo {
