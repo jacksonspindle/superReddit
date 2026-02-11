@@ -44,6 +44,18 @@ export function PostCard({ post, onUsePost, isBookmarked, onToggleBookmark }: Po
             <div className="flex-1 min-w-0 space-y-2">
               <h3 className="font-medium text-sm leading-snug">{post.title}</h3>
 
+              {post.preview_url && (
+                <div className="relative w-full overflow-hidden rounded-md">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.preview_url}
+                    alt=""
+                    className="w-full max-h-48 object-cover rounded-md"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
               {post.selftext && (
                 <p className="text-xs text-muted-foreground line-clamp-3">
                   {post.selftext}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, LayoutDashboard, MessageSquare, Compass, Bookmark, LogOut } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, PenTool, MessageSquare, Compass, Bookmark, LogOut } from 'lucide-react';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,8 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const base = `/projects/${project.id}`;
 
   const navItems = [
-    { href: base, label: 'Canvas', icon: LayoutDashboard, exact: true },
+    { href: base, label: 'Dashboard', icon: LayoutDashboard, exact: true },
+    { href: `${base}/canvas`, label: 'Canvas', icon: PenTool },
     { href: `${base}/chat`, label: 'AI Chat', icon: MessageSquare },
     { href: `${base}/inspiration`, label: 'Inspiration', icon: Compass },
     { href: `${base}/bookmarks`, label: 'Bookmarks', icon: Bookmark },

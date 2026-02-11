@@ -55,6 +55,20 @@ function setMemoryCache(key: string, data: RedditApiResponse) {
 }
 
 // ---- Parser ----
+function extractPreviewUrl(data: Record<string, unknown>): string | null {
+  try {
+    const preview = data.preview as { images?: { source?: { url?: string } }[] } | undefined;
+    const sourceUrl = preview?.images?.[0]?.source?.url;
+    if (sourceUrl) {
+      // Reddit HTML-encodes URLs in preview data
+      return sourceUrl.replace(/&amp;/g, '&');
+    }
+  } catch {
+    // ignore malformed preview data
+  }
+  return null;
+}
+
 function parseRedditPost(raw: Record<string, unknown>): RedditPost {
   const data = raw.data as Record<string, unknown>;
   return {
@@ -71,6 +85,8 @@ function parseRedditPost(raw: Record<string, unknown>): RedditPost {
     link_flair_text: (data.link_flair_text as string) || null,
     is_self: data.is_self as boolean,
     thumbnail: (data.thumbnail as string) || null,
+    preview_url: extractPreviewUrl(data),
+    post_hint: (data.post_hint as string) || null,
   };
 }
 
