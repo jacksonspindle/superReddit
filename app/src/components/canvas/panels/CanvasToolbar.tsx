@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Sparkles, Loader2, FileText, Bookmark, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Plus, Sparkles, Loader2, FileText, Bookmark } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -189,6 +189,7 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen, onToggleBoo
             url: productNode.data.url || undefined,
             audience: productNode.data.audience || undefined,
             tone: productNode.data.tone,
+            writingStyles: (productNode.data as ProductNodeData).writingStyles || project.writing_styles || [],
           },
           examplePosts: selectedPosts.map((p) => ({
             title: (p.data as ExamplePostNodeData).title,
@@ -302,15 +303,12 @@ export function CanvasToolbar({ project, onToggleDrafts, draftsOpen, onToggleBoo
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">r/{s.name}</span>
-                          <span className={`flex items-center gap-1 text-[10px] font-medium rounded-full px-2 py-0.5 ${
-                            s.risk === 'low' ? 'bg-green-500/10 text-green-500' :
-                            s.risk === 'medium' ? 'bg-yellow-500/10 text-yellow-500' :
-                            'bg-red-500/10 text-red-500'
+                          <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${
+                            s.match === 'best' ? 'bg-green-500/10 text-green-500' :
+                            s.match === 'good' ? 'bg-blue-500/10 text-blue-500' :
+                            'bg-muted text-muted-foreground'
                           }`}>
-                            {s.risk === 'low' ? <ShieldCheck className="h-2.5 w-2.5" /> :
-                             s.risk === 'medium' ? <ShieldAlert className="h-2.5 w-2.5" /> :
-                             <AlertTriangle className="h-2.5 w-2.5" />}
-                            {s.risk}
+                            {s.match === 'best' ? 'Best match' : s.match === 'good' ? 'Good match' : 'Relevant'}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.reason}</p>

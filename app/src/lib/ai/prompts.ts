@@ -16,8 +16,60 @@ What makes a good Reddit marketing post:
 - Admits flaws or limitations (builds trust)
 - Fits naturally into the subreddit's content mix`;
 
+// Maps writing style IDs to names and instructions for the AI
+const WRITING_STYLE_DESCRIPTIONS: Record<string, { name: string; instruction: string }> = {
+  'struggle-discovery': {
+    name: 'The Struggle & Discovery',
+    instruction: 'Write as a personal narrative: open with a specific pain point, walk through failed attempts, then reveal the product as the resolution. Use vulnerable, conversational language.',
+  },
+  'curious-crowd': {
+    name: 'The Curious Crowd',
+    instruction: 'Frame as a genuine question that invites community discussion. Position yourself as seeking advice while strategically surfacing the problem the product solves.',
+  },
+  'builders-showcase': {
+    name: "The Builder's Showcase",
+    instruction: 'Present as something you built. Mention specific effort invested, your motivation, and ask for honest feedback. Be proud but humble.',
+  },
+  'psa-drop': {
+    name: 'The PSA Drop',
+    instruction: 'Frame as an urgent insider tip or public service announcement. Lead with a problem or risk, then position the product as one recommendation among several.',
+  },
+  'showdown': {
+    name: 'The Showdown',
+    instruction: 'Structure as a side-by-side comparison where you tested multiple options. Be analytical, acknowledge competitor strengths, and declare a winner with nuance.',
+  },
+  'open-floor': {
+    name: 'The Open Floor',
+    instruction: 'Post a broad, open-ended question designed to spark discussion. Do NOT mention the product in the post body — save it for a natural comment reply.',
+  },
+  'playbook': {
+    name: 'The Playbook',
+    instruction: 'Write a step-by-step tutorial or guide. The product should appear naturally as a tool used in one step, not the focus of the entire guide.',
+  },
+  'contrarian': {
+    name: 'The Contrarian',
+    instruction: 'Open with a bold, slightly controversial opinion that challenges conventional wisdom. Back it with personal experience and position the product as evidence of the alternative approach.',
+  },
+  'experiment-log': {
+    name: 'The Experiment Log',
+    instruction: 'Document a structured experiment with specific metrics, timeframes, and measurable outcomes. Include exact numbers, surprises, and honest takeaways.',
+  },
+  'casual-drop': {
+    name: 'The Casual Drop',
+    instruction: 'Write a genuine post about a broader topic and mention the product in exactly one sentence as a natural, offhand detail. No pitch, no emphasis, no link.',
+  },
+  'confessional-ama': {
+    name: 'The Confessional AMA',
+    instruction: 'Write as a transparent founder or expert opening up for questions. Share real numbers, mistakes, and behind-the-scenes details. End with "AMA" or invite questions.',
+  },
+  'empathy-hook': {
+    name: 'The Empathy Hook',
+    instruction: 'Open by validating a common frustration the audience feels. Diagnose the real problem, reframe it, then gently introduce the product as one way to address it.',
+  },
+};
+
 export function buildGeneratePrompt(
-  product: { name: string; description: string; url?: string; audience?: string; tone: string },
+  product: { name: string; description: string; url?: string; audience?: string; tone: string; writingStyles?: string[] },
   examplePosts: { title: string; body: string | null; score: number; subreddit: string; numComments: number }[],
   count: number = 2
 ): string {
@@ -30,25 +82,42 @@ Body: ${p.body || '[No body text - link post]'}`
     )
     .join('\n\n');
 
+  // Build writing style instructions if styles were selected
+  const styles = product.writingStyles || [];
+  let styleSection = '';
+  if (styles.length > 0) {
+    const styleDescriptions = styles
+      .map((id) => WRITING_STYLE_DESCRIPTIONS[id])
+      .filter(Boolean)
+      .map((s) => `- **${s.name}:** ${s.instruction}`)
+      .join('\n');
+
+    styleSection = `\n## Preferred Writing Styles
+The user has chosen these Reddit post formats. Each generated post MUST use one of these styles. Vary the style across posts — use a different style for each post when possible.
+
+${styleDescriptions}
+`;
+  }
+
   return `## Product Context
 - **Product:** ${product.name}
 - **Description:** ${product.description}
 ${product.url ? `- **URL:** ${product.url}` : ''}
 ${product.audience ? `- **Target Audience:** ${product.audience}` : ''}
 - **Desired Tone:** ${product.tone}
-
+${styleSection}
 ## Successful Example Posts
 These posts performed well in their subreddits. Study their structure, tone, and engagement patterns:
 
 ${examplesText}
 
 ## Task
-Generate ${count} Reddit posts that promote "${product.name}" while matching the style and approach of the examples above.
+Generate ${count} Reddit posts that promote "${product.name}" while matching the style and approach of the examples above.${styles.length > 0 ? ' Each post MUST follow one of the preferred writing styles listed above. Include the style name in the strategy note.' : ''}
 
 For each post, provide:
 1. **Title** — Attention-grabbing, fits the subreddit style
 2. **Body** — Full post body in Reddit markdown
-3. **Strategy Note** — Brief explanation of why this approach works (1-2 sentences)
+3. **Strategy Note** — Brief explanation of why this approach works (1-2 sentences)${styles.length > 0 ? ' Include which writing style was used.' : ''}
 
 Format your response as JSON:
 {
@@ -103,37 +172,61 @@ Use this context to give more relevant and specific advice.`;
 
 // ---- Subreddit Discovery ----
 
-export const SUGGEST_SUBREDDITS_SYSTEM_PROMPT = `You are an expert Reddit strategist with deep knowledge of Reddit's subreddit ecosystem. You help product creators find the best subreddits to market their products authentically.
+export const SUGGEST_SUBREDDITS_SYSTEM_PROMPT = `You are an expert Reddit strategist. You help product creators find the best subreddits to market their products authentically.
 
-Your recommendations should:
-- Include a mix of large (>100K), medium (10K-100K), and niche (<10K) subreddits
-- Prioritize subreddits where self-promotion posts can succeed (not just pure discussion subs)
-- Consider the product's audience, tone, and category
-- Warn about subreddits with strict anti-promotion rules
-- Include subreddits people wouldn't think of (adjacent communities, hobby-specific, regional)
+CRITICAL RULES:
+- The TARGET AUDIENCE field is your #1 signal. These are the exact communities the user wants to reach. Find subreddits where those people actually congregate.
+- ONLY recommend subreddits that are directly relevant to the product's SPECIFIC niche. Do NOT suggest adjacent or tangential communities for other markets, games, or categories unless the product explicitly covers them.
+- If the product is about one specific thing (e.g. One Piece), do NOT suggest subreddits for other things in the same broader category (e.g. Pokemon, Magic: The Gathering).
+- NEVER suggest generic "showcase your project" subreddits (e.g. InternetIsBeautiful, SideProject, etc.) — only suggest communities where the target audience already exists.
+- Niche subreddits with small but highly targeted audiences are MORE valuable than large generic ones. Prioritize specificity over size.
+- NEVER suggest subreddits with fewer than 1,000 members. They are too small to be useful for promotion.
+- For match quality: "best" = the target audience IS this community, "good" = strong overlap with the target audience, "relevant" = related community worth trying.`;
 
-Always return real subreddits that actually exist on Reddit.`;
+export function buildSuggestSubredditsPrompt(
+  product: {
+    name: string;
+    description: string;
+    url?: string;
+    audience?: string;
+    tone: string;
+  },
+  discoveredSubreddits?: { name: string; subscribers: number; description: string }[],
+  existingSubreddits?: string[]
+): string {
+  const hasExisting = existingSubreddits && existingSubreddits.length > 0;
 
-export function buildSuggestSubredditsPrompt(product: {
-  name: string;
-  description: string;
-  url?: string;
-  audience?: string;
-  tone: string;
-}): string {
+  const existingSection = hasExisting
+    ? `\n## Subreddits Already Chosen by the User\nThe user has already added these subreddits to their campaign:\n${existingSubreddits.map((s) => `- r/${s}`).join('\n')}\n\nSuggest subreddits that are RELATED to or overlap with these communities. Think about: sister subreddits, adjacent interest communities, and subreddits where the same audience also participates. Do NOT suggest any of these subreddits — they are already added.\n`
+    : '';
+
+  const discoveredSection = discoveredSubreddits?.length
+    ? `\n## Real Subreddits Found on Reddit\nThese were found by searching Reddit directly. Include any that are relevant and add your own suggestions:\n${discoveredSubreddits.map((s) => `- r/${s.name} (${s.subscribers.toLocaleString()} members): ${s.description}`).join('\n')}\n`
+    : '';
+
+  const taskDescription = hasExisting
+    ? `Suggest 8-10 additional subreddits that complement the user's existing picks. Focus on communities that share the same audience as the subreddits they already chose — sister communities, related interest groups, and niche offshoots.`
+    : `Suggest 10-12 subreddits where this product's TARGET AUDIENCE actually spends time. Every suggestion must be a community where the people described above are active members — not just a subreddit where you could theoretically post about the product.`;
+
   return `## Product
 - **Name:** ${product.name}
 - **Description:** ${product.description}
 ${product.url ? `- **URL:** ${product.url}` : ''}
-${product.audience ? `- **Target Audience:** ${product.audience}` : ''}
 - **Tone:** ${product.tone}
 
+${product.audience ? `## Target Audience${!hasExisting ? ' (HIGHEST PRIORITY)' : ''}\nThese are the exact people we want to reach. Every subreddit you suggest should contain these people:\n**${product.audience}**\n\nFind subreddits where these specific groups gather. Niche communities that perfectly match these audiences are far more valuable than large generic ones.\n` : ''}
+${existingSection}
+${discoveredSection}
 ## Task
-Suggest 10-12 subreddits where this product could be authentically promoted. For each subreddit, provide:
+${taskDescription}
+
+IMPORTANT: Include a mix of subreddit sizes. At least 3-4 should be small niche communities (1K-10K members) that are highly specific to the target audience. These tight-knit communities are often the most valuable for authentic promotion. Do not only suggest large popular subreddits. Never suggest subreddits with fewer than 1,000 members.
+
+${discoveredSubreddits?.length ? 'Prioritize the real subreddits found above if they match the target audience, then add your own. ' : ''}For each subreddit, provide:
 1. The subreddit name (without r/ prefix)
 2. Why it's a good fit (1 sentence)
 3. A recommended approach for that specific community (1 sentence)
-4. Risk level: "low" (self-promo friendly), "medium" (allowed with value-add), or "high" (strict rules, tread carefully)
+4. Match quality: "best" (core niche community), "good" (strong audience overlap), or "relevant" (tangentially related but worth targeting). Order results by match quality, best first.
 
 Format as JSON:
 {
@@ -142,7 +235,7 @@ Format as JSON:
       "name": "subredditname",
       "reason": "Why this subreddit fits...",
       "approach": "How to post here...",
-      "risk": "low"
+      "match": "best"
     }
   ]
 }`;
@@ -152,7 +245,7 @@ export interface SuggestedSubreddit {
   name: string;
   reason: string;
   approach: string;
-  risk: 'low' | 'medium' | 'high';
+  match: 'best' | 'good' | 'relevant';
 }
 
 // ---- Subreddit Analysis ----

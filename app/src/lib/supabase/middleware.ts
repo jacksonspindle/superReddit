@@ -29,25 +29,57 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const pathname = request.nextUrl.pathname;
+
   const isAuthPage =
-    request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/signup');
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup');
+
+  const isOnboardingPage = pathname.startsWith('/onboarding');
 
   const isProtectedRoute =
-    request.nextUrl.pathname.startsWith('/projects') ||
-    request.nextUrl.pathname.startsWith('/chat') ||
-    request.nextUrl.pathname.startsWith('/inspiration');
+    pathname.startsWith('/projects') ||
+    pathname.startsWith('/chat') ||
+    pathname.startsWith('/inspiration') ||
+    pathname.startsWith('/bookmarks');
 
-  if (!user && isProtectedRoute) {
+  // Unauthenticated users can't access protected routes or onboarding
+  if (!user && (isProtectedRoute || isOnboardingPage)) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
+  // Authenticated users on auth pages → redirect to projects
   if (user && isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/projects';
     return NextResponse.redirect(url);
+  }
+
+  // Onboarding gate: check if authenticated user has completed onboarding
+  if (user && (isProtectedRoute || isOnboardingPage)) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', user.id)
+      .single();
+
+    const onboardingCompleted = profile?.onboarding_completed ?? false;
+
+    // User hasn't completed onboarding → redirect to onboarding
+    if (!onboardingCompleted && isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/onboarding';
+      return NextResponse.redirect(url);
+    }
+
+    // User already completed onboarding → redirect away from onboarding page
+    if (onboardingCompleted && isOnboardingPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/projects';
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ArrowRight, ArrowLeft, Sparkles, Loader2, CheckCircle2, AlertTriangle, Shield, Check } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Sparkles, Loader2, AlertTriangle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,10 +67,10 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
       const json = await res.json();
       if (json.subreddits) {
         setSuggestions(json.subreddits);
-        // Auto-select low-risk ones
+        // Auto-select best matches
         const autoSelect = new Set<string>();
         json.subreddits.forEach((s: SuggestedSubreddit) => {
-          if (s.risk === 'low') autoSelect.add(s.name);
+          if (s.match === 'best') autoSelect.add(s.name);
         });
         setSelectedSubs(autoSelect);
       }
@@ -86,7 +86,7 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
     setSelectedSubs((prev) => new Set(prev).add(name));
     // Also add as a suggestion card for display
     if (!suggestions.find((s) => s.name === name)) {
-      setSuggestions((prev) => [...prev, { name, reason: 'Manually added', approach: '', risk: 'medium' as const }]);
+      setSuggestions((prev) => [...prev, { name, reason: 'Manually added', approach: '', match: 'relevant' as const }]);
     }
     setManualInput('');
   }
@@ -153,16 +153,16 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
     onComplete();
   }
 
-  const riskColors = {
-    low: 'bg-green-500/10 text-green-600 border-green-500/20',
-    medium: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-    high: 'bg-red-500/10 text-red-600 border-red-500/20',
+  const matchColors = {
+    best: 'bg-green-500/10 text-green-600 border-green-500/20',
+    good: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    relevant: 'bg-muted text-muted-foreground border-border',
   };
 
-  const riskIcons = {
-    low: <CheckCircle2 className="h-3.5 w-3.5" />,
-    medium: <AlertTriangle className="h-3.5 w-3.5" />,
-    high: <Shield className="h-3.5 w-3.5" />,
+  const matchLabels = {
+    best: 'Best match',
+    good: 'Good match',
+    relevant: 'Relevant',
   };
 
   return (
@@ -320,9 +320,8 @@ export function OnboardingWizard({ project, onComplete }: OnboardingWizardProps)
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium text-sm">r/{sub.name}</span>
-                                    <Badge variant="outline" className={`text-[10px] h-5 gap-1 ${riskColors[sub.risk]}`}>
-                                      {riskIcons[sub.risk]}
-                                      {sub.risk} risk
+                                    <Badge variant="outline" className={`text-[10px] h-5 ${matchColors[sub.match]}`}>
+                                      {matchLabels[sub.match]}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">{sub.reason}</p>
