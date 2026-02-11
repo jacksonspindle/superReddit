@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperX App Walkthrough & RedditX Comparison</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a25;
+            --border: #2a2a3a;
+            --text: #e8e8f0;
+            --text-muted: #8888a0;
+            --orange: #ff6b35;
+            --orange-dim: rgba(255,107,53,0.15);
+            --blue: #4a9eff;
+            --blue-dim: rgba(74,158,255,0.15);
+            --green: #34d399;
+            --green-dim: rgba(52,211,153,0.15);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167,139,250,0.15);
+            --red: #f87171;
+            --red-dim: rgba(248,113,113,0.15);
+            --yellow: #fbbf24;
+            --yellow-dim: rgba(251,191,36,0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Navigation */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(10,10,15,0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+        .top-nav .logo {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--orange);
+        }
+        .top-nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+        }
+        .top-nav a:hover { color: var(--orange); }
+        .nav-spacer { flex: 1; }
+        .section-tabs {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .section-tab {
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .section-tab:hover, .section-tab.active {
+            background: var(--orange);
+            color: white;
+            border-color: var(--orange);
+        }
+
+        /* Hero */
+        .hero {
+            margin-top: 60px;
+            padding: 4rem 2rem 3rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--surface) 0%, var(--bg) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+        .hero h1 span { color: var(--orange); }
+        .hero p {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        /* Section headers */
+        .section-header {
+            text-align: center;
+            padding: 3rem 2rem 1rem;
+        }
+        .section-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .section-header h2 span { color: var(--orange); }
+        .section-header p {
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .section-divider {
+            max-width: 1200px;
+            margin: 3rem auto;
+            border: none;
+            border-top: 2px solid var(--border);
+        }
+
+        /* Annotated screenshot blocks */
+        .walkthrough-step {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .step-number {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--orange);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        .step-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+        .step-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Screenshot container with annotations */
+        .screenshot-container {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .screenshot-container img {
+            width: 100%;
+            display: block;
+            border-radius: 12px;
+        }
+
+        /* Annotation callouts */
+        .callout {
+            position: absolute;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+        .callout-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+        }
+        .callout-dot.orange { background: var(--orange); }
+        .callout-dot.blue { background: var(--blue); }
+        .callout-dot.green { background: var(--green); }
+        .callout-dot.purple { background: var(--purple); }
+        .callout-dot.red { background: var(--red); }
+        .callout-dot.yellow { background: #d97706; }
+        .callout-label {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1.4;
+            white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.15);
+            max-width: 220px;
+            white-space: normal;
+        }
+        .callout-label.orange { border-color: var(--orange); color: #ffb088; }
+        .callout-label.blue { border-color: var(--blue); color: #93c5fd; }
+        .callout-label.green { border-color: var(--green); color: #6ee7b7; }
+        .callout-label.purple { border-color: var(--purple); color: #c4b5fd; }
+        .callout-label.red { border-color: var(--red); color: #fca5a5; }
+        .callout-label.yellow { border-color: var(--yellow); color: #fcd34d; }
+
+        /* Connector lines */
+        .callout-line {
+            position: absolute;
+            border: none;
+            pointer-events: none;
+        }
+        .callout-line.orange { border-top: 2px dashed var(--orange); }
+        .callout-line.blue { border-top: 2px dashed var(--blue); }
+
+        /* Explanation cards below screenshots */
+        .step-explanation {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+            margin-bottom: 3rem;
+        }
+        .explain-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            border-left: 3px solid var(--orange);
+        }
+        .explain-card.blue-left { border-left-color: var(--blue); }
+        .explain-card.green-left { border-left-color: var(--green); }
+        .explain-card.purple-left { border-left-color: var(--purple); }
+        .explain-card.red-left { border-left-color: var(--red); }
+        .explain-card.yellow-left { border-left-color: var(--yellow); }
+        .explain-card h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+        .explain-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Flow connector between steps */
+        .flow-arrow {
+            text-align: center;
+            padding: 1rem 0;
+            font-size: 1.5rem;
+            color: var(--border);
+        }
+
+        /* ====== SECTION 2: COMPARISON ====== */
+        .comparison-block {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        .compare-side {
+            padding: 1.5rem;
+        }
+        .compare-side.superx {
+            background: var(--surface);
+            border-right: 2px solid var(--border);
+        }
+        .compare-side.redditx {
+            background: linear-gradient(135deg, var(--surface) 0%, rgba(255,107,53,0.05) 100%);
+        }
+        .compare-side h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge.theirs { background: var(--blue-dim); color: var(--blue); }
+        .badge.ours { background: var(--orange-dim); color: var(--orange); }
+        .badge.upgrade { background: var(--green-dim); color: var(--green); }
+        .compare-side ul {
+            list-style: none;
+            padding: 0;
+        }
+        .compare-side li {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            padding: 0.3rem 0;
+            padding-left: 1.2rem;
+            position: relative;
+        }
+        .compare-side li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.65rem;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .compare-side.superx li::before { background: var(--blue); }
+        .compare-side.redditx li::before { background: var(--orange); }
+        .compare-side .screenshot-thumb {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 0.75rem;
+            border: 1px solid var(--border);
+        }
+
+        /* Implementation idea cards */
+        .impl-idea {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--green);
+        }
+        .impl-idea h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--green);
+            margin-bottom: 0.5rem;
+        }
+        .impl-idea p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .impl-idea .priority {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+        }
+        .priority.p1 { background: var(--red-dim); color: var(--red); }
+        .priority.p2 { background: var(--yellow-dim); color: var(--yellow); }
+        .priority.p3 { background: var(--blue-dim); color: var(--blue); }
+
+        /* Comparison table */
+        .feature-compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.82rem;
+        }
+        .feature-compare-table th {
+            background: var(--surface2);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border);
+        }
+        .feature-compare-table th:nth-child(2) { color: var(--blue); }
+        .feature-compare-table th:nth-child(3) { color: var(--orange); }
+        .feature-compare-table td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .feature-compare-table tr:hover td {
+            background: var(--surface);
+        }
+        .check { color: var(--green); font-weight: 700; }
+        .cross { color: var(--red); opacity: 0.5; }
+        .better { color: var(--orange); font-weight: 600; }
+
+        /* Back links */
+        .back-links {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+        .back-links a {
+            color: var(--orange);
+            text-decoration: none;
+            margin: 0 1rem;
+            font-size: 0.9rem;
+        }
+        .back-links a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .compare-grid { grid-template-columns: 1fr; }
+            .compare-side.superx { border-right: none; border-bottom: 2px solid var(--border); }
+            .hero h1 { font-size: 1.8rem; }
+            .step-explanation { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="top-nav">
+    <div class="logo">SuperX Walkthrough</div>
+    <div class="nav-spacer"></div>
+    <div class="section-tabs">
+        <a href="#walkthrough" class="section-tab active">App Walkthrough</a>
+        <a href="#comparison" class="section-tab">RedditX Comparison</a>
+        <a href="index.html" class="section-tab">SuperX Research</a>
+        <a href="reddit-blueprint.html" class="section-tab">Blueprint</a>
+    </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+    <h1>SuperX <span>Complete App Walkthrough</span></h1>
+    <p>Every screen, every feature, annotated and explained. Then mapped to what we're building for Reddit.</p>
+</div>
+
+<!-- ========================================== -->
+<!-- SECTION 1: FULL APP WALKTHROUGH            -->
+<!-- ========================================== -->
+<div id="walkthrough">
+    <div class="section-header">
+        <h2>Section 1: <span>App Walkthrough</span></h2>
+        <p>The complete SuperX experience from first sign-up to daily usage, in chronological order.</p>
+    </div>
+
+    <!-- STEP 1: WRITING DNA -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">1</div>
+            <div>
+                <div class="step-title">Writing DNA &mdash; Style Calibration</div>
+                <div class="step-subtitle">Onboarding Step 1 of 5 &bull; app.superx.so/onboarding</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0101.jpg" alt="Writing DNA - Tinder-style tweet swiping">
+            <!-- Callout: Navigation steps -->
+            <div class="callout" style="top: 8%; left: 1%; flex-direction: column;">
+                <div style="display:flex; align-items:center; gap:0.4rem;">
+                    <div class="callout-dot orange">A</div>
+                    <div class="callout-label orange">5-step onboarding funnel: Writing DNA &rarr; Profile &rarr; Creators &rarr; Extension &rarr; Products</div>
+                </div>
+            </div>
+            <!-- Callout: Tweet card -->
+            <div class="callout" style="top: 25%; right: 5%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">Tweet card from @superx. Real tweets shown to calibrate your voice preferences.</div>
+            </div>
+            <!-- Callout: Like/Pass -->
+            <div class="callout" style="bottom: 20%; right: 3%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">Tinder-style Like/Pass buttons. Swipe through 12 tweets total. "4 of 12" counter tracks progress.</div>
+            </div>
+            <!-- Callout: Great choices -->
+            <div class="callout" style="bottom: 10%; right: 15%;">
+                <div class="callout-dot purple">D</div>
+                <div class="callout-label purple">"Great choices!" &mdash; positive reinforcement during swiping keeps engagement high.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>What It Does</h4>
+                <p>Shows 12 real tweets and asks you to Like or Pass, Tinder-style. This trains the AI on your preferred writing tone &mdash; whether you like punchy one-liners, storytelling, humor, or tactical advice.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Why It's Smart</h4>
+                <p>Instead of asking users to describe their style (which most can't), they use behavioral calibration. Your swipes become training data for the AI writer. This is the foundation for all personalized content generation.</p>
+            </div>
+            <div class="explain-card green-left">
+                <h4>UX Pattern</h4>
+                <p>The Tinder swipe mechanic is intentionally fun and addictive. It reduces onboarding drop-off because users enjoy the process. The "Great choices!" micro-copy reinforces engagement.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 2: CREATORS -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">2</div>
+            <div>
+                <div class="step-title">Favorite Creators &mdash; Voice Models</div>
+                <div class="step-subtitle">Onboarding Step 3 of 5 &bull; Creators selection</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0102.jpg" alt="Choose favorite creators">
+            <div class="callout" style="top: 15%; left: 5%;">
+                <div class="callout-dot orange">A</div>
+                <div class="callout-label orange">Choose up to 3 Twitter/X accounts whose style you admire. Their writing becomes a reference for AI.</div>
+            </div>
+            <div class="callout" style="top: 40%; left: 30%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">"Suggested based on tweets you liked" &mdash; auto-suggestions from the Writing DNA step.</div>
+            </div>
+            <div class="callout" style="bottom: 25%; right: 5%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">"Selected Voices (0/3)" &mdash; max 3 creators. Search bar to find any X user.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>What It Does</h4>
+                <p>Lets you pick up to 3 Twitter creators you admire. SuperX then analyzes their tweet styles, formats, and engagement patterns to further fine-tune your AI writing voice.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Why It's Smart</h4>
+                <p>Combines your Like/Pass data (what you enjoy reading) with creator selection (who you want to sound like). Two data points for personalization. The auto-suggestions from Step 1 make this feel connected and seamless.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 3: CHROME EXTENSION -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">3</div>
+            <div>
+                <div class="step-title">Chrome Extension &mdash; Install Prompt</div>
+                <div class="step-subtitle">Onboarding Step 4 of 5 &bull; Extension setup</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0103.jpg" alt="Chrome Extension install prompt">
+            <div class="callout" style="top: 10%; left: 5%;">
+                <div class="callout-dot orange">A</div>
+                <div class="callout-label orange">"Chrome Extension Included" &mdash; positioned as a bonus, not a requirement. Can skip.</div>
+            </div>
+            <div class="callout" style="top: 35%; left: 25%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">Extension preview shows the actual UI: tweet analytics, engagement heatmap, activity calendar, and stats.</div>
+            </div>
+            <div class="callout" style="bottom: 20%; right: 5%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">Three feature highlights: Advanced Insights, AI Chat, Growth Tracking. Sells the value before install.</div>
+            </div>
+            <div class="callout" style="bottom: 10%; right: 25%;">
+                <div class="callout-dot purple">D</div>
+                <div class="callout-label purple">"Skip this step" option. No-pressure upsell. Smart &mdash; reduces onboarding friction.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>What It Does</h4>
+                <p>Prompts users to install the Chrome extension during onboarding. Shows a visual preview of what the extension looks like in action &mdash; engagement heatmaps, analytics overlays, and AI chat directly on Twitter.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Key Features Shown</h4>
+                <p><strong>Advanced Insights:</strong> Analytics overlay on tweets. <strong>AI Chat:</strong> Write tweets from within Twitter. <strong>Growth Tracking:</strong> Follower/engagement monitoring with calendar heatmap.</p>
+            </div>
+            <div class="explain-card green-left">
+                <h4>UX Pattern</h4>
+                <p>The extension preview acts as a mini product demo. Showing the actual UI builds desire before asking for the install commitment. The "Skip" option prevents abandonment.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 4: PRODUCTS -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">4</div>
+            <div>
+                <div class="step-title">Products &mdash; Link Your Business</div>
+                <div class="step-subtitle">Onboarding Step 5 of 5 &bull; Product promotion setup</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0104.jpg" alt="Add your products">
+            <div class="callout" style="top: 5%; left: 5%;">
+                <div class="callout-dot orange">A</div>
+                <div class="callout-label orange">"Your Products" &mdash; add up to 5 product links you want to promote through your tweets.</div>
+            </div>
+            <div class="callout" style="top: 35%; left: 15%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">"Product Links (0/5)" &mdash; clear visual showing capacity. "+ Add Product" button.</div>
+            </div>
+            <div class="callout" style="bottom: 15%; right: 5%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">"We automatically analyze your product pages to help create relevant content" &mdash; AI scrapes your landing page to understand what you sell.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>What It Does</h4>
+                <p>Users paste links to their products/services. SuperX automatically scrapes and analyzes these pages, then uses that context to generate tweets that naturally promote your products without being spammy.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Why It's Smart</h4>
+                <p>This is the monetization hook. By knowing what users sell, every AI-generated tweet can subtly weave in product mentions. It turns the AI from a generic writer into a <em>marketing machine</em> specific to your business.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 5: WELCOME SCREEN -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">5</div>
+            <div>
+                <div class="step-title">Welcome Screen &mdash; Onboarding Complete</div>
+                <div class="step-subtitle">First-time dashboard landing &bull; app.superx.so/home</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0105.jpg" alt="Welcome screen">
+            <div class="callout" style="top: 3%; left: 5%;">
+                <div class="callout-dot red">A</div>
+                <div class="callout-label red">Product Hunt launch banner &mdash; "We're live on Product Hunt today!" Social proof + urgency.</div>
+            </div>
+            <div class="callout" style="top: 30%; left: 15%;">
+                <div class="callout-dot orange">B</div>
+                <div class="callout-label orange">"Hey John!" personalized welcome with avatar. Founder-feel personal message: "reach out to me here."</div>
+            </div>
+            <div class="callout" style="top: 50%; left: 30%;">
+                <div class="callout-dot blue">C</div>
+                <div class="callout-label blue">Big red CTA: "Start Growing on X" &mdash; single clear action to take next.</div>
+            </div>
+            <div class="callout" style="bottom: 10%; right: 3%;">
+                <div class="callout-dot green">D</div>
+                <div class="callout-label green">Quick-start actions sidebar: Schedule a post, Engage in AI hunt, Write with AI, View analytics.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>Personalization</h4>
+                <p>"Hey John!" with your avatar and a personal message from the founder. This founder-direct tone builds trust and reduces churn. It feels like a personal tool, not a SaaS product.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Product Hunt Banner</h4>
+                <p>Live launch banner asking for upvotes. Smart timing &mdash; users who just onboarded are most engaged and most likely to upvote. Turns users into launch advocates.</p>
+            </div>
+            <div class="explain-card green-left">
+                <h4>Start Growing CTA</h4>
+                <p>Instead of dumping users on a complex dashboard, they get a single focused CTA. Reduces decision paralysis. The sidebar provides secondary options for power users.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 6: DASHBOARD + CREDITS -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">6</div>
+            <div>
+                <div class="step-title">Dashboard &mdash; Getting Started Checklist + Credits</div>
+                <div class="step-subtitle">Main home view &bull; Gamified onboarding continues</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: var(--surface);">
+            <div style="position: relative;">
+                <img src="screenshots/IMG_0107.jpg" alt="Dashboard home" style="border-radius: 8px;">
+                <div class="callout" style="top: 25%; left: 3%;">
+                    <div class="callout-dot orange">A</div>
+                    <div class="callout-label orange">Getting Started 0/5 checklist with credit rewards for each action.</div>
+                </div>
+                <div class="callout" style="top: 60%; left: 3%;">
+                    <div class="callout-dot blue">B</div>
+                    <div class="callout-label blue">"Upcoming" scheduled posts panel. Empty state prompts "Schedule a post."</div>
+                </div>
+                <div class="callout" style="bottom: 5%; right: 3%;">
+                    <div class="callout-dot green">C</div>
+                    <div class="callout-label green">Right sidebar: quick actions for Engage, Write with AI, Viral library, Analytics, Schedule.</div>
+                </div>
+            </div>
+            <div style="position: relative;">
+                <img src="screenshots/IMG_0106.jpg" alt="AI Credits panel" style="border-radius: 8px;">
+                <div class="callout" style="top: 10%; left: 3%;">
+                    <div class="callout-dot purple">D</div>
+                    <div class="callout-label purple">AI Credits system: 200/day on trial. Resets every 24h. "Skip Trial & Upgrade" upsell.</div>
+                </div>
+                <div class="callout" style="bottom: 25%; left: 3%;">
+                    <div class="callout-dot red">E</div>
+                    <div class="callout-label red">40% referral program link &mdash; affiliate growth loop built into the top bar.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>Gamified Checklist</h4>
+                <p><strong>5 tasks, each with credit rewards:</strong> Finish context (+100), Create first post (+20), Publish (+50), Send Engage reply (+50), Schedule (+50). Total: 270 bonus credits for completing onboarding actions. This drives first-session feature adoption.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Credit System</h4>
+                <p><strong>200 credits/day on trial.</strong> Each AI generation costs ~15 credits. That's roughly 13 AI-written tweets per day on free. Credits create artificial scarcity that drives upgrades. The "Skip Trial & Upgrade" button is always visible.</p>
+            </div>
+            <div class="explain-card purple-left">
+                <h4>Referral Loop</h4>
+                <p><strong>40% referral commission</strong> visible in the top bar at all times. Users become affiliates automatically. This is how SuperX scales word-of-mouth &mdash; every user is a potential salesperson.</p>
+            </div>
+            <div class="explain-card green-left">
+                <h4>Empty States Done Right</h4>
+                <p>Every empty section (Upcoming, Followers) has a clear CTA instead of blank space. "No posts scheduled" &rarr; "Schedule a post" button. Empty states are mini conversion opportunities.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 7: AI WRITER -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">7</div>
+            <div>
+                <div class="step-title">AI Writer &mdash; Conversational Content Creation</div>
+                <div class="step-subtitle">Create &rarr; AI Writer &bull; app.superx.so/ai-writer</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0110.jpg" alt="AI Writer interface">
+            <div class="callout" style="top: 5%; left: 5%;">
+                <div class="callout-dot orange">A</div>
+                <div class="callout-label orange">"Create engaging content in one click. Our AI researches trending viral formats." Chat-based interface.</div>
+            </div>
+            <div class="callout" style="top: 30%; left: 10%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">User types idea naturally: "I want to write about a reddit marketing tool im making." Conversational, not form-based.</div>
+            </div>
+            <div class="callout" style="top: 50%; left: 10%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">3 angles generated: Paragraph (story), One-liner (punchy), Paragraph (problem/solution). Each tagged with format type.</div>
+            </div>
+            <div class="callout" style="bottom: 10%; right: 5%;">
+                <div class="callout-dot purple">D</div>
+                <div class="callout-label purple">"Agent Mode" and "Auto" toggles. Agent Mode likely does deeper research. "+New chat" for fresh sessions.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>How It Works</h4>
+                <p>Chat-based interface, not a form. You describe your idea conversationally. AI generates 3 different angles with format labels (Paragraph, One-liner). You select one, then refine. Uses ~15 credits per generation out of 200 daily.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>3-Angle Strategy</h4>
+                <p>Giving users choices is key. Instead of one output to accept/reject, they get 3 distinct approaches. This reduces "AI doesn't get me" friction and lets users feel in control. Each angle is tagged (Paragraph, One-liner) so you know the format instantly.</p>
+            </div>
+            <div class="explain-card purple-left">
+                <h4>Agent Mode</h4>
+                <p>Likely enables deeper research &mdash; the AI analyzes trending posts, your past performance, and competitor content before generating. The "Auto" toggle may auto-generate based on trending topics without user input.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 8: VIRAL LIBRARY -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">8</div>
+            <div>
+                <div class="step-title">Viral Library &mdash; Proven Content Discovery</div>
+                <div class="step-subtitle">Create &rarr; Viral Library &bull; app.superx.so/viral-library</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0111.jpg" alt="Viral Library">
+            <div class="callout" style="top: 5%; left: 3%;">
+                <div class="callout-dot orange">A</div>
+                <div class="callout-label orange">"Search and discover high-performing viral posts by keyword." Searchable database of proven content.</div>
+            </div>
+            <div class="callout" style="top: 18%; left: 3%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">Keyword tags: AI coding tips, marketing strategies, design inspiration, growth tactics, tech trends, startup advice, productivity hacks.</div>
+            </div>
+            <div class="callout" style="top: 30%; left: 3%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">Filters: All time, All accounts, Advanced Filters. "Showing tweets with 100+ likes" threshold.</div>
+            </div>
+            <div class="callout" style="bottom: 25%; left: 15%;">
+                <div class="callout-dot red">D</div>
+                <div class="callout-label red">"Remix" button (orange) &mdash; one-click rewrite of any viral post in YOUR voice using your Writing DNA profile.</div>
+            </div>
+            <div class="callout" style="top: 45%; right: 3%;">
+                <div class="callout-dot purple">E</div>
+                <div class="callout-label purple">Each post shows: likes, comments, engagement rate, bookmarks. Full performance metrics visible.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>What It Does</h4>
+                <p>Searchable database of viral tweets filtered by keyword, time range, and minimum engagement (100+ likes). Browse proven content formats, see what's working in your niche, and use it as inspiration.</p>
+            </div>
+            <div class="explain-card red-left">
+                <h4>The "Remix" Button</h4>
+                <p>This is the killer feature. One click takes a viral tweet and rewrites it in your personal voice (using your Writing DNA profile). It's ethical content repurposing &mdash; proven format + your unique spin. This is likely their highest-engagement feature.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Content Strategy</h4>
+                <p>Instead of guessing what to post, users can see exactly what's worked (100+ likes minimum). The keyword categories make it easy to find niche-relevant viral content. This solves the #1 creator problem: "what should I post today?"</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 9: DMs -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">9</div>
+            <div>
+                <div class="step-title">Direct Messages &mdash; Automated Outreach</div>
+                <div class="step-subtitle">DMs section &bull; app.superx.so/direct-messages</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: var(--surface);">
+            <div style="position: relative;">
+                <img src="screenshots/IMG_0109.jpg" alt="DM interface" style="border-radius: 8px;">
+                <div class="callout" style="top: 5%; left: 3%;">
+                    <div class="callout-dot orange">A</div>
+                    <div class="callout-label orange">Rate limits visible: Today 0/2, Monthly 0/50 on trial. Drives upgrade.</div>
+                </div>
+                <div class="callout" style="top: 30%; left: 3%;">
+                    <div class="callout-dot blue">B</div>
+                    <div class="callout-label blue">Message template with personalization variables: [name], [first], [handle].</div>
+                </div>
+                <div class="callout" style="bottom: 30%; left: 3%;">
+                    <div class="callout-dot green">C</div>
+                    <div class="callout-label green">Send/Pause/Clear controls. DM History tracking. Full control panel.</div>
+                </div>
+            </div>
+            <div style="position: relative;">
+                <img src="screenshots/IMG_0112.jpg" alt="DM Pro Tips" style="border-radius: 8px;">
+                <div class="callout" style="top: 15%; left: 3%;">
+                    <div class="callout-dot purple">D</div>
+                    <div class="callout-label purple">Live preview shows exactly how the DM will look to recipients. WYSIWYG.</div>
+                </div>
+                <div class="callout" style="bottom: 20%; left: 3%;">
+                    <div class="callout-dot red">E</div>
+                    <div class="callout-label red">Pro Tips: 1/min rate limit, variable personalization, auto-skip non-DM users, 1 bulk DM per recipient per 24h.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="screenshot-container" style="margin-top: 1rem;">
+            <img src="screenshots/IMG_0108.jpg" alt="DM warning modal">
+            <div class="callout" style="top: 15%; left: 15%;">
+                <div class="callout-dot red">F</div>
+                <div class="callout-label red">"Before you send DMs" warning modal. Legal CYA: express authorization required, spam risk warning, rate limits disclosed.</div>
+            </div>
+        </div>
+
+        <div class="step-explanation">
+            <div class="explain-card">
+                <h4>How DMs Work</h4>
+                <p>Template-based personalized DMs with variables ([name], [first], [handle]). Add recipients manually. DMs sent at 1/min to avoid Twitter rate limits. Trial allows 2/day, 50/month. Paid unlocks more.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Personalization Engine</h4>
+                <p>Three variables for personalization. Default template: "Hey [first], thanks for engaging with my content! I wanted to reach out..." Preview shows exactly how it renders. This makes bulk DMs feel personal.</p>
+            </div>
+            <div class="explain-card red-left">
+                <h4>Safety Guardrails</h4>
+                <p>Full legal disclaimer modal. 1/min rate limit. Auto-skips users who can't receive DMs. Max 1 DM per recipient per 24 hours. These guardrails protect both the user's account and SuperX from liability.</p>
+            </div>
+            <div class="explain-card purple-left">
+                <h4>Monetization Lever</h4>
+                <p>Trial: 2 DMs/day, 50/month &mdash; just enough to see value, not enough to run campaigns. This is their strongest upgrade trigger. Power users need 50+ DMs/day for meaningful outreach.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-arrow">&#x25BC;</div>
+
+    <!-- STEP 10: FULL NAV + ACCOUNT -->
+    <div class="walkthrough-step">
+        <div class="step-header">
+            <div class="step-number">10</div>
+            <div>
+                <div class="step-title">Full Navigation Map + Account Management</div>
+                <div class="step-subtitle">Complete app structure &bull; app.superx.so/account</div>
+            </div>
+        </div>
+
+        <div class="screenshot-container">
+            <img src="screenshots/IMG_0113.jpg" alt="Account and subscription management">
+            <div class="callout" style="top: 10%; left: 5%;">
+                <div class="callout-dot orange">A</div>
+                <div class="callout-label orange">Account page shows: Plan (SuperX Advanced), Status (Trial), Renewal date (Feb 13, 2026).</div>
+            </div>
+            <div class="callout" style="top: 40%; left: 5%;">
+                <div class="callout-dot blue">B</div>
+                <div class="callout-label blue">Cancel flow asks for reason + optional feedback. "We're sad to see you go!" retention messaging.</div>
+            </div>
+            <div class="callout" style="bottom: 15%; left: 5%;">
+                <div class="callout-dot green">C</div>
+                <div class="callout-label green">Settings: Dark mode, Connected accounts, Portals. X Account connected via OAuth 2.0.</div>
+            </div>
+        </div>
+
+        <!-- FULL NAV DIAGRAM -->
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; margin-top: 1.5rem;">
+            <h4 style="text-align: center; margin-bottom: 1.5rem; font-size: 1.1rem;">Complete SuperX Navigation Structure</h4>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                <div style="background: var(--orange-dim); border: 1px solid var(--orange); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--orange); margin-bottom: 0.5rem;">CREATE</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div style="padding: 0.2rem 0;">Inspiration</div>
+                        <div style="padding: 0.2rem 0;">Daily Mix (For You)</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; Trending posts</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; Media posts</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; Viral posts</div>
+                        <div style="padding: 0.2rem 0;">AI Writer</div>
+                        <div style="padding: 0.2rem 0;">Viral Library</div>
+                    </div>
+                </div>
+                <div style="background: var(--blue-dim); border: 1px solid var(--blue); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--blue); margin-bottom: 0.5rem;">ENGAGE</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div style="padding: 0.2rem 0;">Mentions</div>
+                        <div style="padding: 0.2rem 0;">Discover</div>
+                        <div style="padding: 0.2rem 0;">Lists</div>
+                        <div style="padding: 0.2rem 0;">My Replies</div>
+                    </div>
+                </div>
+                <div style="background: var(--purple-dim); border: 1px solid var(--purple); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--purple); margin-bottom: 0.5rem;">OUTREACH</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div style="padding: 0.2rem 0;">DMs / Nurtures</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; Template builder</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; Variables</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; DM History</div>
+                        <div style="padding: 0.2rem 0; margin-left: 0.75rem; font-size: 0.72rem;">&bull; Rate limiting</div>
+                    </div>
+                </div>
+                <div style="background: var(--green-dim); border: 1px solid var(--green); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--green); margin-bottom: 0.5rem;">PUBLISH</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div style="padding: 0.2rem 0;">Compose (raw editor)</div>
+                        <div style="padding: 0.2rem 0;">Drafts</div>
+                        <div style="padding: 0.2rem 0;">Scheduled</div>
+                        <div style="padding: 0.2rem 0;">Sent</div>
+                    </div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
+                <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--yellow); margin-bottom: 0.5rem;">CREDITS</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div>200/day trial</div>
+                        <div>~15 per generation</div>
+                        <div>24h reset cycle</div>
+                    </div>
+                </div>
+                <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--yellow); margin-bottom: 0.5rem;">ANALYTICS</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div>Follower tracking</div>
+                        <div>Engagement heatmap</div>
+                        <div>Growth metrics</div>
+                    </div>
+                </div>
+                <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                    <h5 style="color: var(--yellow); margin-bottom: 0.5rem;">ACCOUNT</h5>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">
+                        <div>Subscription management</div>
+                        <div>X OAuth connection</div>
+                        <div>40% referral program</div>
+                        <div>Dark mode / Settings</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-explanation" style="margin-top: 1.5rem;">
+            <div class="explain-card">
+                <h4>Full Nav Structure</h4>
+                <p>4 major sections: <strong>Create</strong> (content generation), <strong>Engage</strong> (community interaction), <strong>Outreach</strong> (DM automation), <strong>Publish</strong> (scheduling & posting). Plus Credits, Analytics, and Account management.</p>
+            </div>
+            <div class="explain-card blue-left">
+                <h4>Subscription Management</h4>
+                <p>On "SuperX Advanced" trial (renews Feb 13). Clean cancel flow with reason dropdown and optional feedback. Retention attempt: "Or send a DM for faster response" &mdash; tries to save the customer through conversation.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- SECTION 2: REDDIT COMPARISON               -->
+<!-- ========================================== -->
+<hr class="section-divider" style="margin-top: 5rem;">
+
+<div id="comparison">
+    <div class="section-header" style="padding-top: 4rem;">
+        <h2>Section 2: <span>SuperX &rarr; RedditX</span> Comparison</h2>
+        <p>Every SuperX feature mapped to our Reddit equivalent, with implementation ideas and priorities.</p>
+    </div>
+
+    <!-- COMPARISON 1: ONBOARDING -->
+    <div class="comparison-block">
+        <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-left: 0.5rem; border-left: 3px solid var(--orange);">Onboarding Flow</h3>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Writing DNA Swipe</h3>
+                <img src="screenshots/IMG_0101.jpg" class="screenshot-thumb" alt="SuperX Writing DNA">
+                <ul>
+                    <li>Swipe through 12 tweets (Like/Pass)</li>
+                    <li>Learns your preferred writing style</li>
+                    <li>Fun, gamified, low friction</li>
+                    <li>Feeds into AI writer personalization</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Subreddit DNA Swipe</h3>
+                <ul>
+                    <li>Swipe through 12 viral Reddit posts (upvote/pass)</li>
+                    <li>Learn user's preferred posting style AND target subreddits</li>
+                    <li>Show posts from different subs to also calibrate niche</li>
+                    <li>Include both text posts AND comment replies to train for both use cases</li>
+                    <li><strong>Upgrade:</strong> Also show "what subreddit would you post this in?" to map user's niche understanding</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Subreddit DNA</h4>
+            <p>Instead of just learning writing style, our swipe also maps the user to subreddits. Each card shows a viral post and its subreddit. When they Like, we add that sub to their profile. After 12 swipes, we have both their voice AND their target communities. SuperX only gets voice. We get voice + targeting in one step.</p>
+            <p>Pull the viral posts from Arctic Shift archives (free, no API needed). Pre-build a library of 500+ top posts across 50 niches. Cache locally in the extension.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Favorite Creators</h3>
+                <img src="screenshots/IMG_0102.jpg" class="screenshot-thumb" alt="SuperX Creators">
+                <ul>
+                    <li>Pick up to 3 Twitter accounts to emulate</li>
+                    <li>AI studies their writing patterns</li>
+                    <li>Auto-suggests based on your swipes</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Favorite Redditors + Subreddits</h3>
+                <ul>
+                    <li>Pick up to 3 Reddit users whose comment style you admire</li>
+                    <li>Pick up to 5 target subreddits</li>
+                    <li>AI studies both the users' tone AND each sub's culture/rules</li>
+                    <li><strong>Upgrade:</strong> Auto-analyze subreddit rules, banned words, mod strictness from sidebar scraping</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Subreddit Culture Analysis</h4>
+            <p>SuperX just copies writing style. We go deeper: scrape each target subreddit's sidebar rules, automod patterns, top-voted vs removed post styles. Build a "culture profile" per sub. The AI knows r/startups wants data-backed stories while r/SideProject wants casual build logs. This prevents the #1 Reddit marketing fail: posting the same thing everywhere.</p>
+            <p>Use .json endpoints to pull subreddit rules and top posts. DOM scraping for sidebar content. Store culture profiles in Supabase with pgvector for semantic matching.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Products Setup</h3>
+                <img src="screenshots/IMG_0104.jpg" class="screenshot-thumb" alt="SuperX Products">
+                <ul>
+                    <li>Add up to 5 product links</li>
+                    <li>AI auto-analyzes product pages</li>
+                    <li>Generates product-relevant content</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Products + Landing Pages</h3>
+                <ul>
+                    <li>Same: add product links for AI context</li>
+                    <li><strong>Upgrade:</strong> Auto-generate non-spammy Reddit post angles per product</li>
+                    <li><strong>Upgrade:</strong> Warn if product link would trigger automod in target subs</li>
+                    <li><strong>Upgrade:</strong> Suggest "value-first" posts that solve problems your product addresses, without direct links</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Anti-Spam Intelligence</h4>
+            <p>Reddit hates self-promotion. SuperX can link products freely on Twitter &mdash; Reddit will shadowban you. Our Products section needs to be smarter: analyze which subs allow links, suggest comment-first strategies (provide value, then mention product when asked), and track CQS (Contributor Quality Score) to know when you've earned the right to share a link.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- COMPARISON 2: AI WRITER -->
+    <div class="comparison-block">
+        <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-left: 0.5rem; border-left: 3px solid var(--blue);">AI Content Creation</h3>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> AI Writer</h3>
+                <img src="screenshots/IMG_0110.jpg" class="screenshot-thumb" alt="SuperX AI Writer">
+                <ul>
+                    <li>Chat-based: describe your idea naturally</li>
+                    <li>Generates 3 angles (Paragraph, One-liner, etc.)</li>
+                    <li>Uses ~15 credits per generation</li>
+                    <li>Agent Mode for deeper research</li>
+                    <li>Trained on your Writing DNA + Creators</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Reddit AI Writer</h3>
+                <ul>
+                    <li>Same chat-based interface</li>
+                    <li>Generate 3 angles BUT adapted per subreddit</li>
+                    <li><strong>Upgrade:</strong> Show which subreddit each angle is optimized for</li>
+                    <li><strong>Upgrade:</strong> "Post" vs "Comment" mode (SuperX only does tweets)</li>
+                    <li><strong>Upgrade:</strong> Auto-check against subreddit rules before suggesting</li>
+                    <li><strong>Upgrade:</strong> Title + body generation (Reddit needs both, Twitter doesn't)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Sub-Aware AI Writer</h4>
+            <p>SuperX writes tweets &mdash; one format. Reddit has posts (title + body), comments, and replies &mdash; three distinct formats with different rules per subreddit. Our AI Writer needs a subreddit selector that loads the culture profile and adjusts tone, length, and format. r/startups wants 500-word story posts. r/webdev wants code snippets. r/Entrepreneur wants bullet-point lessons. One-size-fits-all content gets downvoted on Reddit.</p>
+            <p>Use Claude Sonnet 4.5 with subreddit culture profiles as system prompts. Each generation costs roughly $0.003 &mdash; price at 10 credits per gen, give 300 credits/day on free tier.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Viral Library + Remix</h3>
+                <img src="screenshots/IMG_0111.jpg" class="screenshot-thumb" alt="SuperX Viral Library">
+                <ul>
+                    <li>Search viral tweets by keyword</li>
+                    <li>Filter by time, accounts, engagement</li>
+                    <li>100+ likes threshold</li>
+                    <li>"Remix" button rewrites in your voice</li>
+                    <li>Shows likes, comments, engagement rate</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Viral Post Library + Remix</h3>
+                <ul>
+                    <li>Search viral Reddit posts by keyword + subreddit</li>
+                    <li>Filter by upvotes, comments, awards, time</li>
+                    <li>500+ upvotes threshold</li>
+                    <li><strong>"Remix" button</strong> &mdash; same concept, rewrites for Reddit</li>
+                    <li><strong>Upgrade:</strong> Show WHY posts went viral (timing, format, hook analysis)</li>
+                    <li><strong>Upgrade:</strong> Filter by post type (text, link, image, question)</li>
+                    <li><strong>Upgrade:</strong> "Best time to repost this topic" based on historical data</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Arctic Shift Viral Database</h4>
+            <p>SuperX has access to Twitter's API for viral content. We don't have Reddit's API &mdash; but we have something potentially better: <strong>Arctic Shift</strong>. It has the entire Reddit archive. We can pre-build a viral post database of millions of posts with 500+ upvotes, indexed by subreddit and keyword. Store in Supabase with pgvector for semantic search. This gives us a deeper viral library than SuperX has for Twitter, at zero marginal cost.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- COMPARISON 3: ENGAGE -->
+    <div class="comparison-block">
+        <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-left: 0.5rem; border-left: 3px solid var(--green);">Engagement & Outreach</h3>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Engage Section</h3>
+                <ul>
+                    <li>Mentions: who mentioned you + your replies</li>
+                    <li>Discover: find accounts to engage with</li>
+                    <li>Lists: organize target accounts</li>
+                    <li>My Replies: history of your engagement</li>
+                    <li>AI-guided reply suggestions</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Engage Section</h3>
+                <ul>
+                    <li><strong>Lead Feed:</strong> surface new posts in target subs matching your product keywords</li>
+                    <li><strong>Reply Coach:</strong> AI suggests helpful comments that build credibility (not spam)</li>
+                    <li><strong>Username Mentions:</strong> track when your brand/product is mentioned on Reddit</li>
+                    <li><strong>Upgrade:</strong> CQS Score tracker &mdash; monitor your Reddit credibility per sub</li>
+                    <li><strong>Upgrade:</strong> "Engagement Streaks" &mdash; gamify consistent commenting to build karma</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> DM Automation</h3>
+                <img src="screenshots/IMG_0109.jpg" class="screenshot-thumb" alt="SuperX DMs">
+                <ul>
+                    <li>Template with [name], [first], [handle] variables</li>
+                    <li>1 DM/minute rate limit</li>
+                    <li>Trial: 2/day, 50/month</li>
+                    <li>Live preview of how DM looks</li>
+                    <li>Send/Pause/Clear controls</li>
+                    <li>DM History tracking</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Outreach (No DMs)</h3>
+                <ul>
+                    <li>Reddit DMs are rarely used and often flagged as spam</li>
+                    <li><strong>Instead:</strong> "Strategic Comment" engine &mdash; find high-visibility posts and add genuinely helpful replies that mention your product naturally</li>
+                    <li><strong>Instead:</strong> "AMA Opportunities" detector &mdash; find relevant AMAs to participate in</li>
+                    <li><strong>Upgrade:</strong> Comment thread analyzer &mdash; find the best parent comment to reply under for maximum visibility</li>
+                    <li><strong>Upgrade:</strong> Track which of your comments are driving traffic via UTM links</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Strategic Comments Over DMs</h4>
+            <p>SuperX's DM feature doesn't translate to Reddit &mdash; Reddit DMs are considered invasive and get reported. Instead, our "outreach" is strategic commenting. The extension surfaces new posts in target subs (via .json endpoints, polling every few minutes), AI suggests helpful replies, and the user posts through Reddit's own UI (DOM manipulation). We track which comments drive traffic using UTM-tagged links in user profiles. This is more effective than DMs AND doesn't risk account bans.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- COMPARISON 4: PUBLISHING -->
+    <div class="comparison-block">
+        <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-left: 0.5rem; border-left: 3px solid var(--purple);">Publishing & Scheduling</h3>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Create Post</h3>
+                <ul>
+                    <li>Compose: raw text editor</li>
+                    <li>Drafts: save works in progress</li>
+                    <li>Scheduled: queue posts for optimal times</li>
+                    <li>Sent: history of published tweets</li>
+                    <li>Posts directly via Twitter API</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Post Manager</h3>
+                <ul>
+                    <li><strong>Compose:</strong> title + body editor with markdown preview + subreddit selector</li>
+                    <li><strong>Drafts:</strong> same concept, save per-subreddit</li>
+                    <li><strong>Scheduled:</strong> browser notification + clipboard workflow (no API posting)</li>
+                    <li><strong>Sent:</strong> track posted content + karma performance</li>
+                    <li><strong>Upgrade:</strong> Cross-post manager &mdash; adapt one post for multiple subs</li>
+                    <li><strong>Upgrade:</strong> "Best time to post" per subreddit based on historical data</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Clipboard Scheduling</h4>
+            <p>SuperX posts directly via API. We can't. Our scheduling workflow: (1) User writes post in our editor, (2) Selects subreddit and schedule time, (3) At scheduled time, browser notification fires: "Time to post in r/startups!", (4) Click notification &rarr; opens Reddit submit page &rarr; pre-fills title and body via DOM manipulation, (5) User clicks Reddit's submit button. It's one extra click vs SuperX, but it works without any API and keeps the user in control.</p>
+            <span class="priority p1">P1 &mdash; MVP Must-Have</span>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- COMPARISON 5: MONETIZATION -->
+    <div class="comparison-block">
+        <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; padding-left: 0.5rem; border-left: 3px solid var(--yellow);">Monetization & Credits</h3>
+
+        <div class="compare-grid">
+            <div class="compare-side superx">
+                <h3><span class="badge theirs">SuperX</span> Credit System</h3>
+                <img src="screenshots/IMG_0106.jpg" class="screenshot-thumb" alt="SuperX Credits">
+                <ul>
+                    <li>200 credits/day on trial</li>
+                    <li>~15 credits per AI generation</li>
+                    <li>24h reset cycle</li>
+                    <li>Gamified checklist gives bonus credits</li>
+                    <li>40% referral commission</li>
+                    <li>SuperX Advanced trial (highest tier)</li>
+                </ul>
+            </div>
+            <div class="compare-side redditx">
+                <h3><span class="badge ours">RedditX</span> Credit System</h3>
+                <ul>
+                    <li><strong>300 credits/day on free</strong> (more generous to beat SuperX)</li>
+                    <li>~10 credits per AI generation (cheaper model costs)</li>
+                    <li>Same 24h reset cycle</li>
+                    <li>Same gamified onboarding with credit rewards</li>
+                    <li><strong>Upgrade:</strong> "Karma credits" &mdash; earn extra credits when your posts get upvoted (usage loop)</li>
+                    <li><strong>30% referral commission</strong></li>
+                    <li>Pricing: Free / $19 Pro / $49 Growth / $99 Agency</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="impl-idea">
+            <h4>Implementation Idea: Karma-Based Credits</h4>
+            <p>SuperX gives credits as a fixed daily allotment. We add a twist: <strong>earn credits by being a good Redditor</strong>. When your posts get upvoted, you earn bonus credits. This creates a virtuous cycle &mdash; users write better content to earn more credits, which makes them more successful on Reddit, which makes them value the tool more. It also naturally prevents spam because spammy posts get downvoted (no credits).</p>
+            <span class="priority p2">P2 &mdash; Post-MVP</span>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <!-- MASTER COMPARISON TABLE -->
+    <div class="comparison-block">
+        <h3 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; text-align: center;">Feature-by-Feature Comparison</h3>
+
+        <div style="overflow-x: auto;">
+            <table class="feature-compare-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>SuperX (Twitter)</th>
+                        <th>RedditX (Ours)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Onboarding</strong></td>
+                        <td>Tweet swipe (12 cards) + 3 creators</td>
+                        <td class="better">Post swipe + subreddit mapping + culture analysis</td>
+                    </tr>
+                    <tr>
+                        <td><strong>AI Writer</strong></td>
+                        <td>Chat-based, 3 angles, one format</td>
+                        <td class="better">Chat-based, 3 angles, sub-specific, post + comment modes</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Viral Library</strong></td>
+                        <td>Twitter viral tweets, keyword search, Remix</td>
+                        <td class="better">Arctic Shift archive (millions of posts), sub filter, Remix + viral analysis</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Content Formats</strong></td>
+                        <td>Tweets only (280 chars)</td>
+                        <td class="better">Posts (title+body), comments, replies, cross-posts</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Engagement</strong></td>
+                        <td>Mentions, Discover, Lists, Reply suggestions</td>
+                        <td class="better">Lead Feed, Reply Coach, CQS tracking, engagement streaks</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Outreach</strong></td>
+                        <td>Automated DMs with templates</td>
+                        <td class="better">Strategic commenting (DMs don't work on Reddit)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Scheduling</strong></td>
+                        <td>Direct API posting</td>
+                        <td>Clipboard + notification workflow (no API)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Anti-Spam</strong></td>
+                        <td>Basic DM rate limiting</td>
+                        <td class="better">CQS scoring, sub rule checking, ban risk warnings</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Credits</strong></td>
+                        <td>200/day, ~15 per generation</td>
+                        <td class="better">300/day + karma bonus credits</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Platform</strong></td>
+                        <td>Web app + Chrome extension</td>
+                        <td>Chrome extension (primary) + web dashboard</td>
+                    </tr>
+                    <tr>
+                        <td><strong>API Dependency</strong></td>
+                        <td>Full Twitter API (risk: API changes)</td>
+                        <td class="better">No API needed (DOM + .json + Arctic Shift)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Referral</strong></td>
+                        <td>40% commission</td>
+                        <td>30% commission</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Pricing</strong></td>
+                        <td>Free / $29 Pro / $39-49 Advanced</td>
+                        <td class="better">Free / $19 Pro / $49 Growth / $99 Agency</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- BACK LINKS -->
+<div class="back-links">
+    <a href="index.html">&larr; SuperX Research</a>
+    <a href="reddit-blueprint.html">RedditX Blueprint &rarr;</a>
+</div>
+
+<div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.75rem;">
+    Built from first-hand SuperX app testing &bull; February 2026
+</div>
+
+</body>
+</html>
