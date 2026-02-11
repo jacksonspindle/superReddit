@@ -7,6 +7,7 @@ export interface Profile {
   email: string;
   full_name: string | null;
   avatar_url: string | null;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +21,7 @@ export interface Project {
   product_url: string | null;
   target_audience: string | null;
   tone: string;
+  writing_styles: string[];
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +108,7 @@ export interface ProductNodeData {
   url: string;
   audience: string;
   tone: string;
+  writingStyles?: string[];
   [key: string]: unknown;
 }
 
@@ -193,6 +196,7 @@ export interface GenerateRequest {
     url?: string;
     audience?: string;
     tone: string;
+    writingStyles?: string[];
   };
   examplePosts: {
     title: string;

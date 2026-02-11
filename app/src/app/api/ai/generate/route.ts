@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
 
     const client = getAnthropicClient();
     const prompt = buildGeneratePrompt(
-      body.productContext,
+      {
+        ...body.productContext,
+        writingStyles: body.productContext.writingStyles,
+      },
       body.examplePosts,
       body.count || 2
     );
