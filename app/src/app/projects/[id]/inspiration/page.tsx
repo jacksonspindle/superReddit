@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useProject } from '@/contexts/project-context';
 import { Header } from '@/components/layout/header';
 import { PostCard } from '@/components/inspiration/PostCard';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { PageTransition } from '@/components/motion';
 import { StaggerList, StaggerItem } from '@/components/motion';
 import { staggerContainerVariants, staggerItemVariants } from '@/lib/motion';
 import { useBookmarkStore } from '@/stores/bookmark-store';
-import type { RedditPost, Project } from '@/types';
+import type { RedditPost } from '@/types';
 import { toast } from 'sonner';
 
 const POPULAR_SUBREDDITS = ['SaaS', 'startups', 'Entrepreneur', 'smallbusiness', 'webdev', 'programming', 'marketing', 'growmybusiness'];
@@ -23,39 +24,26 @@ const POPULAR_SUBREDDITS = ['SaaS', 'startups', 'Entrepreneur', 'smallbusiness',
 type SortOption = 'hot' | 'top' | 'rising' | 'new';
 type TimeFilter = 'day' | 'week' | 'month' | 'year' | 'all';
 
-export default function InspirationPage() {
+export default function ProjectInspirationPage() {
+  const project = useProject();
   const [subreddit, setSubreddit] = useState('SaaS');
   const [inputValue, setInputValue] = useState('SaaS');
   const [sort, setSort] = useState<SortOption>('top');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('week');
   const [posts, setPosts] = useState<RedditPost[]>([]);
   const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
   const supabase = createClient();
   const { fetchBookmarks, addBookmark, removeBookmark, isBookmarked } = useBookmarkStore();
 
   useEffect(() => {
     fetchPosts();
-    loadProjects();
     fetchBookmarks();
   }, []);
 
   useEffect(() => {
     fetchPosts();
   }, [subreddit, sort, timeFilter]);
-
-  async function loadProjects() {
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    setProjects(data || []);
-    if (data && data.length > 0) {
-      setSelectedProjectId(data[0].id);
-    }
-  }
 
   async function fetchPosts() {
     setLoading(true);
@@ -85,14 +73,9 @@ export default function InspirationPage() {
   }
 
   async function handleUsePost(post: RedditPost) {
-    if (!selectedProjectId) {
-      toast.error('Select a project first');
-      return;
-    }
-
     // Save to discovered_posts and add to canvas
     const { error } = await supabase.from('discovered_posts').insert({
-      project_id: selectedProjectId,
+      project_id: project.id,
       subreddit_name: post.subreddit,
       reddit_id: post.id,
       title: post.title,
@@ -113,7 +96,7 @@ export default function InspirationPage() {
     const { data: canvasData } = await supabase
       .from('canvas_states')
       .select('*')
-      .eq('project_id', selectedProjectId)
+      .eq('project_id', project.id)
       .single();
 
     if (canvasData) {
@@ -150,7 +133,7 @@ export default function InspirationPage() {
       await supabase
         .from('canvas_states')
         .update({ nodes: [...existingNodes, newNode] })
-        .eq('project_id', selectedProjectId);
+        .eq('project_id', project.id);
     }
 
     toast.success('Post added to project canvas!');
@@ -212,48 +195,30 @@ export default function InspirationPage() {
             </motion.div>
 
             {/* Filters row */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="hot" className="text-xs px-3 h-6">Hot</TabsTrigger>
-                    <TabsTrigger value="top" className="text-xs px-3 h-6">Top</TabsTrigger>
-                    <TabsTrigger value="rising" className="text-xs px-3 h-6">Rising</TabsTrigger>
-                    <TabsTrigger value="new" className="text-xs px-3 h-6">New</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+            <div className="flex items-center gap-2">
+              <Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="hot" className="text-xs px-3 h-6">Hot</TabsTrigger>
+                  <TabsTrigger value="top" className="text-xs px-3 h-6">Top</TabsTrigger>
+                  <TabsTrigger value="rising" className="text-xs px-3 h-6">Rising</TabsTrigger>
+                  <TabsTrigger value="new" className="text-xs px-3 h-6">New</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-                {sort === 'top' && (
-                  <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as TimeFilter)}>
-                    <SelectTrigger className="h-8 w-28 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">Today</SelectItem>
-                      <SelectItem value="week">This Week</SelectItem>
-                      <SelectItem value="month">This Month</SelectItem>
-                      <SelectItem value="year">This Year</SelectItem>
-                      <SelectItem value="all">All Time</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="h-8 w-56 text-xs">
-                  <SelectValue placeholder="Add to project..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                  {projects.length === 0 && (
-                    <SelectItem value="__none" disabled>No projects yet</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              {sort === 'top' && (
+                <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as TimeFilter)}>
+                  <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                    <SelectItem value="year">This Year</SelectItem>
+                    <SelectItem value="all">All Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Subreddit header */}
@@ -281,7 +246,7 @@ export default function InspirationPage() {
                   <StaggerItem key={post.id}>
                     <PostCard
                       post={post}
-                      onUsePost={selectedProjectId ? handleUsePost : undefined}
+                      onUsePost={handleUsePost}
                       isBookmarked={isBookmarked(post.id)}
                       onToggleBookmark={handleToggleBookmark}
                     />
