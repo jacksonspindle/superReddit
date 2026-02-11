@@ -38,10 +38,7 @@ export async function updateSession(request: NextRequest) {
   const isOnboardingPage = pathname.startsWith('/onboarding');
 
   const isProtectedRoute =
-    pathname.startsWith('/projects') ||
-    pathname.startsWith('/chat') ||
-    pathname.startsWith('/inspiration') ||
-    pathname.startsWith('/bookmarks');
+    pathname.startsWith('/projects');
 
   // Unauthenticated users can't access protected routes or onboarding
   if (!user && (isProtectedRoute || isOnboardingPage)) {

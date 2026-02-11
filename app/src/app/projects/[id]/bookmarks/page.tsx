@@ -2,64 +2,27 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { Bookmark, Search, ExternalLink, Trash2, ArrowUpRight, MessageSquare } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageTransition } from '@/components/motion';
 import { StaggerList, StaggerItem } from '@/components/motion';
 import { useBookmarkStore } from '@/stores/bookmark-store';
-import { createClient } from '@/lib/supabase/client';
-import type { Project, DiscoveredPost } from '@/types';
 import { toast } from 'sonner';
 
 type SortOption = 'newest' | 'oldest' | 'highest' | 'lowest';
-type ViewMode = 'all' | 'by-project';
 
-export default function BookmarksPage() {
+export default function ProjectBookmarksPage() {
   const { bookmarks, loading, fetchBookmarks, removeBookmark } = useBookmarkStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [subredditFilter, setSubredditFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [discoveredPosts, setDiscoveredPosts] = useState<DiscoveredPost[]>([]);
-
-  const supabase = createClient();
 
   useEffect(() => {
     fetchBookmarks();
-    loadProjects();
   }, []);
-
-  useEffect(() => {
-    if (viewMode === 'by-project' && selectedProjectId) {
-      loadDiscoveredPosts(selectedProjectId);
-    }
-  }, [viewMode, selectedProjectId]);
-
-  async function loadProjects() {
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    setProjects(data || []);
-    if (data && data.length > 0) {
-      setSelectedProjectId(data[0].id);
-    }
-  }
-
-  async function loadDiscoveredPosts(projectId: string) {
-    const { data } = await supabase
-      .from('discovered_posts')
-      .select('*')
-      .eq('project_id', projectId);
-    setDiscoveredPosts(data || []);
-  }
 
   const subreddits = useMemo(() => {
     const subs = new Set(bookmarks.map((b) => b.subreddit));
@@ -69,7 +32,6 @@ export default function BookmarksPage() {
   const filteredBookmarks = useMemo(() => {
     let result = [...bookmarks];
 
-    // Search filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -80,18 +42,10 @@ export default function BookmarksPage() {
       );
     }
 
-    // Subreddit filter
     if (subredditFilter !== 'all') {
       result = result.filter((b) => b.subreddit === subredditFilter);
     }
 
-    // By-project view: only show bookmarks that are in the selected project
-    if (viewMode === 'by-project' && selectedProjectId) {
-      const discoveredRedditIds = new Set(discoveredPosts.map((d) => d.reddit_id));
-      result = result.filter((b) => discoveredRedditIds.has(b.reddit_id));
-    }
-
-    // Sort
     result.sort((a, b) => {
       switch (sortBy) {
         case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -102,7 +56,7 @@ export default function BookmarksPage() {
     });
 
     return result;
-  }, [bookmarks, searchQuery, subredditFilter, sortBy, viewMode, selectedProjectId, discoveredPosts]);
+  }, [bookmarks, searchQuery, subredditFilter, sortBy]);
 
   async function handleRemove(redditId: string) {
     await removeBookmark(redditId);
@@ -121,32 +75,6 @@ export default function BookmarksPage() {
         <Header title="Bookmarks" />
         <div className="flex-1 overflow-auto">
           <div className="mx-auto max-w-4xl p-6 space-y-6">
-            {/* View toggle */}
-            <div className="flex items-center gap-3">
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="all" className="text-xs px-3 h-6">All</TabsTrigger>
-                  <TabsTrigger value="by-project" className="text-xs px-3 h-6">By Project</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {viewMode === 'by-project' && (
-                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger className="h-8 w-56 text-xs">
-                    <SelectValue placeholder="Select project..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                    {projects.length === 0 && (
-                      <SelectItem value="__none" disabled>No projects yet</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
             {/* Filters row */}
             <div className="flex items-center gap-3">
               <div className="relative flex-1">

@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, LogOut } from 'lucide-react';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
-import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -28,7 +27,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PageTransition } from '@/components/motion';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { FadeIn } from '@/components/motion';
 import { staggerContainerVariants, staggerItemVariants, cardHover, cardTap } from '@/lib/motion';
 import type { Project } from '@/types';
@@ -41,12 +41,17 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [email, setEmail] = useState('');
   const router = useRouter();
 
   const supabase = createClient();
 
   useEffect(() => {
     loadProjects();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setEmail(data.user.email || '');
+    });
   }, []);
 
   async function loadProjects() {
@@ -123,21 +128,67 @@ export default function ProjectsPage() {
     loadProjects();
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push('/login');
+  }
+
+  const filteredProjects = projects.filter((p) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.product_name.toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <PageTransition>
-      <div className="flex flex-col h-full">
-        <Header title="Projects" />
-        <div className="flex-1 p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Your Projects</h2>
-              <p className="text-sm text-muted-foreground">
-                Each project is a marketing campaign with its own canvas
-              </p>
+    <div className="flex h-screen flex-col bg-background">
+      {/* Top bar */}
+      <header className="flex h-14 items-center justify-between border-b bg-card px-6">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-white font-bold text-sm">
+            SR
+          </div>
+          <span className="font-semibold text-lg">SuperReddit</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs">
+              {email ? email[0].toUpperCase() : 'U'}
+            </AvatarFallback>
+          </Avatar>
+          <button
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Log out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="mx-auto max-w-5xl p-8">
+          {/* Heading */}
+          <h1 className="text-2xl font-bold mb-6">Projects</h1>
+
+          {/* Search + New Project row */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search projects..."
+                className="pl-9"
+              />
             </div>
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingProject(null); }}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="bg-green-600 hover:bg-green-700 text-white">
                   <Plus className="mr-2 h-4 w-4" />
                   New Project
                 </Button>
@@ -191,21 +242,26 @@ export default function ProjectsPage() {
             </Dialog>
           </div>
 
+          {/* Project grid */}
           {loading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-40 rounded-xl" />
               ))}
             </div>
-          ) : projects.length === 0 ? (
+          ) : filteredProjects.length === 0 ? (
             <FadeIn>
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <p className="mb-4 text-muted-foreground">No projects yet. Create your first one!</p>
-                  <Button onClick={() => setDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Project
-                  </Button>
+                  <p className="mb-4 text-muted-foreground">
+                    {searchQuery ? 'No projects match your search.' : 'No projects yet. Create your first one!'}
+                  </p>
+                  {!searchQuery && (
+                    <Button onClick={() => setDialogOpen(true)} className="bg-green-600 hover:bg-green-700 text-white">
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Project
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </FadeIn>
@@ -216,7 +272,7 @@ export default function ProjectsPage() {
               animate="visible"
               className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
             >
-              {projects.map((project) => (
+              {filteredProjects.map((project) => (
                 <motion.div
                   key={project.id}
                   variants={staggerItemVariants}
@@ -267,6 +323,6 @@ export default function ProjectsPage() {
           )}
         </div>
       </div>
-    </PageTransition>
+    </div>
   );
 }
