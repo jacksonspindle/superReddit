@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import {
   Scissors, X, Loader2, Copy, Save, RefreshCw, Check,
   Plus, ArrowRight, ChevronUp, ChevronDown, Settings,
@@ -61,9 +61,40 @@ export default function SplicerPage() {
   // UI state
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
+  const [projectSubreddits, setProjectSubreddits] = useState<string[]>([]);
+  const subredditRef = useRef<HTMLDivElement>(null);
+
+  // Combine project subreddits + unique bookmark subreddits for the dropdown
+  const subredditOptions = useMemo(() => {
+    const bookmarkSubs = new Set(bookmarks.map((b) => b.subreddit));
+    const all = new Set([...projectSubreddits, ...bookmarkSubs]);
+    return Array.from(all).sort();
+  }, [projectSubreddits, bookmarks]);
 
   useEffect(() => {
     fetchBookmarks();
+    // Fetch project subreddits
+    async function loadProjectSubreddits() {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('subreddits')
+        .select('name')
+        .eq('project_id', project.id);
+      if (data) setProjectSubreddits(data.map((s) => s.name));
+    }
+    loadProjectSubreddits();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (subredditRef.current && !subredditRef.current.contains(e.target as Node)) {
+        setSubredditDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -275,6 +306,71 @@ export default function SplicerPage() {
       <div className="flex h-full flex-col">
         <Header title="Splicer" />
 
+        {/* Target Subreddit Selector */}
+        <div className="flex items-center gap-3 border-b px-6 py-3">
+          <label className="text-sm font-medium whitespace-nowrap">Posting to</label>
+          <div ref={subredditRef} className="relative w-64">
+            <div
+              className={cn(
+                'flex items-center justify-between rounded-md border px-3 py-1.5 text-sm cursor-pointer transition-colors hover:border-primary',
+                !targetSubreddit && 'text-muted-foreground'
+              )}
+              onClick={() => setSubredditDropdownOpen(!subredditDropdownOpen)}
+            >
+              <span>{targetSubreddit ? `r/${targetSubreddit.replace(/^r\//, '')}` : 'Choose a subreddit...'}</span>
+              <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', subredditDropdownOpen && 'rotate-180')} />
+            </div>
+
+            {subredditDropdownOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+                <div className="p-2">
+                  <Input
+                    value={targetSubreddit}
+                    onChange={(e) => setTargetSubreddit(e.target.value.replace(/^r\//, ''))}
+                    placeholder="Type a subreddit..."
+                    className="h-8 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && targetSubreddit.trim()) {
+                        setSubredditDropdownOpen(false);
+                      }
+                    }}
+                  />
+                </div>
+                {subredditOptions.length > 0 && (
+                  <div className="max-h-48 overflow-auto border-t">
+                    {subredditOptions
+                      .filter((s) => !targetSubreddit || s.toLowerCase().includes(targetSubreddit.toLowerCase()))
+                      .map((sub) => (
+                        <button
+                          key={sub}
+                          className={cn(
+                            'flex w-full items-center px-3 py-2 text-sm transition-colors hover:bg-accent',
+                            targetSubreddit.replace(/^r\//, '') === sub && 'bg-accent font-medium'
+                          )}
+                          onClick={() => {
+                            setTargetSubreddit(sub);
+                            setSubredditDropdownOpen(false);
+                          }}
+                        >
+                          r/{sub}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {targetSubreddit && (
+            <button
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setTargetSubreddit('')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         {/* Main visual splice flow */}
         <div className="flex flex-1 items-center justify-center gap-10 overflow-hidden px-8">
           {/* Source Slots */}
@@ -446,7 +542,6 @@ export default function SplicerPage() {
               {!settingsOpen && (
                 <span className="text-xs text-muted-foreground ml-1">
                   {tone} · {length}
-                  {targetSubreddit && ` · r/${targetSubreddit.replace(/^r\//, '')}`}
                 </span>
               )}
             </div>
@@ -503,16 +598,6 @@ export default function SplicerPage() {
                           </Button>
                         ))}
                       </div>
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                        Target Subreddit
-                      </label>
-                      <Input
-                        value={targetSubreddit}
-                        onChange={(e) => setTargetSubreddit(e.target.value)}
-                        placeholder="e.g. SaaS, startups, webdev"
-                      />
                     </div>
                   </div>
                   <div>
