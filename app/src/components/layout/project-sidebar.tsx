@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Compass,
   Shuffle,
-  Sparkles,
   Library,
   PenTool,
   MessageSquare,
@@ -39,13 +38,12 @@ export function ProjectSidebar({ project }: { project: Project }) {
     { href: `${base}/inspiration`, label: 'Inspiration', icon: Compass },
     { href: `${base}/splicer`, label: 'Splicer', icon: Scissors },
     { href: `${base}/daily-mix`, label: 'Your Feed', icon: Shuffle },
-    { href: `${base}/ai-writer`, label: 'AI Writer', icon: Sparkles },
+    { href: `${base}/chat`, label: 'AI Chat', icon: MessageSquare },
     { href: `${base}/viral-library`, label: 'Viral Library', icon: Library },
   ];
 
   const bottomItems = [
     { href: `${base}/canvas`, label: 'Canvas', icon: PenTool },
-    { href: `${base}/chat`, label: 'AI Chat', icon: MessageSquare },
     { href: `${base}/bookmarks`, label: 'Bookmarks', icon: Bookmark },
   ];
 
