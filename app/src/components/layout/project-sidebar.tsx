@@ -15,6 +15,7 @@ import {
   PenTool,
   MessageSquare,
   Bookmark,
+  Scissors,
   LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -36,6 +37,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
 
   const createChildren = [
     { href: `${base}/inspiration`, label: 'Inspiration', icon: Compass },
+    { href: `${base}/splicer`, label: 'Splicer', icon: Scissors },
     { href: `${base}/daily-mix`, label: 'Daily Mix', icon: Shuffle },
     { href: `${base}/ai-writer`, label: 'AI Writer', icon: Sparkles },
     { href: `${base}/viral-library`, label: 'Viral Library', icon: Library },

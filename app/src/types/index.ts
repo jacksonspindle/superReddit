@@ -228,5 +228,33 @@ export interface RewriteResponse {
   text: string;
 }
 
+export interface SpliceRequest {
+  selectedPosts: {
+    title: string;
+    body: string | null;
+    score: number;
+    subreddit: string;
+    numComments: number;
+  }[];
+  productContext: {
+    name: string;
+    description: string;
+    url?: string;
+    audience?: string;
+    tone: string;
+  };
+  controls: {
+    tone: 'casual' | 'professional' | 'edgy';
+    length: 'short' | 'medium' | 'long';
+    targetSubreddit: string;
+    additionalPrompt?: string;
+  };
+}
+
+export interface SpliceResponse {
+  title: string;
+  body: string;
+}
+
 export type AiTone = 'Engaging' | 'Humorous' | 'Creative' | 'Sarcastic' | 'Inspirational' | 'Concise';
 export type RewriteOption = AiTone | 'Improve grammar' | 'Engaging hook' | 'More details';
