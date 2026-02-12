@@ -38,7 +38,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const createChildren = [
     { href: `${base}/inspiration`, label: 'Inspiration', icon: Compass },
     { href: `${base}/splicer`, label: 'Splicer', icon: Scissors },
-    { href: `${base}/daily-mix`, label: 'Daily Mix', icon: Shuffle },
+    { href: `${base}/daily-mix`, label: 'Your Feed', icon: Shuffle },
     { href: `${base}/ai-writer`, label: 'AI Writer', icon: Sparkles },
     { href: `${base}/viral-library`, label: 'Viral Library', icon: Library },
   ];
