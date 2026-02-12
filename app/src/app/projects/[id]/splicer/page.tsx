@@ -1,15 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Scissors, X, Link2, Loader2, Copy, Save, RefreshCw, Check } from 'lucide-react';
+import { useState, useEffect, Fragment } from 'react';
+import {
+  Scissors, X, Loader2, Copy, Save, RefreshCw, Check,
+  Plus, ArrowRight, ChevronUp, ChevronDown, Settings,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useProject } from '@/contexts/project-context';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { PageTransition } from '@/components/motion';
-import { StaggerList, StaggerItem } from '@/components/motion';
 import { useBookmarkStore } from '@/stores/bookmark-store';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -52,11 +58,14 @@ export default function SplicerPage() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // UI state
+  const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(true);
+
   useEffect(() => {
     fetchBookmarks();
   }, []);
 
-  // Sync output to editable fields
   useEffect(() => {
     if (output) {
       setEditedTitle(output.title);
@@ -64,28 +73,38 @@ export default function SplicerPage() {
     }
   }, [output]);
 
-  function isSelected(bookmark: Bookmark) {
-    return selectedPosts.some((p) => p.id === bookmark.reddit_id);
+  function isSelectedInOtherSlot(bookmark: Bookmark) {
+    return selectedPosts.some(
+      (p, i) => p.id === bookmark.reddit_id && i !== pickerSlot
+    );
   }
 
-  function selectBookmark(bookmark: Bookmark) {
-    if (selectedPosts.length >= 3) {
-      toast.error('Maximum 3 posts allowed');
+  function handlePickerSelect(bookmark: Bookmark) {
+    if (pickerSlot === null) return;
+    if (isSelectedInOtherSlot(bookmark)) {
+      toast.error('This post is already selected');
       return;
     }
-    if (isSelected(bookmark)) return;
 
-    setSelectedPosts((prev) => [
-      ...prev,
-      {
-        id: bookmark.reddit_id,
-        title: bookmark.title,
-        body: bookmark.body,
-        score: bookmark.score,
-        subreddit: bookmark.subreddit,
-        numComments: bookmark.num_comments,
-      },
-    ]);
+    const newPost: SelectedPost = {
+      id: bookmark.reddit_id,
+      title: bookmark.title,
+      body: bookmark.body,
+      score: bookmark.score,
+      subreddit: bookmark.subreddit,
+      numComments: bookmark.num_comments,
+    };
+
+    setSelectedPosts((prev) => {
+      const next = [...prev];
+      if (pickerSlot < prev.length) {
+        next[pickerSlot] = newPost;
+      } else {
+        next.push(newPost);
+      }
+      return next;
+    });
+    setPickerSlot(null);
   }
 
   function removePost(id: string) {
@@ -96,7 +115,6 @@ export default function SplicerPage() {
     const url = urlInput.trim();
     if (!url) return;
 
-    // Parse Reddit URL to get the JSON endpoint
     const redditUrlMatch = url.match(
       /(?:https?:\/\/)?(?:www\.)?(?:old\.)?reddit\.com(\/r\/\w+\/comments\/\w+)/
     );
@@ -105,7 +123,7 @@ export default function SplicerPage() {
       return;
     }
 
-    if (selectedPosts.length >= 3) {
+    if (selectedPosts.length >= 3 && (pickerSlot === null || pickerSlot >= selectedPosts.length)) {
       toast.error('Maximum 3 posts allowed');
       return;
     }
@@ -123,25 +141,33 @@ export default function SplicerPage() {
       const post = data[0]?.data?.children?.[0]?.data;
       if (!post) throw new Error('Could not parse post data');
 
-      // Check for duplicate
-      if (selectedPosts.some((p) => p.id === post.id)) {
+      const duplicateIndex = selectedPosts.findIndex((p) => p.id === post.id);
+      if (duplicateIndex !== -1 && duplicateIndex !== pickerSlot) {
         toast.error('This post is already selected');
         setFetchingUrl(false);
         return;
       }
 
-      setSelectedPosts((prev) => [
-        ...prev,
-        {
-          id: post.id,
-          title: post.title,
-          body: post.selftext || null,
-          score: post.score,
-          subreddit: post.subreddit,
-          numComments: post.num_comments,
-        },
-      ]);
+      const newPost: SelectedPost = {
+        id: post.id,
+        title: post.title,
+        body: post.selftext || null,
+        score: post.score,
+        subreddit: post.subreddit,
+        numComments: post.num_comments,
+      };
+
+      setSelectedPosts((prev) => {
+        const next = [...prev];
+        if (pickerSlot !== null && pickerSlot < prev.length) {
+          next[pickerSlot] = newPost;
+        } else {
+          next.push(newPost);
+        }
+        return next;
+      });
       setUrlInput('');
+      if (pickerSlot !== null) setPickerSlot(null);
       toast.success('Post added!');
     } catch {
       toast.error('Failed to fetch post. Check the URL and try again.');
@@ -242,241 +268,103 @@ export default function SplicerPage() {
     handleGenerate(regenDirections);
   }
 
-  const canGenerate = selectedPosts.length > 0 && targetSubreddit.trim() && !generating;
+  const canGenerate = selectedPosts.length > 0 && !!targetSubreddit.trim() && !generating;
 
   return (
     <PageTransition>
       <div className="flex h-full flex-col">
         <Header title="Splicer" />
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left column — Post Selection */}
-          <div className="w-1/2 border-r overflow-auto p-6 space-y-6">
-            {/* Selected Posts */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <Scissors className="h-4 w-4" />
-                  Selected Posts
-                </h3>
-                <span className="text-xs text-muted-foreground">
-                  {selectedPosts.length}/3 posts selected
-                </span>
-              </div>
 
-              {selectedPosts.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Select posts from your bookmarks or paste a Reddit URL
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {selectedPosts.map((post) => (
-                    <div
-                      key={post.id}
-                      className="flex items-start gap-2 rounded-lg border bg-accent/50 p-3"
+        {/* Main visual splice flow */}
+        <div className="flex flex-1 items-center justify-center gap-10 overflow-hidden px-8">
+          {/* Source Slots */}
+          <div className="flex flex-col items-center">
+            {[0, 1, 2].map((slotIndex) => (
+              <Fragment key={slotIndex}>
+                {slotIndex > 0 && (
+                  <div className="py-1.5">
+                    <span className="text-xl font-bold text-green-500">+</span>
+                  </div>
+                )}
+                {selectedPosts[slotIndex] ? (
+                  <div
+                    className="relative w-52 cursor-pointer rounded-xl border bg-card p-3 shadow-sm transition-all hover:border-primary hover:shadow-md"
+                    onClick={() => setPickerSlot(slotIndex)}
+                  >
+                    <button
+                      className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-destructive hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removePost(selectedPosts[slotIndex].id);
+                      }}
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{post.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          r/{post.subreddit} · {post.score} pts · {post.numComments} comments
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 shrink-0"
-                        onClick={() => removePost(post.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* URL Paste */}
-            <div>
-              <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                <Link2 className="h-4 w-4" />
-                Paste Reddit URL
-              </h3>
-              <div className="flex gap-2">
-                <Input
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchFromUrl()}
-                  placeholder="https://reddit.com/r/..."
-                  disabled={fetchingUrl}
-                />
-                <Button
-                  onClick={fetchFromUrl}
-                  disabled={fetchingUrl || !urlInput.trim()}
-                  size="sm"
-                >
-                  {fetchingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Bookmarks List */}
-            <div>
-              <h3 className="font-semibold text-sm mb-3">Your Bookmarks</h3>
-              {bookmarksLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : bookmarks.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  No bookmarks yet. Bookmark posts from Inspiration to use them here.
-                </p>
-              ) : (
-                <StaggerList className="space-y-2">
-                  {bookmarks.map((bookmark) => {
-                    const selected = isSelected(bookmark);
-                    return (
-                      <StaggerItem key={bookmark.id}>
-                        <div
-                          className={cn(
-                            'flex items-start gap-3 rounded-lg border p-3 transition-colors',
-                            selected && 'border-primary bg-primary/5'
-                          )}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium line-clamp-2">{bookmark.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              r/{bookmark.subreddit} · {bookmark.score} pts · {bookmark.num_comments} comments
-                            </p>
-                          </div>
-                          <Button
-                            variant={selected ? 'default' : 'outline'}
-                            size="sm"
-                            className="shrink-0 text-xs h-7"
-                            disabled={!selected && selectedPosts.length >= 3}
-                            onClick={() =>
-                              selected
-                                ? removePost(bookmark.reddit_id)
-                                : selectBookmark(bookmark)
-                            }
-                          >
-                            {selected ? (
-                              <>
-                                <Check className="h-3 w-3 mr-1" />
-                                Selected
-                              </>
-                            ) : (
-                              'Select'
-                            )}
-                          </Button>
-                        </div>
-                      </StaggerItem>
-                    );
-                  })}
-                </StaggerList>
-              )}
-            </div>
+                      <X className="h-3 w-3" />
+                    </button>
+                    <p className="text-sm font-medium truncate">
+                      {selectedPosts[slotIndex].title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      r/{selectedPosts[slotIndex].subreddit} · {selectedPosts[slotIndex].score} pts
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="flex w-52 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed p-6 text-muted-foreground transition-all hover:border-primary hover:text-primary"
+                    onClick={() => setPickerSlot(slotIndex)}
+                  >
+                    <Plus className="h-6 w-6" />
+                    <span className="text-xs font-medium">Add post</span>
+                  </div>
+                )}
+              </Fragment>
+            ))}
           </div>
 
-          {/* Right column — Controls + Output */}
-          <div className="w-1/2 overflow-auto p-6 space-y-6">
-            {/* AI Controls */}
-            <Card>
-              <CardContent className="space-y-4">
-                <h3 className="font-semibold text-sm">AI Controls</h3>
+          {/* Arrow Generate Button */}
+          <div className="flex flex-col items-center gap-2">
+            <motion.button
+              className={cn(
+                'flex h-16 w-16 items-center justify-center rounded-full transition-colors',
+                canGenerate
+                  ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
+                  : 'bg-muted/50 text-muted-foreground/30 cursor-not-allowed'
+              )}
+              disabled={!canGenerate}
+              onClick={() => handleGenerate()}
+              animate={
+                canGenerate && !generating
+                  ? {
+                      scale: [1, 1.08, 1],
+                      boxShadow: [
+                        '0 0 0 0 rgba(34,197,94,0)',
+                        '0 0 0 8px rgba(34,197,94,0.15)',
+                        '0 0 0 0 rgba(34,197,94,0)',
+                      ],
+                    }
+                  : {}
+              }
+              transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+            >
+              {generating ? (
+                <Loader2 className="h-7 w-7 animate-spin" />
+              ) : (
+                <ArrowRight className="h-7 w-7" />
+              )}
+            </motion.button>
+            <span className="text-xs font-medium text-muted-foreground">
+              {generating ? 'Splicing...' : 'Splice'}
+            </span>
+          </div>
 
-                {/* Tone */}
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Tone
-                  </label>
-                  <div className="flex gap-1">
-                    {(['casual', 'professional', 'edgy'] as const).map((t) => (
-                      <Button
-                        key={t}
-                        variant={tone === t ? 'default' : 'outline'}
-                        size="sm"
-                        className="flex-1 text-xs capitalize"
-                        onClick={() => setTone(t)}
-                      >
-                        {t}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Length */}
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Length
-                  </label>
-                  <div className="flex gap-1">
-                    {(['short', 'medium', 'long'] as const).map((l) => (
-                      <Button
-                        key={l}
-                        variant={length === l ? 'default' : 'outline'}
-                        size="sm"
-                        className="flex-1 text-xs capitalize"
-                        onClick={() => setLength(l)}
-                      >
-                        {l}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Target Subreddit */}
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Target Subreddit
-                  </label>
-                  <Input
-                    value={targetSubreddit}
-                    onChange={(e) => setTargetSubreddit(e.target.value)}
-                    placeholder="e.g. SaaS, startups, webdev"
-                  />
-                </div>
-
-                {/* Additional Prompt */}
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Additional Directions (optional)
-                  </label>
-                  <Textarea
-                    value={additionalPrompt}
-                    onChange={(e) => setAdditionalPrompt(e.target.value)}
-                    placeholder="e.g. Focus on the free tier, mention a specific use case..."
-                    rows={3}
-                  />
-                </div>
-
-                {/* Generate Button */}
-                <Button
-                  className="w-full"
-                  disabled={!canGenerate}
-                  onClick={() => handleGenerate()}
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Scissors className="h-4 w-4 mr-2" />
-                      Generate Spliced Post
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Output */}
-            {output && (
-              <Card>
-                <CardContent className="space-y-4">
+          {/* Output Card */}
+          <div className="w-[380px] shrink-0">
+            {output ? (
+              <Card className="border-orange-500/40 shadow-md">
+                <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-sm">Generated Post</h3>
                     <div className="flex gap-1">
-                      <Button variant="outline" size="sm" onClick={handleCopy}>
+                      <Button variant="outline" size="xs" onClick={handleCopy}>
                         {copied ? (
                           <Check className="h-3 w-3 mr-1" />
                         ) : (
@@ -486,7 +374,7 @@ export default function SplicerPage() {
                       </Button>
                       <Button
                         variant="outline"
-                        size="sm"
+                        size="xs"
                         onClick={handleSave}
                         disabled={saving}
                       >
@@ -500,61 +388,218 @@ export default function SplicerPage() {
                     </div>
                   </div>
 
-                  {/* Editable Title */}
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                      Title
-                    </label>
-                    <Input
-                      value={editedTitle}
-                      onChange={(e) => setEditedTitle(e.target.value)}
-                    />
-                  </div>
+                  <Input
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    placeholder="Title"
+                    className="font-medium"
+                  />
+                  <Textarea
+                    value={editedBody}
+                    onChange={(e) => setEditedBody(e.target.value)}
+                    rows={10}
+                    className="font-mono text-sm"
+                  />
 
-                  {/* Editable Body */}
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                      Body
-                    </label>
-                    <Textarea
-                      value={editedBody}
-                      onChange={(e) => setEditedBody(e.target.value)}
-                      rows={12}
-                      className="font-mono text-sm"
-                    />
-                  </div>
-
-                  {/* Regenerate */}
-                  <div className="border-t pt-4 space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground block">
-                      Regenerate with directions
-                    </label>
+                  <div className="border-t pt-3 space-y-2">
                     <Textarea
                       value={regenDirections}
                       onChange={(e) => setRegenDirections(e.target.value)}
-                      placeholder="e.g. Make it more personal, add a question at the end..."
+                      placeholder="Directions for regeneration..."
                       rows={2}
                     />
                     <Button
                       variant="outline"
+                      size="sm"
                       className="w-full"
                       disabled={generating}
                       onClick={handleRegenerate}
                     >
                       {generating ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
                       ) : (
-                        <RefreshCw className="h-4 w-4 mr-2" />
+                        <RefreshCw className="h-3 w-3 mr-1" />
                       )}
                       Regenerate
                     </Button>
                   </div>
                 </CardContent>
               </Card>
+            ) : (
+              <div className="flex h-72 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-muted-foreground">
+                <Scissors className="h-8 w-8 opacity-30" />
+                <p className="text-sm">Your spliced post will appear here</p>
+              </div>
             )}
           </div>
         </div>
+
+        {/* Bottom Settings Panel */}
+        <div className="border-t bg-card/50">
+          <button
+            className="flex w-full items-center justify-between px-6 py-2.5 text-sm hover:bg-accent/50 transition-colors"
+            onClick={() => setSettingsOpen(!settingsOpen)}
+          >
+            <div className="flex items-center gap-2">
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">Settings</span>
+              {!settingsOpen && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {tone} · {length}
+                  {targetSubreddit && ` · r/${targetSubreddit.replace(/^r\//, '')}`}
+                </span>
+              )}
+            </div>
+            {settingsOpen ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+
+          <AnimatePresence>
+            {settingsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="px-6 pb-4 space-y-3">
+                  <div className="flex items-end gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                        Tone
+                      </label>
+                      <div className="flex gap-1">
+                        {(['casual', 'professional', 'edgy'] as const).map((t) => (
+                          <Button
+                            key={t}
+                            variant={tone === t ? 'default' : 'outline'}
+                            size="xs"
+                            className="capitalize"
+                            onClick={() => setTone(t)}
+                          >
+                            {t}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                        Length
+                      </label>
+                      <div className="flex gap-1">
+                        {(['short', 'medium', 'long'] as const).map((l) => (
+                          <Button
+                            key={l}
+                            variant={length === l ? 'default' : 'outline'}
+                            size="xs"
+                            className="capitalize"
+                            onClick={() => setLength(l)}
+                          >
+                            {l}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                        Target Subreddit
+                      </label>
+                      <Input
+                        value={targetSubreddit}
+                        onChange={(e) => setTargetSubreddit(e.target.value)}
+                        placeholder="e.g. SaaS, startups, webdev"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                      Additional Directions (optional)
+                    </label>
+                    <Textarea
+                      value={additionalPrompt}
+                      onChange={(e) => setAdditionalPrompt(e.target.value)}
+                      placeholder="e.g. Focus on the free tier, mention a specific use case..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
+
+      {/* Post Picker Dialog */}
+      <Dialog
+        open={pickerSlot !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPickerSlot(null);
+            setUrlInput('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Choose a post</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex gap-2">
+            <Input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchFromUrl()}
+              placeholder="Paste a Reddit URL..."
+              disabled={fetchingUrl}
+            />
+            <Button
+              onClick={fetchFromUrl}
+              disabled={fetchingUrl || !urlInput.trim()}
+              size="sm"
+            >
+              {fetchingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch'}
+            </Button>
+          </div>
+
+          <div className="max-h-[400px] overflow-auto space-y-2">
+            {bookmarksLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : bookmarks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No bookmarks yet. Bookmark posts from Inspiration to use them here.
+              </p>
+            ) : (
+              bookmarks.map((bookmark) => {
+                const disabled = isSelectedInOtherSlot(bookmark);
+                return (
+                  <div
+                    key={bookmark.id}
+                    className={cn(
+                      'rounded-lg border p-3 transition-colors',
+                      disabled
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'cursor-pointer hover:border-primary hover:bg-accent/50'
+                    )}
+                    onClick={() => !disabled && handlePickerSelect(bookmark)}
+                  >
+                    <p className="text-sm font-medium line-clamp-2">{bookmark.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      r/{bookmark.subreddit} · {bookmark.score} pts · {bookmark.num_comments}{' '}
+                      comments
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 }
