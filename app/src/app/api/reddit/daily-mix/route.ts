@@ -7,8 +7,8 @@ import type { RedditPost } from '@/types';
 const REDDIT_BASE = 'https://www.reddit.com';
 const USER_AGENT = 'web:superreddit:v1.0.0 (by /u/superreddit_app)';
 
-// Search Reddit for subreddits matching a query
-async function findRelatedSubreddits(query: string): Promise<{ name: string; subscribers: number }[]> {
+// Search Reddit for subreddits matching a query, returning name + description for relevance checking
+async function findRelatedSubreddits(query: string): Promise<{ name: string; subscribers: number; description: string }[]> {
   try {
     const url = `${REDDIT_BASE}/subreddits/search.json?q=${encodeURIComponent(query)}&limit=10&raw_json=1`;
     const res = await fetch(url, {
@@ -19,6 +19,7 @@ async function findRelatedSubreddits(query: string): Promise<{ name: string; sub
     return json.data.children.map((c) => ({
       name: c.data.display_name as string,
       subscribers: (c.data.subscribers as number) || 0,
+      description: ((c.data.public_description as string) || (c.data.title as string) || '').toLowerCase(),
     }));
   } catch {
     return [];
@@ -79,14 +80,24 @@ export async function GET(request: NextRequest) {
   const keywords = extractDiscoverKeywords(
     product_name, product_description, target_audience, trackedSubreddits
   );
-  const searchKeywords = keywords.slice(0, 4);
+  // Use all keywords but cap at 6 to stay within rate budget
+  const searchKeywords = keywords.slice(0, 6);
+
+  // Build relevance keywords from the project context for scoring subreddits
+  const contextWords = [
+    product_name,
+    product_description,
+    target_audience || '',
+    ...trackedSubreddits,
+  ].join(' ').toLowerCase().split(/[\s,._-]+/).filter((w) => w.length > 2);
+  const contextSet = new Set(contextWords);
 
   // Step 1: Search for subreddits related to the project context
   const subSearchResults = await Promise.all(
     searchKeywords.map((kw) => findRelatedSubreddits(kw))
   );
 
-  // Step 2: Filter out tracked subs, dedupe, prefer mid-size niche subs over mega-subs
+  // Step 2: Filter out tracked subs, dedupe, score by relevance to project context
   const trackedSet = new Set(trackedSubreddits.map((s) => s.toLowerCase()));
   const seenSubs = new Set<string>();
   const relatedSubs = subSearchResults
@@ -98,17 +109,14 @@ export async function GET(request: NextRequest) {
       seenSubs.add(key);
       return s.subscribers >= 1000;
     })
-    // Score: prefer mid-size subs (5k-500k) — niche enough to be relevant,
-    // large enough to have active posts. Mega-subs (1M+) get penalized.
-    .sort((a, b) => {
-      const score = (subs: number) => {
-        if (subs >= 1_000_000) return subs * 0.1; // penalize mega-subs
-        if (subs >= 5_000) return subs * 2;        // boost mid-size
-        return subs;                                // small subs neutral
-      };
-      return score(b.subscribers) - score(a.subscribers);
+    // Score by how many project context words appear in the subreddit name + description
+    .map((s) => {
+      const subWords = `${s.name} ${s.description}`.toLowerCase().split(/[\s,._-]+/);
+      const matches = subWords.filter((w) => w.length > 2 && contextSet.has(w)).length;
+      return { ...s, relevance: matches };
     })
-    .slice(0, 4);
+    .sort((a, b) => b.relevance - a.relevance || b.subscribers - a.subscribers)
+    .slice(0, 5);
 
   // Step 3: Fetch hot posts from the discovered subreddits
   const discoverResults = await Promise.all(
