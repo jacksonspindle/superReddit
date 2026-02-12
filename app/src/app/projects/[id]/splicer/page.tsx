@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import {
   Scissors, X, Loader2, Copy, Save, RefreshCw, Check,
   Plus, ArrowRight, ChevronUp, ChevronDown, Settings,
@@ -61,20 +61,26 @@ export default function SplicerPage() {
   // UI state
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(true);
-  const [subredditDropdownOpen, setSubredditDropdownOpen] = useState(false);
+  const [subredditPickerOpen, setSubredditPickerOpen] = useState(true);
+  const [subredditSearch, setSubredditSearch] = useState('');
   const [projectSubreddits, setProjectSubreddits] = useState<string[]>([]);
-  const subredditRef = useRef<HTMLDivElement>(null);
 
-  // Combine project subreddits + unique bookmark subreddits for the dropdown
+  // Combine project subreddits + unique bookmark subreddits for the picker
   const subredditOptions = useMemo(() => {
     const bookmarkSubs = new Set(bookmarks.map((b) => b.subreddit));
     const all = new Set([...projectSubreddits, ...bookmarkSubs]);
     return Array.from(all).sort();
   }, [projectSubreddits, bookmarks]);
 
+  const filteredSubreddits = useMemo(() => {
+    if (!subredditSearch) return subredditOptions;
+    return subredditOptions.filter((s) =>
+      s.toLowerCase().includes(subredditSearch.toLowerCase())
+    );
+  }, [subredditOptions, subredditSearch]);
+
   useEffect(() => {
     fetchBookmarks();
-    // Fetch project subreddits
     async function loadProjectSubreddits() {
       const supabase = createClient();
       const { data } = await supabase
@@ -84,17 +90,6 @@ export default function SplicerPage() {
       if (data) setProjectSubreddits(data.map((s) => s.name));
     }
     loadProjectSubreddits();
-  }, []);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (subredditRef.current && !subredditRef.current.contains(e.target as Node)) {
-        setSubredditDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -306,70 +301,22 @@ export default function SplicerPage() {
       <div className="flex h-full flex-col">
         <Header title="Splicer" />
 
-        {/* Target Subreddit Selector */}
-        <div className="flex items-center gap-3 border-b px-6 py-3">
-          <label className="text-sm font-medium whitespace-nowrap">Posting to</label>
-          <div ref={subredditRef} className="relative w-64">
-            <div
-              className={cn(
-                'flex items-center justify-between rounded-md border px-3 py-1.5 text-sm cursor-pointer transition-colors hover:border-primary',
-                !targetSubreddit && 'text-muted-foreground'
-              )}
-              onClick={() => setSubredditDropdownOpen(!subredditDropdownOpen)}
-            >
-              <span>{targetSubreddit ? `r/${targetSubreddit.replace(/^r\//, '')}` : 'Choose a subreddit...'}</span>
-              <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', subredditDropdownOpen && 'rotate-180')} />
-            </div>
-
-            {subredditDropdownOpen && (
-              <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
-                <div className="p-2">
-                  <Input
-                    value={targetSubreddit}
-                    onChange={(e) => setTargetSubreddit(e.target.value.replace(/^r\//, ''))}
-                    placeholder="Type a subreddit..."
-                    className="h-8 text-sm"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && targetSubreddit.trim()) {
-                        setSubredditDropdownOpen(false);
-                      }
-                    }}
-                  />
-                </div>
-                {subredditOptions.length > 0 && (
-                  <div className="max-h-48 overflow-auto border-t">
-                    {subredditOptions
-                      .filter((s) => !targetSubreddit || s.toLowerCase().includes(targetSubreddit.toLowerCase()))
-                      .map((sub) => (
-                        <button
-                          key={sub}
-                          className={cn(
-                            'flex w-full items-center px-3 py-2 text-sm transition-colors hover:bg-accent',
-                            targetSubreddit.replace(/^r\//, '') === sub && 'bg-accent font-medium'
-                          )}
-                          onClick={() => {
-                            setTargetSubreddit(sub);
-                            setSubredditDropdownOpen(false);
-                          }}
-                        >
-                          r/{sub}
-                        </button>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          {targetSubreddit && (
+        {/* Subreddit indicator bar */}
+        {targetSubreddit && (
+          <div className="flex items-center gap-2 border-b px-6 py-2">
+            <span className="text-sm text-muted-foreground">Posting to</span>
+            <span className="text-sm font-medium">r/{targetSubreddit}</span>
             <button
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setTargetSubreddit('')}
+              className="text-xs text-primary hover:underline ml-1"
+              onClick={() => {
+                setSubredditSearch('');
+                setSubredditPickerOpen(true);
+              }}
             >
-              <X className="h-4 w-4" />
+              Change
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Main visual splice flow */}
         <div className="flex flex-1 items-center justify-center gap-10 overflow-hidden px-8">
@@ -617,6 +564,78 @@ export default function SplicerPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Subreddit Picker Modal */}
+      <Dialog
+        open={subredditPickerOpen}
+        onOpenChange={(open) => {
+          // Only allow closing if a subreddit is already selected
+          if (!open && targetSubreddit) {
+            setSubredditPickerOpen(false);
+            setSubredditSearch('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={!!targetSubreddit}>
+          <DialogHeader>
+            <DialogTitle>Where are you posting?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Choose which subreddit this spliced post is for.
+          </p>
+
+          <Input
+            value={subredditSearch}
+            onChange={(e) => setSubredditSearch(e.target.value.replace(/^r\//, ''))}
+            placeholder="Search or type a subreddit..."
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && subredditSearch.trim()) {
+                setTargetSubreddit(subredditSearch.trim());
+                setSubredditPickerOpen(false);
+                setSubredditSearch('');
+              }
+            }}
+          />
+
+          {filteredSubreddits.length > 0 && (
+            <div className="max-h-64 overflow-auto space-y-1">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Your subreddits</p>
+              {filteredSubreddits.map((sub) => (
+                <button
+                  key={sub}
+                  className={cn(
+                    'flex w-full items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-accent',
+                    targetSubreddit === sub && 'bg-accent font-medium'
+                  )}
+                  onClick={() => {
+                    setTargetSubreddit(sub);
+                    setSubredditPickerOpen(false);
+                    setSubredditSearch('');
+                  }}
+                >
+                  r/{sub}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {subredditSearch.trim() && !subredditOptions.includes(subredditSearch.trim()) && (
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                setTargetSubreddit(subredditSearch.trim());
+                setSubredditPickerOpen(false);
+                setSubredditSearch('');
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Use r/{subredditSearch.trim()}
+            </Button>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Post Picker Dialog */}
       <Dialog
