@@ -1,18 +1,33 @@
 'use client';
 
+import { useProject } from '@/contexts/project-context';
 import { Header } from '@/components/layout/header';
-import { PageTransition } from '@/components/motion/PageTransition';
+import { ChatInterface } from '@/components/chat/ChatInterface';
+import { PageTransition } from '@/components/motion';
+
+const WRITER_PROMPTS = [
+  'Write me a Reddit post promoting my product',
+  'Draft a "I built this" showcase post',
+  'Write a post that shares value first, then mentions my product',
+  'Help me write a post for r/SaaS about my product',
+];
 
 export default function AIWriterPage() {
+  const project = useProject();
+
   return (
     <PageTransition>
-      <Header title="AI Writer" />
-      <div className="flex flex-1 items-center justify-center p-12">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Coming Soon</h2>
-          <p className="mt-2 text-muted-foreground">
-            AI Writer is under development. Check back soon!
-          </p>
+      <div className="flex h-full flex-col">
+        <Header title="AI Writer" />
+        <div className="flex-1">
+          <ChatInterface
+            project={project}
+            apiEndpoint="/api/ai/writer"
+            placeholder="Describe the post you want to write..."
+            suggestedPrompts={WRITER_PROMPTS}
+            emptyTitle="AI Writer"
+            emptyDescription="Your Reddit ghostwriter. Describe what you want to post and I'll draft it for you — matching the right tone, style, and subreddit culture."
+          />
         </div>
       </div>
     </PageTransition>
