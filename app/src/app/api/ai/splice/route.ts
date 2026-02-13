@@ -7,9 +7,9 @@ export async function POST(request: NextRequest) {
   try {
     const body: SpliceRequest = await request.json();
 
-    if (!body.selectedPosts?.length || body.selectedPosts.length > 3) {
+    if (!body.selectedPosts?.length || body.selectedPosts.length > 2) {
       return NextResponse.json(
-        { error: 'Between 1 and 3 posts are required' },
+        { error: 'Between 1 and 2 posts are required' },
         { status: 400 }
       );
     }

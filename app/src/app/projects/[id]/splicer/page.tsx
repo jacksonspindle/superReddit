@@ -149,8 +149,8 @@ export default function SplicerPage() {
       return;
     }
 
-    if (selectedPosts.length >= 3 && (pickerSlot === null || pickerSlot >= selectedPosts.length)) {
-      toast.error('Maximum 3 posts allowed');
+    if (selectedPosts.length >= 2 && (pickerSlot === null || pickerSlot >= selectedPosts.length)) {
+      toast.error('Maximum 2 posts allowed');
       return;
     }
 
@@ -322,7 +322,7 @@ export default function SplicerPage() {
         <div className="flex flex-1 items-center justify-center gap-10 overflow-hidden px-8">
           {/* Source Slots */}
           <div className="flex flex-col items-center">
-            {[0, 1, 2].map((slotIndex) => (
+            {[0, 1].map((slotIndex) => (
               <Fragment key={slotIndex}>
                 {slotIndex > 0 && (
                   <div className="py-1.5">
