@@ -1,9 +1,23 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, LayoutDashboard, PenTool, MessageSquare, Compass, Bookmark, LogOut } from 'lucide-react';
-import { motion } from 'motion/react';
+import {
+  ArrowLeft,
+  LayoutDashboard,
+  PenLine,
+  ChevronDown,
+  Compass,
+  Shuffle,
+  Library,
+  PenTool,
+  MessageSquare,
+  Bookmark,
+  Scissors,
+  LogOut,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -14,12 +28,22 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const pathname = usePathname();
   const router = useRouter();
   const base = `/projects/${project.id}`;
+  const [createExpanded, setCreateExpanded] = useState(true);
 
-  const navItems = [
+  const topItems = [
     { href: base, label: 'Dashboard', icon: LayoutDashboard, exact: true },
-    { href: `${base}/canvas`, label: 'Canvas', icon: PenTool },
-    { href: `${base}/chat`, label: 'AI Chat', icon: MessageSquare },
+  ];
+
+  const createChildren = [
     { href: `${base}/inspiration`, label: 'Inspiration', icon: Compass },
+    { href: `${base}/splicer`, label: 'Splicer', icon: Scissors },
+    { href: `${base}/daily-mix`, label: 'Your Feed', icon: Shuffle },
+    { href: `${base}/chat`, label: 'AI Chat', icon: MessageSquare },
+    { href: `${base}/viral-library`, label: 'Viral Library', icon: Library },
+  ];
+
+  const bottomItems = [
+    { href: `${base}/canvas`, label: 'Canvas', icon: PenTool },
     { href: `${base}/bookmarks`, label: 'Bookmarks', icon: Bookmark },
   ];
 
@@ -27,6 +51,29 @@ export function ProjectSidebar({ project }: { project: Project }) {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  const renderNavLink = (item: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; exact?: boolean }, indented?: boolean) => {
+    const isActive = item.exact
+      ? pathname === item.href
+      : pathname.startsWith(item.href);
+    return (
+      <motion.div key={item.href} variants={staggerItemVariants}>
+        <Link
+          href={item.href}
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            indented && 'pl-9',
+            isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.label}
+        </Link>
+      </motion.div>
+    );
   };
 
   return (
@@ -55,27 +102,63 @@ export function ProjectSidebar({ project }: { project: Project }) {
         animate="visible"
         className="flex-1 space-y-1 p-3"
       >
-        {navItems.map((item) => {
-          const isActive = item.exact
-            ? pathname === item.href
-            : pathname.startsWith(item.href);
-          return (
-            <motion.div key={item.href} variants={staggerItemVariants}>
-              <Link
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
+        {/* Top items */}
+        {topItems.map((item) => renderNavLink(item))}
+
+        {/* Create section */}
+        <motion.div variants={staggerItemVariants}>
+          <button
+            onClick={() => setCreateExpanded((prev) => !prev)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <PenLine className="h-4 w-4" />
+            Create
+            <ChevronDown
+              className={cn(
+                'ml-auto h-4 w-4 transition-transform duration-200',
+                !createExpanded && '-rotate-90'
+              )}
+            />
+          </button>
+        </motion.div>
+
+        <AnimatePresence initial={false}>
+          {createExpanded && (
+            <motion.div
+              key="create-children"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="space-y-1">
+                {createChildren.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <div key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors pl-9',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
             </motion.div>
-          );
-        })}
+          )}
+        </AnimatePresence>
+
+        {/* Bottom nav items */}
+        {bottomItems.map((item) => renderNavLink(item))}
       </motion.nav>
 
       {/* Bottom */}

@@ -21,6 +21,11 @@ interface ChatInterfaceProps {
   project?: Project | null;
   initialMessages?: Message[];
   onMessagesChange?: (messages: Message[]) => void;
+  apiEndpoint?: string;
+  placeholder?: string;
+  suggestedPrompts?: string[];
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 function MarkdownMessage({ content }: { content: string }) {
@@ -79,7 +84,16 @@ function MarkdownMessage({ content }: { content: string }) {
   );
 }
 
-export function ChatInterface({ project, initialMessages = [], onMessagesChange }: ChatInterfaceProps) {
+export function ChatInterface({
+  project,
+  initialMessages = [],
+  onMessagesChange,
+  apiEndpoint = '/api/ai/chat',
+  placeholder = 'Ask about Reddit marketing strategy...',
+  suggestedPrompts: suggestedPromptsProp,
+  emptyTitle = 'SuperReddit AI',
+  emptyDescription = 'Your Reddit marketing strategist. Ask about subreddit targeting, post writing, engagement strategies, and avoiding bans.',
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -109,7 +123,7 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
     setMessages([...newMessages, assistantMessage]);
 
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,12 +201,13 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
     }
   }
 
-  const suggestedPrompts = [
+  const defaultPrompts = [
     'What subreddits should I target for my product?',
     'How do I write a Reddit post that doesn\'t get flagged as spam?',
     'What\'s the best time to post on Reddit?',
     'Help me write an engaging title for my post',
   ];
+  const suggestedPrompts = suggestedPromptsProp ?? defaultPrompts;
 
   return (
     <div className="flex h-full flex-col">
@@ -208,10 +223,9 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500 text-white mb-4">
                 <Bot className="h-8 w-8" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">SuperReddit AI</h2>
+              <h2 className="text-xl font-semibold mb-2">{emptyTitle}</h2>
               <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                Your Reddit marketing strategist. Ask about subreddit targeting, post writing,
-                engagement strategies, and avoiding bans.
+                {emptyDescription}
               </p>
               <motion.div
                 variants={staggerContainerVariants}
@@ -279,7 +293,7 @@ export function ChatInterface({ project, initialMessages = [], onMessagesChange 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about Reddit marketing strategy..."
+            placeholder={placeholder}
             className="min-h-[44px] max-h-32 resize-none text-sm"
             rows={1}
           />

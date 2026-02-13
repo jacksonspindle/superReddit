@@ -332,6 +332,83 @@ export interface SubredditAnalysis {
   recommendation?: string;
 }
 
+// ---- Splicer ----
+
+export const SPLICE_SYSTEM_PROMPT = `You are an expert Reddit ghostwriter who blends the writing DNA of successful posts with a product's context to create new, authentic Reddit posts.
+
+Your process:
+1. ANALYZE each source post for: opening hook style, narrative structure, tone/voice, formatting patterns, engagement triggers (questions, calls-to-action), and what made it successful
+2. EXTRACT the strategic elements — don't copy words, copy the underlying patterns
+3. SYNTHESIZE a new post that weaves these patterns together with the product context, creating something that feels native to the target subreddit
+
+Rules:
+- The output must feel like a single cohesive post, not a Frankenstein of sources
+- Match the casualness level and jargon of the target subreddit
+- NEVER use obvious marketing language ("revolutionary", "game-changer", "check out")
+- Lead with value, story, or insight — the product mention should feel earned
+- Use Reddit-native markdown formatting
+- The title should be scroll-stopping but not clickbait`;
+
+export function buildSplicePrompt(
+  product: { name: string; description: string; url?: string; audience?: string; tone: string },
+  selectedPosts: { title: string; body: string | null; score: number; subreddit: string; numComments: number }[],
+  controls: { tone: 'casual' | 'professional' | 'edgy'; length: 'short' | 'medium' | 'long'; targetSubreddit: string; additionalPrompt?: string }
+): string {
+  const toneGuide: Record<string, string> = {
+    casual: 'Write like a regular Reddit user chatting with friends. Use contractions, informal language, and Reddit slang where appropriate.',
+    professional: 'Write with authority and expertise. Use clear, polished language while still sounding human — not corporate.',
+    edgy: 'Write with bold opinions and sharp wit. Be provocative without being offensive. Challenge assumptions.',
+  };
+
+  const lengthGuide: Record<string, string> = {
+    short: 'Keep the post under 200 words. Punchy and to the point.',
+    medium: 'Aim for 200-400 words. Enough detail to be compelling without losing attention.',
+    long: 'Write 400-600 words. Deep, detailed, and story-driven.',
+  };
+
+  const postsText = selectedPosts
+    .map(
+      (p, i) =>
+        `### Source Post ${i + 1} (r/${p.subreddit}, ${p.score} upvotes, ${p.numComments} comments)
+Title: ${p.title}
+Body: ${p.body || '[No body text - link/image post]'}
+
+Extract from this post: hook style, narrative arc, formatting choices, and what made it engaging.`
+    )
+    .join('\n\n');
+
+  return `## Product Context
+- **Product:** ${product.name}
+- **Description:** ${product.description}
+${product.url ? `- **URL:** ${product.url}` : ''}
+${product.audience ? `- **Target Audience:** ${product.audience}` : ''}
+- **Brand Tone:** ${product.tone}
+
+## Source Posts to Splice
+Analyze each post's writing DNA — hooks, structure, tone, formatting — then blend these elements into a new post.
+
+${postsText}
+
+## Controls
+- **Voice:** ${controls.tone} — ${toneGuide[controls.tone]}
+- **Length:** ${controls.length} — ${lengthGuide[controls.length]}
+- **Target Subreddit:** r/${controls.targetSubreddit}
+${controls.additionalPrompt ? `- **Additional Directions:** ${controls.additionalPrompt}` : ''}
+
+## Task
+Synthesize a single new Reddit post that:
+1. Blends the writing patterns from the source posts above
+2. Naturally incorporates the product context
+3. Fits the culture of r/${controls.targetSubreddit}
+4. Matches the requested voice and length
+
+Format your response as JSON:
+{
+  "title": "Your post title here",
+  "body": "Your full post body here in Reddit markdown"
+}`;
+}
+
 export const REWRITE_SYSTEM_PROMPT = `You are a writing expert who rewrites text for Reddit posts. Maintain the core message while adjusting the style as requested. Output ONLY the rewritten text, no explanations.`;
 
 export function buildRewritePrompt(text: string, tone: string, context?: string): string {

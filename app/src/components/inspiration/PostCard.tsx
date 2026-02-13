@@ -42,7 +42,14 @@ export function PostCard({ post, onUsePost, isBookmarked, onToggleBookmark }: Po
 
             {/* Content */}
             <div className="flex-1 min-w-0 space-y-2">
-              <h3 className="font-medium text-sm leading-snug">{post.title}</h3>
+              <a
+                href={`https://reddit.com${post.permalink}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                <h3 className="font-medium text-sm leading-snug">{post.title}</h3>
+              </a>
 
               {post.preview_url && (
                 <div className="relative w-full overflow-hidden rounded-md">
