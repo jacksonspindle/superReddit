@@ -430,3 +430,116 @@ ${context ? `Context: ${context}\n` : ''}
 Text to rewrite:
 ${text}`;
 }
+
+// ---- Outreach: Keyword Generation ----
+
+export const KEYWORD_GEN_SYSTEM_PROMPT = `You are an expert at identifying Reddit search keywords that surface conversations where a product could be naturally recommended. Focus on pain points, questions, and comparison threads — not branded terms.`;
+
+export function buildKeywordGenPrompt(
+  productName: string,
+  productDescription: string,
+  targetAudience: string | null
+): string {
+  return `## Product
+- **Name:** ${productName}
+- **Description:** ${productDescription}
+${targetAudience ? `- **Target Audience:** ${targetAudience}` : ''}
+
+## Task
+Generate 15-20 Reddit search keywords/phrases that would find posts where someone could naturally recommend "${productName}". Include:
+- Pain point phrases (e.g., "tired of manually", "looking for alternative to")
+- Question patterns (e.g., "best tool for", "how do you handle")
+- Comparison/alternative threads (e.g., "X vs Y", "alternative to Z")
+- Problem descriptions (e.g., "struggling with", "need help with")
+
+Format as JSON:
+{
+  "keywords": ["keyword1", "keyword2", ...]
+}`;
+}
+
+// ---- Outreach: Intent Classification ----
+
+export const INTENT_CLASSIFY_SYSTEM_PROMPT = `You are an expert at classifying Reddit posts by their commercial intent — specifically, how suitable they are for receiving a natural product recommendation in the comments.
+
+Intent types:
+- "question": User asking for recommendations or solutions
+- "comparison": User comparing products/tools
+- "problem": User describing a pain point your product solves
+- "discussion": General discussion tangentially related
+- "showcase": Someone showing their own project/tool
+
+Rate intent_score from 0.0 to 1.0 where 1.0 = perfect fit for a reply.`;
+
+export function buildIntentClassifyPrompt(
+  posts: { id: string; title: string; selftext: string; subreddit: string }[],
+  productName: string,
+  productDescription: string
+): string {
+  const postList = posts
+    .map(
+      (p, i) =>
+        `${i + 1}. [${p.id}] r/${p.subreddit}: "${p.title}"
+   ${p.selftext ? p.selftext.slice(0, 300) : '[no body]'}`
+    )
+    .join('\n\n');
+
+  return `## Product Context
+- **Product:** ${productName}
+- **Description:** ${productDescription}
+
+## Posts to Classify
+${postList}
+
+## Task
+Classify each post's intent type and score for "${productName}". Return JSON:
+{
+  "classifications": [
+    { "reddit_id": "abc123", "intent_type": "question", "intent_score": 0.85 }
+  ]
+}`;
+}
+
+// ---- Outreach: Reply Draft ----
+
+export const REPLY_DRAFT_SYSTEM_PROMPT = `You are an expert Reddit commenter who writes helpful, authentic replies that naturally mention a product when relevant. Your replies:
+- Lead with genuine value (answer the question, share insight)
+- Sound like a real Reddit user, not a marketer
+- Mention the product naturally in 1-2 sentences max
+- Never use marketing buzzwords or hard sells
+- Respect subreddit rules and culture
+- Include personal experience framing ("I've been using...", "What worked for me was...")`;
+
+export function buildReplyDraftPrompt(
+  post: { title: string; body: string | null; subreddit: string; author: string },
+  product: { name: string; description: string; url?: string },
+  complianceNotes: string | null,
+  replyMode: 'helpful' | 'experience' | 'subtle'
+): string {
+  const modeInstructions: Record<string, string> = {
+    helpful: 'Write a genuinely helpful reply that answers the question or addresses the problem, then naturally mention the product as one option.',
+    experience: 'Write as someone sharing their personal experience. Start with your situation, what you tried, and how the product helped.',
+    subtle: 'Write a valuable reply focused entirely on the topic. Mention the product in passing (one brief sentence) as something you happened to use.',
+  };
+
+  return `## Thread
+- **Subreddit:** r/${post.subreddit}
+- **Author:** u/${post.author}
+- **Title:** ${post.title}
+- **Body:** ${post.body || '[no body]'}
+
+## Product
+- **Name:** ${product.name}
+- **Description:** ${product.description}
+${product.url ? `- **URL:** ${product.url}` : ''}
+
+${complianceNotes ? `## Subreddit Rules\n${complianceNotes}\n` : ''}
+## Reply Mode
+${modeInstructions[replyMode]}
+
+## Task
+Write a Reddit reply (100-250 words). Format as JSON:
+{
+  "reply": "Your reply text here in Reddit markdown"
+}`;
+}
