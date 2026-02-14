@@ -258,3 +258,75 @@ export interface SpliceResponse {
 
 export type AiTone = 'Engaging' | 'Humorous' | 'Creative' | 'Sarcastic' | 'Inspirational' | 'Concise';
 export type RewriteOption = AiTone | 'Improve grammar' | 'Engaging hook' | 'More details';
+
+// ---- Outreach types ----
+
+export interface OutreachConfig {
+  id: string;
+  project_id: string;
+  reddit_username: string | null;
+  keywords: string[];
+  competitors: string[];
+  webhook_url: string | null;
+  webhook_type: string | null;
+  subreddit_limit: number;
+  polling_enabled: boolean;
+  setup_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutreachSignal {
+  id: string;
+  project_id: string;
+  reddit_id: string;
+  subreddit: string;
+  title: string;
+  body: string | null;
+  author: string;
+  score: number;
+  num_comments: number;
+  permalink: string;
+  created_utc: number;
+  intent_type: string | null;
+  intent_score: number;
+  combined_score: number;
+  matched_keywords: string[];
+  competitor_mentioned: boolean;
+  status: 'new' | 'replied' | 'dismissed' | 'converted';
+  fetched_at: string;
+}
+
+export interface OutreachReply {
+  id: string;
+  project_id: string;
+  signal_id: string | null;
+  thread_permalink: string | null;
+  draft_text: string | null;
+  reply_mode: string | null;
+  reddit_comment_id: string | null;
+  posted_at: string | null;
+  current_score: number | null;
+  reply_count: number;
+  op_replied: boolean;
+  last_checked_at: string | null;
+  status: 'draft' | 'copied' | 'posted' | 'tracking';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubredditRule {
+  id: string;
+  subreddit: string;
+  rules_json: Record<string, unknown>[];
+  compliance_profile: {
+    selfPromoAllowed: boolean;
+    linkPostsAllowed: boolean;
+    minAccountAge: number | null;
+    minKarma: number | null;
+    flairRequired: boolean;
+    restrictedKeywords: string[];
+  };
+  safety_score: number | null;
+  analyzed_at: string;
+}

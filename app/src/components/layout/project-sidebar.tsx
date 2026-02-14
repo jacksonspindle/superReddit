@@ -16,6 +16,10 @@ import {
   Bookmark,
   Scissors,
   LogOut,
+  Target,
+  Radio,
+  BarChart3,
+  Users,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -29,6 +33,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const router = useRouter();
   const base = `/projects/${project.id}`;
   const [createExpanded, setCreateExpanded] = useState(true);
+  const [outreachExpanded, setOutreachExpanded] = useState(true);
 
   const topItems = [
     { href: base, label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -40,6 +45,12 @@ export function ProjectSidebar({ project }: { project: Project }) {
     { href: `${base}/daily-mix`, label: 'Your Feed', icon: Shuffle },
     { href: `${base}/chat`, label: 'AI Chat', icon: MessageSquare },
     { href: `${base}/viral-library`, label: 'Viral Library', icon: Library },
+  ];
+
+  const outreachChildren = [
+    { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
+    { href: `${base}/outreach/tracker`, label: 'Tracker', icon: BarChart3 },
+    { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
   ];
 
   const bottomItems = [
@@ -134,6 +145,58 @@ export function ProjectSidebar({ project }: { project: Project }) {
             >
               <div className="space-y-1">
                 {createChildren.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <div key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors pl-9',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Outreach section */}
+        <motion.div variants={staggerItemVariants}>
+          <button
+            onClick={() => setOutreachExpanded((prev) => !prev)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <Target className="h-4 w-4" />
+            Outreach
+            <ChevronDown
+              className={cn(
+                'ml-auto h-4 w-4 transition-transform duration-200',
+                !outreachExpanded && '-rotate-90'
+              )}
+            />
+          </button>
+        </motion.div>
+
+        <AnimatePresence initial={false}>
+          {outreachExpanded && (
+            <motion.div
+              key="outreach-children"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="space-y-1">
+                {outreachChildren.map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   return (
                     <div key={item.href}>
