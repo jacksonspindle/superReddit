@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subreddit Signals Blog Extraction — SuperReddit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: { cyan: '#06b6d4', blue: '#3b82f6' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; }
+    .card { background: #1e293b; border: 1px solid #334155; }
+    .nav-link { cursor: pointer; }
+    .nav-link:hover { background: rgba(6, 182, 212, 0.08); }
+    .nav-link.active { color: #06b6d4; border-left-color: #06b6d4; background: rgba(6, 182, 212, 0.08); }
+    .gradient-text { background: linear-gradient(135deg, #06b6d4, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .accent-border { border-left: 3px solid #06b6d4; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #334155; color: #e2e8f0; padding: 10px 14px; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 10px 14px; border-bottom: 1px solid #334155; color: #cbd5e1; font-size: 0.875rem; }
+    tr:hover td { background: rgba(6, 182, 212, 0.03); }
+    code { background: #334155; color: #06b6d4; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+    pre { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; overflow-x: auto; }
+    pre code { background: none; padding: 0; color: #e2e8f0; }
+    li, p { color: #cbd5e1; }
+    .score-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    .score-high { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .score-med { background: rgba(234, 179, 8, 0.15); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .score-low { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .framework-card { background: linear-gradient(135deg, #1e293b 0%, rgba(6, 182, 212, 0.03) 100%); }
+    @media (max-width: 1023px) {
+      #sidebar { transform: translateX(-100%); position: fixed; z-index: 50; height: 100vh; transition: transform 0.3s; }
+      #sidebar.open { transform: translateX(0); }
+      #overlay { display: none; }
+      #overlay.open { display: block; }
+    }
+  </style>
+</head>
+<body class="font-sans text-slate-300 antialiased">
+
+  <!-- Mobile Top Bar -->
+  <div class="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+    <button id="menuBtn" class="text-slate-300 hover:text-cyan-400">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <span class="text-white font-bold text-lg">Super<span class="text-cyan-400">Reddit</span></span>
+    <div class="w-6"></div>
+  </div>
+
+  <div id="overlay" class="fixed inset-0 bg-black/50 z-40" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed top-0 left-0 w-64 h-screen bg-slate-900 border-r border-slate-700 overflow-y-auto z-50 lg:translate-x-0 lg:z-30">
+    <div class="p-6 border-b border-slate-700">
+      <h1 class="text-xl font-bold text-white">Super<span class="text-cyan-400">Reddit</span></h1>
+      <p class="text-xs text-slate-500 mt-1">Blog Extraction</p>
+    </div>
+    <nav class="p-4 space-y-1">
+      <a href="#scoring-systems" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">1. Scoring Systems</a>
+      <a href="#keyword-architecture" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">2. Keyword Architecture</a>
+      <a href="#reply-templates" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">3. Reply Templates</a>
+      <a href="#subreddit-evaluation" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">4. Subreddit Evaluation</a>
+      <a href="#ban-avoidance" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">5. Ban Avoidance</a>
+      <a href="#lead-pipeline" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">6. Lead Pipeline & CRM</a>
+      <a href="#reddit-ads" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">7. Reddit Ads</a>
+      <a href="#reddit-seo" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">8. Reddit SEO</a>
+      <a href="#content-formats" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">9. Content & Post Formats</a>
+      <a href="#tracking-attribution" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">10. Tracking & Attribution</a>
+      <a href="#platform-stats" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">11. Platform Stats</a>
+      <a href="#community-graph" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">12. Community Graph</a>
+      <a href="#ai-guardrails" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">13. AI Guardrails</a>
+      <a href="#execution-timelines" class="nav-link block px-3 py-2 text-sm text-slate-300 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">14. Execution Timelines</a>
+      <div class="border-t border-slate-700 my-3 mx-3"></div>
+      <a href="../index.html" class="nav-link block px-3 py-2 text-sm text-slate-400 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">&larr; Research Hub</a>
+      <a href="outreach-implementation-plan.html" class="nav-link block px-3 py-2 text-sm text-slate-400 hover:text-cyan-400 border-l-2 border-transparent rounded-r transition-all duration-150">Implementation Plan &rarr;</a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="lg:ml-64 min-h-screen">
+    <div class="max-w-4xl mx-auto px-6 py-12 lg:py-16 pt-20 lg:pt-16">
+
+      <!-- Header -->
+      <header class="mb-12">
+        <p class="text-cyan-400 text-sm font-medium tracking-wider uppercase mb-3">Research Extraction</p>
+        <h1 class="text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-4">Subreddit Signals <span class="gradient-text">Blog Extraction</span></h1>
+        <p class="text-lg text-slate-400 max-w-2xl">All 55 blog posts fully ingested and organized into 14 actionable categories by a 4-agent research team.</p>
+        <div class="flex gap-3 mt-6">
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">55 Posts</span>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-400/10 text-blue-400 border border-blue-400/20">14 Categories</span>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-400/10 text-emerald-400 border border-emerald-400/20">Feb 2026</span>
+        </div>
+      </header>
+
+      <!-- Section 1: Scoring Systems -->
+      <section id="scoring-systems" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">1</span>
+          <h2 class="text-2xl font-bold text-white">Scoring Systems</h2>
+        </div>
+
+        <!-- A. Thread Intent Score -->
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">A. Thread/Lead Intent Score (0-10 Scale)</h3>
+          <div class="overflow-x-auto rounded-lg mb-4">
+            <table>
+              <thead><tr><th>Signal</th><th>Points</th><th>Detection</th></tr></thead>
+              <tbody>
+                <tr><td>Explicit tool request ("looking for," "recommend")</td><td class="text-emerald-400 font-medium">+3</td><td>Keyword match</td></tr>
+                <tr><td>Competitor mentioned by name</td><td class="text-emerald-400 font-medium">+2</td><td>Competitor list match</td></tr>
+                <tr><td>Budget/pricing/ROI language</td><td class="text-emerald-400 font-medium">+2</td><td>Keyword match</td></tr>
+                <tr><td>Constraints listed (team, timeline, stack)</td><td class="text-emerald-400 font-medium">+1</td><td>NLP pattern match</td></tr>
+                <tr><td>Active thread (10+ comments)</td><td class="text-emerald-400 font-medium">+1</td><td>Reddit API</td></tr>
+                <tr><td>OP replies to comments</td><td class="text-emerald-400 font-medium">+1</td><td>Reddit API</td></tr>
+                <tr><td>"Free only" (if paid product)</td><td class="text-red-400 font-medium">-2</td><td>Keyword match</td></tr>
+                <tr><td>Student/homework signals</td><td class="text-red-400 font-medium">-2</td><td>Keyword match</td></tr>
+                <tr><td>Disqualifiers ("just curious," "hypothetical")</td><td class="text-red-400 font-medium">-3</td><td>Keyword match</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="grid md:grid-cols-3 gap-3">
+            <div class="bg-red-400/5 border border-red-400/20 rounded-lg p-3 text-center">
+              <p class="text-red-400 font-bold text-sm">8-10 = P0</p>
+              <p class="text-slate-400 text-xs">Reply within 30-60 min</p>
+            </div>
+            <div class="bg-yellow-400/5 border border-yellow-400/20 rounded-lg p-3 text-center">
+              <p class="text-yellow-400 font-bold text-sm">5-7 = P1</p>
+              <p class="text-slate-400 text-xs">Reply same day</p>
+            </div>
+            <div class="bg-slate-400/5 border border-slate-400/20 rounded-lg p-3 text-center">
+              <p class="text-slate-400 font-bold text-sm">0-4 = P2</p>
+              <p class="text-slate-400 text-xs">Monitor only</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- B. Lead Score -->
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">B. Lead Score (0-100 Scale)</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Signal</th><th>Points</th></tr></thead>
+              <tbody>
+                <tr><td>Active problem with constraints (budget, timeline, tools)</td><td class="text-emerald-400 font-medium">+25</td></tr>
+                <tr><td>Request for recommendation or advice</td><td class="text-emerald-400 font-medium">+20</td></tr>
+                <tr><td>Tried alternatives and failed (switch intent)</td><td class="text-emerald-400 font-medium">+15</td></tr>
+                <tr><td>Response to your comment within 2 hours</td><td class="text-emerald-400 font-medium">+15</td></tr>
+                <tr><td>Original poster status</td><td class="text-emerald-400 font-medium">+10</td></tr>
+                <tr><td>Account history matches ICP</td><td class="text-emerald-400 font-medium">+10</td></tr>
+                <tr><td>Compliance/security/procurement mention</td><td class="text-emerald-400 font-medium">+5</td></tr>
+                <tr><td>Subreddit rules prohibit commercial replies</td><td class="text-red-400 font-medium">-20</td></tr>
+                <tr><td>"Cheap/free only" incompatible with offering</td><td class="text-red-400 font-medium">-10</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- C-F compact -->
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-sm font-semibold text-white mb-3">C. Intent Rubric (0-3)</h4>
+            <ul class="space-y-1 text-sm">
+              <li><span class="score-badge score-high">3</span> Active buying ("Looking for a tool...")</li>
+              <li><span class="score-badge score-med">2</span> Switching friction ("Leaving X because...")</li>
+              <li><span class="score-badge score-med">1</span> Problem awareness ("How do you handle...?")</li>
+              <li><span class="score-badge score-low">0</span> Opinion/entertainment</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-sm font-semibold text-white mb-3">D. Thread Scoring (1-5)</h4>
+            <ul class="space-y-1 text-sm">
+              <li>+2: Direct request ("Any tool for X?")</li>
+              <li>+2: Pain + urgency ("fix this week")</li>
+              <li>+1: Budget/constraints mentioned</li>
+              <li>+1: Competitor mention</li>
+              <li>+1: Implementation details</li>
+              <li class="text-cyan-400 font-medium">Threshold: 3+ = pursue</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- E. RT Score -->
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-3">E. RT Score (Relevance x Tolerance)</h3>
+          <p class="text-sm text-slate-300 mb-2">Score each subreddit 1-5 on Relevance (ICP problem match) and Tolerance (tool/link friendliness). Multiply scores; priority subreddits score 15+.</p>
+          <p class="text-sm text-slate-400">Sub-10-minute audit: check rules, scan top posts for tools/brands, verify mod enforcement.</p>
+        </div>
+
+        <!-- F-L compact scoring systems -->
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">G. Signal Quality Score (SQS) — 4-Factor Model</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Factor</th><th>What It Measures</th></tr></thead>
+              <tbody>
+                <tr><td class="font-medium text-white">Velocity</td><td>Week-over-week post/comment growth in same pain area</td></tr>
+                <tr><td class="font-medium text-white">Comment-to-Upvote Ratio</td><td>High comments = unresolved problems (stronger demand signal)</td></tr>
+                <tr><td class="font-medium text-white">Pain Language Density</td><td>Count specific phrases ("subscription creep," "tooling is overkill")</td></tr>
+                <tr><td class="font-medium text-white">Buyer Mentions</td><td>Named tools, budget references, migration language</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">H. Thread Quality Scoring for SEO</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Signal</th><th>Weight</th><th>Threshold</th></tr></thead>
+              <tbody>
+                <tr><td>Intent match (title clarity)</td><td>25%</td><td>&gt;7/10</td></tr>
+                <tr><td>Comment depth (avg length)</td><td>25%</td><td>&gt;3 substantive comments</td></tr>
+                <tr><td>Comment diversity (unique posters)</td><td>20%</td><td>&gt;3 different voices</td></tr>
+                <tr><td>OP credibility (constraints shared)</td><td>15%</td><td>Specific details mentioned</td></tr>
+                <tr><td>Age/freshness</td><td>15%</td><td>&lt;7 days old</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-sm text-cyan-400 mt-3">Score &gt;70 = worth commenting on</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-sm font-semibold text-white mb-3">J. "3S" Quick Filter (15 sec)</h4>
+            <ul class="space-y-2 text-sm">
+              <li><strong class="text-cyan-400">Specific:</strong> Names tools, workflows, constraints</li>
+              <li><strong class="text-cyan-400">Stakes:</strong> Revenue, churn, compliance, time-to-market</li>
+              <li><strong class="text-cyan-400">Soon:</strong> "this week," "this month," "before launch"</li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-sm font-semibold text-white mb-3">L. Mod-Safe Compliance (6D, 1-10)</h4>
+            <ul class="space-y-1 text-sm">
+              <li>1. Rules scan: rules + pinned posts + flairs</li>
+              <li>2. Culture scan: top posts tone</li>
+              <li>3. Promotion tolerance: self-promo removals</li>
+              <li>4. Account trust: profile history</li>
+              <li>5. Link risk: no-link strategy needed?</li>
+              <li>6. Frequency cap: avoid repetitive posting</li>
+            </ul>
+            <div class="flex gap-2 mt-3">
+              <span class="text-xs px-2 py-1 rounded bg-emerald-400/10 text-emerald-400">Green</span>
+              <span class="text-xs px-2 py-1 rounded bg-yellow-400/10 text-yellow-400">Yellow</span>
+              <span class="text-xs px-2 py-1 rounded bg-red-400/10 text-red-400">Red</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Keyword Architecture -->
+      <section id="keyword-architecture" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">2</span>
+          <h2 class="text-2xl font-bold text-white">Keyword Architecture</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">The 30-Keyword Bank (3 Buckets)</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Bucket</th><th>Count</th><th>Examples</th></tr></thead>
+              <tbody>
+                <tr><td class="font-medium text-white">Problem phrases</td><td>10</td><td>"how do I," "anyone else," "stuck with," "too manual"</td></tr>
+                <tr><td class="font-medium text-white">Solution phrases</td><td>10</td><td>"recommend," "best tool," "what do you use," "platform for"</td></tr>
+                <tr><td class="font-medium text-white">Competitive phrases</td><td>10</td><td>"alternative to [X]," "vs [X]," "moving from [X]"</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">7 Alert Setup Categories</h3>
+          <div class="space-y-3">
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-1"><span class="text-xs px-2 py-0.5 rounded bg-red-400/10 text-red-400 font-medium">Highest Intent</span><span class="text-white font-semibold text-sm">1. "Looking For / Recommend"</span></div>
+              <p class="text-slate-400 text-sm">"looking for," "any recommendations," "best" AND ("tool" OR "software"), "anyone use," "suggest"</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <span class="text-white font-semibold text-sm">2. Competitor + Alternative</span>
+              <p class="text-slate-400 text-sm mt-1">"alternative to [X]," "[X]" AND ("pricing" OR "expensive"), "switching from [X]"</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <span class="text-white font-semibold text-sm">3. Pricing + Budget</span>
+              <p class="text-slate-400 text-sm mt-1">"pricing," "cost," "budget," "worth it," "ROI," "per seat," "renewal"</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <span class="text-white font-semibold text-sm">4. Problem-First Pain</span>
+              <p class="text-slate-400 text-sm mt-1">"how do I" + ("automate" OR "track"), "we're stuck," "manual AND spreadsheet," "no visibility"</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <span class="text-white font-semibold text-sm">5. Comparison + Shortlist</span>
+              <p class="text-slate-400 text-sm mt-1">"vs," "compare," "which is better," "pros and cons," "deciding between," "top 3"</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <span class="text-white font-semibold text-sm">6. Implementation + Integration</span>
+              <p class="text-slate-400 text-sm mt-1">"integrate," "API," "webhook," "SSO," "SOC2," "migration," "setup AND stuck"</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <span class="text-white font-semibold text-sm">7. Negative Sentiment (Churn Rescue)</span>
+              <p class="text-slate-400 text-sm mt-1">"doesn't work," "broken," "support AND no response," "refund," "cancel," "data loss"</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="card rounded-xl p-5">
+            <h4 class="text-sm font-semibold text-emerald-400 mb-2">Include Filters</h4>
+            <p class="text-sm text-slate-300">recommend, alternative, switching, pricing, budget, trial, demo, integrate</p>
+          </div>
+          <div class="card rounded-xl p-5">
+            <h4 class="text-sm font-semibold text-red-400 mb-2">Exclude Filters</h4>
+            <p class="text-sm text-slate-300">meme, shitpost, homework, pirated, crack, free download</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Reply Templates -->
+      <section id="reply-templates" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">3</span>
+          <h2 class="text-2xl font-bold text-white">Reply Templates & Frameworks</h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <div class="framework-card card rounded-xl p-5">
+            <h4 class="text-cyan-400 font-bold text-sm mb-2">A. H.E.L.P. Structure</h4>
+            <ul class="space-y-1 text-sm">
+              <li><strong class="text-white">H</strong> = Headline (mirror problem)</li>
+              <li><strong class="text-white">E</strong> = Explain (root cause)</li>
+              <li><strong class="text-white">L</strong> = List (3-7 steps)</li>
+              <li><strong class="text-white">P</strong> = Proof + Permission</li>
+            </ul>
+          </div>
+          <div class="framework-card card rounded-xl p-5">
+            <h4 class="text-cyan-400 font-bold text-sm mb-2">B. DPPI Framework</h4>
+            <ul class="space-y-1 text-sm">
+              <li><strong class="text-white">D</strong>iagnose: Restate situation</li>
+              <li><strong class="text-white">P</strong>rescribe: 2-4 steps</li>
+              <li><strong class="text-white">P</strong>rove: Credibility marker</li>
+              <li><strong class="text-white">I</strong>nvite: Helpful next step</li>
+            </ul>
+          </div>
+          <div class="framework-card card rounded-xl p-5">
+            <h4 class="text-cyan-400 font-bold text-sm mb-2">C. Demo Bridge (4-Part)</h4>
+            <ul class="space-y-1 text-sm">
+              <li>1. Mirror: Restate situation</li>
+              <li>2. Diagnose: Root problem</li>
+              <li>3. Options: 2-3 paths (incl. non-product)</li>
+              <li>4. Bridge: Low-friction next step</li>
+            </ul>
+          </div>
+          <div class="framework-card card rounded-xl p-5">
+            <h4 class="text-cyan-400 font-bold text-sm mb-2">D. Context-Diagnosis-Fix-Proof</h4>
+            <ul class="space-y-1 text-sm">
+              <li>1. Restate situation</li>
+              <li>2. Name root cause</li>
+              <li>3. 10-30 min actionable steps</li>
+              <li>4. Metric/result/example</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-3">G. Comparison Block Template</h3>
+          <div class="bg-slate-800/50 rounded-lg p-4 text-sm space-y-2">
+            <p><strong class="text-white">Tool A:</strong> Best for [use case], [2 pros], [2 cons]</p>
+            <p><strong class="text-white">Tool B:</strong> Best for [use case], [2 pros], [2 cons]</p>
+            <p><strong class="text-white">Tool C (yours):</strong> Best for [use case], [2 pros], [2 cons]</p>
+            <p class="text-cyan-400">"If you prioritize X, choose A. If Y matters most, go with B."</p>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">I. 3-Touch Cadence</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-4 bg-slate-800/50 rounded-lg p-4">
+              <span class="flex-shrink-0 w-8 h-8 rounded-full bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">1</span>
+              <div><p class="text-white text-sm font-medium">0-2 hours</p><p class="text-slate-400 text-sm">3-6 sentence solution + one qualifying question</p></div>
+            </div>
+            <div class="flex items-center gap-4 bg-slate-800/50 rounded-lg p-4">
+              <span class="flex-shrink-0 w-8 h-8 rounded-full bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">2</span>
+              <div><p class="text-white text-sm font-medium">24 hours</p><p class="text-slate-400 text-sm">Permission-based DM template</p></div>
+            </div>
+            <div class="flex items-center gap-4 bg-slate-800/50 rounded-lg p-4">
+              <span class="flex-shrink-0 w-8 h-8 rounded-full bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">3</span>
+              <div><p class="text-white text-sm font-medium">72 hours</p><p class="text-slate-400 text-sm">Binary choice. Stop after no response.</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-3">K. Soft CTA Phrases</h3>
+          <div class="space-y-2">
+            <div class="bg-emerald-400/5 border border-emerald-400/20 rounded-lg p-3 text-sm text-emerald-300">"If you want, I can share the checklist I use"</div>
+            <div class="bg-emerald-400/5 border border-emerald-400/20 rounded-lg p-3 text-sm text-emerald-300">"Happy to explain how I'd approach it with your numbers"</div>
+            <div class="bg-red-400/5 border border-red-400/20 rounded-lg p-3 text-sm text-red-300">AVOID: "DM me for pricing," "Sign up here," "Limited spots"</div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-3">N. Value-First Comment Ladder (5-Step Permission Escalation)</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">1</span><span class="text-sm">Diagnose: Restate problem + ask 1 clarifying question</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">2</span><span class="text-sm">Mini-solution: Framework/checklist (no links)</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">3</span><span class="text-sm">Provide options: 2-4 approaches including non-paid</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">4</span><span class="text-sm">Soft mention: "If relevant, I can share a template I use"</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">5</span><span class="text-sm">DM-only consent: "Want me to DM the checklist?" (never cold-DM)</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Subreddit Evaluation -->
+      <section id="subreddit-evaluation" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">4</span>
+          <h2 class="text-2xl font-bold text-white">Subreddit Evaluation Criteria</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Three-Part Fit Model</h3>
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-slate-800/50 rounded-lg p-4 text-center"><p class="text-cyan-400 font-semibold mb-1">Intent Fit</p><p class="text-slate-400 text-sm">Do people actively seek solutions?</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4 text-center"><p class="text-cyan-400 font-semibold mb-1">Tone Fit</p><p class="text-slate-400 text-sm">Does culture accept product mentions?</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4 text-center"><p class="text-cyan-400 font-semibold mb-1">Context Fit</p><p class="text-slate-400 text-sm">Does your message blend with rewarded content?</p></div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Size Sweet Spots</h3>
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-slate-800/50 rounded-lg p-4"><p class="text-slate-400 text-xs uppercase mb-1">Niche</p><p class="text-white font-semibold">5K - 50K</p><p class="text-slate-500 text-xs mt-1">High intent density, lower volume</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4 border border-cyan-400/30"><p class="text-cyan-400 text-xs uppercase mb-1">Best</p><p class="text-white font-semibold">50K - 500K</p><p class="text-slate-500 text-xs mt-1">Consistent across all posts</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4"><p class="text-slate-400 text-xs uppercase mb-1">Large</p><p class="text-white font-semibold">500K+</p><p class="text-slate-500 text-xs mt-1">High volume but diluted intent</p></div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Portfolio Management Rules</h3>
+          <ul class="space-y-2 text-sm">
+            <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Start with <strong class="text-white">10 subreddits</strong>, not 100</span></li>
+            <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Mix: <strong class="text-white">70% problem-focused + 30% buyer-comparison</strong></span></li>
+            <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Pruning: Remove subs generating &lt;5 qualified threads/week</span></li>
+            <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Testing: Add 3 new test subs weekly</span></li>
+            <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">&#9679;</span><span class="text-emerald-300">Key finding: <strong>2-3 subreddits drive 80% of traction</strong></span></li>
+          </ul>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Subreddit Tone Matching</h3>
+          <div class="grid md:grid-cols-2 gap-3">
+            <div class="bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-medium text-sm">r/SaaS</span><p class="text-slate-400 text-xs mt-1">Data-driven, founder-to-founder</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-medium text-sm">r/Marketing</span><p class="text-slate-400 text-xs mt-1">Tactical, professional, frameworks</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-medium text-sm">r/Startups</span><p class="text-slate-400 text-xs mt-1">Honest, uncertain, tradeoffs</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-medium text-sm">r/Digital_Marketing</span><p class="text-slate-400 text-xs mt-1">Educational, methodical, edge cases</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Ban Avoidance -->
+      <section id="ban-avoidance" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">5</span>
+          <h2 class="text-2xl font-bold text-white">Ban Avoidance Rules</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4 accent-border">
+          <p class="text-sm text-slate-300"><strong class="text-red-400">80% of SaaS companies get banned within their first month.</strong> These rules are confirmed across 40+ blog posts.</p>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Universal Rules</h3>
+          <div class="grid md:grid-cols-2 gap-3">
+            <ul class="space-y-2 text-sm">
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span><strong class="text-white">90/10 Rule:</strong> 90% value, 10% promotion</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span><strong class="text-white">3:1 Ratio:</strong> 3 helpful comments per 1 promo</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>15-25 comments before first mention</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Comment daily 14 days before first post</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Read rules + pinned posts before interacting</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Disclose affiliations plainly</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>No links unless explicitly allowed</span></li>
+              <li class="flex items-start gap-2"><span class="text-cyan-400 mt-0.5">&#9679;</span><span>Never lead with a link</span></li>
+            </ul>
+            <ul class="space-y-2 text-sm">
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>No corporate language</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>No copy-paste same comment (spam)</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>No "DM sent" — offer value first</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Never automate first touch</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Reply to every serious comment within 24h</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>One account per community</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Avoid shortened URLs (autofiltered)</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">CTA Risk Ladder</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Level</th><th>Tactic</th><th>Risk</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Zero-link post; pure help</td><td><span class="score-badge score-high">Lowest</span></td></tr>
+                <tr><td>2</td><td>Comment replies; no product mention</td><td><span class="score-badge score-high">Low</span></td></tr>
+                <tr><td>3</td><td>Soft mention, no link</td><td><span class="score-badge score-med">Medium</span></td></tr>
+                <tr><td>4</td><td>Opt-in DM offers</td><td><span class="score-badge score-med">Med-High</span></td></tr>
+                <tr><td>5</td><td>Link only when requested</td><td><span class="score-badge score-low">High</span></td></tr>
+                <tr><td>6</td><td>Hard CTA + link (promo subs only)</td><td><span class="score-badge score-low">Highest</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">90/10 Trust-Building Protocol</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Week</th><th>Action</th><th>Link Policy</th></tr></thead>
+              <tbody>
+                <tr><td class="font-medium text-white">1</td><td>Lurk, save 30 threads, comment on 10</td><td class="text-red-400">Zero links</td></tr>
+                <tr><td class="font-medium text-white">2</td><td>Share 1 mini-guide (300-600 words)</td><td class="text-red-400">No links</td></tr>
+                <tr><td class="font-medium text-white">3</td><td>Add 3 resource comments</td><td class="text-yellow-400">Only when requested</td></tr>
+                <tr><td class="font-medium text-white">4</td><td>Post 1 case study with metrics</td><td class="text-emerald-400">Disclose affiliation</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Lead Pipeline -->
+      <section id="lead-pipeline" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">6</span>
+          <h2 class="text-2xl font-bold text-white">Lead Pipeline & CRM</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Reddit Lead Pipeline (RLP) — 6 Stages</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="w-3 h-3 rounded-full bg-slate-400"></span><span class="text-sm"><strong class="text-white">1. Signal Captured</strong> — Post URL, subreddit, problem phrasing</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="w-3 h-3 rounded-full bg-blue-400"></span><span class="text-sm"><strong class="text-white">2. First Touch</strong> — Public comment or DM response</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="w-3 h-3 rounded-full bg-cyan-400"></span><span class="text-sm"><strong class="text-white">3. Context Qualified</strong> — Confirm severity, workaround, timeline</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="w-3 h-3 rounded-full bg-yellow-400"></span><span class="text-sm"><strong class="text-white">4. Off-Reddit Handshake</strong> — Transition to email/call</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="w-3 h-3 rounded-full bg-orange-400"></span><span class="text-sm"><strong class="text-white">5. Call/Trial</strong> — Standard sales pipeline with Reddit context</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="w-3 h-3 rounded-full bg-emerald-400"></span><span class="text-sm"><strong class="text-white">6. Closed-Won/Lost</strong> — Log reason: pricing, timing, feature, trust</span></div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-3">VoC Capture — 5-Column System</h3>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div class="bg-slate-800/50 rounded-lg p-3 text-center text-sm"><span class="text-cyan-400 block text-xs mb-1">1</span>Exact quote</div>
+            <div class="bg-slate-800/50 rounded-lg p-3 text-center text-sm"><span class="text-cyan-400 block text-xs mb-1">2</span>Pain point</div>
+            <div class="bg-slate-800/50 rounded-lg p-3 text-center text-sm"><span class="text-cyan-400 block text-xs mb-1">3</span>Desired outcome</div>
+            <div class="bg-slate-800/50 rounded-lg p-3 text-center text-sm"><span class="text-cyan-400 block text-xs mb-1">4</span>Workaround</div>
+            <div class="bg-slate-800/50 rounded-lg p-3 text-center text-sm"><span class="text-cyan-400 block text-xs mb-1">5</span>Tools mentioned</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: Reddit Ads -->
+      <section id="reddit-ads" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">7</span>
+          <h2 class="text-2xl font-bold text-white">Reddit Ads Framework</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Bidding Strategy Progression</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Phase</th><th>Duration</th><th>Strategy</th><th>Trigger</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">Learning</td><td>Days 1-14</td><td>Lowest Cost</td><td>30+ conversions</td></tr>
+                <tr><td class="text-white font-medium">Control</td><td>Days 15-45</td><td>Cost Cap</td><td>Stable CPA baseline</td></tr>
+                <tr><td class="text-white font-medium">Scale</td><td>Day 46+</td><td>Cost Cap (expand)</td><td>20-30% increases every 48-72h</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Targeting Hierarchy</h3>
+          <div class="space-y-3">
+            <div class="bg-red-400/5 border border-red-400/20 rounded-lg p-3"><span class="text-red-400 font-bold text-sm">Tier 1 (Highest Intent):</span><span class="text-sm ml-2">Subreddit targeting, 10-30 communities max</span></div>
+            <div class="bg-yellow-400/5 border border-yellow-400/20 rounded-lg p-3"><span class="text-yellow-400 font-bold text-sm">Tier 2 (Problem-Aware):</span><span class="text-sm ml-2">Keyword targeting, 20-60 terms</span></div>
+            <div class="bg-slate-400/5 border border-slate-400/20 rounded-lg p-3"><span class="text-slate-400 font-bold text-sm">Tier 3 (Discovery):</span><span class="text-sm ml-2">Interest targeting (separate ad group)</span></div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-3">CPA Target Formula</h3>
+          <pre><code>Step 1: Gross Profit = Monthly Price x Retention Months x Gross Margin %
+Step 2: CAC Budget  = Gross Profit x Payback Tolerance Ratio
+Step 3: Target CPA  = CAC Budget / Close Rate
+
+Example: $99/mo x 8 months x 80% margin = $634 gross profit
+         6-month payback = $317 CAC ceiling
+         20% close rate = $63 trial CPA target</code></pre>
+        </div>
+      </section>
+
+      <!-- Section 8: Reddit SEO -->
+      <section id="reddit-seo" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">8</span>
+          <h2 class="text-2xl font-bold text-white">Reddit SEO</h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <div class="card rounded-xl p-5 text-center">
+            <p class="text-3xl font-extrabold gradient-text">97.5%</p>
+            <p class="text-slate-400 text-sm mt-1">of product review Google searches include Reddit</p>
+          </div>
+          <div class="card rounded-xl p-5 text-center">
+            <p class="text-3xl font-extrabold gradient-text">40.11%</p>
+            <p class="text-slate-400 text-sm mt-1">of AI-generated responses cite Reddit</p>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Thread Lifecycle for Commenting</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Phase</th><th>Timeline</th><th>Action</th><th>Goal</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">1</td><td>0-24 hours</td><td>Comment with hook answers</td><td>Build momentum</td></tr>
+                <tr><td class="text-white font-medium">2</td><td>2-7 days</td><td>Add long-form comparisons</td><td>Become Google-worthy</td></tr>
+                <tr><td class="text-white font-medium">3</td><td>2-8 weeks</td><td>Refresh with edits</td><td>Long-tail ranking</td></tr>
+                <tr><td class="text-white font-medium">4</td><td>2-12+ months</td><td>Monitor evergreen pull</td><td>Sustain traffic</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-3">Weekly 60-Minute Reddit SEO System</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm">Mon 15m:</span><span class="text-sm">Pull 30-50 fresh threads, filter to 10</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm">Wed 30m:</span><span class="text-sm">Write 2 "ranking-grade" comments (150-300 words each)</span></div>
+            <div class="flex items-center gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm">Fri 15m:</span><span class="text-sm">Google search commented thread titles, log rankings</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 9: Content Formats -->
+      <section id="content-formats" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">9</span>
+          <h2 class="text-2xl font-bold text-white">Content & Post Formats</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">5 Anti-Marketer Post Types</h3>
+          <div class="grid md:grid-cols-2 gap-3">
+            <div class="bg-slate-800/50 rounded-lg p-4"><span class="text-xs px-2 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">Playbook</span><p class="text-slate-300 text-sm mt-2">"How I fixed ___ in 7 days (with screenshots + numbers)"</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4"><span class="text-xs px-2 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">Checklist</span><p class="text-slate-300 text-sm mt-2">"My 12-point audit for ___ (copy/paste)"</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4"><span class="text-xs px-2 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">Lessons</span><p class="text-slate-300 text-sm mt-2">"I wasted $2,000 on ___ so you don't have to"</p></div>
+            <div class="bg-slate-800/50 rounded-lg p-4"><span class="text-xs px-2 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">Comparison</span><p class="text-slate-300 text-sm mt-2">"I tested 5 tools for ___: here's what surprised me"</p></div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Proof Post Structure</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">1</span><span class="text-sm"><strong class="text-white">Context:</strong> Credibility claim, no hype</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">2</span><span class="text-sm"><strong class="text-white">Problem:</strong> Constraints included</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">3</span><span class="text-sm"><strong class="text-white">Data:</strong> 3-7 concrete metrics</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">4</span><span class="text-sm"><strong class="text-white">Method:</strong> Replicable steps independent of product</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">5</span><span class="text-sm"><strong class="text-white">Tradeoffs:</strong> What failed; alternatives</span></div>
+            <div class="flex items-center gap-3"><span class="flex-shrink-0 w-6 h-6 rounded bg-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-xs">6</span><span class="text-sm"><strong class="text-white">Disclosure:</strong> "Founder of X. No links unless asked"</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 10: Tracking -->
+      <section id="tracking-attribution" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">10</span>
+          <h2 class="text-2xl font-bold text-white">Tracking & Attribution</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">Weekly KPI Targets</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Metric</th><th>Beginner</th><th>Scale</th></tr></thead>
+              <tbody>
+                <tr><td>Qualified threads reviewed</td><td>25/week</td><td>60/week</td></tr>
+                <tr><td>Comments posted</td><td>10/week</td><td>20/week</td></tr>
+                <tr><td>DM conversations</td><td>3/week</td><td>5/week</td></tr>
+                <tr><td>Calls booked</td><td>1/week</td><td>3/week</td></tr>
+                <tr><td>Reply-to-positive rate</td><td>15-30%</td><td>15-30%</td></tr>
+                <tr><td>DM-to-demo rate</td><td>5-15%</td><td>10-25%</td></tr>
+                <tr><td>Cost per lead</td><td>$50-100</td><td>$50-100</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 11: Platform Stats -->
+      <section id="platform-stats" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">11</span>
+          <h2 class="text-2xl font-bold text-white">Platform Stats & Benchmarks</h2>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div class="card rounded-xl p-4 text-center"><p class="text-2xl font-extrabold text-white">108M+</p><p class="text-slate-500 text-xs">Daily active users</p></div>
+          <div class="card rounded-xl p-4 text-center"><p class="text-2xl font-extrabold text-white">500M+</p><p class="text-slate-500 text-xs">Monthly visitors</p></div>
+          <div class="card rounded-xl p-4 text-center"><p class="text-2xl font-extrabold text-white">100K+</p><p class="text-slate-500 text-xs">Active communities</p></div>
+          <div class="card rounded-xl p-4 text-center"><p class="text-2xl font-extrabold text-white">20+ min</p><p class="text-slate-500 text-xs">Avg session (4.5x LinkedIn)</p></div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+          <div class="card rounded-xl p-4 text-center"><p class="text-xl font-bold gradient-text">74%</p><p class="text-slate-500 text-xs">Say Reddit influences purchases</p></div>
+          <div class="card rounded-xl p-4 text-center"><p class="text-xl font-bold gradient-text">90%</p><p class="text-slate-500 text-xs">Trust Reddit for product discovery</p></div>
+          <div class="card rounded-xl p-4 text-center"><p class="text-xl font-bold gradient-text">$0.50-$2</p><p class="text-slate-500 text-xs">B2B/SaaS CPC (70-85% cheaper than LinkedIn)</p></div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Case Study Results</h3>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Company</th><th>Results</th><th>Timeline</th></tr></thead>
+              <tbody>
+                <tr><td class="text-white font-medium">Narrative Nooks</td><td>139 leads, $980 revenue, 30 customers</td><td>30 days</td></tr>
+                <tr><td class="text-white font-medium">Speeddough</td><td>120 leads, $1,800 revenue, 150% signup lift</td><td>45 days</td></tr>
+                <tr><td class="text-white font-medium">Cybersecurity SaaS</td><td>500 subs, 120 leads, 42% demo conversion, 3x ROI</td><td>6 months</td></tr>
+                <tr><td class="text-white font-medium">ADHD Coaching</td><td>$280k direct sales/year, #1 on ChatGPT</td><td>Ongoing</td></tr>
+                <tr><td class="text-white font-medium">EIT Campus</td><td>492% traffic increase, 46K clicks</td><td>3 months</td></tr>
+                <tr><td class="text-white font-medium">Liquid I.V.</td><td>94% reduction in cost per action</td><td>Campaign</td></tr>
+                <tr><td class="text-white font-medium">Adobe r/photoshop</td><td>250K visits, ~$1.2M attributed revenue</td><td>Ongoing</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 12: Community Graph -->
+      <section id="community-graph" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">12</span>
+          <h2 class="text-2xl font-bold text-white">Community Graph & Splinter Detection</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-3">Splinter Detection Framework</h3>
+          <p class="text-sm text-slate-300 mb-3"><strong class="text-cyan-400">"Overlap drops while activity rises"</strong> = users choosing sides. Splinter subs concentrate higher-intent audiences with sharper pain points.</p>
+          <div class="overflow-x-auto rounded-lg">
+            <table>
+              <thead><tr><th>Signal</th><th>Best For</th></tr></thead>
+              <tbody>
+                <tr><td>User migration/overlap</td><td>Splinter detection</td></tr>
+                <tr><td>Shared domains</td><td>Product/category research</td></tr>
+                <tr><td>Cross-posting</td><td>Content propagation</td></tr>
+                <tr><td>Semantic similarity</td><td>Sparse user overlap</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 13: AI Guardrails -->
+      <section id="ai-guardrails" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">13</span>
+          <h2 class="text-2xl font-bold text-white">AI Content Guardrails</h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="card rounded-xl p-6">
+            <h3 class="text-sm font-semibold text-emerald-400 mb-3">Safe to Automate</h3>
+            <ul class="space-y-2 text-sm">
+              <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">&#9679;</span><span>Thread discovery + filtering</span></li>
+              <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">&#9679;</span><span>Rule highlighting before posting</span></li>
+              <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">&#9679;</span><span>Outcome logging</span></li>
+              <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">&#9679;</span><span>Subreddit norm analysis + tone guidance</span></li>
+            </ul>
+          </div>
+          <div class="card rounded-xl p-6">
+            <h3 class="text-sm font-semibold text-red-400 mb-3">Risky to Automate</h3>
+            <ul class="space-y-2 text-sm">
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Reply generation (must manually edit)</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Account management at scale</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Upvoting/voting coordination</span></li>
+              <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">&#9679;</span><span>Cross-posting identical replies</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 14: Execution Timelines -->
+      <section id="execution-timelines" class="mb-16">
+        <div class="flex items-center gap-3 mb-6">
+          <span class="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 font-bold text-sm">14</span>
+          <h2 class="text-2xl font-bold text-white">Execution Timelines</h2>
+        </div>
+
+        <div class="card rounded-xl p-6 mb-4">
+          <h3 class="text-lg font-semibold text-white mb-4">7-Day Launch Sprint</h3>
+          <div class="space-y-2">
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 1</span><span class="text-sm">Map 15 subreddits + rules + save 20 threads</span></div>
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 2</span><span class="text-sm">5 comments with framework (no links)</span></div>
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 3</span><span class="text-sm">5 more comments + 12-24hr reply guarantee</span></div>
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 4</span><span class="text-sm">1 value post (checklist/template, no CTA)</span></div>
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 5</span><span class="text-sm">1 optional resource link where fitting</span></div>
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 6</span><span class="text-sm">Summarize top objections/phrases/pains</span></div>
+            <div class="flex items-start gap-3 bg-slate-800/50 rounded-lg p-3"><span class="text-cyan-400 font-bold text-sm w-12 flex-shrink-0">Day 7</span><span class="text-sm">Plan AMA or review metrics</span></div>
+          </div>
+        </div>
+
+        <div class="card rounded-xl p-6 accent-border">
+          <h3 class="text-lg font-semibold text-white mb-3">Expected 30-Day Outcomes</h3>
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="text-center"><p class="text-2xl font-bold text-cyan-400">3-10</p><p class="text-slate-400 text-sm">Qualified leads</p></div>
+            <div class="text-center"><p class="text-2xl font-bold text-cyan-400">1-3</p><p class="text-slate-400 text-sm">Sales calls</p></div>
+            <div class="text-center"><p class="text-2xl font-bold text-cyan-400">2-3</p><p class="text-slate-400 text-sm">Top subreddits identified</p></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="border-t border-slate-700 pt-8 pb-12 text-center">
+        <p class="text-sm text-slate-500">SuperReddit Research &mdash; 55 Posts Extracted &mdash; Feb 2026</p>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    menuBtn?.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay.classList.toggle('open'); });
+    function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          navLinks.forEach(l => l.classList.remove('active'));
+          const active = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -80% 0px' });
+    sections.forEach(s => observer.observe(s));
+    navLinks.forEach(link => link.addEventListener('click', () => { if (window.innerWidth < 1024) closeSidebar(); }));
+  </script>
+</body>
+</html>
