@@ -23,6 +23,7 @@ import {
   Settings,
   Github,
   Bot,
+  Mail,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -55,6 +56,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
     { href: `${base}/outreach/tracker`, label: 'Tracker', icon: BarChart3 },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
+    { href: `${base}/outreach/dms`, label: 'DMs', icon: Mail },
   ];
 
   const contextChildren = [

@@ -174,6 +174,79 @@ export async function fetchSubredditInfo(subreddit: string): Promise<RedditSubre
   }
 }
 
+// ---- Thread Comments Cache (shorter TTL for monitoring) ----
+const commentCache = new Map<string, { data: ThreadComment[]; expiresAt: number }>();
+const COMMENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export function clearCommentCache() {
+  commentCache.clear();
+}
+
+interface ThreadComment {
+  id: string;
+  author: string;
+  body: string;
+  score: number;
+  created_utc: number;
+  permalink: string;
+  parent_id: string;
+}
+
+function flattenComments(children: Record<string, unknown>[]): ThreadComment[] {
+  const results: ThreadComment[] = [];
+  for (const child of children) {
+    if ((child as { kind?: string }).kind !== 't1') continue;
+    const data = child.data as Record<string, unknown>;
+    if (!data || !data.author || data.author === '[deleted]') continue;
+
+    results.push({
+      id: data.name as string, // full thing ID e.g. "t1_abc123"
+      author: data.author as string,
+      body: (data.body as string) || '',
+      score: (data.score as number) || 0,
+      created_utc: (data.created_utc as number) || 0,
+      permalink: (data.permalink as string) || '',
+      parent_id: (data.parent_id as string) || '',
+    });
+
+    // Recurse into replies
+    const replies = data.replies as { data?: { children?: Record<string, unknown>[] } } | undefined;
+    if (replies?.data?.children) {
+      results.push(...flattenComments(replies.data.children));
+    }
+  }
+  return results;
+}
+
+export async function fetchThreadComments(permalink: string): Promise<ThreadComment[]> {
+  const cacheKey = `comments:${permalink}`;
+  const cached = commentCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+  if (cached) commentCache.delete(cacheKey);
+
+  try {
+    // Ensure permalink doesn't have trailing slash issues
+    const cleanPermalink = permalink.endsWith('/') ? permalink.slice(0, -1) : permalink;
+    const url = `${REDDIT_BASE}${cleanPermalink}.json?limit=200&sort=new&raw_json=1`;
+    const json = await fetchFromReddit(url) as unknown[];
+
+    // Reddit returns [post_listing, comments_listing]
+    if (!Array.isArray(json) || json.length < 2) return [];
+
+    const commentsListing = json[1] as { data?: { children?: Record<string, unknown>[] } };
+    const children = commentsListing?.data?.children || [];
+    const comments = flattenComments(children);
+
+    commentCache.set(cacheKey, { data: comments, expiresAt: Date.now() + COMMENT_CACHE_TTL });
+    return comments;
+  } catch (error) {
+    console.error('Failed to fetch thread comments:', error);
+    return [];
+  }
+}
+
 export async function searchSubredditPosts(
   subreddit: string,
   query: string,
