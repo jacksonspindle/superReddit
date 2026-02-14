@@ -172,6 +172,23 @@ Use this context to give more relevant and specific advice.`;
 
 // ---- Subreddit Discovery ----
 
+export interface EnrichedCandidate {
+  name: string;
+  subscribers: number;
+  description: string;
+  activeUsers?: number | null;
+  engagementRatio?: number | null;
+  postSearchHits?: number;
+  sources?: {
+    nameSearch: boolean;
+    postSearch: boolean;
+    similarApi: boolean;
+    sidebar: boolean;
+    competitorSearch: boolean;
+  };
+  discoveryScore?: number;
+}
+
 export const SUGGEST_SUBREDDITS_SYSTEM_PROMPT = `You are an expert Reddit strategist. You help product creators find the best subreddits to market their products authentically.
 
 CRITICAL RULES:
@@ -181,7 +198,12 @@ CRITICAL RULES:
 - NEVER suggest generic "showcase your project" subreddits (e.g. InternetIsBeautiful, SideProject, etc.) — only suggest communities where the target audience already exists.
 - Niche subreddits with small but highly targeted audiences are MORE valuable than large generic ones. Prioritize specificity over size.
 - NEVER suggest subreddits with fewer than 1,000 members. They are too small to be useful for promotion.
-- For match quality: "best" = the target audience IS this community, "good" = strong overlap with the target audience, "relevant" = related community worth trying.`;
+- For match quality: "best" = the target audience IS this community, "good" = strong overlap with the target audience, "relevant" = related community worth trying.
+
+MULTI-SIGNAL DISCOVERY GUIDANCE:
+- Subreddits found through multiple discovery signals (post search, Reddit similar, sidebar references) are MORE likely to be relevant than those found only by name search.
+- Subreddits with high post search hit counts indicate the topic is actively discussed there — prioritize these.
+- Engagement ratio (active users / subscribers) above 2% indicates a healthy, active community.`;
 
 export function buildSuggestSubredditsPrompt(
   product: {
@@ -191,8 +213,9 @@ export function buildSuggestSubredditsPrompt(
     audience?: string;
     tone: string;
   },
-  discoveredSubreddits?: { name: string; subscribers: number; description: string }[],
-  existingSubreddits?: string[]
+  discoveredSubreddits?: (EnrichedCandidate | { name: string; subscribers: number; description: string })[],
+  existingSubreddits?: string[],
+  competitors?: string[]
 ): string {
   const hasExisting = existingSubreddits && existingSubreddits.length > 0;
 
@@ -200,8 +223,67 @@ export function buildSuggestSubredditsPrompt(
     ? `\n## Subreddits Already Chosen by the User\nThe user has already added these subreddits to their campaign:\n${existingSubreddits.map((s) => `- r/${s}`).join('\n')}\n\nSuggest subreddits that are RELATED to or overlap with these communities. Think about: sister subreddits, adjacent interest communities, and subreddits where the same audience also participates. Do NOT suggest any of these subreddits — they are already added.\n`
     : '';
 
-  const discoveredSection = discoveredSubreddits?.length
-    ? `\n## Real Subreddits Found on Reddit\nThese were found by searching Reddit directly. Include any that are relevant and add your own suggestions:\n${discoveredSubreddits.map((s) => `- r/${s.name} (${s.subscribers.toLocaleString()} members): ${s.description}`).join('\n')}\n`
+  // Build discovered subreddits section with enriched data when available
+  let discoveredSection = '';
+  if (discoveredSubreddits?.length) {
+    const lines = discoveredSubreddits.map((s) => {
+      // Check if this is an enriched candidate (has optional fields)
+      const enriched = s as EnrichedCandidate;
+      const hasEnrichedData = enriched.activeUsers !== undefined || enriched.sources !== undefined;
+
+      if (hasEnrichedData) {
+        // Build rich context line
+        const parts: string[] = [
+          `${s.subscribers.toLocaleString()} members`,
+        ];
+        if (enriched.activeUsers != null) {
+          parts.push(`${enriched.activeUsers.toLocaleString()} active`);
+        }
+        if (enriched.engagementRatio != null) {
+          parts.push(`${(enriched.engagementRatio * 100).toFixed(1)}% engagement`);
+        }
+
+        let line = `- r/${s.name} (${parts.join(', ')}): ${s.description}`;
+
+        // Add discovery sources
+        if (enriched.sources) {
+          const sourceLabels: string[] = [];
+          if (enriched.sources.postSearch && enriched.postSearchHits) {
+            sourceLabels.push(`post search (${enriched.postSearchHits} hits)`);
+          } else if (enriched.sources.postSearch) {
+            sourceLabels.push('post search');
+          }
+          if (enriched.sources.similarApi) sourceLabels.push('Reddit similar');
+          if (enriched.sources.sidebar) sourceLabels.push('sidebar reference');
+          if (enriched.sources.nameSearch) sourceLabels.push('name search');
+          if (enriched.sources.competitorSearch) sourceLabels.push('competitor search');
+          if (sourceLabels.length > 0) {
+            line += `\n  Found via: ${sourceLabels.join(', ')}`;
+          }
+        }
+
+        return line;
+      } else {
+        // Simple candidate (backward compat)
+        return `- r/${s.name} (${s.subscribers.toLocaleString()} members): ${s.description}`;
+      }
+    });
+
+    discoveredSection = `\n## Real Subreddits Found on Reddit\nThese were found by searching Reddit directly. Include any that are relevant and add your own suggestions:\n${lines.join('\n')}\n`;
+  }
+
+  // Build post search frequency section from enriched candidates
+  const postSearchHits = discoveredSubreddits
+    ?.filter((s): s is EnrichedCandidate => 'postSearchHits' in s && (s as EnrichedCandidate).postSearchHits != null && (s as EnrichedCandidate).postSearchHits! > 0)
+    .sort((a, b) => (b.postSearchHits ?? 0) - (a.postSearchHits ?? 0));
+
+  const postSearchSection = postSearchHits?.length
+    ? `\n## Where This Topic Is Actually Discussed on Reddit\nBased on searching Reddit for product-related keywords, these subreddits contained the most relevant discussions:\n${postSearchHits.map((s) => `- r/${s.name}: ${s.postSearchHits} matching posts`).join('\n')}\n`
+    : '';
+
+  // Competitor context section
+  const competitorSection = competitors?.length
+    ? `\n## Competitors\nThe following products compete in this space: [${competitors.join(', ')}]\nFind subreddits where these competitors are discussed — those communities contain our exact target audience.\n`
     : '';
 
   const taskDescription = hasExisting
@@ -215,8 +297,17 @@ ${product.url ? `- **URL:** ${product.url}` : ''}
 - **Tone:** ${product.tone}
 
 ${product.audience ? `## Target Audience${!hasExisting ? ' (HIGHEST PRIORITY)' : ''}\nThese are the exact people we want to reach. Every subreddit you suggest should contain these people:\n**${product.audience}**\n\nFind subreddits where these specific groups gather. Niche communities that perfectly match these audiences are far more valuable than large generic ones.\n` : ''}
+## Thinking Steps
+Before suggesting subreddits, first identify:
+1. The 3-4 distinct audience segments this product serves
+2. The specific activities/interests each segment has
+3. The Reddit communities where those activities are discussed
+
+Then for each audience segment, suggest 2-3 subreddits where that segment is active.
 ${existingSection}
 ${discoveredSection}
+${postSearchSection}
+${competitorSection}
 ## Task
 ${taskDescription}
 

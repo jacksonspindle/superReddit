@@ -2,69 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAnthropicClient, AI_MODEL } from '@/lib/ai/client';
 import { SUGGEST_SUBREDDITS_SYSTEM_PROMPT, buildSuggestSubredditsPrompt } from '@/lib/ai/prompts';
-
-const REDDIT_BASE = 'https://www.reddit.com';
-const USER_AGENT = 'web:superreddit:v1.0.0 (by /u/superreddit_app)';
-
-function extractSearchTerms(name: string, description: string, audience?: string): string[] {
-  const terms: string[] = [];
-  if (audience) {
-    const segments = audience.split(',').map((s) => s.trim()).filter((s) => s.length > 2);
-    segments.forEach((seg) => terms.push(seg));
-    segments.forEach((seg) => {
-      const condensed = seg.replace(/\s+/g, '');
-      if (condensed !== seg) terms.push(condensed);
-    });
-  }
-  terms.push(name);
-  const condensedName = name.replace(/\s+/g, '');
-  if (condensedName !== name) terms.push(condensedName);
-
-  const capitalMatches = description.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g);
-  if (capitalMatches) {
-    const stopPhrases = new Set(['the', 'this', 'that', 'with', 'from', 'into', 'also']);
-    capitalMatches.forEach((m) => {
-      if (m.length > 3 && !stopPhrases.has(m.toLowerCase())) terms.push(m);
-    });
-  }
-
-  const seen = new Set<string>();
-  return terms.filter((t) => {
-    const key = t.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 15);
-}
-
-async function searchRedditSubreddits(query: string) {
-  try {
-    const url = `${REDDIT_BASE}/subreddits/search.json?q=${encodeURIComponent(query)}&limit=10&raw_json=1`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    });
-    if (!res.ok) return [];
-    const json = await res.json() as { data: { children: Array<{ data: Record<string, unknown> }> } };
-    return json.data.children.map((c) => ({
-      name: c.data.display_name as string,
-      subscribers: (c.data.subscribers as number) || 0,
-      description: ((c.data.public_description as string) || '').slice(0, 200),
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function verifySubredditExists(name: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${REDDIT_BASE}/r/${name}/about.json`, {
-      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+import { discoverSubreddits } from '@/lib/reddit/discover';
+import { fetchSubredditInfo } from '@/lib/reddit/fetcher';
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,38 +25,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // Step 1: Search Reddit for subreddits
-    const searchTerms = extractSearchTerms(
-      project.product_name,
-      project.product_description || '',
-      project.target_audience || undefined
+    // Step 1: Run multi-signal discovery
+    const discovery = await discoverSubreddits(
+      {
+        name: project.product_name,
+        description: project.product_description || '',
+        url: project.product_url || undefined,
+        audience: project.target_audience || undefined,
+        tone: project.tone || 'Professional',
+      },
+      [],
+      []
     );
 
-    const searchResults = await Promise.all(
-      searchTerms.map((term) => searchRedditSubreddits(term))
-    );
-
-    const seen = new Set<string>();
-    const allResults = searchResults
-      .flat()
-      .filter((s) => {
-        const key = s.name.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return s.subscribers >= 1000;
-      });
-
-    const large = allResults.filter((s) => s.subscribers >= 100000).sort((a, b) => b.subscribers - a.subscribers);
-    const medium = allResults.filter((s) => s.subscribers >= 5000 && s.subscribers < 100000).sort((a, b) => b.subscribers - a.subscribers);
-    const niche = allResults.filter((s) => s.subscribers >= 1000 && s.subscribers < 5000).sort((a, b) => b.subscribers - a.subscribers);
-
-    const discoveredSubreddits = [
-      ...niche,
-      ...medium.slice(0, 8),
-      ...large.slice(0, 6),
-    ].slice(0, 25);
-
-    // Step 2: Ask Claude for best subreddits
+    // Step 2: Ask Claude for best subreddits using enriched candidates
     const client = getAnthropicClient();
     const prompt = buildSuggestSubredditsPrompt(
       {
@@ -127,7 +48,7 @@ export async function POST(request: NextRequest) {
         audience: project.target_audience || '',
         tone: project.tone || 'Professional',
       },
-      discoveredSubreddits,
+      discovery.candidates,
       []
     );
 
@@ -150,7 +71,9 @@ export async function POST(request: NextRequest) {
 
       if (parsed.subreddits?.length) {
         // Verify AI-suggested subreddits exist
-        const discoveredNames = new Set(discoveredSubreddits.map((s) => s.name.toLowerCase()));
+        const discoveredNames = new Set(
+          discovery.candidates.map((s) => s.name.toLowerCase())
+        );
         const toVerify = parsed.subreddits.filter(
           (s: { name: string }) => !discoveredNames.has(s.name.toLowerCase())
         );
@@ -158,7 +81,7 @@ export async function POST(request: NextRequest) {
         const verifications = await Promise.all(
           toVerify.map(async (s: { name: string }) => ({
             name: s.name,
-            exists: await verifySubredditExists(s.name),
+            exists: (await fetchSubredditInfo(s.name)) !== null,
           }))
         );
 
