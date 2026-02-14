@@ -6,7 +6,7 @@ import { ChatInterface } from '@/components/chat/ChatInterface';
 import { PageTransition } from '@/components/motion';
 
 export default function ProjectChatPage() {
-  const project = useProject();
+  const { project } = useProject();
 
   return (
     <PageTransition>

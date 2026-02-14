@@ -48,7 +48,7 @@ function matchCompetitor(signal: OutreachSignal, competitors: string[]): string 
 }
 
 export default function OutreachCompetitorsPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [config, setConfig] = useState<OutreachConfig | null>(null);
   const [signals, setSignals] = useState<OutreachSignal[]>([]);
   const [loading, setLoading] = useState(true);

@@ -42,7 +42,7 @@ function timeAgo(dateStr: string | null) {
 }
 
 export default function OutreachTrackerPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [replies, setReplies] = useState<ReplyWithSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TrackerFilter>('all');

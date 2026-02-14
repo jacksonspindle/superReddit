@@ -19,7 +19,7 @@ import type { RedditPost } from '@/types';
 import { toast } from 'sonner';
 
 export default function ViralLibraryPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [activeTab, setActiveTab] = useState<string>('all');
   const [livePostsByStyle, setLivePostsByStyle] = useState<Record<string, RedditPost[]>>({});
   const [loadingStyles, setLoadingStyles] = useState<Set<string>>(new Set());

@@ -35,7 +35,7 @@ type ToneOption = 'casual' | 'professional' | 'edgy';
 type LengthOption = 'short' | 'medium' | 'long';
 
 export default function SplicerPage() {
-  const project = useProject();
+  const { project } = useProject();
   const { bookmarks, loading: bookmarksLoading, fetchBookmarks } = useBookmarkStore();
 
   // Selection state

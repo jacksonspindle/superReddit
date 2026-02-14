@@ -330,3 +330,32 @@ export interface SubredditRule {
   safety_score: number | null;
   analyzed_at: string;
 }
+
+// ---- GitHub types ----
+
+export interface GitHubCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  url: string;
+}
+
+export interface GitHubConnection {
+  id: string;
+  project_id: string;
+  repo_url: string;
+  owner: string;
+  repo_name: string;
+  description: string | null;
+  homepage: string | null;
+  language: string | null;
+  stars: number;
+  topics: string[];
+  readme_summary: string | null;
+  recent_commits: GitHubCommit[];
+  access_token: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

@@ -20,6 +20,9 @@ import {
   Radio,
   BarChart3,
   Users,
+  Settings,
+  Github,
+  Bot,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +37,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const base = `/projects/${project.id}`;
   const [createExpanded, setCreateExpanded] = useState(true);
   const [outreachExpanded, setOutreachExpanded] = useState(true);
+  const [contextExpanded, setContextExpanded] = useState(true);
 
   const topItems = [
     { href: base, label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -51,6 +55,12 @@ export function ProjectSidebar({ project }: { project: Project }) {
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
     { href: `${base}/outreach/tracker`, label: 'Tracker', icon: BarChart3 },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
+  ];
+
+  const contextChildren = [
+    { href: `${base}/context/profile`, label: 'Profile', icon: Settings },
+    { href: `${base}/context/github`, label: 'GitHub', icon: Github },
+    { href: `${base}/context/claude`, label: 'Claude', icon: Bot },
   ];
 
   const bottomItems = [
@@ -197,6 +207,58 @@ export function ProjectSidebar({ project }: { project: Project }) {
             >
               <div className="space-y-1">
                 {outreachChildren.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <div key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors pl-9',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Context section */}
+        <motion.div variants={staggerItemVariants}>
+          <button
+            onClick={() => setContextExpanded((prev) => !prev)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <Settings className="h-4 w-4" />
+            Context
+            <ChevronDown
+              className={cn(
+                'ml-auto h-4 w-4 transition-transform duration-200',
+                !contextExpanded && '-rotate-90'
+              )}
+            />
+          </button>
+        </motion.div>
+
+        <AnimatePresence initial={false}>
+          {contextExpanded && (
+            <motion.div
+              key="context-children"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="space-y-1">
+                {contextChildren.map((item) => {
                   const isActive = pathname.startsWith(item.href);
                   return (
                     <div key={item.href}>

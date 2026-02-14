@@ -8,7 +8,6 @@ import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import {
   OnboardingSidebar,
-  WelcomeStep,
   ProductStep,
   SubredditsStep,
   ToneStep,
@@ -18,7 +17,14 @@ import type { AddedSubreddit } from '@/components/onboarding';
 import type { SuggestedSubreddit } from '@/lib/ai/prompts';
 import { slideHorizontalVariants } from '@/lib/motion';
 
-export default function OnboardingPage() {
+const NEW_PROJECT_STEPS = [
+  { label: 'Your Product' },
+  { label: 'Subreddits' },
+  { label: 'Writing DNA' },
+  { label: 'All Set' },
+];
+
+export default function NewProjectPage() {
   const router = useRouter();
   const supabase = createClient();
 
@@ -33,7 +39,7 @@ export default function OnboardingPage() {
   const [productUrl, setProductUrl] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
 
-  // Subreddits (lifted from SubredditsStep for persistence)
+  // Subreddits
   const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<SuggestedSubreddit[]>([]);
   const [aiFetched, setAiFetched] = useState(false);
@@ -46,7 +52,7 @@ export default function OnboardingPage() {
   // Writing style
   const [likedStyles, setLikedStyles] = useState<Set<string>>(new Set());
   const [toneCompleted, setToneCompleted] = useState(false);
-  const tone = 'Adaptive'; // Derived from liked styles at generation time
+  const tone = 'Adaptive';
 
   useEffect(() => {
     loadUser();
@@ -151,7 +157,6 @@ export default function OnboardingPage() {
 
       if (canvasError) {
         console.error('Canvas save error:', canvasError);
-        // Non-fatal — project was created, canvas will init on load
       }
 
       // 4. Add subreddits to the subreddits table
@@ -167,6 +172,7 @@ export default function OnboardingPage() {
       // 5. Connect GitHub repo if one was selected
       if (selectedRepoUrl) {
         try {
+          // Ensure the token is stored for this project first
           if (githubAccessToken) {
             await supabase.from('github_connections').upsert({
               project_id: project.id,
@@ -182,24 +188,14 @@ export default function OnboardingPage() {
             body: JSON.stringify({ projectId: project.id, repoUrl: selectedRepoUrl }),
           });
         } catch {
-          // Non-critical
+          // Non-critical — project was still created
         }
       }
 
-      // 6. Mark onboarding complete
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ onboarding_completed: true })
-        .eq('id', user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // 6. Redirect to the new project canvas
+      // 6. Redirect to the new project
       router.replace(`/projects/${project.id}`);
     } catch (err) {
-      console.error('Onboarding finish error:', err);
+      console.error('New project finish error:', err);
       toast.error('Something went wrong. Please try again.');
       setFinishing(false);
     }
@@ -207,7 +203,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex h-screen bg-background">
-      <OnboardingSidebar currentStep={step} />
+      <OnboardingSidebar currentStep={step} steps={NEW_PROJECT_STEPS} />
 
       <main className="flex flex-1 items-center justify-center overflow-y-auto p-8">
         <AnimatePresence mode="wait" custom={directionRef.current}>
@@ -221,9 +217,6 @@ export default function OnboardingPage() {
             className="w-full max-w-2xl"
           >
             {step === 0 && (
-              <WelcomeStep userName={userName} onNext={() => goToStep(1)} />
-            )}
-            {step === 1 && (
               <ProductStep
                 productName={productName}
                 productDescription={productDescription}
@@ -237,10 +230,10 @@ export default function OnboardingPage() {
                   setSelectedRepoUrl(url);
                   setGithubAccessToken(token);
                 }}
-                onNext={() => goToStep(2)}
+                onNext={() => goToStep(1)}
               />
             )}
-            {step === 2 && (
+            {step === 1 && (
               <SubredditsStep
                 productName={productName}
                 productDescription={productDescription}
@@ -253,11 +246,11 @@ export default function OnboardingPage() {
                 onAiSuggestionsChange={setAiSuggestions}
                 aiFetched={aiFetched}
                 onAiFetchedChange={setAiFetched}
-                onBack={() => goToStep(1)}
-                onNext={() => goToStep(3)}
+                onBack={() => goToStep(0)}
+                onNext={() => goToStep(2)}
               />
             )}
-            {step === 3 && (
+            {step === 2 && (
               <ToneStep
                 likedStyles={likedStyles}
                 onLikedStylesChange={setLikedStyles}
@@ -267,18 +260,18 @@ export default function OnboardingPage() {
                   setToneCompleted(false);
                   setLikedStyles(new Set());
                 }}
-                onBack={() => goToStep(2)}
-                onNext={() => goToStep(4)}
+                onBack={() => goToStep(1)}
+                onNext={() => goToStep(3)}
               />
             )}
-            {step === 4 && (
+            {step === 3 && (
               <CompletionStep
                 userName={userName}
                 productName={productName}
                 selectedSubreddits={selectedSubreddits}
                 likedStyles={likedStyles}
                 loading={finishing}
-                onBack={() => goToStep(3)}
+                onBack={() => goToStep(2)}
                 onFinish={handleFinish}
               />
             )}

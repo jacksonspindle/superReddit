@@ -11,7 +11,7 @@ function parseRepoUrl(url: string): { owner: string; repo: string } | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const { repoUrl } = await request.json();
+    const { repoUrl, accessToken } = await request.json();
     if (!repoUrl) {
       return NextResponse.json({ error: 'Repository URL is required' }, { status: 400 });
     }
@@ -23,14 +23,18 @@ export async function POST(request: NextRequest) {
 
     const { owner, repo } = parsed;
 
+    const ghHeaders: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'SuperReddit',
+    };
+    if (accessToken) {
+      ghHeaders.Authorization = `Bearer ${accessToken}`;
+    }
+
     // Fetch repo metadata + README in parallel
     const [repoRes, readmeRes] = await Promise.all([
-      fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'SuperReddit' },
-      }),
-      fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
-        headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'SuperReddit' },
-      }),
+      fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: ghHeaders }),
+      fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, { headers: ghHeaders }),
     ]);
 
     if (!repoRes.ok) {
