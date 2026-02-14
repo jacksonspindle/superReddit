@@ -634,3 +634,55 @@ Write a Reddit reply (100-250 words). Format as JSON:
   "reply": "Your reply text here in Reddit markdown"
 }`;
 }
+
+// ---- DM Draft ----
+
+export const DM_DRAFT_SYSTEM_PROMPT = `You are an expert at writing Reddit DMs that feel personal and get responses. Your DMs:
+- Reference the specific comment/thread where you connected (builds trust)
+- Sound like a real person continuing a conversation, NOT a sales pitch
+- Are concise — DMs that are too long don't get read
+- Include a clear subject line that piques curiosity without being clickbait
+- Adapt tone based on the conversation context (casual if they were casual, professional if they were professional)
+- Never use marketing buzzwords, hard sells, or generic greetings
+- Include one specific call-to-action (share a link, answer a question, suggest a call)
+- For follow-ups, acknowledge the time gap and make it easy to say "not interested"`;
+
+export function buildDmDraftPrompt(
+  commenter: { username: string; commentText: string; threadPermalink: string },
+  product: { name: string; description: string; url?: string },
+  options: {
+    templateHint?: { subject_hint: string; body_hint: string } | null;
+    touchNumber?: number;
+    threadTitle?: string;
+    subreddit?: string;
+  }
+): string {
+  const isFollowUp = (options.touchNumber ?? 0) > 0;
+
+  return `## Context
+- **Commenter:** u/${commenter.username}
+- **Their comment:** "${commenter.commentText}"
+- **Thread:** ${options.threadTitle || commenter.threadPermalink}
+${options.subreddit ? `- **Subreddit:** r/${options.subreddit}` : ''}
+${isFollowUp ? `- **Touch number:** ${options.touchNumber} (this is a follow-up DM)` : '- **Touch number:** 0 (first DM to this person)'}
+
+## Product
+- **Name:** ${product.name}
+- **Description:** ${product.description}
+${product.url ? `- **URL:** ${product.url}` : ''}
+
+${options.templateHint ? `## Template Structure
+Use this as a structural guide (adapt the language to fit the conversation):
+- **Subject pattern:** ${options.templateHint.subject_hint}
+- **Body pattern:** ${options.templateHint.body_hint}
+` : ''}
+## Task
+Write a Reddit DM (subject + body) to u/${commenter.username}.${isFollowUp ? ' This is a follow-up — acknowledge the previous message and keep it brief.' : ' Reference their comment to show this is personal, not spam.'}
+
+Keep the body under 150 words. Format as JSON:
+{
+  "subject": "Your subject line here",
+  "body": "Your DM body here"
+}`;
+}
+

@@ -331,6 +331,66 @@ export interface SubredditRule {
   analyzed_at: string;
 }
 
+// ---- DM Workflow types ----
+
+export type DmPipelineStage =
+  | 'detected'
+  | 'dm_ready'
+  | 'draft_generated'
+  | 'dm_sent'
+  | 'responded'
+  | 'converted'
+  | 'closed';
+
+export type PermissionType = 'explicit_dm_request' | 'positive_reply' | 'passive_commenter';
+
+export interface OutreachDM {
+  id: string;
+  project_id: string;
+  reddit_username: string;
+  comment_text: string | null;
+  comment_permalink: string | null;
+  source_thread_permalink: string;
+  source_signal_id: string | null;
+  permission_type: PermissionType;
+  permission_score: number;
+  matched_pattern: string | null;
+  pipeline_stage: DmPipelineStage;
+  dm_subject: string | null;
+  dm_body: string | null;
+  dm_template_id: string | null;
+  dm_sent_at: string | null;
+  follow_up_due: string | null;
+  touch_number: number;
+  outcome: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  signal?: {
+    title: string;
+    subreddit: string;
+    permalink: string;
+  } | null;
+}
+
+export interface DmTemplate {
+  id: string;
+  name: string;
+  description: string;
+  subject_hint: string;
+  body_hint: string;
+}
+
+export interface ThreadComment {
+  id: string;
+  author: string;
+  body: string;
+  score: number;
+  created_utc: number;
+  permalink: string;
+  parent_id: string;
+}
+
 // ---- GitHub types ----
 
 export interface GitHubCommit {
