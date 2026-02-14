@@ -60,7 +60,7 @@ function toDateKey(input: string | Date): string {
 }
 
 export default function ProjectDashboardPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {

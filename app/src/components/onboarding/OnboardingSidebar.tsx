@@ -3,7 +3,7 @@
 import { Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
-const STEPS = [
+const DEFAULT_STEPS = [
   { label: 'Welcome' },
   { label: 'Your Product' },
   { label: 'Subreddits' },
@@ -13,9 +13,10 @@ const STEPS = [
 
 interface OnboardingSidebarProps {
   currentStep: number;
+  steps?: { label: string }[];
 }
 
-export function OnboardingSidebar({ currentStep }: OnboardingSidebarProps) {
+export function OnboardingSidebar({ currentStep, steps = DEFAULT_STEPS }: OnboardingSidebarProps) {
   return (
     <div className="flex w-60 flex-col justify-between border-r bg-card p-8">
       <div>
@@ -27,7 +28,7 @@ export function OnboardingSidebar({ currentStep }: OnboardingSidebarProps) {
         </div>
 
         <nav className="space-y-1">
-          {STEPS.map((step, i) => {
+          {steps.map((step, i) => {
             const isCompleted = i < currentStep;
             const isCurrent = i === currentStep;
 

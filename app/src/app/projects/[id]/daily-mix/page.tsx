@@ -25,7 +25,7 @@ interface DailyMixData {
 }
 
 export default function DailyMixPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [data, setData] = useState<DailyMixData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

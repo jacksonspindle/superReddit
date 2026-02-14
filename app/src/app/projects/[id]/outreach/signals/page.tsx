@@ -16,7 +16,7 @@ type IntentFilter = 'all' | 'question' | 'comparison' | 'problem' | 'discussion'
 type StatusFilter = 'new' | 'all' | 'replied' | 'dismissed';
 
 export default function OutreachSignalsPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [signals, setSignals] = useState<OutreachSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [intentFilter, setIntentFilter] = useState<IntentFilter>('all');

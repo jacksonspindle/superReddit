@@ -7,7 +7,7 @@ import { useProject } from '@/contexts/project-context';
 import { Button } from '@/components/ui/button';
 
 export default function OutreachLayout({ children }: { children: React.ReactNode }) {
-  const project = useProject();
+  const { project } = useProject();
   const pathname = usePathname();
   const router = useRouter();
 

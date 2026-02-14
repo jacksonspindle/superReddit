@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 const STEPS = ['Welcome', 'Keywords', 'Competitors', 'Finish'];
 
 export default function OutreachSetupPage() {
-  const project = useProject();
+  const { project } = useProject();
   const router = useRouter();
 
   const [step, setStep] = useState(0);

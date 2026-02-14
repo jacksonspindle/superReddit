@@ -25,7 +25,7 @@ type SortOption = 'hot' | 'top' | 'rising' | 'new';
 type TimeFilter = 'day' | 'week' | 'month' | 'year' | 'all';
 
 export default function ProjectInspirationPage() {
-  const project = useProject();
+  const { project } = useProject();
   const [subreddit, setSubreddit] = useState('SaaS');
   const [inputValue, setInputValue] = useState('SaaS');
   const [sort, setSort] = useState<SortOption>('top');

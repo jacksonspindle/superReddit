@@ -5,7 +5,7 @@ import { Canvas } from '@/components/canvas/Canvas';
 import { FadeIn } from '@/components/motion';
 
 export default function ProjectCanvasPage() {
-  const project = useProject();
+  const { project } = useProject();
 
   return (
     <FadeIn className="flex h-full flex-col">

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, MoreHorizontal, Pencil, Trash2, Search, LogOut } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -14,7 +13,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -45,6 +43,14 @@ export default function ProjectsPage() {
   const [email, setEmail] = useState('');
   const router = useRouter();
 
+  // Edit form state
+  const [formName, setFormName] = useState('');
+  const [formProductName, setFormProductName] = useState('');
+  const [formProductDescription, setFormProductDescription] = useState('');
+  const [formProductUrl, setFormProductUrl] = useState('');
+  const [formTargetAudience, setFormTargetAudience] = useState('');
+  const [formTone, setFormTone] = useState('Professional');
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -68,51 +74,44 @@ export default function ProjectsPage() {
     setLoading(false);
   }
 
-  async function handleCreateOrUpdate(formData: FormData) {
-    const name = formData.get('name') as string;
-    const product_name = formData.get('product_name') as string;
-    const product_description = formData.get('product_description') as string;
-    const product_url = formData.get('product_url') as string;
-    const target_audience = formData.get('target_audience') as string;
-    const tone = formData.get('tone') as string;
+  function resetForm(project?: Project | null) {
+    setFormName(project?.name || '');
+    setFormProductName(project?.product_name || '');
+    setFormProductDescription(project?.product_description || '');
+    setFormProductUrl(project?.product_url || '');
+    setFormTargetAudience(project?.target_audience || '');
+    setFormTone(project?.tone || 'Professional');
+  }
 
-    if (!name.trim() || !product_name.trim()) {
+  function openEditDialog(project: Project) {
+    setEditingProject(project);
+    resetForm(project);
+    setDialogOpen(true);
+  }
+
+  async function handleUpdate() {
+    if (!editingProject || !formName.trim() || !formProductName.trim()) {
       toast.error('Project name and product name are required');
       return;
     }
 
-    if (editingProject) {
-      const { error } = await supabase
-        .from('projects')
-        .update({ name, product_name, product_description, product_url, target_audience, tone })
-        .eq('id', editingProject.id);
+    const { error } = await supabase
+      .from('projects')
+      .update({
+        name: formName,
+        product_name: formProductName,
+        product_description: formProductDescription,
+        product_url: formProductUrl,
+        target_audience: formTargetAudience,
+        tone: formTone,
+      })
+      .eq('id', editingProject.id);
 
-      if (error) {
-        toast.error('Failed to update project');
-        return;
-      }
-      toast.success('Project updated');
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { error } = await supabase.from('projects').insert({
-        user_id: user.id,
-        name,
-        product_name,
-        product_description,
-        product_url: product_url || null,
-        target_audience: target_audience || null,
-        tone,
-      });
-
-      if (error) {
-        toast.error('Failed to create project');
-        return;
-      }
-      toast.success('Project created');
+    if (error) {
+      toast.error('Failed to update project');
+      return;
     }
-
+    toast.success('Project updated');
     setDialogOpen(false);
     setEditingProject(null);
     loadProjects();
@@ -186,44 +185,45 @@ export default function ProjectsPage() {
                 className="pl-9"
               />
             </div>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingProject(null); }}>
-              <DialogTrigger asChild>
-                <Button className="bg-green-600 hover:bg-green-700 text-white">
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => router.push('/projects/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Project
+            </Button>
+
+            {/* Edit dialog */}
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingProject(null); resetForm(); } }}>
+              <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>{editingProject ? 'Edit Project' : 'Create Project'}</DialogTitle>
+                  <DialogTitle>Edit Project</DialogTitle>
                   <DialogDescription>
-                    {editingProject ? 'Update your project details.' : 'Set up a new Reddit marketing project.'}
+                    Update your project details.
                   </DialogDescription>
                 </DialogHeader>
-                <form action={handleCreateOrUpdate} className="space-y-4">
+
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Project Name</Label>
-                    <Input id="name" name="name" defaultValue={editingProject?.name || ''} placeholder="My SaaS Launch" required />
+                    <Input id="name" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="My SaaS Launch" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="product_name">Product Name</Label>
-                    <Input id="product_name" name="product_name" defaultValue={editingProject?.product_name || ''} placeholder="ProductName" required />
+                    <Input id="product_name" value={formProductName} onChange={(e) => setFormProductName(e.target.value)} placeholder="ProductName" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="product_description">Product Description</Label>
-                    <Textarea id="product_description" name="product_description" defaultValue={editingProject?.product_description || ''} placeholder="What does your product do?" rows={3} />
+                    <Textarea id="product_description" value={formProductDescription} onChange={(e) => setFormProductDescription(e.target.value)} placeholder="What does your product do?" rows={3} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="product_url">Product URL</Label>
-                    <Input id="product_url" name="product_url" defaultValue={editingProject?.product_url || ''} placeholder="https://yourproduct.com" />
+                    <Input id="product_url" value={formProductUrl} onChange={(e) => setFormProductUrl(e.target.value)} placeholder="https://yourproduct.com" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="target_audience">Target Audience</Label>
-                    <Input id="target_audience" name="target_audience" defaultValue={editingProject?.target_audience || ''} placeholder="Indie hackers, SaaS founders..." />
+                    <Input id="target_audience" value={formTargetAudience} onChange={(e) => setFormTargetAudience(e.target.value)} placeholder="Indie hackers, SaaS founders..." />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tone">Tone</Label>
-                    <Select name="tone" defaultValue={editingProject?.tone || 'Professional'}>
+                    <Select value={formTone} onValueChange={setFormTone}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -234,10 +234,10 @@ export default function ProjectsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="submit" className="w-full">
-                    {editingProject ? 'Update Project' : 'Create Project'}
+                  <Button onClick={handleUpdate} className="w-full">
+                    Update Project
                   </Button>
-                </form>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
@@ -257,7 +257,7 @@ export default function ProjectsPage() {
                     {searchQuery ? 'No projects match your search.' : 'No projects yet. Create your first one!'}
                   </p>
                   {!searchQuery && (
-                    <Button onClick={() => setDialogOpen(true)} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Button onClick={() => router.push('/projects/new')} className="bg-green-600 hover:bg-green-700 text-white">
                       <Plus className="mr-2 h-4 w-4" />
                       New Project
                     </Button>
@@ -291,7 +291,7 @@ export default function ProjectsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingProject(project); setDialogOpen(true); }}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditDialog(project); }}>
                                 <Pencil className="mr-2 h-4 w-4" /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }} className="text-destructive">

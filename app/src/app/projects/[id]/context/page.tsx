@@ -1,16 +1,15 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useProject } from '@/contexts/project-context';
 
-export default function AIWriterPage() {
+export default function ContextPage() {
   const { project } = useProject();
   const router = useRouter();
 
-  // Redirect to AI Chat — AI Writer was merged into it
   useEffect(() => {
-    router.replace(`/projects/${project.id}/chat`);
+    router.replace(`/projects/${project.id}/context/profile`);
   }, [project.id, router]);
 
   return null;
