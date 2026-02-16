@@ -368,7 +368,7 @@ export default function DmPipelinePage() {
             />
 
             {/* Kanban board */}
-            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] gap-0 items-stretch">
+            <div className="grid grid-cols-[1fr_32px_1fr_32px_1fr_32px_1fr] gap-0 items-stretch">
               {/* Ready to DM */}
               <KanbanColumn
                 title="Ready to DM"
@@ -393,10 +393,8 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-center justify-center w-12">
-                <div className="rounded-full bg-muted/60 border border-border/40 p-2 shadow-sm">
-                  <MoveRight className="h-4 w-4 text-muted-foreground/60" />
-                </div>
+              <div className="flex items-start justify-center w-8 pt-14 shrink-0">
+                <MoveRight className="h-4 w-4 text-muted-foreground/40" />
               </div>
 
               {/* DM Sent */}
@@ -419,10 +417,8 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-center justify-center w-12">
-                <div className="rounded-full bg-muted/60 border border-border/40 p-2 shadow-sm">
-                  <MoveRight className="h-4 w-4 text-muted-foreground/60" />
-                </div>
+              <div className="flex items-start justify-center w-8 pt-14 shrink-0">
+                <MoveRight className="h-4 w-4 text-muted-foreground/40" />
               </div>
 
               {/* Follow Up */}
@@ -446,10 +442,8 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-center justify-center w-12">
-                <div className="rounded-full bg-muted/60 border border-border/40 p-2 shadow-sm">
-                  <MoveRight className="h-4 w-4 text-muted-foreground/60" />
-                </div>
+              <div className="flex items-start justify-center w-8 pt-14 shrink-0">
+                <MoveRight className="h-4 w-4 text-muted-foreground/40" />
               </div>
 
               {/* Converted */}

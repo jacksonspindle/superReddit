@@ -57,7 +57,7 @@ export function KanbanLeadCard({
 
   return (
     <motion.div whileHover={cardHover} whileTap={cardTap}>
-      <Card className="p-3 space-y-2 transition-shadow hover:shadow-md bg-card/80 border border-border">
+      <Card className="p-3 space-y-2 transition-shadow hover:shadow-md bg-card/80 border border-border overflow-hidden">
         {/* Top row: avatar + username + subreddit */}
         <div className="flex items-center gap-2">
           {stage === 'ready' && onSelect && (
@@ -181,16 +181,16 @@ export function KanbanLeadCard({
         )}
 
         {/* Action buttons */}
-        <div className="flex items-center gap-1.5 pt-0.5">
+        <div className="flex items-center gap-1.5 pt-0.5 min-w-0">
           {stage === 'ready' && (
             <Button
               variant="default"
               size="sm"
-              className="h-7 text-[11px] px-2.5 flex-1"
+              className="h-7 text-[11px] px-2.5 w-full"
               onClick={() => onDraft?.(dm)}
             >
               Draft DM
-              <ArrowRight className="ml-1 h-3 w-3" />
+              <ArrowRight className="ml-1 h-3 w-3 shrink-0" />
             </Button>
           )}
 
