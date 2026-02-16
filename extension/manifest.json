@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "SuperReddit DM Bridge",
+  "version": "1.0.0",
+  "description": "Detects sent Reddit DMs and syncs with SuperReddit pipeline",
+  "permissions": ["cookies"],
+  "host_permissions": [
+    "*://*.reddit.com/*",
+    "http://localhost:*/*",
+    "https://*.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:*/*", "https://*.vercel.app/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

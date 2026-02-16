@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
@@ -14,8 +14,10 @@ import type { SortOption } from '@/components/pipeline/PipelineToolbar';
 import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
+import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
+import { useRedditBridge } from '@/hooks/useRedditBridge';
 import type { OutreachDM, DmPipelineStage } from '@/types';
 
 type KanbanStage = 'ready' | 'sent' | 'followup' | 'converted';
@@ -51,6 +53,10 @@ export default function DmPipelinePage() {
 
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
+
+  // Reddit Bridge
+  const { status: bridgeStatus, reconciling, reconcile } = useRedditBridge();
+  const reconcileRan = useRef(false);
 
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
@@ -110,6 +116,27 @@ export default function DmPipelinePage() {
     autoScan();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
+
+  // Reddit Bridge reconciliation — auto-advance sent DMs
+  useEffect(() => {
+    if (
+      loading ||
+      reconciling ||
+      reconcileRan.current ||
+      !bridgeStatus.extensionInstalled ||
+      !bridgeStatus.redditLoggedIn ||
+      allDms.length === 0
+    ) return;
+
+    reconcileRan.current = true;
+
+    reconcile(allDms, handleStageChange).then((count) => {
+      if (count > 0) {
+        toast.success(`Auto-detected ${count} sent DM${count !== 1 ? 's' : ''} from Reddit`);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, bridgeStatus.extensionInstalled, bridgeStatus.redditLoggedIn, allDms.length]);
 
   // Manual scan
   async function handleScan() {
@@ -263,6 +290,14 @@ export default function DmPipelinePage() {
     if (firstSelected) setDraftingDm(firstSelected);
   }
 
+  function handleMarkSentSelected() {
+    for (const id of selectedIds) {
+      handleStageChange(id, 'dm_sent');
+    }
+    toast.success(`Marked ${selectedIds.size} lead${selectedIds.size !== 1 ? 's' : ''} as sent`);
+    setSelectedIds(new Set());
+  }
+
   // Get overlay data
   const expandedTitle = expandedColumn
     ? { ready: 'Ready to DM', sent: 'DM Sent', followup: 'Follow Up', converted: 'Converted' }[expandedColumn]
@@ -305,6 +340,15 @@ export default function DmPipelinePage() {
               onSelectPost={setSelectedPostId}
             />
 
+            {/* Reddit Bridge status */}
+            <RedditBridgeIndicator
+              extensionInstalled={bridgeStatus.extensionInstalled}
+              redditLoggedIn={bridgeStatus.redditLoggedIn}
+              redditUsername={bridgeStatus.redditUsername}
+              checking={bridgeStatus.checking}
+              reconciling={reconciling}
+            />
+
             {/* Toolbar */}
             <PipelineToolbar
               searchQuery={searchQuery}
@@ -315,6 +359,7 @@ export default function DmPipelinePage() {
               onSelectAll={handleSelectAll}
               onDismissSelected={handleDismissSelected}
               onDmSelected={handleDmSelected}
+              onMarkSentSelected={handleMarkSentSelected}
               scanning={scanning}
               onScan={handleScan}
             />
