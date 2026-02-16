@@ -57,9 +57,9 @@ export function KanbanLeadCard({
 
   return (
     <motion.div whileHover={cardHover} whileTap={cardTap}>
-      <Card className="p-3 space-y-2 transition-shadow hover:shadow-md bg-card/80 border border-border overflow-hidden">
+      <Card className="p-2.5 space-y-1.5 transition-shadow hover:shadow-md bg-card/80 border border-border overflow-hidden">
         {/* Top row: avatar + username + subreddit */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
           {stage === 'ready' && onSelect && (
             <input
               type="checkbox"
@@ -68,38 +68,36 @@ export function KanbanLeadCard({
               className="h-3.5 w-3.5 rounded border-border cursor-pointer shrink-0"
             />
           )}
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="text-[10px] font-semibold">
+          <Avatar className="h-6 w-6 shrink-0">
+            <AvatarFallback className="text-[9px] font-semibold">
               {getInitials(dm.reddit_username)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-sm truncate">u/{dm.reddit_username}</span>
-              {dm.touch_number > 0 && stage !== 'ready' && (
-                <Badge
-                  variant="secondary"
-                  className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                    dm.touch_number >= 3
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                      : dm.touch_number >= 2
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                  }`}
-                >
-                  Touch {dm.touch_number}
-                </Badge>
-              )}
-            </div>
+            <span className="font-medium text-xs truncate block">u/{dm.reddit_username}</span>
             {subreddit && (
-              <span className="text-[11px] text-muted-foreground">r/{subreddit}</span>
+              <span className="text-[10px] text-muted-foreground truncate block">r/{subreddit}</span>
             )}
           </div>
+          {dm.touch_number > 0 && stage !== 'ready' && (
+            <Badge
+              variant="secondary"
+              className={`text-[9px] px-1 py-0 shrink-0 ${
+                dm.touch_number >= 3
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                  : dm.touch_number >= 2
+                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+              }`}
+            >
+              #{dm.touch_number}
+            </Badge>
+          )}
           {stage === 'ready' && onDismiss && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
+              className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive shrink-0"
               onClick={() => onDismiss(dm.id)}
             >
               <X className="h-3 w-3" />
@@ -113,27 +111,27 @@ export function KanbanLeadCard({
             href={`https://reddit.com${dm.signal.permalink}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1 hover:bg-muted transition-colors"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5 hover:bg-muted transition-colors min-w-0"
           >
             <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-            <span className="line-clamp-1">{threadTitle}</span>
+            <span className="truncate">{threadTitle}</span>
           </a>
         )}
 
         {/* Comment quote */}
         {dm.comment_text && (
-          <p className="text-xs text-muted-foreground line-clamp-2 italic">
+          <p className="text-[11px] text-muted-foreground line-clamp-2 italic break-words">
             &ldquo;{dm.comment_text}&rdquo;
           </p>
         )}
 
-        {/* Permission badge (ready) */}
+        {/* Permission badge + time (ready) */}
         {stage === 'ready' && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${permission.className}`}>
+          <div className="flex items-center gap-1 min-w-0">
+            <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 shrink-0 ${permission.className}`}>
               {permission.label}
             </Badge>
-            <span className="text-[10px] text-muted-foreground ml-auto">
+            <span className="text-[9px] text-muted-foreground ml-auto shrink-0">
               <Clock className="inline h-2.5 w-2.5 mr-0.5" />
               {timeAgo(dm.created_at)}
             </span>
@@ -143,14 +141,14 @@ export function KanbanLeadCard({
         {/* Follow-up status (followup) */}
         {stage === 'followup' && fuStatus && (
           <div
-            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded ${
+            className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
               fuStatus.overdue
                 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                 : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
             }`}
           >
-            <AlertCircle className="h-2.5 w-2.5" />
-            {fuStatus.label}
+            <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{fuStatus.label}</span>
           </div>
         )}
 
@@ -165,28 +163,24 @@ export function KanbanLeadCard({
         {stage === 'converted' && (
           <div className="space-y-1">
             {dm.outcome && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
                 {dm.outcome}
               </Badge>
             )}
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
               {dm.touch_number > 0 && <span>{dm.touch_number} touch{dm.touch_number !== 1 ? 'es' : ''}</span>}
-              {dm.dm_sent_at && (
-                <span>
-                  DM to conversion: {timeAgo(dm.dm_sent_at)}
-                </span>
-              )}
+              {dm.dm_sent_at && <span className="truncate">DM to conversion: {timeAgo(dm.dm_sent_at)}</span>}
             </div>
           </div>
         )}
 
         {/* Action buttons */}
-        <div className="flex items-center gap-1.5 pt-0.5 min-w-0">
+        <div className="flex items-center gap-1 pt-0.5 min-w-0">
           {stage === 'ready' && (
             <Button
               variant="default"
               size="sm"
-              className="h-7 text-[11px] px-2.5 w-full"
+              className="h-6 text-[11px] px-2 w-full"
               onClick={() => onDraft?.(dm)}
             >
               Draft DM
@@ -199,19 +193,19 @@ export function KanbanLeadCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-[11px] px-2 flex-1 text-green-600"
+                className="h-6 text-[11px] px-1.5 flex-1 min-w-0 text-green-600"
                 onClick={() => onStageChange(dm.id, 'responded', 'replied')}
               >
-                <Check className="mr-0.5 h-3 w-3" />
-                Got Reply
+                <Check className="h-3 w-3 shrink-0" />
+                <span className="truncate">Reply</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-[11px] px-2"
+                className="h-6 text-[11px] px-1.5 min-w-0"
                 onClick={() => onStageChange(dm.id, 'closed', 'no_response')}
               >
-                No Response
+                <span className="truncate">No Reply</span>
               </Button>
             </>
           )}
@@ -221,20 +215,20 @@ export function KanbanLeadCard({
               <Button
                 variant="default"
                 size="sm"
-                className="h-7 text-[11px] px-2 flex-1"
+                className="h-6 text-[11px] px-1.5 flex-1 min-w-0"
                 onClick={() => onDraft?.(dm)}
               >
-                Send Follow-up
-                <ArrowRight className="ml-1 h-3 w-3" />
+                <span className="truncate">Follow-up</span>
+                <ArrowRight className="ml-1 h-3 w-3 shrink-0" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-[11px] px-2 text-green-600"
+                className="h-6 text-[11px] px-1.5 min-w-0 text-green-600"
                 onClick={() => onStageChange(dm.id, 'converted')}
               >
-                <Check className="mr-0.5 h-3 w-3" />
-                Converted
+                <Check className="h-3 w-3 shrink-0" />
+                <span className="truncate">Won</span>
               </Button>
             </>
           )}

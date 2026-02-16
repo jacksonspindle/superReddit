@@ -368,7 +368,8 @@ export default function DmPipelinePage() {
             />
 
             {/* Kanban board */}
-            <div className="grid grid-cols-[1fr_32px_1fr_32px_1fr_32px_1fr] gap-0 items-stretch">
+            <div className="overflow-x-auto -mx-6 px-6">
+            <div className="grid grid-cols-[minmax(260px,1fr)_32px_minmax(260px,1fr)_32px_minmax(260px,1fr)_32px_minmax(260px,1fr)] gap-0 items-stretch min-w-[1136px]">
               {/* Ready to DM */}
               <KanbanColumn
                 title="Ready to DM"
@@ -393,8 +394,10 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-start justify-center w-8 pt-14 shrink-0">
-                <MoveRight className="h-4 w-4 text-muted-foreground/40" />
+              <div className="flex items-start justify-center w-8 shrink-0">
+                <div className="sticky top-1/2 -translate-y-1/2">
+                  <MoveRight className="h-4 w-4 text-muted-foreground/40" />
+                </div>
               </div>
 
               {/* DM Sent */}
@@ -417,8 +420,10 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-start justify-center w-8 pt-14 shrink-0">
-                <MoveRight className="h-4 w-4 text-muted-foreground/40" />
+              <div className="flex items-start justify-center w-8 shrink-0">
+                <div className="sticky top-1/2 -translate-y-1/2">
+                  <MoveRight className="h-4 w-4 text-muted-foreground/40" />
+                </div>
               </div>
 
               {/* Follow Up */}
@@ -442,8 +447,10 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-start justify-center w-8 pt-14 shrink-0">
-                <MoveRight className="h-4 w-4 text-muted-foreground/40" />
+              <div className="flex items-start justify-center w-8 shrink-0">
+                <div className="sticky top-1/2 -translate-y-1/2">
+                  <MoveRight className="h-4 w-4 text-muted-foreground/40" />
+                </div>
               </div>
 
               {/* Converted */}
@@ -464,6 +471,7 @@ export default function DmPipelinePage() {
                   />
                 ))}
               </KanbanColumn>
+            </div>
             </div>
           </div>
         </div>
