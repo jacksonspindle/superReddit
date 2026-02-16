@@ -1,6 +1,6 @@
 'use client';
 
-import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle } from 'lucide-react';
+import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,12 +9,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cardHover, cardTap } from '@/lib/motion';
 import { timeAgo, followUpStatus } from '@/lib/time';
 import type { OutreachDM, PermissionType } from '@/types';
+import type { ChatPreview } from '@/hooks/useRedditBridge';
 
 type KanbanStage = 'ready' | 'sent' | 'followup' | 'converted';
 
 interface KanbanLeadCardProps {
   dm: OutreachDM;
   stage: KanbanStage;
+  chatPreview?: ChatPreview;
   selected?: boolean;
   onSelect?: (id: string) => void;
   onDraft?: (dm: OutreachDM) => void;
@@ -44,6 +46,7 @@ function getInitials(username: string): string {
 export function KanbanLeadCard({
   dm,
   stage,
+  chatPreview,
   selected,
   onSelect,
   onDraft,
@@ -118,8 +121,8 @@ export function KanbanLeadCard({
           </a>
         )}
 
-        {/* Comment quote */}
-        {dm.comment_text && (
+        {/* Comment quote (only on ready/followup/converted, not sent) */}
+        {dm.comment_text && stage !== 'sent' && (
           <p className="text-[11px] text-muted-foreground line-clamp-2 italic break-words">
             &ldquo;{dm.comment_text}&rdquo;
           </p>
@@ -138,6 +141,16 @@ export function KanbanLeadCard({
           </div>
         )}
 
+        {/* Follow-up: show their reply from chat */}
+        {stage === 'followup' && chatPreview && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded px-1.5 py-1 min-w-0">
+            <p className="text-[9px] font-medium text-muted-foreground mb-0.5">
+              {chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`}
+            </p>
+            <p className="text-[10px] line-clamp-2 break-words">{chatPreview.text}</p>
+          </div>
+        )}
+
         {/* Follow-up status (followup) */}
         {stage === 'followup' && fuStatus && (
           <div
@@ -152,11 +165,37 @@ export function KanbanLeadCard({
           </div>
         )}
 
-        {/* Sent time (sent) */}
-        {stage === 'sent' && dm.dm_sent_at && (
-          <span className="text-[10px] text-muted-foreground">
-            Sent {timeAgo(dm.dm_sent_at)}
-          </span>
+        {/* Sent DM info — show last message from chat */}
+        {stage === 'sent' && (
+          <>
+            {chatPreview ? (
+              <div className={`rounded px-1.5 py-1 min-w-0 ${chatPreview.fromYou ? 'bg-muted/50' : 'bg-blue-50 dark:bg-blue-950/30'}`}>
+                <p className="text-[9px] font-medium text-muted-foreground mb-0.5">
+                  {chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`}
+                </p>
+                <p className="text-[10px] line-clamp-2 break-words">{chatPreview.text}</p>
+              </div>
+            ) : (dm.dm_body || dm.dm_subject) ? (
+              <div className="bg-muted/50 rounded px-1.5 py-1 space-y-0.5 min-w-0">
+                {dm.dm_subject && (
+                  <p className="text-[10px] font-medium truncate">{dm.dm_subject}</p>
+                )}
+                {dm.dm_body && (
+                  <p className="text-[10px] text-muted-foreground line-clamp-2 break-words">{dm.dm_body}</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-1">
+                <MessageSquare className="h-2.5 w-2.5 shrink-0" />
+                <span>Awaiting reply</span>
+              </div>
+            )}
+            {dm.dm_sent_at && (
+              <span className="text-[9px] text-muted-foreground">
+                Sent {timeAgo(dm.dm_sent_at)}
+              </span>
+            )}
+          </>
         )}
 
         {/* Converted info */}
@@ -189,25 +228,15 @@ export function KanbanLeadCard({
           )}
 
           {stage === 'sent' && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 flex-1 min-w-0 text-green-600"
-                onClick={() => onStageChange(dm.id, 'responded', 'replied')}
-              >
-                <Check className="h-3 w-3 shrink-0" />
-                <span className="truncate">Reply</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 min-w-0"
-                onClick={() => onStageChange(dm.id, 'closed', 'no_response')}
-              >
-                <span className="truncate">No Reply</span>
-              </Button>
-            </>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
+              onClick={() => onStageChange(dm.id, 'closed', 'no_response')}
+            >
+              <X className="h-3 w-3 shrink-0 mr-0.5" />
+              <span className="truncate">Close</span>
+            </Button>
           )}
 
           {stage === 'followup' && (

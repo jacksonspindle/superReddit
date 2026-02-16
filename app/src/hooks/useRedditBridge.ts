@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OutreachDM } from '@/types';
 
+export interface ChatPreview {
+  text: string;
+  fromYou: boolean;
+}
+
 interface BridgeStatus {
   extensionInstalled: boolean;
   redditLoggedIn: boolean;
@@ -62,6 +67,7 @@ export function useRedditBridge() {
   });
 
   const [reconciling, setReconciling] = useState(false);
+  const [previews, setPreviews] = useState<Record<string, ChatPreview>>({});
   const detectedRef = useRef(false);
 
   // Listen for EXTENSION_READY heartbeat
@@ -151,6 +157,21 @@ export function useRedditBridge() {
     }
   }, []);
 
+  const fetchPreviews = useCallback(async (): Promise<Record<string, ChatPreview>> => {
+    try {
+      const result = await sendToExtension<{
+        previews: Record<string, ChatPreview>;
+        error?: string;
+      }>('CHECK_PREVIEWS', 15_000);
+
+      const p = result.previews || {};
+      setPreviews(p);
+      return p;
+    } catch {
+      return {};
+    }
+  }, []);
+
   const reconcile = useCallback(
     async (
       allDms: OutreachDM[],
@@ -182,11 +203,8 @@ export function useRedditBridge() {
 
         let repliedCount = 0;
         if (repliedSet.size > 0) {
-          // Re-read allDms state after sent advances (use the updated stages)
-          // We need to check against dm_sent stage
           const toMarkReplied = allDms.filter(
             (dm) =>
-              // Check both original dm_sent AND ones we just advanced
               (dm.pipeline_stage === 'dm_sent' || (READY_STAGES.has(dm.pipeline_stage) && sentSet.has(dm.reddit_username.toLowerCase()))) &&
               repliedSet.has(dm.reddit_username.toLowerCase())
           );
@@ -197,6 +215,9 @@ export function useRedditBridge() {
           repliedCount = toMarkReplied.length;
         }
 
+        // Step 3: Fetch message previews
+        await fetchPreviews();
+
         setReconciling(false);
         return { sent: sentCount, replied: repliedCount };
       } catch {
@@ -204,14 +225,16 @@ export function useRedditBridge() {
         return { sent: 0, replied: 0 };
       }
     },
-    [checkSentMessages, checkReplies]
+    [checkSentMessages, checkReplies, fetchPreviews]
   );
 
   return {
     status,
     reconciling,
+    previews,
     checkSentMessages,
     checkReplies,
+    fetchPreviews,
     reconcile,
   };
 }

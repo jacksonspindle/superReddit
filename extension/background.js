@@ -4,6 +4,7 @@
 
 const STORAGE_KEY = 'sr_chat_usernames';
 const REPLIES_KEY = 'sr_chat_replies';
+const PREVIEWS_KEY = 'sr_chat_previews';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CHECK_STATUS') {
@@ -44,10 +45,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Receive reply status from reddit-content.js
   if (message.type === 'STORE_CHAT_REPLIES') {
     const replies = message.replies || [];
-    // Replace entirely — reflects current state of conversations
     chrome.storage.local.set({ [REPLIES_KEY]: replies });
     sendResponse({ ok: true });
     return false;
+  }
+
+  // Receive message previews from reddit-content.js
+  if (message.type === 'STORE_CHAT_PREVIEWS') {
+    const previews = message.previews || {};
+    chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === 'CHECK_PREVIEWS') {
+    handleCheckPreviews().then(sendResponse).catch((err) =>
+      sendResponse({ previews: {}, error: err.message })
+    );
+    return true;
   }
 });
 
@@ -105,4 +120,17 @@ async function handleCheckSentMessages() {
 async function handleCheckReplies() {
   const replies = await getStoredReplies();
   return { replies, source: 'chat_scrape' };
+}
+
+async function getStoredPreviews() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(PREVIEWS_KEY, (result) => {
+      resolve(result[PREVIEWS_KEY] || {});
+    });
+  });
+}
+
+async function handleCheckPreviews() {
+  const previews = await getStoredPreviews();
+  return { previews, source: 'chat_scrape' };
 }

@@ -55,7 +55,7 @@ export default function DmPipelinePage() {
   const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, reconcile } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, reconcile } = useRedditBridge();
   const reconcileRan = useRef(false);
 
   // Fetch all DMs
@@ -452,6 +452,7 @@ export default function DmPipelinePage() {
                     key={dm.id}
                     dm={dm}
                     stage="sent"
+                    chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
                   />
                 ))}
@@ -478,6 +479,7 @@ export default function DmPipelinePage() {
                     key={dm.id}
                     dm={dm}
                     stage="followup"
+                    chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onDraft={setDraftingDm}
                     onStageChange={handleStageChange}
                   />
