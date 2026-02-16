@@ -1,10 +1,58 @@
 // SuperReddit DM Bridge — Background Service Worker
-// Opens Reddit chat in a side panel; relays scraped data from reddit-content.js
-// to the SuperReddit app via chrome.storage.
+// 1. Creates a hidden offscreen document that loads Reddit chat
+// 2. reddit-content.js runs inside the chat iframe and scrapes data
+// 3. Relays scraped data to the SuperReddit app via chrome.storage
+// 4. Side panel available as optional bonus (actually use chat)
 
 const STORAGE_KEY = 'sr_chat_usernames';
 const REPLIES_KEY = 'sr_chat_replies';
 const PREVIEWS_KEY = 'sr_chat_previews';
+const KEEPALIVE_ALARM = 'sr_keepalive';
+
+// ---- Offscreen Document Lifecycle ----
+
+async function ensureOffscreen() {
+  // Check if offscreen document already exists
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+  });
+
+  if (existingContexts.length > 0) return;
+
+  // Create the offscreen document with Reddit chat iframe
+  try {
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['IFRAME_SCRIPTING'],
+      justification: 'Load Reddit chat to sync DM status with SuperReddit pipeline',
+    });
+    console.log('[SuperReddit] Offscreen document created — Reddit chat loading in background');
+  } catch (err) {
+    // "Only a single offscreen document may be created" — already exists
+    if (!err.message?.includes('single offscreen')) {
+      console.warn('[SuperReddit] Failed to create offscreen document:', err.message);
+    }
+  }
+}
+
+// Launch on install and startup
+chrome.runtime.onInstalled.addListener(() => {
+  ensureOffscreen();
+  // Check every 2 minutes that offscreen document is still alive
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  ensureOffscreen();
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
+});
+
+// Keepalive alarm — recreate offscreen if Chrome killed it
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === KEEPALIVE_ALARM) {
+    ensureOffscreen();
+  }
+});
 
 // ---- Side Panel: open on extension icon click ----
 
@@ -13,6 +61,12 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 // ---- Message Handlers ----
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Heartbeat from offscreen document — just acknowledge
+  if (message.type === 'OFFSCREEN_HEARTBEAT' || message.type === 'OFFSCREEN_FRAME_LOADED' || message.type === 'OFFSCREEN_FRAME_ERROR') {
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (message.type === 'CHECK_STATUS') {
     handleCheckStatus().then(sendResponse).catch((err) =>
       sendResponse({ installed: true, redditLoggedIn: false, error: err.message })
@@ -41,7 +95,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Receive scraped usernames from reddit-content.js (runs in side panel iframe)
+  // Receive scraped usernames from reddit-content.js
   if (message.type === 'STORE_CHAT_USERNAMES') {
     const usernames = message.usernames || [];
     if (usernames.length > 0) {

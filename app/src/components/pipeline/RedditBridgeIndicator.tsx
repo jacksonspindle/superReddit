@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Unplug, AlertTriangle, CheckCircle2, ExternalLink, PanelRight } from 'lucide-react';
+import { Loader2, Unplug, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 
 interface RedditBridgeIndicatorProps {
   extensionInstalled: boolean;
@@ -63,12 +63,12 @@ export function RedditBridgeIndicator({
     );
   }
 
-  // Connected but no chat data yet — prompt to open side panel
+  // Connected but no chat data yet — background sync starting
   if (capturedCount === 0) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">
-        <PanelRight className="h-3.5 w-3.5" />
-        Reddit Connected — click the extension icon to open chat panel
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Reddit Connected — scanning chats in background...
       </div>
     );
   }

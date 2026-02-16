@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><title>SuperReddit Background Sync</title></head>
+<body>
+  <!--
+    Hidden offscreen document. Loads Reddit chat in an iframe so the
+    content script (reddit-content.js) can scrape it in the background.
+    The user never sees this page.
+  -->
+  <iframe
+    id="chatFrame"
+    src="https://www.reddit.com/chat"
+    style="width:1px;height:1px;position:absolute;top:-9999px;"
+    allow="clipboard-write"
+  ></iframe>
+  <script src="offscreen.js"></script>
+</body>
+</html>
