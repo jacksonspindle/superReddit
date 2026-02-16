@@ -109,7 +109,8 @@ export default function DmPipelinePage() {
         const json = await res.json();
         if (json.scanned && json.count > 0) {
           toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
-          fetchDms();
+          await fetchDms();
+          reconcileRan.current = false;
         }
       } catch { /* silent */ }
     }
@@ -152,7 +153,8 @@ export default function DmPipelinePage() {
         toast.error(json.error);
       } else if (json.scanned) {
         toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
-        fetchDms();
+        await fetchDms();
+        reconcileRan.current = false; // re-trigger reconciliation with fresh data
       } else if (json.message) {
         toast.info(json.message);
       } else {
