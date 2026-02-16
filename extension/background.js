@@ -1,8 +1,9 @@
 // SuperReddit DM Bridge — Background Service Worker
-// Stores chat usernames passively captured by reddit-content.js
+// Stores chat usernames + reply status passively captured by reddit-content.js
 // and serves them to the SuperReddit pipeline.
 
 const STORAGE_KEY = 'sr_chat_usernames';
+const REPLIES_KEY = 'sr_chat_replies';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CHECK_STATUS') {
@@ -19,6 +20,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'CHECK_REPLIES') {
+    handleCheckReplies().then(sendResponse).catch((err) =>
+      sendResponse({ replies: [], error: err.message })
+    );
+    return true;
+  }
+
   // Receive scraped usernames from reddit-content.js
   if (message.type === 'STORE_CHAT_USERNAMES') {
     const usernames = message.usernames || [];
@@ -29,6 +37,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
       });
     }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  // Receive reply status from reddit-content.js
+  if (message.type === 'STORE_CHAT_REPLIES') {
+    const replies = message.replies || [];
+    // Replace entirely — reflects current state of conversations
+    chrome.storage.local.set({ [REPLIES_KEY]: replies });
     sendResponse({ ok: true });
     return false;
   }
@@ -54,23 +71,38 @@ async function getStoredUsernames() {
   });
 }
 
+async function getStoredReplies() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(REPLIES_KEY, (result) => {
+      resolve(result[REPLIES_KEY] || []);
+    });
+  });
+}
+
 async function handleCheckStatus() {
   const hasSession = await hasRedditSession();
   if (!hasSession) {
-    return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0 };
+    return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0, replyCount: 0 };
   }
 
   const stored = await getStoredUsernames();
+  const replies = await getStoredReplies();
 
   return {
     installed: true,
     redditLoggedIn: true,
     username: null,
     capturedCount: stored.length,
+    replyCount: replies.length,
   };
 }
 
 async function handleCheckSentMessages() {
   const stored = await getStoredUsernames();
   return { usernames: stored, source: 'chat_scrape' };
+}
+
+async function handleCheckReplies() {
+  const replies = await getStoredReplies();
+  return { replies, source: 'chat_scrape' };
 }

@@ -1,10 +1,11 @@
 // SuperReddit DM Bridge — Reddit Content Script
-// Passively reads chat conversation usernames from the Reddit chat page.
+// Passively reads chat conversation usernames AND reply status from the Reddit chat page.
 // Reddit chat uses Shadow DOM (custom web components), so we traverse shadow roots.
 
 (function () {
   const SCAN_INTERVAL = 3000;
   const STORAGE_KEY = 'sr_chat_usernames';
+  const REPLIES_KEY = 'sr_chat_replies';
 
   // ---- Shadow DOM Traversal ----
   // Recursively query through shadow DOM boundaries
@@ -46,6 +47,7 @@
   // ---- DOM Scanning ----
   function scanChatDOM() {
     const usernames = new Set();
+    const replies = new Set(); // usernames where THEY sent the last message
 
     // Strategy 1: Deep-query links to user profiles (through shadow DOM)
     deepQueryAll('a[href*="/user/"]').forEach((link) => {
@@ -82,9 +84,7 @@
       }
     });
 
-    // Strategy 4: Walk the sidebar conversation list looking for username text
-    // Reddit chat sidebar has conversation items with username + preview text
-    // Find the sidebar/channel-list and extract names
+    // Strategy 4: Walk the sidebar conversation list — extract usernames AND reply status
     const sidebarCandidates = deepQueryAll(
       '[class*="sidebar"], [class*="channel-list"], [class*="conversation-list"], ' +
       '[class*="ThreadList"], [class*="room-list"], [role="listbox"], [role="list"]'
@@ -92,23 +92,25 @@
 
     for (const sidebar of sidebarCandidates) {
       const root = sidebar.shadowRoot || sidebar;
-      // Look for list items that contain usernames
       const items = root.querySelectorAll(
         '[role="option"], [role="listitem"], li, [class*="item"], [class*="thread"], [class*="conversation"]'
       );
       for (const item of items) {
-        extractUsernameFromElement(item, usernames);
+        const result = analyzeConversationItem(item);
+        if (result) {
+          usernames.add(result.username);
+          if (result.theyReplied) {
+            replies.add(result.username);
+          }
+        }
       }
     }
 
     // Strategy 5: Scan all text in shadow DOMs for username patterns
     const allText = getDeepTextContent(document.body);
-    // Match standalone usernames that appear in conversation context
-    // Look for patterns like "username:" or "username Feb 14" that appear in chat lists
     const namePatterns = allText.matchAll(/(?:^|[\s])([A-Za-z0-9_-]{3,20})(?::\s|(?:\s+(?:Yesterday|Today|Feb|Jan|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b))/gm);
     for (const m of namePatterns) {
       const candidate = m[1];
-      // Filter out common non-username words
       if (!isCommonWord(candidate)) {
         usernames.add(candidate.toLowerCase());
       }
@@ -120,7 +122,61 @@
       usernames.add(m[1].toLowerCase());
     }
 
-    return Array.from(usernames);
+    return { usernames: Array.from(usernames), replies: Array.from(replies) };
+  }
+
+  // Analyze a single conversation item for username + reply status
+  function analyzeConversationItem(item) {
+    let username = null;
+    const root = item.shadowRoot || item;
+
+    // Try profile links first
+    const links = root.querySelectorAll('a[href*="/user/"]');
+    for (const link of links) {
+      const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
+      if (match && match[1] !== 'me') {
+        username = match[1].toLowerCase();
+        break;
+      }
+    }
+
+    // Try name elements (bold/heading text that looks like a username)
+    if (!username) {
+      const nameEls = root.querySelectorAll('h3, h4, strong, b, [class*="name"], [class*="title"], [class*="header"]');
+      for (const el of nameEls) {
+        const text = el.textContent?.trim();
+        if (text && /^[A-Za-z0-9_-]{3,20}$/.test(text) && !isCommonWord(text)) {
+          username = text.toLowerCase();
+          break;
+        }
+      }
+    }
+
+    if (!username) return null;
+
+    // Analyze message preview to determine who sent the last message
+    // Reddit chat shows "You: <message>" when you sent the last message
+    // and just "<message>" when they sent the last message
+    const fullText = getDeepTextContent(item);
+
+    // Look for "You:" pattern indicating you sent the last message
+    // Be careful to match the preview text, not the username itself
+    const youSentLast = /\bYou:\s/.test(fullText);
+
+    // Also check for unread indicators (strong signal they replied)
+    const hasUnread = !!(
+      root.querySelector('[class*="unread"], [class*="Unread"], [class*="badge"], [class*="Badge"]') ||
+      root.querySelector('[aria-label*="unread"]') ||
+      // Bold/highlighted conversation names often indicate unread
+      root.querySelector('[class*="bold"], [class*="Bold"], [style*="font-weight"]')
+    );
+
+    // They replied if:
+    // 1. The preview does NOT start with "You:" (they sent the last message), OR
+    // 2. There's an unread indicator
+    const theyReplied = !youSentLast || hasUnread;
+
+    return { username, theyReplied };
   }
 
   function extractUsernameFromElement(el, usernames) {
@@ -134,7 +190,6 @@
     }
 
     // Check text content for username-like strings
-    // In Reddit chat, the first bold/prominent text in a conversation item is usually the username
     const nameEls = el.querySelectorAll('h3, h4, strong, b, [class*="name"], [class*="title"], [class*="header"]');
     for (const nameEl of nameEls) {
       const text = nameEl.textContent?.trim();
@@ -163,7 +218,8 @@
   }
 
   // ---- Storage ----
-  function storeUsernames(newUsernames) {
+  function storeResults(newUsernames, newReplies) {
+    // Store usernames (cumulative — grows over time)
     chrome.storage.local.get(STORAGE_KEY, (result) => {
       const existing = new Set(result[STORAGE_KEY] || []);
       let changed = false;
@@ -182,6 +238,15 @@
         );
       }
     });
+
+    // Store replies (replaced each scan — reflects current state)
+    if (newReplies.length > 0) {
+      chrome.storage.local.set({ [REPLIES_KEY]: newReplies });
+      chrome.runtime.sendMessage(
+        { type: 'STORE_CHAT_REPLIES', replies: newReplies },
+        () => { if (chrome.runtime.lastError) { /* ignore */ } }
+      );
+    }
   }
 
   // ---- Scanning Logic ----
@@ -195,14 +260,12 @@
 
   // ---- Auto-scroll sidebar to load all conversations ----
   function autoScrollSidebar() {
-    // Find the scrollable conversation list (search through shadow DOM)
     const candidates = deepQueryAll(
       '[class*="sidebar"], [class*="channel-list"], [class*="conversation-list"], ' +
       '[class*="ThreadList"], [class*="room-list"], [role="listbox"], [role="list"], ' +
       'nav, aside'
     );
 
-    // Also try the left-side panel of the chat (usually the first scrollable column)
     const allScrollable = [];
     function findScrollable(root) {
       const els = (root || document).querySelectorAll('*');
@@ -217,14 +280,11 @@
     }
     findScrollable();
 
-    // Combine candidates
     const scrollTargets = [...new Set([...candidates, ...allScrollable])];
-
     if (scrollTargets.length === 0) return;
 
-    // Scroll each target to the bottom incrementally
     let scrollRound = 0;
-    const MAX_ROUNDS = 20; // max 20 scroll attempts (~20 seconds)
+    const MAX_ROUNDS = 20;
 
     const scrollTimer = setInterval(() => {
       scrollRound++;
@@ -239,42 +299,35 @@
       }
 
       // Scan after each scroll
-      const found = scanChatDOM();
-      if (found.length > 0) storeUsernames(found);
+      const { usernames, replies } = scanChatDOM();
+      if (usernames.length > 0) storeResults(usernames, replies);
 
-      // Stop if nothing scrolled (reached bottom) or max rounds
       if (!anyScrolled || scrollRound >= MAX_ROUNDS) {
         clearInterval(scrollTimer);
-        // Final scan
         setTimeout(() => {
-          const found = scanChatDOM();
-          if (found.length > 0) storeUsernames(found);
+          const { usernames, replies } = scanChatDOM();
+          if (usernames.length > 0) storeResults(usernames, replies);
         }, 1000);
       }
     }, 1000);
   }
 
   function startScanning() {
-    // Initial scan after a delay (let shadow DOM components mount)
     setTimeout(() => {
-      const found = scanChatDOM();
-      if (found.length > 0) storeUsernames(found);
-
-      // Auto-scroll to load all conversations
+      const { usernames, replies } = scanChatDOM();
+      if (usernames.length > 0) storeResults(usernames, replies);
       autoScrollSidebar();
     }, 3000);
 
-    // Watch for DOM changes including shadow DOM component mounts
     const observer = new MutationObserver(() => {
-      const found = scanChatDOM();
-      if (found.length > 0) storeUsernames(found);
+      const { usernames, replies } = scanChatDOM();
+      if (usernames.length > 0) storeResults(usernames, replies);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Periodic scan (shadow DOM changes may not trigger MutationObserver)
     setInterval(() => {
-      const found = scanChatDOM();
-      if (found.length > 0) storeUsernames(found);
+      const { usernames, replies } = scanChatDOM();
+      if (usernames.length > 0) storeResults(usernames, replies);
     }, SCAN_INTERVAL);
   }
 
@@ -282,8 +335,8 @@
     startScanning();
   } else {
     setTimeout(() => {
-      const found = scanChatDOM();
-      if (found.length > 0) storeUsernames(found);
+      const { usernames, replies } = scanChatDOM();
+      if (usernames.length > 0) storeResults(usernames, replies);
     }, 2000);
   }
 })();

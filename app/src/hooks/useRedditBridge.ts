@@ -10,6 +10,7 @@ interface BridgeStatus {
   checking: boolean;
   lastError: string | null;
   capturedCount: number;
+  replyCount: number;
 }
 
 const READY_STAGES = new Set(['detected', 'dm_ready', 'draft_generated']);
@@ -57,6 +58,7 @@ export function useRedditBridge() {
     checking: true,
     lastError: null,
     capturedCount: 0,
+    replyCount: 0,
   });
 
   const [reconciling, setReconciling] = useState(false);
@@ -100,6 +102,7 @@ export function useRedditBridge() {
         redditLoggedIn: boolean;
         username: string | null;
         capturedCount?: number;
+        replyCount?: number;
         error?: string;
       }>('CHECK_STATUS', 5000);
 
@@ -110,6 +113,7 @@ export function useRedditBridge() {
         checking: false,
         lastError: result.error || null,
         capturedCount: result.capturedCount || 0,
+        replyCount: result.replyCount || 0,
       });
     } catch {
       setStatus((s) => ({
@@ -126,10 +130,22 @@ export function useRedditBridge() {
       const result = await sendToExtension<{
         usernames: string[];
         error?: string;
-        after?: string | null;
       }>('CHECK_SENT_MESSAGES', 15_000);
 
       return result.usernames || [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const checkReplies = useCallback(async (): Promise<string[]> => {
+    try {
+      const result = await sendToExtension<{
+        replies: string[];
+        error?: string;
+      }>('CHECK_REPLIES', 15_000);
+
+      return result.replies || [];
     } catch {
       return [];
     }
@@ -139,41 +155,63 @@ export function useRedditBridge() {
     async (
       allDms: OutreachDM[],
       onStageChange: (dmId: string, stage: string) => Promise<void> | void
-    ): Promise<number> => {
+    ): Promise<{ sent: number; replied: number }> => {
       setReconciling(true);
       try {
+        // Step 1: Advance "ready" → "dm_sent" for users we've messaged
         const sentUsernames = await checkSentMessages();
-        if (sentUsernames.length === 0) {
-          setReconciling(false);
-          return 0;
-        }
-
         const sentSet = new Set(sentUsernames.map((u) => u.toLowerCase()));
 
-        const toAdvance = allDms.filter(
-          (dm) =>
-            READY_STAGES.has(dm.pipeline_stage) &&
-            sentSet.has(dm.reddit_username.toLowerCase())
-        );
+        let sentCount = 0;
+        if (sentSet.size > 0) {
+          const toAdvance = allDms.filter(
+            (dm) =>
+              READY_STAGES.has(dm.pipeline_stage) &&
+              sentSet.has(dm.reddit_username.toLowerCase())
+          );
 
-        for (const dm of toAdvance) {
-          await onStageChange(dm.id, 'dm_sent');
+          for (const dm of toAdvance) {
+            await onStageChange(dm.id, 'dm_sent');
+          }
+          sentCount = toAdvance.length;
+        }
+
+        // Step 2: Advance "dm_sent" → "responded" for users who replied
+        const repliedUsernames = await checkReplies();
+        const repliedSet = new Set(repliedUsernames.map((u) => u.toLowerCase()));
+
+        let repliedCount = 0;
+        if (repliedSet.size > 0) {
+          // Re-read allDms state after sent advances (use the updated stages)
+          // We need to check against dm_sent stage
+          const toMarkReplied = allDms.filter(
+            (dm) =>
+              // Check both original dm_sent AND ones we just advanced
+              (dm.pipeline_stage === 'dm_sent' || (READY_STAGES.has(dm.pipeline_stage) && sentSet.has(dm.reddit_username.toLowerCase()))) &&
+              repliedSet.has(dm.reddit_username.toLowerCase())
+          );
+
+          for (const dm of toMarkReplied) {
+            await onStageChange(dm.id, 'responded');
+          }
+          repliedCount = toMarkReplied.length;
         }
 
         setReconciling(false);
-        return toAdvance.length;
+        return { sent: sentCount, replied: repliedCount };
       } catch {
         setReconciling(false);
-        return 0;
+        return { sent: 0, replied: 0 };
       }
     },
-    [checkSentMessages]
+    [checkSentMessages, checkReplies]
   );
 
   return {
     status,
     reconciling,
     checkSentMessages,
+    checkReplies,
     reconcile,
   };
 }

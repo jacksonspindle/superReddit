@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('outreach_dms')
-      .select('*, signal:outreach_signals(title, subreddit, permalink)')
+      .select('*, signal:outreach_signals(title, subreddit, permalink, score, num_comments)')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 

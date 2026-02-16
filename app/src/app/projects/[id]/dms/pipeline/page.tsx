@@ -131,9 +131,12 @@ export default function DmPipelinePage() {
 
     reconcileRan.current = true;
 
-    reconcile(allDms, handleStageChange).then((count) => {
-      if (count > 0) {
-        toast.success(`Auto-detected ${count} sent DM${count !== 1 ? 's' : ''} from Reddit`);
+    reconcile(allDms, handleStageChange).then(({ sent, replied }) => {
+      const parts: string[] = [];
+      if (sent > 0) parts.push(`${sent} sent DM${sent !== 1 ? 's' : ''}`);
+      if (replied > 0) parts.push(`${replied} repl${replied !== 1 ? 'ies' : 'y'}`);
+      if (parts.length > 0) {
+        toast.success(`Auto-detected from Reddit: ${parts.join(', ')}`);
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,10 +203,44 @@ export default function DmPipelinePage() {
     handleStageChange(dmId, 'closed', 'dismissed');
   }
 
-  // Derive post filter cards from replies
+  // Derive post filter cards from DMs grouped by source signal
   const postInfos = useMemo<PostInfo[]>(() => {
     const signalMap = new Map<string, PostInfo>();
 
+    // Build from DMs — each DM has a source_signal_id and signal data
+    for (const dm of allDms) {
+      if (!dm.source_signal_id || !dm.signal) continue;
+      if (signalMap.has(dm.source_signal_id)) {
+        // Already tracked, just update counts
+        const existing = signalMap.get(dm.source_signal_id)!;
+        existing.leadsCount++;
+        if (['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage)) existing.stages.ready++;
+        else if (dm.pipeline_stage === 'dm_sent') existing.stages.sent++;
+        else if (dm.pipeline_stage === 'responded') existing.stages.followup++;
+        else if (dm.pipeline_stage === 'converted') existing.stages.converted++;
+        continue;
+      }
+
+      const stages = {
+        ready: ['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage) ? 1 : 0,
+        sent: dm.pipeline_stage === 'dm_sent' ? 1 : 0,
+        followup: dm.pipeline_stage === 'responded' ? 1 : 0,
+        converted: dm.pipeline_stage === 'converted' ? 1 : 0,
+      };
+
+      signalMap.set(dm.source_signal_id, {
+        signalId: dm.source_signal_id,
+        title: dm.signal.title,
+        subreddit: dm.signal.subreddit,
+        score: dm.signal.score || 0,
+        numComments: dm.signal.num_comments || 0,
+        body: null,
+        leadsCount: 1,
+        stages,
+      });
+    }
+
+    // Also merge any outreach_replies that have linked signals
     for (const reply of posts) {
       if (!reply.signal_id || !reply.signal) continue;
       if (signalMap.has(reply.signal_id)) continue;
@@ -228,7 +265,8 @@ export default function DmPipelinePage() {
       });
     }
 
-    return Array.from(signalMap.values());
+    // Sort by lead count descending
+    return Array.from(signalMap.values()).sort((a, b) => b.leadsCount - a.leadsCount);
   }, [posts, allDms]);
 
   // Column mapping
