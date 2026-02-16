@@ -193,12 +193,76 @@
     );
   }
 
+  // ---- Auto-scroll sidebar to load all conversations ----
+  function autoScrollSidebar() {
+    // Find the scrollable conversation list (search through shadow DOM)
+    const candidates = deepQueryAll(
+      '[class*="sidebar"], [class*="channel-list"], [class*="conversation-list"], ' +
+      '[class*="ThreadList"], [class*="room-list"], [role="listbox"], [role="list"], ' +
+      'nav, aside'
+    );
+
+    // Also try the left-side panel of the chat (usually the first scrollable column)
+    const allScrollable = [];
+    function findScrollable(root) {
+      const els = (root || document).querySelectorAll('*');
+      for (const el of els) {
+        if (el.scrollHeight > el.clientHeight + 50 && el.clientHeight > 100) {
+          allScrollable.push(el);
+        }
+        if (el.shadowRoot) {
+          findScrollable(el.shadowRoot);
+        }
+      }
+    }
+    findScrollable();
+
+    // Combine candidates
+    const scrollTargets = [...new Set([...candidates, ...allScrollable])];
+
+    if (scrollTargets.length === 0) return;
+
+    // Scroll each target to the bottom incrementally
+    let scrollRound = 0;
+    const MAX_ROUNDS = 20; // max 20 scroll attempts (~20 seconds)
+
+    const scrollTimer = setInterval(() => {
+      scrollRound++;
+      let anyScrolled = false;
+
+      for (const target of scrollTargets) {
+        const prevTop = target.scrollTop;
+        target.scrollTop = target.scrollHeight;
+        if (target.scrollTop > prevTop + 10) {
+          anyScrolled = true;
+        }
+      }
+
+      // Scan after each scroll
+      const found = scanChatDOM();
+      if (found.length > 0) storeUsernames(found);
+
+      // Stop if nothing scrolled (reached bottom) or max rounds
+      if (!anyScrolled || scrollRound >= MAX_ROUNDS) {
+        clearInterval(scrollTimer);
+        // Final scan
+        setTimeout(() => {
+          const found = scanChatDOM();
+          if (found.length > 0) storeUsernames(found);
+        }, 1000);
+      }
+    }, 1000);
+  }
+
   function startScanning() {
     // Initial scan after a delay (let shadow DOM components mount)
     setTimeout(() => {
       const found = scanChatDOM();
       if (found.length > 0) storeUsernames(found);
-    }, 2000);
+
+      // Auto-scroll to load all conversations
+      autoScrollSidebar();
+    }, 3000);
 
     // Watch for DOM changes including shadow DOM component mounts
     const observer = new MutationObserver(() => {
