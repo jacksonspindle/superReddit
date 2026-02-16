@@ -9,6 +9,7 @@ interface BridgeStatus {
   redditUsername: string | null;
   checking: boolean;
   lastError: string | null;
+  capturedCount: number;
 }
 
 const READY_STAGES = new Set(['detected', 'dm_ready', 'draft_generated']);
@@ -55,6 +56,7 @@ export function useRedditBridge() {
     redditUsername: null,
     checking: true,
     lastError: null,
+    capturedCount: 0,
   });
 
   const [reconciling, setReconciling] = useState(false);
@@ -97,6 +99,7 @@ export function useRedditBridge() {
         installed: boolean;
         redditLoggedIn: boolean;
         username: string | null;
+        capturedCount?: number;
         error?: string;
       }>('CHECK_STATUS', 5000);
 
@@ -106,6 +109,7 @@ export function useRedditBridge() {
         redditUsername: result.username,
         checking: false,
         lastError: result.error || null,
+        capturedCount: result.capturedCount || 0,
       });
     } catch {
       setStatus((s) => ({

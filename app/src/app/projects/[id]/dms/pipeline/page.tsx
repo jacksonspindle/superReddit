@@ -349,6 +349,7 @@ export default function DmPipelinePage() {
               redditUsername={bridgeStatus.redditUsername}
               checking={bridgeStatus.checking}
               reconciling={reconciling}
+              capturedCount={bridgeStatus.capturedCount}
             />
 
             {/* Toolbar */}

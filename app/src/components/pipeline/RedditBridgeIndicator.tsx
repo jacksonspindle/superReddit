@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Unplug, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Unplug, AlertTriangle, CheckCircle2, ExternalLink, MessageCircle } from 'lucide-react';
 
 interface RedditBridgeIndicatorProps {
   extensionInstalled: boolean;
@@ -8,6 +8,7 @@ interface RedditBridgeIndicatorProps {
   redditUsername: string | null;
   checking: boolean;
   reconciling: boolean;
+  capturedCount?: number;
 }
 
 export function RedditBridgeIndicator({
@@ -16,6 +17,7 @@ export function RedditBridgeIndicator({
   redditUsername,
   checking,
   reconciling,
+  capturedCount,
 }: RedditBridgeIndicatorProps) {
   if (checking) {
     return (
@@ -37,10 +39,16 @@ export function RedditBridgeIndicator({
 
   if (!redditLoggedIn) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-600 dark:text-yellow-400">
+      <a
+        href="https://www.reddit.com/login"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20 transition-colors cursor-pointer"
+      >
         <AlertTriangle className="h-3.5 w-3.5" />
-        Reddit not logged in
-      </div>
+        Reddit not logged in — click to sign in
+        <ExternalLink className="h-3 w-3" />
+      </a>
     );
   }
 
@@ -53,10 +61,26 @@ export function RedditBridgeIndicator({
     );
   }
 
+  // Connected but no chat data captured yet — prompt to open Reddit chat
+  if (capturedCount === 0) {
+    return (
+      <a
+        href="https://www.reddit.com/chat"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors cursor-pointer"
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        Reddit Connected — open chat to sync sent DMs
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">
       <CheckCircle2 className="h-3.5 w-3.5" />
-      Reddit Connected u/{redditUsername}
+      Reddit Connected · {capturedCount} chat{capturedCount !== 1 ? 's' : ''} detected
     </div>
   );
 }

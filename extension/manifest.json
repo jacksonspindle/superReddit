@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "SuperReddit DM Bridge",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Detects sent Reddit DMs and syncs with SuperReddit pipeline",
-  "permissions": ["cookies"],
+  "permissions": ["cookies", "storage"],
   "host_permissions": [
     "*://*.reddit.com/*",
-    "http://localhost:*/*",
+    "http://localhost/*",
     "https://*.vercel.app/*"
   ],
   "background": {
@@ -14,8 +14,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://localhost:*/*", "https://*.vercel.app/*"],
+      "matches": ["http://localhost/*", "http://localhost:3000/*", "https://*.vercel.app/*"],
       "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.reddit.com/*"],
+      "js": ["reddit-content.js"],
       "run_at": "document_idle"
     }
   ]

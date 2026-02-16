@@ -1,12 +1,15 @@
 // SuperReddit DM Bridge — Background Service Worker
-// Handles Reddit cookie-based requests from the content script
+// Stores chat usernames passively captured by reddit-content.js
+// and serves them to the SuperReddit pipeline.
+
+const STORAGE_KEY = 'sr_chat_usernames';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CHECK_STATUS') {
     handleCheckStatus().then(sendResponse).catch((err) =>
       sendResponse({ installed: true, redditLoggedIn: false, error: err.message })
     );
-    return true; // keep channel open for async response
+    return true;
   }
 
   if (message.type === 'CHECK_SENT_MESSAGES') {
@@ -15,96 +18,59 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true;
   }
+
+  // Receive scraped usernames from reddit-content.js
+  if (message.type === 'STORE_CHAT_USERNAMES') {
+    const usernames = message.usernames || [];
+    if (usernames.length > 0) {
+      chrome.storage.local.get(STORAGE_KEY, (result) => {
+        const existing = new Set(result[STORAGE_KEY] || []);
+        for (const u of usernames) existing.add(u);
+        chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
+      });
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
 });
 
-async function getRedditCookies() {
+// Check for Reddit session cookies
+async function hasRedditSession() {
+  const cookieNames = ['token_v2', 'reddit_session', 'session_tracker'];
+  for (const name of cookieNames) {
+    const cookie = await new Promise((resolve) => {
+      chrome.cookies.get({ url: 'https://www.reddit.com', name }, (c) => resolve(c));
+    });
+    if (cookie) return true;
+  }
+  return false;
+}
+
+async function getStoredUsernames() {
   return new Promise((resolve) => {
-    chrome.cookies.getAll({ domain: '.reddit.com' }, (cookies) => {
-      resolve(cookies || []);
+    chrome.storage.local.get(STORAGE_KEY, (result) => {
+      resolve(result[STORAGE_KEY] || []);
     });
   });
 }
 
-function buildCookieHeader(cookies) {
-  return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-}
-
 async function handleCheckStatus() {
-  const cookies = await getRedditCookies();
-  const sessionCookie = cookies.find(
-    (c) => c.name === 'reddit_session' || c.name === 'token_v2' || c.name === 'loid'
-  );
-
-  if (!sessionCookie) {
-    return { installed: true, redditLoggedIn: false, username: null };
+  const hasSession = await hasRedditSession();
+  if (!hasSession) {
+    return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0 };
   }
 
-  try {
-    const res = await fetch('https://www.reddit.com/api/me.json', {
-      headers: {
-        Cookie: buildCookieHeader(cookies),
-        'User-Agent': 'SuperRedditBridge/1.0',
-      },
-    });
+  const stored = await getStoredUsernames();
 
-    if (!res.ok) {
-      return { installed: true, redditLoggedIn: false, username: null };
-    }
-
-    const data = await res.json();
-    const username = data?.data?.name || null;
-
-    return {
-      installed: true,
-      redditLoggedIn: !!username,
-      username,
-    };
-  } catch (err) {
-    return { installed: true, redditLoggedIn: false, username: null, error: err.message };
-  }
+  return {
+    installed: true,
+    redditLoggedIn: true,
+    username: null,
+    capturedCount: stored.length,
+  };
 }
 
 async function handleCheckSentMessages() {
-  const cookies = await getRedditCookies();
-  const cookieHeader = buildCookieHeader(cookies);
-  const allUsernames = new Set();
-  let after = null;
-
-  // Fetch up to 3 pages (300 messages max)
-  for (let page = 0; page < 3; page++) {
-    let url = 'https://www.reddit.com/message/sent.json?limit=100';
-    if (after) url += `&after=${after}`;
-
-    try {
-      const res = await fetch(url, {
-        headers: {
-          Cookie: cookieHeader,
-          'User-Agent': 'SuperRedditBridge/1.0',
-        },
-      });
-
-      if (res.status === 429) {
-        return { usernames: Array.from(allUsernames), error: 'rate_limited', after };
-      }
-
-      if (!res.ok) {
-        return { usernames: Array.from(allUsernames), error: `http_${res.status}`, after };
-      }
-
-      const data = await res.json();
-      const children = data?.data?.children || [];
-
-      for (const child of children) {
-        const dest = child?.data?.dest;
-        if (dest) allUsernames.add(dest.toLowerCase());
-      }
-
-      after = data?.data?.after || null;
-      if (!after) break; // no more pages
-    } catch (err) {
-      return { usernames: Array.from(allUsernames), error: err.message, after };
-    }
-  }
-
-  return { usernames: Array.from(allUsernames), after };
+  const stored = await getStoredUsernames();
+  return { usernames: stored, source: 'chat_scrape' };
 }
