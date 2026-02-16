@@ -23,7 +23,10 @@ import {
   Settings,
   Github,
   Bot,
-  Mail,
+  Send,
+  GitPullRequestArrow,
+  TrendingDown,
+  PieChart,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -38,6 +41,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const base = `/projects/${project.id}`;
   const [createExpanded, setCreateExpanded] = useState(true);
   const [outreachExpanded, setOutreachExpanded] = useState(true);
+  const [dmsExpanded, setDmsExpanded] = useState(true);
   const [contextExpanded, setContextExpanded] = useState(true);
 
   const topItems = [
@@ -56,7 +60,12 @@ export function ProjectSidebar({ project }: { project: Project }) {
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
     { href: `${base}/outreach/tracker`, label: 'Tracker', icon: BarChart3 },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
-    { href: `${base}/outreach/dms`, label: 'DMs', icon: Mail },
+  ];
+
+  const dmsChildren = [
+    { href: `${base}/dms`, label: 'Analytics', icon: PieChart },
+    { href: `${base}/dms/pipeline`, label: 'Pipeline', icon: GitPullRequestArrow },
+    { href: `${base}/dms/churn`, label: 'Churn', icon: TrendingDown },
   ];
 
   const contextChildren = [
@@ -123,7 +132,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
         variants={staggerContainerVariants}
         initial="hidden"
         animate="visible"
-        className="flex-1 space-y-1 p-3"
+        className="flex-1 overflow-y-auto space-y-1 p-3"
       >
         {/* Top items */}
         {topItems.map((item) => renderNavLink(item))}
@@ -210,6 +219,60 @@ export function ProjectSidebar({ project }: { project: Project }) {
               <div className="space-y-1">
                 {outreachChildren.map((item) => {
                   const isActive = pathname.startsWith(item.href);
+                  return (
+                    <div key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors pl-9',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* DMs section */}
+        <motion.div variants={staggerItemVariants}>
+          <button
+            onClick={() => setDmsExpanded((prev) => !prev)}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <Send className="h-4 w-4" />
+            DMs
+            <ChevronDown
+              className={cn(
+                'ml-auto h-4 w-4 transition-transform duration-200',
+                !dmsExpanded && '-rotate-90'
+              )}
+            />
+          </button>
+        </motion.div>
+
+        <AnimatePresence initial={false}>
+          {dmsExpanded && (
+            <motion.div
+              key="dms-children"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="space-y-1">
+                {dmsChildren.map((item) => {
+                  const isActive = item.href === `${base}/dms`
+                    ? pathname === item.href
+                    : pathname.startsWith(item.href);
                   return (
                     <div key={item.href}>
                       <Link

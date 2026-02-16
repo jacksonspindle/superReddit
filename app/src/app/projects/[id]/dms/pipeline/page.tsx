@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -345,8 +345,10 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-center justify-center w-8">
-                <ChevronRight className="h-5 w-5 text-muted-foreground/40" />
+              <div className="flex items-center justify-center w-12">
+                <div className="rounded-full bg-muted/60 border border-border/40 p-2 shadow-sm">
+                  <MoveRight className="h-4 w-4 text-muted-foreground/60" />
+                </div>
               </div>
 
               {/* DM Sent */}
@@ -369,8 +371,10 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-center justify-center w-8">
-                <ChevronRight className="h-5 w-5 text-muted-foreground/40" />
+              <div className="flex items-center justify-center w-12">
+                <div className="rounded-full bg-muted/60 border border-border/40 p-2 shadow-sm">
+                  <MoveRight className="h-4 w-4 text-muted-foreground/60" />
+                </div>
               </div>
 
               {/* Follow Up */}
@@ -394,8 +398,10 @@ export default function DmPipelinePage() {
               </KanbanColumn>
 
               {/* Arrow */}
-              <div className="flex items-center justify-center w-8">
-                <ChevronRight className="h-5 w-5 text-muted-foreground/40" />
+              <div className="flex items-center justify-center w-12">
+                <div className="rounded-full bg-muted/60 border border-border/40 p-2 shadow-sm">
+                  <MoveRight className="h-4 w-4 text-muted-foreground/60" />
+                </div>
               </div>
 
               {/* Converted */}
