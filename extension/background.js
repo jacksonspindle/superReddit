@@ -24,7 +24,7 @@ async function ensureOffscreen() {
     await chrome.offscreen.createDocument({
       url: 'offscreen.html',
       reasons: ['IFRAME_SCRIPTING'],
-      justification: 'Load Reddit chat to sync DM status with SuperReddit pipeline',
+      justification: 'Sync Reddit chat DM status with SuperReddit pipeline in background',
     });
     console.log('[SuperReddit] Offscreen document created — Reddit chat loading in background');
   } catch (err) {
@@ -38,7 +38,6 @@ async function ensureOffscreen() {
 // Launch on install and startup
 chrome.runtime.onInstalled.addListener(() => {
   ensureOffscreen();
-  // Check every 2 minutes that offscreen document is still alive
   chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
 });
 
@@ -47,12 +46,53 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
 });
 
+// Also run immediately when service worker loads (covers toggle off/on, reload)
+ensureOffscreen();
+chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
+
 // Keepalive alarm — recreate offscreen if Chrome killed it
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === KEEPALIVE_ALARM) {
     ensureOffscreen();
   }
 });
+
+// ---- Manual Script Injection for Offscreen Iframe ----
+// Content scripts may not auto-inject into iframes inside offscreen documents.
+// Use webNavigation to detect when reddit.com loads in any frame, then inject manually.
+
+chrome.webNavigation.onCompleted.addListener(
+  (details) => {
+    // Only inject into sub_frames (iframes), not top-level tabs we already handle via manifest
+    if (details.frameId === 0) return;
+
+    console.log(`[SuperReddit] Reddit frame loaded: ${details.url} (tab ${details.tabId}, frame ${details.frameId}, documentId: ${details.documentId})`);
+
+    // Use documentId when available (works for offscreen document iframes where tabId is -1)
+    // Fall back to tabId + frameId for regular tab iframes
+    const target = details.documentId
+      ? { documentIds: [details.documentId] }
+      : details.tabId > 0
+        ? { tabId: details.tabId, frameIds: [details.frameId] }
+        : null;
+
+    if (!target) {
+      console.log('[SuperReddit] No valid injection target for frame');
+      return;
+    }
+
+    chrome.scripting.executeScript({
+      target,
+      files: ['reddit-content.js'],
+    }).then(() => {
+      console.log('[SuperReddit] Content script injected into Reddit iframe');
+    }).catch((err) => {
+      // Expected to fail for regular tabs where it's already injected via manifest
+      console.log('[SuperReddit] Script injection note:', err.message);
+    });
+  },
+  { url: [{ hostSuffix: '.reddit.com' }] }
+);
 
 // ---- Side Panel: open on extension icon click ----
 
@@ -65,6 +105,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'OFFSCREEN_HEARTBEAT' || message.type === 'OFFSCREEN_FRAME_LOADED' || message.type === 'OFFSCREEN_FRAME_ERROR') {
     sendResponse({ ok: true });
     return false;
+  }
+
+  // Offscreen document requests Reddit token (chrome.cookies not available in offscreen)
+  if (message.type === 'GET_REDDIT_TOKEN') {
+    (async () => {
+      const tokenNames = ['token_v2', 'reddit_session'];
+      for (const name of tokenNames) {
+        const cookie = await new Promise((resolve) => {
+          chrome.cookies.get({ url: 'https://www.reddit.com', name }, (c) => resolve(c));
+        });
+        if (cookie?.value) {
+          sendResponse({ token: cookie.value });
+          return;
+        }
+      }
+      sendResponse({ token: null });
+    })();
+    return true;
   }
 
   if (message.type === 'CHECK_STATUS') {
