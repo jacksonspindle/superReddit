@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Unplug, AlertTriangle, CheckCircle2, ExternalLink, MessageCircle } from 'lucide-react';
+import { Loader2, Unplug, AlertTriangle, CheckCircle2, ExternalLink, PanelRight } from 'lucide-react';
 
 interface RedditBridgeIndicatorProps {
   extensionInstalled: boolean;
@@ -9,6 +9,7 @@ interface RedditBridgeIndicatorProps {
   checking: boolean;
   reconciling: boolean;
   capturedCount?: number;
+  replyCount?: number;
 }
 
 export function RedditBridgeIndicator({
@@ -18,6 +19,7 @@ export function RedditBridgeIndicator({
   checking,
   reconciling,
   capturedCount,
+  replyCount,
 }: RedditBridgeIndicatorProps) {
   if (checking) {
     return (
@@ -56,31 +58,28 @@ export function RedditBridgeIndicator({
     return (
       <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Syncing sent DMs...
+        Syncing sent DMs &amp; replies...
       </div>
     );
   }
 
-  // Connected but no chat data captured yet — prompt to open Reddit chat
+  // Connected but no chat data yet — prompt to open side panel
   if (capturedCount === 0) {
     return (
-      <a
-        href="https://www.reddit.com/chat"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors cursor-pointer"
-      >
-        <MessageCircle className="h-3.5 w-3.5" />
-        Reddit Connected — open chat to sync sent DMs
-        <ExternalLink className="h-3 w-3" />
-      </a>
+      <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">
+        <PanelRight className="h-3.5 w-3.5" />
+        Reddit Connected — click the extension icon to open chat panel
+      </div>
     );
   }
+
+  const parts = [`${capturedCount} chat${capturedCount !== 1 ? 's' : ''}`];
+  if (replyCount && replyCount > 0) parts.push(`${replyCount} replies`);
 
   return (
     <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">
       <CheckCircle2 className="h-3.5 w-3.5" />
-      Reddit Connected · {capturedCount} chat{capturedCount !== 1 ? 's' : ''} detected
+      Reddit Connected · {parts.join(' · ')}
     </div>
   );
 }

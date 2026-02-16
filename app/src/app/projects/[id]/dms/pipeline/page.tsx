@@ -388,6 +388,7 @@ export default function DmPipelinePage() {
               checking={bridgeStatus.checking}
               reconciling={reconciling}
               capturedCount={bridgeStatus.capturedCount}
+              replyCount={bridgeStatus.replyCount}
             />
 
             {/* Toolbar */}
