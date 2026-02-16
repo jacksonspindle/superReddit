@@ -1,13 +1,14 @@
-// SuperReddit DM Bridge — Reddit Content Script v2
-// Passively reads chat conversation usernames AND reply status from the Reddit chat page.
-// Reddit chat uses Shadow DOM (custom web components), so we traverse shadow roots.
+// SuperReddit DM Bridge — Reddit Content Script v3
+// Per-conversation detection: walks UP from each /user/ link to its container,
+// checks "You:" ONLY within that container. No more full-page text scanning.
 
-console.log('[SuperReddit] reddit-content.js v2 loaded');
+console.log('[SuperReddit] reddit-content.js v3 loaded');
 
 (function () {
   const SCAN_INTERVAL = 3000;
   const STORAGE_KEY = 'sr_chat_usernames';
-  const REPLIES_KEY = 'sr_chat_replies';
+  const YOU_SENT_TO_KEY = 'sr_you_sent_to';
+  const THEY_REPLIED_KEY = 'sr_they_replied';
   const PREVIEWS_KEY = 'sr_chat_previews';
 
   // ---- Shadow DOM Traversal ----
@@ -41,22 +42,126 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
   }
 
   // ---- Username validation ----
-  // Real Reddit usernames contain letters/numbers/underscores/hyphens
-  // and typically have at least one number, underscore, or hyphen, or are 5+ chars
   function looksLikeUsername(str) {
     if (str.length < 3 || str.length > 20) return false;
     if (!/^[A-Za-z0-9_-]+$/.test(str)) return false;
     if (isCommonWord(str)) return false;
-    // Must contain a digit, underscore, or hyphen, OR be reasonably long
     if (/[0-9_-]/.test(str) || str.length >= 6) return true;
     return false;
   }
 
-  // ---- DOM Scanning ----
-  function scanChatDOM() {
+  // ---- Per-Conversation Detection (the core fix) ----
+
+  // Walk UP from a /user/ link to find its conversation container.
+  // Crosses Shadow DOM boundaries via getRootNode().host.
+  // Stops at the first ancestor whose text is > username+10 chars AND < 500 chars.
+  function findConversationContainer(link, username) {
+    let el = link;
+    let levels = 0;
+    const minLen = username.length + 10;
+
+    while (el && levels < 12) {
+      // Cross Shadow DOM boundary
+      if (!el.parentElement) {
+        const rootNode = el.getRootNode?.();
+        if (rootNode && rootNode !== document && rootNode.host) {
+          el = rootNode.host;
+          levels++;
+          continue;
+        }
+        break;
+      }
+
+      el = el.parentElement;
+      levels++;
+
+      // Check if this is a good container
+      const tag = el.tagName?.toLowerCase() || '';
+      const role = el.getAttribute?.('role') || '';
+      const isSemanticContainer =
+        tag === 'div' || tag === 'li' || tag === 'section' ||
+        tag.startsWith('rs-') ||
+        role === 'option' || role === 'listitem' || role === 'row';
+
+      if (!isSemanticContainer) continue;
+
+      const text = (el.textContent || '').trim();
+      if (text.length >= minLen && text.length < 500) {
+        return el;
+      }
+    }
+
+    return null;
+  }
+
+  // For each /user/ link, find its container and check "You:" within it.
+  // Returns { youSentTo: string[], theyReplied: string[], previews: {} }
+  function classifyConversations() {
+    const youSentTo = new Set();
+    const theyReplied = new Set();
+    const previews = {};
+    const processed = new Set(); // track processed usernames to avoid duplicates
+
+    const links = deepQueryAll('a[href*="/user/"]');
+
+    for (const link of links) {
+      const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
+      if (!match || match[1] === 'me') continue;
+
+      const username = match[1].toLowerCase();
+      if (processed.has(username)) continue;
+      processed.add(username);
+
+      const container = findConversationContainer(link, username);
+      if (!container) continue;
+
+      const containerText = (container.textContent || '').trim();
+
+      // Check for "You:" ONLY within this container's text
+      const hasYou = /\bYou:\s/.test(containerText) || /\bYou sent\b/i.test(containerText);
+
+      if (hasYou) {
+        // User sent the last message in this conversation
+        youSentTo.add(username);
+      } else {
+        // They sent the last message (or no "You:" found = they replied)
+        theyReplied.add(username);
+      }
+
+      // Extract preview text from the container
+      let previewText = '';
+      const youMatch = containerText.match(/\bYou:\s*(.*)/);
+      if (youMatch) {
+        previewText = youMatch[1].trim();
+      } else {
+        // Strip the username itself and clean up
+        previewText = containerText
+          .replace(new RegExp(username.replace(/[-_]/g, '\\$&'), 'gi'), '')
+          .replace(/\b(Yesterday|Today|(\d{1,2}\/\d{1,2}\/\d{2,4}))\b.*/g, '')
+          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b.*/g, '')
+          .replace(/\b\d{1,2}:\d{2}\s*(AM|PM)?\b/gi, '')
+          .trim();
+      }
+
+      if (previewText.length > 120) previewText = previewText.substring(0, 120) + '...';
+
+      if (previewText.length > 0) {
+        previews[username] = { text: previewText, fromYou: hasYou };
+      }
+    }
+
+    return {
+      youSentTo: Array.from(youSentTo),
+      theyReplied: Array.from(theyReplied),
+      previews,
+    };
+  }
+
+  // ---- Username-only scanning (no reply detection) ----
+  function scanChatUsernames() {
     const usernames = new Set();
 
-    // Strategy 1: Deep-query links to user profiles (most reliable)
+    // Strategy 1: /user/ links (most reliable)
     deepQueryAll('a[href*="/user/"]').forEach((link) => {
       const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
       if (match && match[1] !== 'me') {
@@ -64,13 +169,13 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
       }
     });
 
-    // Strategy 2: Deep-query elements with data attributes
+    // Strategy 2: Data attributes
     deepQueryAll('[data-username], [data-author], [data-user]').forEach((el) => {
       const name = el.getAttribute('data-username') || el.getAttribute('data-author') || el.getAttribute('data-user');
       if (name && looksLikeUsername(name)) usernames.add(name.toLowerCase());
     });
 
-    // Strategy 3: Deep-query chat conversation elements
+    // Strategy 3: Chat conversation custom elements
     deepQueryAll(
       'rs-room, rs-conversation, rs-channel, ' +
       '[class*="conversation"] [class*="name"], ' +
@@ -89,7 +194,7 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
       }
     });
 
-    // Strategy 4: Walk sidebar conversation list
+    // Strategy 4: Sidebar conversation list
     const sidebarCandidates = deepQueryAll(
       '[class*="sidebar"], [class*="channel-list"], [class*="conversation-list"], ' +
       '[class*="ThreadList"], [class*="room-list"], [role="listbox"], [role="list"]'
@@ -105,141 +210,7 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
       }
     }
 
-    // Strategy 5: Scan text for username patterns (with strict filtering)
-    const allText = getDeepTextContent(document.body);
-    const namePatterns = allText.matchAll(/(?:^|[\s])([A-Za-z0-9_-]{3,20})(?::\s|(?:\s+(?:Yesterday|Today|Feb|Jan|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b))/gm);
-    for (const m of namePatterns) {
-      const candidate = m[1];
-      if (looksLikeUsername(candidate)) {
-        usernames.add(candidate.toLowerCase());
-      }
-    }
-
-    // Strategy 6: Look for u/username patterns
-    const uPatterns = allText.matchAll(/u\/([A-Za-z0-9_-]{3,20})/g);
-    for (const m of uPatterns) {
-      if (looksLikeUsername(m[1])) {
-        usernames.add(m[1].toLowerCase());
-      }
-    }
-
-    // Now detect replies + capture message previews
-    const usernameArray = Array.from(usernames);
-    const { replies, previews } = detectRepliesAndPreviews(usernameArray, allText);
-
-    return { usernames: usernameArray, replies, previews };
-  }
-
-  // ---- Reply Detection + Message Preview Capture ----
-  // Scans the full page text for each known username, checks if
-  // the message preview starts with "You:" (meaning you sent last),
-  // and captures the actual preview text.
-  function detectRepliesAndPreviews(knownUsernames, allText) {
-    const replies = new Set();
-    const previews = {}; // { username: { text, fromYou } }
-
-    // Build a set of username positions in the text
-    const lowerText = allText.toLowerCase();
-    const positions = [];
-
-    for (const username of knownUsernames) {
-      const lower = username.toLowerCase();
-      let searchFrom = 0;
-      while (searchFrom < lowerText.length) {
-        const idx = lowerText.indexOf(lower, searchFrom);
-        if (idx === -1) break;
-        positions.push({ username: lower, index: idx, endIndex: idx + lower.length });
-        searchFrom = idx + lower.length;
-      }
-    }
-
-    // Sort by position
-    positions.sort((a, b) => a.index - b.index);
-
-    // For each username occurrence, look at the text between it and the next username
-    for (let i = 0; i < positions.length; i++) {
-      const pos = positions[i];
-      const nextPos = positions[i + 1];
-      const windowEnd = nextPos ? Math.min(nextPos.index, pos.endIndex + 200) : pos.endIndex + 200;
-
-      const windowText = allText.substring(pos.endIndex, windowEnd).trim();
-      if (windowText.length === 0) continue;
-
-      // Check if "You:" appears in this window
-      const youMatch = windowText.match(/\bYou:\s*(.*)/);
-      const youSentMatch = windowText.match(/\bYou sent\b/i);
-      const hasYouPrefix = !!youMatch || !!youSentMatch;
-
-      // Extract the preview text
-      let previewText = '';
-      if (youMatch) {
-        // Strip "You: " prefix to get just the message
-        previewText = youMatch[1].trim();
-      } else {
-        // Their message — clean up timestamps and UI noise
-        previewText = windowText
-          .replace(/\b(Yesterday|Today|(\d{1,2}\/\d{1,2}\/\d{2,4}))\b.*/, '')
-          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b.*/, '')
-          .replace(/\b\d{1,2}:\d{2}\s*(AM|PM)?\b/gi, '')
-          .trim();
-      }
-
-      // Cap preview length
-      if (previewText.length > 120) previewText = previewText.substring(0, 120) + '...';
-
-      if (previewText.length > 0) {
-        // Only keep the first (most relevant) occurrence per username
-        if (!previews[pos.username]) {
-          previews[pos.username] = { text: previewText, fromYou: hasYouPrefix };
-        }
-      }
-
-      if (!hasYouPrefix) {
-        replies.add(pos.username);
-      }
-    }
-
-    return { replies: Array.from(replies), previews };
-  }
-
-  // ---- Element-level scanning ----
-  // Also try to detect replies by finding small containers with usernames
-  function scanContainersForReplies(knownUsernames) {
-    const replies = new Set();
-    const usernameSet = new Set(knownUsernames.map(u => u.toLowerCase()));
-
-    // Find all small-ish elements that could be conversation list items
-    function checkNode(node) {
-      if (node.nodeType !== Node.ELEMENT_NODE) return;
-
-      // Only check elements of reasonable size (conversation items, not the whole page)
-      const rect = node.getBoundingClientRect?.();
-      if (rect && rect.height > 20 && rect.height < 200 && rect.width > 100) {
-        const text = (node.textContent || '').trim();
-        if (text.length > 5 && text.length < 300) {
-          // Check if this element contains a known username
-          const lowerText = text.toLowerCase();
-          for (const username of usernameSet) {
-            if (lowerText.includes(username)) {
-              // Found a container with this username — check for "You:" prefix
-              if (!/\bYou:\s/.test(text)) {
-                replies.add(username);
-              }
-              break;
-            }
-          }
-        }
-      }
-
-      // Recurse into shadow DOM
-      if (node.shadowRoot) {
-        for (const child of node.shadowRoot.childNodes) checkNode(child);
-      }
-      for (const child of node.childNodes) checkNode(child);
-    }
-
-    checkNode(document.body);
-    return Array.from(replies);
+    return Array.from(usernames);
   }
 
   function extractUsernameFromElement(el, usernames) {
@@ -260,7 +231,7 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     }
   }
 
-  // Common words filter (expanded to catch more false positives)
+  // Common words filter
   const COMMON_WORDS = new Set([
     'chats', 'chat', 'threads', 'thread', 'message', 'messages', 'you',
     'requests', 'request', 'today', 'yesterday', 'online', 'offline',
@@ -272,11 +243,9 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     'feb', 'jan', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep',
     'oct', 'nov', 'dec', 'monday', 'tuesday', 'wednesday', 'thursday',
     'friday', 'saturday', 'sunday', 'the', 'and', 'for', 'that', 'this',
-    // SVG/DOM attributes that get picked up
     'fill', 'stroke', 'width', 'height', 'path', 'circle', 'rect',
     'line', 'text', 'none', 'auto', 'inherit', 'true', 'false',
     'stroke-width', 'viewbox', 'xmlns', 'class', 'style', 'type',
-    // Common short words
     'now', 'great', 'thx', 'thanks', 'week', 'piece', 'good', 'bar',
     'yes', 'yeah', 'nah', 'hey', 'lol', 'wow', 'cool', 'nice',
     'more', 'less', 'all', 'any', 'some', 'most', 'other', 'each',
@@ -300,7 +269,7 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
   }
 
-  function storeResults(newUsernames, newReplies, newPreviews) {
+  function storeResults(allUsernames, youSentTo, theyReplied, previews) {
     if (!chromeAvailable()) {
       console.warn('[SuperReddit] chrome.storage unavailable — extension context may be invalidated. Reload extension.');
       return;
@@ -311,7 +280,7 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
       if (chrome.runtime.lastError) return;
       const existing = new Set(result[STORAGE_KEY] || []);
       let changed = false;
-      for (const u of newUsernames) {
+      for (const u of allUsernames) {
         if (!existing.has(u)) {
           existing.add(u);
           changed = true;
@@ -327,20 +296,44 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
       }
     });
 
-    // Store replies (replaced each scan — reflects current state)
-    console.log('[SuperReddit] Storing replies:', newReplies);
-    chrome.storage.local.set({ [REPLIES_KEY]: newReplies });
+    // Store youSentTo (CUMULATIVE — once we know the user messaged someone, persist it)
+    if (youSentTo.length > 0) {
+      chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+        if (chrome.runtime.lastError) return;
+        const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+        let changed = false;
+        for (const u of youSentTo) {
+          if (!existing.has(u)) {
+            existing.add(u);
+            changed = true;
+          }
+        }
+        if (changed) {
+          const all = Array.from(existing);
+          console.log('[SuperReddit] Storing youSentTo (cumulative):', all.length, 'total');
+          chrome.storage.local.set({ [YOU_SENT_TO_KEY]: all });
+          chrome.runtime.sendMessage(
+            { type: 'STORE_YOU_SENT_TO', usernames: all },
+            () => { if (chrome.runtime.lastError) { /* ignore */ } }
+          );
+        }
+      });
+    }
+
+    // Store theyReplied (REPLACED each scan — current state, not cumulative)
+    // When the user responds, the person leaves this list naturally
+    console.log('[SuperReddit] Storing theyReplied (current state):', theyReplied.length);
+    chrome.storage.local.set({ [THEY_REPLIED_KEY]: theyReplied });
     chrome.runtime.sendMessage(
-      { type: 'STORE_CHAT_REPLIES', replies: newReplies },
+      { type: 'STORE_THEY_REPLIED', usernames: theyReplied },
       () => { if (chrome.runtime.lastError) { /* ignore */ } }
     );
 
     // Store message previews (replaced each scan)
-    if (newPreviews && Object.keys(newPreviews).length > 0) {
-      console.log('[SuperReddit] Storing previews:', newPreviews);
-      chrome.storage.local.set({ [PREVIEWS_KEY]: newPreviews });
+    if (previews && Object.keys(previews).length > 0) {
+      chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
       chrome.runtime.sendMessage(
-        { type: 'STORE_CHAT_PREVIEWS', previews: newPreviews },
+        { type: 'STORE_CHAT_PREVIEWS', previews },
         () => { if (chrome.runtime.lastError) { /* ignore */ } }
       );
     }
@@ -355,15 +348,25 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     );
   }
 
+  let lastLoggedCount = 0;
+
   function runScan() {
-    const { usernames, replies, previews } = scanChatDOM();
+    // Step 1: Discover all usernames
+    const allUsernames = scanChatUsernames();
 
-    // Also try element-level reply detection as a second pass
-    const containerReplies = scanContainersForReplies(usernames);
-    const allReplies = [...new Set([...replies, ...containerReplies])];
+    // Step 2: Per-conversation classification
+    const { youSentTo, theyReplied, previews } = classifyConversations();
 
-    if (usernames.length > 0) {
-      storeResults(usernames, allReplies, previews);
+    // Diagnostic logging (throttled)
+    if (allUsernames.length !== lastLoggedCount) {
+      lastLoggedCount = allUsernames.length;
+      console.log(`[SuperReddit] Scan: ${allUsernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
+      if (youSentTo.length > 0) console.log('[SuperReddit]   youSentTo:', youSentTo);
+      if (theyReplied.length > 0) console.log('[SuperReddit]   theyReplied:', theyReplied);
+    }
+
+    if (allUsernames.length > 0) {
+      storeResults(allUsernames, youSentTo, theyReplied, previews);
     }
   }
 
@@ -391,7 +394,7 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     if (scrollTargets.length === 0) return;
 
     let scrollRound = 0;
-    const MAX_ROUNDS = 20;
+    const MAX_ROUNDS = 40;
 
     const scrollTimer = setInterval(() => {
       scrollRound++;
@@ -412,6 +415,25 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     }, 1000);
   }
 
+  // ---- Send consolidated scan result to background ----
+  let scanResultSent = false;
+
+  function sendScanResult() {
+    if (scanResultSent) return;
+
+    const allUsernames = scanChatUsernames();
+    const { youSentTo, theyReplied, previews } = classifyConversations();
+
+    if (allUsernames.length > 0) {
+      scanResultSent = true;
+      console.log(`[SuperReddit] Sending CHAT_SCAN_RESULT: ${allUsernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
+      chrome.runtime.sendMessage(
+        { type: 'CHAT_SCAN_RESULT', usernames: allUsernames, youSentTo, theyReplied, previews },
+        () => { if (chrome.runtime.lastError) { /* ignore */ } }
+      );
+    }
+  }
+
   function startScanning() {
     setTimeout(() => {
       runScan();
@@ -422,6 +444,11 @@ console.log('[SuperReddit] reddit-content.js v2 loaded');
     observer.observe(document.body, { childList: true, subtree: true });
 
     setInterval(runScan, SCAN_INTERVAL);
+
+    // After auto-scroll completes (~25s), send consolidated result to background
+    setTimeout(sendScanResult, 25_000);
+    setTimeout(sendScanResult, 8_000);
+    setTimeout(sendScanResult, 15_000);
   }
 
   if (isOnChatPage()) {

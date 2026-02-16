@@ -15,7 +15,8 @@ interface BridgeStatus {
   checking: boolean;
   lastError: string | null;
   capturedCount: number;
-  replyCount: number;
+  youSentToCount: number;
+  theyRepliedCount: number;
 }
 
 const READY_STAGES = new Set(['detected', 'dm_ready', 'draft_generated']);
@@ -63,7 +64,8 @@ export function useRedditBridge() {
     checking: true,
     lastError: null,
     capturedCount: 0,
-    replyCount: 0,
+    youSentToCount: 0,
+    theyRepliedCount: 0,
   });
 
   const [reconciling, setReconciling] = useState(false);
@@ -108,7 +110,8 @@ export function useRedditBridge() {
         redditLoggedIn: boolean;
         username: string | null;
         capturedCount?: number;
-        replyCount?: number;
+        youSentToCount?: number;
+        theyRepliedCount?: number;
         error?: string;
       }>('CHECK_STATUS', 5000);
 
@@ -119,7 +122,8 @@ export function useRedditBridge() {
         checking: false,
         lastError: result.error || null,
         capturedCount: result.capturedCount || 0,
-        replyCount: result.replyCount || 0,
+        youSentToCount: result.youSentToCount || 0,
+        theyRepliedCount: result.theyRepliedCount || 0,
       });
     } catch {
       setStatus((s) => ({
@@ -131,27 +135,35 @@ export function useRedditBridge() {
     }
   }
 
-  const checkSentMessages = useCallback(async (): Promise<string[]> => {
+  const checkYouSentTo = useCallback(async (): Promise<string[]> => {
     try {
       const result = await sendToExtension<{
         usernames: string[];
         error?: string;
-      }>('CHECK_SENT_MESSAGES', 15_000);
+      }>('CHECK_YOU_SENT_TO', 15_000);
 
-      return result.usernames || [];
+      const usernames = result.usernames || [];
+      if (usernames.length > 0) {
+        setStatus((s) => ({ ...s, youSentToCount: usernames.length }));
+      }
+      return usernames;
     } catch {
       return [];
     }
   }, []);
 
-  const checkReplies = useCallback(async (): Promise<string[]> => {
+  const checkTheyReplied = useCallback(async (): Promise<string[]> => {
     try {
       const result = await sendToExtension<{
-        replies: string[];
+        usernames: string[];
         error?: string;
-      }>('CHECK_REPLIES', 15_000);
+      }>('CHECK_THEY_REPLIED', 15_000);
 
-      return result.replies || [];
+      const usernames = result.usernames || [];
+      if (usernames.length > 0) {
+        setStatus((s) => ({ ...s, theyRepliedCount: usernames.length }));
+      }
+      return usernames;
     } catch {
       return [];
     }
@@ -179,9 +191,10 @@ export function useRedditBridge() {
     ): Promise<{ sent: number; replied: number }> => {
       setReconciling(true);
       try {
-        // Step 1: Advance "ready" → "dm_sent" for users we've messaged
-        const sentUsernames = await checkSentMessages();
-        const sentSet = new Set(sentUsernames.map((u) => u.toLowerCase()));
+        // Step 1: Advance "ready" → "dm_sent" ONLY if username is in youSentTo
+        // (user definitely messaged them — "You:" was detected in their conversation)
+        const youSentToUsernames = await checkYouSentTo();
+        const sentSet = new Set(youSentToUsernames.map((u) => u.toLowerCase()));
 
         let sentCount = 0;
         if (sentSet.size > 0) {
@@ -197,16 +210,24 @@ export function useRedditBridge() {
           sentCount = toAdvance.length;
         }
 
-        // Step 2: Advance "dm_sent" → "responded" for users who replied
-        const repliedUsernames = await checkReplies();
-        const repliedSet = new Set(repliedUsernames.map((u) => u.toLowerCase()));
+        // Step 2: Advance "dm_sent" → "responded" ONLY if username is in theyReplied
+        // AND card is currently in dm_sent. This prevents people who messaged
+        // the user first from being auto-advanced.
+        const theyRepliedUsernames = await checkTheyReplied();
+        const repliedSet = new Set(theyRepliedUsernames.map((u) => u.toLowerCase()));
 
         let repliedCount = 0;
         if (repliedSet.size > 0) {
           const toMarkReplied = allDms.filter(
-            (dm) =>
-              (dm.pipeline_stage === 'dm_sent' || (READY_STAGES.has(dm.pipeline_stage) && sentSet.has(dm.reddit_username.toLowerCase()))) &&
-              repliedSet.has(dm.reddit_username.toLowerCase())
+            (dm) => {
+              const uLower = dm.reddit_username.toLowerCase();
+              if (!repliedSet.has(uLower)) return false;
+              // Already in dm_sent from a previous reconciliation
+              if (dm.pipeline_stage === 'dm_sent') return true;
+              // Just moved to dm_sent in Step 1 above (allDms has stale stage)
+              if (READY_STAGES.has(dm.pipeline_stage) && sentSet.has(uLower)) return true;
+              return false;
+            }
           );
 
           for (const dm of toMarkReplied) {
@@ -215,7 +236,7 @@ export function useRedditBridge() {
           repliedCount = toMarkReplied.length;
         }
 
-        // Step 3: Fetch message previews
+        // Step 3: Fetch message previews for display on cards
         await fetchPreviews();
 
         setReconciling(false);
@@ -225,15 +246,15 @@ export function useRedditBridge() {
         return { sent: 0, replied: 0 };
       }
     },
-    [checkSentMessages, checkReplies, fetchPreviews]
+    [checkYouSentTo, checkTheyReplied, fetchPreviews]
   );
 
   return {
     status,
     reconciling,
     previews,
-    checkSentMessages,
-    checkReplies,
+    checkYouSentTo,
+    checkTheyReplied,
     fetchPreviews,
     reconcile,
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle, MessageSquare } from 'lucide-react';
+import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle, MessageSquare, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -228,19 +228,39 @@ export function KanbanLeadCard({
           )}
 
           {stage === 'sent' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
-              onClick={() => onStageChange(dm.id, 'closed', 'no_response')}
-            >
-              <X className="h-3 w-3 shrink-0 mr-0.5" />
-              <span className="truncate">Close</span>
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
+                onClick={() => onStageChange(dm.id, 'dm_ready')}
+              >
+                <Undo2 className="h-3 w-3 shrink-0 mr-0.5" />
+                <span className="truncate">Not sent</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
+                onClick={() => onStageChange(dm.id, 'closed', 'no_response')}
+              >
+                <X className="h-3 w-3 shrink-0 mr-0.5" />
+                <span className="truncate">Close</span>
+              </Button>
+            </>
           )}
 
           {stage === 'followup' && (
             <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
+                onClick={() => onStageChange(dm.id, 'dm_sent')}
+              >
+                <Undo2 className="h-3 w-3 shrink-0 mr-0.5" />
+                <span className="truncate">Wrong</span>
+              </Button>
               <Button
                 variant="default"
                 size="sm"

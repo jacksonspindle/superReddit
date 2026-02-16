@@ -9,7 +9,8 @@ interface RedditBridgeIndicatorProps {
   checking: boolean;
   reconciling: boolean;
   capturedCount?: number;
-  replyCount?: number;
+  youSentToCount?: number;
+  theyRepliedCount?: number;
 }
 
 export function RedditBridgeIndicator({
@@ -19,7 +20,8 @@ export function RedditBridgeIndicator({
   checking,
   reconciling,
   capturedCount,
-  replyCount,
+  youSentToCount,
+  theyRepliedCount,
 }: RedditBridgeIndicatorProps) {
   if (checking) {
     return (
@@ -63,18 +65,26 @@ export function RedditBridgeIndicator({
     );
   }
 
-  // Connected but no chat data yet — background sync starting
+  // Connected but no chat data yet — scanning in background
   if (capturedCount === 0) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">
+      <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Reddit Connected — scanning chats in background...
+        Reddit Connected — scanning chat data...
       </div>
     );
   }
 
-  const parts = [`${capturedCount} chat${capturedCount !== 1 ? 's' : ''}`];
-  if (replyCount && replyCount > 0) parts.push(`${replyCount} replies`);
+  const parts: string[] = [];
+  if (youSentToCount && youSentToCount > 0) {
+    parts.push(`${youSentToCount} DM${youSentToCount !== 1 ? 's' : ''} sent`);
+  }
+  if (theyRepliedCount && theyRepliedCount > 0) {
+    parts.push(`${theyRepliedCount} replied`);
+  }
+  if (parts.length === 0) {
+    parts.push(`${capturedCount} chat${capturedCount !== 1 ? 's' : ''} found`);
+  }
 
   return (
     <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">

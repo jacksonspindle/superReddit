@@ -57,6 +57,10 @@ export default function DmPipelinePage() {
   // Reddit Bridge
   const { status: bridgeStatus, reconciling, previews: chatPreviews, reconcile } = useRedditBridge();
   const reconcileRan = useRef(false);
+  const allDmsRef = useRef<OutreachDM[]>([]);
+
+  // Keep ref in sync so delayed reconciliation always has latest data
+  allDmsRef.current = allDms;
 
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
@@ -119,6 +123,8 @@ export default function DmPipelinePage() {
   }, [project.id]);
 
   // Reddit Bridge reconciliation — auto-advance sent DMs
+  // Runs twice: immediately on load, and again after 45s to catch data
+  // the content script discovers during its full chat sidebar scroll.
   useEffect(() => {
     if (
       loading ||
@@ -131,14 +137,33 @@ export default function DmPipelinePage() {
 
     reconcileRan.current = true;
 
-    reconcile(allDms, handleStageChange).then(({ sent, replied }) => {
+    const silentStageChange = (dmId: string, stage: string) => handleStageChange(dmId, stage, undefined, true);
+
+    function showToast(sent: number, replied: number) {
       const parts: string[] = [];
       if (sent > 0) parts.push(`${sent} sent DM${sent !== 1 ? 's' : ''}`);
       if (replied > 0) parts.push(`${replied} repl${replied !== 1 ? 'ies' : 'y'}`);
       if (parts.length > 0) {
         toast.success(`Auto-detected from Reddit: ${parts.join(', ')}`);
       }
+    }
+
+    // Pass 1: immediate — catches whatever the content script has so far
+    reconcile(allDms, silentStageChange).then(({ sent, replied }) => {
+      showToast(sent, replied);
     });
+
+    // Pass 2: delayed — catches data from the full sidebar scroll
+    const delayedTimer = setTimeout(() => {
+      const currentDms = allDmsRef.current;
+      if (currentDms.length > 0) {
+        reconcile(currentDms, silentStageChange).then(({ sent, replied }) => {
+          showToast(sent, replied);
+        });
+      }
+    }, 45_000);
+
+    return () => clearTimeout(delayedTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, bridgeStatus.extensionInstalled, bridgeStatus.redditLoggedIn, allDms.length]);
 
@@ -169,8 +194,8 @@ export default function DmPipelinePage() {
     setScanning(false);
   }
 
-  // Stage change handler
-  async function handleStageChange(dmId: string, stage: string, outcome?: string) {
+  // Stage change handler — silent flag suppresses individual toasts during bulk reconciliation
+  async function handleStageChange(dmId: string, stage: string, outcome?: string, silent?: boolean) {
     setAllDms((prev) =>
       prev.map((d) =>
         d.id === dmId
@@ -189,7 +214,7 @@ export default function DmPipelinePage() {
       if (json.error) {
         toast.error(json.error);
         fetchDms();
-      } else {
+      } else if (!silent) {
         toast.success(`Updated to ${stage.replace(/_/g, ' ')}`);
       }
     } catch {
@@ -388,7 +413,8 @@ export default function DmPipelinePage() {
               checking={bridgeStatus.checking}
               reconciling={reconciling}
               capturedCount={bridgeStatus.capturedCount}
-              replyCount={bridgeStatus.replyCount}
+              youSentToCount={bridgeStatus.youSentToCount}
+              theyRepliedCount={bridgeStatus.theyRepliedCount}
             />
 
             {/* Toolbar */}

@@ -1,129 +1,99 @@
 // SuperReddit DM Bridge — Background Service Worker
-// 1. Creates a hidden offscreen document that loads Reddit chat
-// 2. reddit-content.js runs inside the chat iframe and scrapes data
-// 3. Relays scraped data to the SuperReddit app via chrome.storage
-// 4. Side panel available as optional bonus (actually use chat)
+// Automatically opens reddit.com/chat in a background tab to scrape chat data.
+// The user never needs to manually open the chat tab.
 
 const STORAGE_KEY = 'sr_chat_usernames';
-const REPLIES_KEY = 'sr_chat_replies';
+const YOU_SENT_TO_KEY = 'sr_you_sent_to';
+const THEY_REPLIED_KEY = 'sr_they_replied';
 const PREVIEWS_KEY = 'sr_chat_previews';
-const KEEPALIVE_ALARM = 'sr_keepalive';
+const SCAN_READY_KEY = 'sr_scan_ready';
 
-// ---- Offscreen Document Lifecycle ----
-
-async function ensureOffscreen() {
-  // Check if offscreen document already exists
-  const existingContexts = await chrome.runtime.getContexts({
-    contextTypes: ['OFFSCREEN_DOCUMENT'],
-  });
-
-  if (existingContexts.length > 0) return;
-
-  // Create the offscreen document with Reddit chat iframe
-  try {
-    await chrome.offscreen.createDocument({
-      url: 'offscreen.html',
-      reasons: ['IFRAME_SCRIPTING'],
-      justification: 'Sync Reddit chat DM status with SuperReddit pipeline in background',
-    });
-    console.log('[SuperReddit] Offscreen document created — Reddit chat loading in background');
-  } catch (err) {
-    // "Only a single offscreen document may be created" — already exists
-    if (!err.message?.includes('single offscreen')) {
-      console.warn('[SuperReddit] Failed to create offscreen document:', err.message);
-    }
-  }
-}
-
-// Launch on install and startup
+// ---- On install: clear stale data ----
 chrome.runtime.onInstalled.addListener(() => {
-  ensureOffscreen();
-  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  ensureOffscreen();
-  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
-});
-
-// Also run immediately when service worker loads (covers toggle off/on, reload)
-ensureOffscreen();
-chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 2 });
-
-// Keepalive alarm — recreate offscreen if Chrome killed it
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === KEEPALIVE_ALARM) {
-    ensureOffscreen();
-  }
-});
-
-// ---- Manual Script Injection for Offscreen Iframe ----
-// Content scripts may not auto-inject into iframes inside offscreen documents.
-// Use webNavigation to detect when reddit.com loads in any frame, then inject manually.
-
-chrome.webNavigation.onCompleted.addListener(
-  (details) => {
-    // Only inject into sub_frames (iframes), not top-level tabs we already handle via manifest
-    if (details.frameId === 0) return;
-
-    console.log(`[SuperReddit] Reddit frame loaded: ${details.url} (tab ${details.tabId}, frame ${details.frameId}, documentId: ${details.documentId})`);
-
-    // Use documentId when available (works for offscreen document iframes where tabId is -1)
-    // Fall back to tabId + frameId for regular tab iframes
-    const target = details.documentId
-      ? { documentIds: [details.documentId] }
-      : details.tabId > 0
-        ? { tabId: details.tabId, frameIds: [details.frameId] }
-        : null;
-
-    if (!target) {
-      console.log('[SuperReddit] No valid injection target for frame');
-      return;
+  chrome.storage.local.remove(
+    [STORAGE_KEY, YOU_SENT_TO_KEY, THEY_REPLIED_KEY, PREVIEWS_KEY, SCAN_READY_KEY],
+    () => {
+      console.log('[SR BG] Cleared stale data from previous version');
     }
+  );
+});
 
-    chrome.scripting.executeScript({
-      target,
-      files: ['reddit-content.js'],
-    }).then(() => {
-      console.log('[SuperReddit] Content script injected into Reddit iframe');
-    }).catch((err) => {
-      // Expected to fail for regular tabs where it's already injected via manifest
-      console.log('[SuperReddit] Script injection note:', err.message);
-    });
-  },
-  { url: [{ hostSuffix: '.reddit.com' }] }
-);
-
-// ---- Side Panel: open on extension icon click ----
+// ---- Side Panel ----
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+// ---- Chat Tab Management ----
+
+let chatTabId = null;
+let scanResolvers = []; // Promises waiting for scan data
+
+// Find or create a background reddit.com/chat tab
+async function ensureChatTab() {
+  // Check if our tracked tab still exists
+  if (chatTabId !== null) {
+    try {
+      const tab = await chrome.tabs.get(chatTabId);
+      if (tab && tab.url && tab.url.includes('reddit.com/chat')) {
+        return chatTabId;
+      }
+    } catch {
+      chatTabId = null;
+    }
+  }
+
+  // Look for any existing chat tab
+  const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
+  if (tabs.length > 0) {
+    chatTabId = tabs[0].id;
+    return chatTabId;
+  }
+
+  // Create a new background tab (active: false = doesn't steal focus)
+  console.log('[SR BG] Opening reddit.com/chat in background tab');
+  const tab = await chrome.tabs.create({
+    url: 'https://www.reddit.com/chat',
+    active: false,
+  });
+  chatTabId = tab.id;
+  return chatTabId;
+}
+
+// Ensure chat data is available — opens tab if needed, waits for scan
+async function ensureChatData(timeoutMs = 60_000) {
+  // If we already have data, return immediately
+  const existing = await getStoredUsernames();
+  if (existing.length > 0) {
+    return;
+  }
+
+  // Open the chat tab
+  await ensureChatTab();
+
+  // Wait for the content script to send data (CHAT_SCAN_RESULT)
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      // Timeout — resolve with whatever we have
+      scanResolvers = scanResolvers.filter((r) => r !== resolve);
+      resolve();
+    }, timeoutMs);
+
+    scanResolvers.push(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+function notifyScanResolvers() {
+  const resolvers = [...scanResolvers];
+  scanResolvers = [];
+  for (const resolve of resolvers) resolve();
+}
 
 // ---- Message Handlers ----
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Heartbeat from offscreen document — just acknowledge
-  if (message.type === 'OFFSCREEN_HEARTBEAT' || message.type === 'OFFSCREEN_FRAME_LOADED' || message.type === 'OFFSCREEN_FRAME_ERROR') {
-    sendResponse({ ok: true });
-    return false;
-  }
-
-  // Offscreen document requests Reddit token (chrome.cookies not available in offscreen)
-  if (message.type === 'GET_REDDIT_TOKEN') {
-    (async () => {
-      const tokenNames = ['token_v2', 'reddit_session'];
-      for (const name of tokenNames) {
-        const cookie = await new Promise((resolve) => {
-          chrome.cookies.get({ url: 'https://www.reddit.com', name }, (c) => resolve(c));
-        });
-        if (cookie?.value) {
-          sendResponse({ token: cookie.value });
-          return;
-        }
-      }
-      sendResponse({ token: null });
-    })();
-    return true;
-  }
+  // ---- App bridge queries ----
 
   if (message.type === 'CHECK_STATUS') {
     handleCheckStatus().then(sendResponse).catch((err) =>
@@ -133,14 +103,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'CHECK_SENT_MESSAGES') {
-    handleCheckSentMessages().then(sendResponse).catch((err) =>
+    // Auto-open chat tab if needed, then return data
+    ensureChatData(30_000).then(() =>
+      handleCheckSentMessages().then(sendResponse)
+    ).catch((err) =>
+      sendResponse({ usernames: [], error: err.message })
+    );
+    return true;
+  }
+
+  if (message.type === 'CHECK_YOU_SENT_TO') {
+    ensureChatData(30_000).then(() =>
+      getStoredYouSentTo().then((usernames) => sendResponse({ usernames }))
+    ).catch((err) =>
+      sendResponse({ usernames: [], error: err.message })
+    );
+    return true;
+  }
+
+  if (message.type === 'CHECK_THEY_REPLIED') {
+    ensureChatData(30_000).then(() =>
+      getStoredTheyReplied().then((usernames) => sendResponse({ usernames }))
+    ).catch((err) =>
       sendResponse({ usernames: [], error: err.message })
     );
     return true;
   }
 
   if (message.type === 'CHECK_REPLIES') {
-    handleCheckReplies().then(sendResponse).catch((err) =>
+    // Legacy — redirect to CHECK_THEY_REPLIED behavior
+    ensureChatData(30_000).then(() =>
+      getStoredTheyReplied().then((replies) => sendResponse({ replies }))
+    ).catch((err) =>
       sendResponse({ replies: [], error: err.message })
     );
     return true;
@@ -153,7 +147,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Receive scraped usernames from reddit-content.js
+  // ---- Data from reddit-content.js (chat tab scraping) ----
+
   if (message.type === 'STORE_CHAT_USERNAMES') {
     const usernames = message.usernames || [];
     if (usernames.length > 0) {
@@ -162,25 +157,84 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         for (const u of usernames) existing.add(u);
         chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
       });
+      // Data arrived — notify anyone waiting
+      notifyScanResolvers();
     }
     sendResponse({ ok: true });
     return false;
   }
 
-  // Receive reply status from reddit-content.js
-  if (message.type === 'STORE_CHAT_REPLIES') {
-    const replies = message.replies || [];
-    chrome.storage.local.set({ [REPLIES_KEY]: replies });
+  if (message.type === 'STORE_YOU_SENT_TO') {
+    // Cumulative merge — add, never remove
+    const newUsernames = message.usernames || [];
+    chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+      const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+      for (const u of newUsernames) existing.add(u);
+      chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  if (message.type === 'STORE_THEY_REPLIED') {
+    // Replace entirely — current state, NOT cumulative
+    const usernames = message.usernames || [];
+    chrome.storage.local.set({ [THEY_REPLIED_KEY]: usernames });
     sendResponse({ ok: true });
     return false;
   }
 
-  // Receive message previews from reddit-content.js
+  // Legacy handler — keep for backwards compat during transition
+  if (message.type === 'STORE_CHAT_REPLIES') {
+    const newReplies = message.replies || [];
+    chrome.storage.local.set({ [THEY_REPLIED_KEY]: newReplies });
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (message.type === 'STORE_CHAT_PREVIEWS') {
     const previews = message.previews || {};
     chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
     sendResponse({ ok: true });
     return false;
+  }
+
+  if (message.type === 'CHAT_SCAN_RESULT') {
+    const { usernames = [], youSentTo = [], theyReplied = [], previews = {} } = message;
+    console.log(`[SR BG] Chat scan complete: ${usernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
+    if (usernames.length > 0) {
+      // Usernames — cumulative
+      chrome.storage.local.get(STORAGE_KEY, (result) => {
+        const existing = new Set(result[STORAGE_KEY] || []);
+        for (const u of usernames) existing.add(u);
+        chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
+      });
+      // youSentTo — cumulative merge
+      if (youSentTo.length > 0) {
+        chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+          const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+          for (const u of youSentTo) existing.add(u);
+          chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+        });
+      }
+      // theyReplied — replace (current state)
+      chrome.storage.local.set({ [THEY_REPLIED_KEY]: theyReplied });
+      // Previews
+      if (Object.keys(previews).length > 0) {
+        chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+      }
+    }
+    // Notify anyone waiting for scan data
+    notifyScanResolvers();
+    sendResponse({ ok: true });
+    return false;
+  }
+});
+
+// ---- Track chat tab closure ----
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === chatTabId) {
+    chatTabId = null;
   }
 });
 
@@ -207,10 +261,18 @@ async function getStoredUsernames() {
   });
 }
 
-async function getStoredReplies() {
+async function getStoredYouSentTo() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(REPLIES_KEY, (result) => {
-      resolve(result[REPLIES_KEY] || []);
+    chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+      resolve(result[YOU_SENT_TO_KEY] || []);
+    });
+  });
+}
+
+async function getStoredTheyReplied() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+      resolve(result[THEY_REPLIED_KEY] || []);
     });
   });
 }
@@ -228,29 +290,29 @@ async function getStoredPreviews() {
 async function handleCheckStatus() {
   const hasSession = await hasRedditSession();
   if (!hasSession) {
-    return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0, replyCount: 0 };
+    return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0, youSentToCount: 0, theyRepliedCount: 0 };
   }
 
+  // Auto-open chat tab to start scanning in the background
+  ensureChatTab().catch(() => {});
+
   const stored = await getStoredUsernames();
-  const replies = await getStoredReplies();
+  const youSentTo = await getStoredYouSentTo();
+  const theyReplied = await getStoredTheyReplied();
 
   return {
     installed: true,
     redditLoggedIn: true,
     username: null,
     capturedCount: stored.length,
-    replyCount: replies.length,
+    youSentToCount: youSentTo.length,
+    theyRepliedCount: theyReplied.length,
   };
 }
 
 async function handleCheckSentMessages() {
   const stored = await getStoredUsernames();
   return { usernames: stored };
-}
-
-async function handleCheckReplies() {
-  const replies = await getStoredReplies();
-  return { replies };
 }
 
 async function handleCheckPreviews() {
