@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PermissionType } from '@/types';
-import { fetchThreadComments } from '@/lib/reddit/fetcher';
+import { fetchThreadComments, fetchUserPosts } from '@/lib/reddit/fetcher';
 import { detectPermission } from '@/lib/outreach/permission-detector';
 
 export interface DetectedCommenter {
@@ -27,7 +27,18 @@ export async function monitorTrackedThreads(
     .order('created_at', { ascending: false })
     .limit(10);
 
-  if (!replies || replies.length === 0) return [];
+  // Also fetch the user's recent Reddit posts
+  const userPosts = await fetchUserPosts(redditUsername, 10);
+  const replyPermalinks = new Set((replies || []).map(r => r.thread_permalink));
+
+  // Merge user posts into the thread list (avoid duplicates)
+  const userPostThreads = userPosts
+    .filter(p => !replyPermalinks.has(p.permalink))
+    .map(p => ({ thread_permalink: p.permalink, signal_id: null, reddit_comment_id: null }));
+
+  const allThreads = [...(replies || []), ...userPostThreads];
+
+  if (allThreads.length === 0) return [];
 
   // 2. Get already-tracked usernames for this project to avoid duplicates
   const { data: existingDms } = await supabase
@@ -42,7 +53,7 @@ export async function monitorTrackedThreads(
   const detected: DetectedCommenter[] = [];
 
   // 3. For each tracked thread, fetch comments and detect new leads
-  for (const reply of replies) {
+  for (const reply of allThreads) {
     if (!reply.thread_permalink) continue;
 
     const comments = await fetchThreadComments(reply.thread_permalink);
