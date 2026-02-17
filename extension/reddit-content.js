@@ -151,6 +151,12 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       processed.add(username);
     }
 
+    // If someone replied, you must have messaged them first — add to youSentTo too.
+    // This ensures the pipeline can advance: Ready → DM Sent → Responded
+    for (const u of theyReplied) {
+      youSentTo.add(u);
+    }
+
     console.log('[SuperReddit] classify: ' + processed.size + ' users, ' + youSentTo.size + ' youSentTo, ' + theyReplied.size + ' theyReplied (via ' + chatLinks.length + ' aria-labels)');
     if (youSentTo.size > 0) console.log('[SuperReddit]   youSentTo:', Array.from(youSentTo));
     if (theyReplied.size > 0) console.log('[SuperReddit]   theyReplied:', Array.from(theyReplied));

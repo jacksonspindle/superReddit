@@ -8,7 +8,10 @@ const THEY_REPLIED_KEY = 'sr_they_replied';
 const PREVIEWS_KEY = 'sr_chat_previews';
 const SCAN_READY_KEY = 'sr_scan_ready';
 
-// ---- On install: clear stale data ----
+const SCAN_ALARM = 'sr_periodic_scan';
+const SCAN_INTERVAL_MINUTES = 5;
+
+// ---- On install: clear stale data & start periodic scanning ----
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.remove(
     [STORAGE_KEY, YOU_SENT_TO_KEY, THEY_REPLIED_KEY, PREVIEWS_KEY, SCAN_READY_KEY],
@@ -16,7 +19,44 @@ chrome.runtime.onInstalled.addListener(() => {
       console.log('[SR BG] Cleared stale data from previous version');
     }
   );
+  // Start periodic scan alarm
+  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 0.5, periodInMinutes: SCAN_INTERVAL_MINUTES });
 });
+
+// ---- On browser startup: ensure scanning is active ----
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[SR BG] Browser started — scheduling chat scan');
+  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 0.5, periodInMinutes: SCAN_INTERVAL_MINUTES });
+});
+
+// ---- Periodic alarm: refresh chat data in background ----
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === SCAN_ALARM) {
+    console.log('[SR BG] Periodic scan — ensuring chat tab is open');
+    refreshChatTab();
+  }
+});
+
+// Refresh the chat tab to trigger a fresh scan by the content script
+async function refreshChatTab() {
+  try {
+    const hasSession = await hasRedditSession();
+    if (!hasSession) return; // Not logged in, skip
+
+    const tabId = await ensureChatTab();
+    // Reload the tab to trigger a fresh content script scan
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      // Only reload if the tab has been idle for a while (don't interrupt active use)
+      if (tab && !tab.active) {
+        chrome.tabs.reload(tabId);
+        console.log('[SR BG] Refreshed chat tab for periodic scan');
+      }
+    } catch { /* tab doesn't exist, ensureChatTab will create next time */ }
+  } catch (err) {
+    console.log('[SR BG] Periodic scan error:', err.message);
+  }
+}
 
 // ---- Side Panel ----
 

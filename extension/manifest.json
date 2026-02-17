@@ -3,7 +3,7 @@
   "name": "SuperReddit DM Bridge",
   "version": "1.6.0",
   "description": "Syncs Reddit chat with SuperReddit pipeline automatically",
-  "permissions": ["cookies", "storage", "sidePanel", "offscreen", "alarms", "declarativeNetRequest", "scripting", "webNavigation"],
+  "permissions": ["cookies", "storage", "sidePanel", "tabs", "alarms"],
   "host_permissions": [
     "*://*.reddit.com/*",
     "http://localhost/*",
@@ -11,15 +11,6 @@
   ],
   "background": {
     "service_worker": "background.js"
-  },
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "reddit_iframe_rules",
-        "enabled": true,
-        "path": "rules.json"
-      }
-    ]
   },
   "side_panel": {
     "default_path": "sidepanel.html"

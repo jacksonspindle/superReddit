@@ -55,7 +55,7 @@ export default function DmPipelinePage() {
   const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, reconcile } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, reconcile, checkYouSentTo, checkTheyReplied } = useRedditBridge();
   const reconcileRan = useRef(false);
   const allDmsRef = useRef<OutreachDM[]>([]);
 
@@ -122,13 +122,14 @@ export default function DmPipelinePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
 
-  // Reddit Bridge reconciliation — auto-advance sent DMs
-  // Runs twice: immediately on load, and again after 45s to catch data
-  // the content script discovers during its full chat sidebar scroll.
+  // Reddit Bridge reconciliation — polls extension data until stable, then reconciles.
+  // The extension proactively scans in the background, so data is usually ready instantly.
+  // If not (fresh install), we poll every 3s until counts stabilize.
+  const [syncing, setSyncing] = useState(false);
+
   useEffect(() => {
     if (
       loading ||
-      reconciling ||
       reconcileRan.current ||
       !bridgeStatus.extensionInstalled ||
       !bridgeStatus.redditLoggedIn ||
@@ -148,22 +149,53 @@ export default function DmPipelinePage() {
       }
     }
 
-    // Pass 1: immediate — catches whatever the content script has so far
-    reconcile(allDms, silentStageChange).then(({ sent, replied }) => {
-      showToast(sent, replied);
-    });
+    let cancelled = false;
+    let prevSentCount = 0;
+    let prevRepliedCount = 0;
+    let stableChecks = 0;
 
-    // Pass 2: delayed — catches data from the full sidebar scroll
-    const delayedTimer = setTimeout(() => {
+    async function pollAndReconcile() {
+      setSyncing(true);
+
+      // Poll until data stabilizes (same counts for 2 consecutive checks)
+      const MAX_POLLS = 8; // 8 × 3s = 24s max wait
+      for (let i = 0; i < MAX_POLLS && !cancelled; i++) {
+        const sent = await checkYouSentTo();
+        const replied = await checkTheyReplied();
+        const sentCount = sent.length;
+        const repliedCount = replied.length;
+
+        if (sentCount === prevSentCount && repliedCount === prevRepliedCount && (sentCount > 0 || repliedCount > 0)) {
+          stableChecks++;
+        } else {
+          stableChecks = 0;
+        }
+        prevSentCount = sentCount;
+        prevRepliedCount = repliedCount;
+
+        // Data is stable (same for 2 checks) or we have data on first check
+        if (stableChecks >= 1 || (i === 0 && (sentCount > 0 || repliedCount > 0))) {
+          break;
+        }
+
+        // Wait 3s before next poll
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+
+      if (cancelled) return;
+
+      // Reconcile with the stable data
       const currentDms = allDmsRef.current;
       if (currentDms.length > 0) {
-        reconcile(currentDms, silentStageChange).then(({ sent, replied }) => {
-          showToast(sent, replied);
-        });
+        const { sent, replied } = await reconcile(currentDms, silentStageChange);
+        showToast(sent, replied);
       }
-    }, 45_000);
+      setSyncing(false);
+    }
 
-    return () => clearTimeout(delayedTimer);
+    pollAndReconcile();
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, bridgeStatus.extensionInstalled, bridgeStatus.redditLoggedIn, allDms.length]);
 
@@ -412,6 +444,7 @@ export default function DmPipelinePage() {
               redditUsername={bridgeStatus.redditUsername}
               checking={bridgeStatus.checking}
               reconciling={reconciling}
+              syncing={syncing}
               capturedCount={bridgeStatus.capturedCount}
               youSentToCount={bridgeStatus.youSentToCount}
               theyRepliedCount={bridgeStatus.theyRepliedCount}

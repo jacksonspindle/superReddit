@@ -8,6 +8,7 @@ interface RedditBridgeIndicatorProps {
   redditUsername: string | null;
   checking: boolean;
   reconciling: boolean;
+  syncing?: boolean;
   capturedCount?: number;
   youSentToCount?: number;
   theyRepliedCount?: number;
@@ -19,6 +20,7 @@ export function RedditBridgeIndicator({
   redditUsername,
   checking,
   reconciling,
+  syncing,
   capturedCount,
   youSentToCount,
   theyRepliedCount,
@@ -56,11 +58,11 @@ export function RedditBridgeIndicator({
     );
   }
 
-  if (reconciling) {
+  if (reconciling || syncing) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Syncing sent DMs &amp; replies...
+        Syncing Reddit chat data...
       </div>
     );
   }
