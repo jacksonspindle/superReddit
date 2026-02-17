@@ -124,7 +124,7 @@ export default function OutreachCompetitorsPage() {
               </>
             ) : competitors.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
-                No competitors configured. Add competitors in the Outreach setup to start tracking.
+                No competitors configured. Add competitors in your project Profile to start tracking.
               </div>
             ) : (
               <>

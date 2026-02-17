@@ -10,23 +10,42 @@ const SCAN_READY_KEY = 'sr_scan_ready';
 
 const SCAN_ALARM = 'sr_periodic_scan';
 const SCAN_INTERVAL_MINUTES = 5;
+let lastTabOpenTime = 0;
 
-// ---- On install: clear stale data & start periodic scanning ----
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.remove(
-    [STORAGE_KEY, YOU_SENT_TO_KEY, THEY_REPLIED_KEY, PREVIEWS_KEY, SCAN_READY_KEY],
-    () => {
-      console.log('[SR BG] Cleared stale data from previous version');
+// ---- On install/update: start periodic scanning ----
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    // Fresh install — clear any stale data
+    chrome.storage.local.remove(
+      [STORAGE_KEY, YOU_SENT_TO_KEY, THEY_REPLIED_KEY, PREVIEWS_KEY, SCAN_READY_KEY],
+      () => console.log('[SR BG] Fresh install — cleared data')
+    );
+  }
+
+  // After install/update, reload any existing reddit chat tabs so they get fresh content scripts
+  // (old content scripts are orphaned and can't communicate with the new background)
+  setTimeout(async () => {
+    const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
+    for (const tab of tabs) {
+      console.log('[SR BG] Reloading chat tab ' + tab.id + ' for fresh content script');
+      chrome.tabs.reload(tab.id);
     }
-  );
-  // Start periodic scan alarm
-  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 0.5, periodInMinutes: SCAN_INTERVAL_MINUTES });
+    // If no chat tabs exist, open one
+    if (tabs.length === 0) {
+      ensureChatTab().catch(() => {});
+    }
+  }, 1000);
+
+  // Start periodic scan — first one after 3 min (gives initial scan time to complete)
+  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 3, periodInMinutes: SCAN_INTERVAL_MINUTES });
 });
 
 // ---- On browser startup: ensure scanning is active ----
 chrome.runtime.onStartup.addListener(() => {
   console.log('[SR BG] Browser started — scheduling chat scan');
-  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 0.5, periodInMinutes: SCAN_INTERVAL_MINUTES });
+  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 1, periodInMinutes: SCAN_INTERVAL_MINUTES });
+  // Open chat tab to start scanning
+  setTimeout(() => ensureChatTab().catch(() => {}), 5000);
 });
 
 // ---- Periodic alarm: refresh chat data in background ----
@@ -41,18 +60,24 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 async function refreshChatTab() {
   try {
     const hasSession = await hasRedditSession();
-    if (!hasSession) return; // Not logged in, skip
+    if (!hasSession) return;
+
+    // Don't reload if we just opened/refreshed the tab recently (< 2 min ago)
+    const now = Date.now();
+    if (now - lastTabOpenTime < 120_000) {
+      console.log('[SR BG] Tab opened recently, skipping refresh');
+      return;
+    }
 
     const tabId = await ensureChatTab();
-    // Reload the tab to trigger a fresh content script scan
     try {
       const tab = await chrome.tabs.get(tabId);
-      // Only reload if the tab has been idle for a while (don't interrupt active use)
       if (tab && !tab.active) {
+        lastTabOpenTime = now;
         chrome.tabs.reload(tabId);
         console.log('[SR BG] Refreshed chat tab for periodic scan');
       }
-    } catch { /* tab doesn't exist, ensureChatTab will create next time */ }
+    } catch { /* tab gone */ }
   } catch (err) {
     console.log('[SR BG] Periodic scan error:', err.message);
   }
@@ -89,6 +114,7 @@ async function ensureChatTab() {
   }
 
   // Create a new background tab (active: false = doesn't steal focus)
+  lastTabOpenTime = Date.now();
   console.log('[SR BG] Opening reddit.com/chat in background tab');
   const tab = await chrome.tabs.create({
     url: 'https://www.reddit.com/chat',
@@ -153,15 +179,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'CHECK_YOU_SENT_TO') {
-    // Return immediately with whatever we have — don't block waiting for chat data.
-    // The 2nd reconciliation pass (45s) will catch late-arriving data.
-    getStoredYouSentTo().then((usernames) => sendResponse({ usernames }));
+    (async () => {
+      try { await ensureChatTab(); } catch {}
+      let usernames = await getStoredYouSentTo();
+      // If storage empty, pull from chat tab directly
+      if (usernames.length === 0 && chatTabId !== null) {
+        const pulled = await pullDataFromChatTab();
+        if (pulled && pulled.youSentTo && pulled.youSentTo.length > 0) {
+          usernames = pulled.youSentTo;
+        }
+      }
+      sendResponse({ usernames });
+    })();
     return true;
   }
 
   if (message.type === 'CHECK_THEY_REPLIED') {
-    // Return immediately — same reasoning as CHECK_YOU_SENT_TO
-    getStoredTheyReplied().then((usernames) => sendResponse({ usernames }));
+    (async () => {
+      try { await ensureChatTab(); } catch {}
+      let usernames = await getStoredTheyReplied();
+      // If storage empty, pull from chat tab directly
+      if (usernames.length === 0 && chatTabId !== null) {
+        const pulled = await pullDataFromChatTab();
+        if (pulled && pulled.theyReplied && pulled.theyReplied.length > 0) {
+          usernames = pulled.theyReplied;
+        }
+      }
+      sendResponse({ usernames });
+    })();
     return true;
   }
 
@@ -330,6 +375,68 @@ async function getStoredPreviews() {
   });
 }
 
+// ---- Pull data directly from chat tab's content script ----
+// Bypasses chrome.storage issues with orphaned content scripts.
+// Background uses chrome.tabs.sendMessage() to ask the content script for data.
+
+async function pullDataFromChatTab() {
+  const tabId = chatTabId;
+  if (!tabId) return null;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab || !tab.url || !tab.url.includes('reddit.com/chat')) return null;
+  } catch {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), 5000);
+    try {
+      chrome.tabs.sendMessage(tabId, { type: 'GET_SCAN_DATA' }, (response) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError || !response) {
+          console.log('[SR BG] Pull from chat tab failed:', chrome.runtime.lastError?.message || 'no response');
+          resolve(null);
+          return;
+        }
+        console.log('[SR BG] Pulled data from chat tab:', response.usernames?.length, 'usernames,', response.youSentTo?.length, 'youSentTo,', response.theyReplied?.length, 'theyReplied');
+        // Store pulled data into chrome.storage (background always has valid storage access)
+        const { usernames = [], youSentTo = [], theyReplied = [], previews = {} } = response;
+        if (usernames.length > 0) {
+          chrome.storage.local.get(STORAGE_KEY, (result) => {
+            const existing = new Set(result[STORAGE_KEY] || []);
+            for (const u of usernames) existing.add(u);
+            chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
+          });
+        }
+        if (youSentTo.length > 0) {
+          chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+            const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+            for (const u of youSentTo) existing.add(u);
+            chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+          });
+        }
+        if (theyReplied.length > 0) {
+          chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+            const existing = new Set(result[THEY_REPLIED_KEY] || []);
+            for (const u of theyReplied) existing.add(u);
+            chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
+          });
+        }
+        if (Object.keys(previews).length > 0) {
+          chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+        }
+        resolve(response);
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      console.log('[SR BG] Pull error:', err.message);
+      resolve(null);
+    }
+  });
+}
+
 // ---- Response Handlers ----
 
 async function handleCheckStatus() {
@@ -339,11 +446,22 @@ async function handleCheckStatus() {
   }
 
   // Auto-open chat tab to start scanning in the background
-  ensureChatTab().catch(() => {});
+  try { await ensureChatTab(); } catch {}
 
-  const stored = await getStoredUsernames();
-  const youSentTo = await getStoredYouSentTo();
-  const theyReplied = await getStoredTheyReplied();
+  let stored = await getStoredUsernames();
+  let youSentTo = await getStoredYouSentTo();
+  let theyReplied = await getStoredTheyReplied();
+
+  // If storage is empty but chat tab exists, pull data directly from content script
+  if (stored.length === 0 && youSentTo.length === 0 && chatTabId !== null) {
+    console.log('[SR BG] Storage empty — pulling data from chat tab');
+    const pulled = await pullDataFromChatTab();
+    if (pulled && pulled.usernames && pulled.usernames.length > 0) {
+      stored = pulled.usernames;
+      youSentTo = pulled.youSentTo || [];
+      theyReplied = pulled.theyReplied || [];
+    }
+  }
 
   return {
     installed: true,
@@ -352,6 +470,8 @@ async function handleCheckStatus() {
     capturedCount: stored.length,
     youSentToCount: youSentTo.length,
     theyRepliedCount: theyReplied.length,
+    youSentTo,
+    theyReplied,
   };
 }
 

@@ -374,6 +374,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   let lastLoggedCount = 0;
+  let autoScrollTriggered = false;
 
   function runScan() {
     // Step 1: Discover all usernames
@@ -391,12 +392,21 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     }
 
     if (allUsernames.length > 0) {
+      // Cache for pull requests from background.js (GET_SCAN_DATA)
+      latestScanData = { usernames: allUsernames, youSentTo, theyReplied, previews };
+
       storeResults(allUsernames, youSentTo, theyReplied, previews);
+
+      // Trigger auto-scroll the first time we detect real usernames
+      if (!autoScrollTriggered) {
+        autoScrollTriggered = true;
+        console.log('[SuperReddit] Usernames detected — starting auto-scroll');
+        setTimeout(autoScrollSidebar, 500);
+      }
     }
   }
 
   // ---- Auto-scroll sidebar to load all conversations ----
-  let autoScrollRetries = 0;
 
   function findAllScrollable() {
     const results = [];
@@ -421,13 +431,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   function autoScrollSidebar() {
     const convLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
     if (convLinks.length === 0) {
-      autoScrollRetries++;
-      if (autoScrollRetries < 5) {
-        console.log('[SuperReddit] No conversation links yet — retry ' + autoScrollRetries + '/5 in 3s');
-        setTimeout(autoScrollSidebar, 3000);
-      } else {
-        console.log('[SuperReddit] Auto-scroll: gave up finding conversation links');
-      }
+      console.log('[SuperReddit] Auto-scroll: no conversation links, skipping');
       return;
     }
 
@@ -561,8 +565,24 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         console.log('[SuperReddit]   youSentTo:', finalYouSentTo);
         console.log('[SuperReddit]   theyReplied:', finalTheyReplied);
 
+        // Update in-memory cache for pull requests (GET_SCAN_DATA)
+        latestScanData = {
+          usernames: finalUsernames,
+          youSentTo: finalYouSentTo,
+          theyReplied: finalTheyReplied,
+          previews: accumulated.previews,
+        };
+
         // Store accumulated results
         storeResults(finalUsernames, finalYouSentTo, finalTheyReplied, accumulated.previews);
+
+        // Also send to background immediately via message (in case storage writes fail)
+        try {
+          chrome.runtime.sendMessage(
+            { type: 'CHAT_SCAN_RESULT', usernames: finalUsernames, youSentTo: finalYouSentTo, theyReplied: finalTheyReplied, previews: accumulated.previews },
+            () => { if (chrome.runtime.lastError) { /* ignore */ } }
+          );
+        } catch (e) { /* orphaned context */ }
 
         // Scroll back to top
         scrollTarget.scrollTop = 0;
@@ -590,10 +610,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   function startScanning() {
-    setTimeout(() => {
-      runScan();
-      autoScrollSidebar();
-    }, 3000);
+    // Start scanning after a short delay — auto-scroll triggers automatically
+    // when runScan() first detects real usernames
+    setTimeout(runScan, 2000);
 
     const observer = new MutationObserver(runScan);
     observer.observe(document.body, { childList: true, subtree: true });
@@ -601,12 +620,24 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     setInterval(runScan, SCAN_INTERVAL);
 
     // Send results at intervals — sendScanResult is idempotent (only sends if count changed)
-    setTimeout(sendScanResult, 8_000);
-    setTimeout(sendScanResult, 15_000);
-    setTimeout(sendScanResult, 25_000);
-    setTimeout(sendScanResult, 45_000);
+    setTimeout(sendScanResult, 10_000);
+    setTimeout(sendScanResult, 20_000);
+    setTimeout(sendScanResult, 40_000);
     setTimeout(sendScanResult, 60_000);
   }
+
+  // ---- Pull API: background.js can request current scan data directly ----
+  // This bypasses chrome.storage issues with orphaned content scripts.
+  // The background service worker uses chrome.tabs.sendMessage() to pull data.
+  let latestScanData = { usernames: [], youSentTo: [], theyReplied: [], previews: {} };
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'GET_SCAN_DATA') {
+      console.log('[SuperReddit] GET_SCAN_DATA pull request — returning', latestScanData.usernames.length, 'usernames');
+      sendResponse(latestScanData);
+      return true;
+    }
+  });
 
   if (isOnChatPage()) {
     startScanning();

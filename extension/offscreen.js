@@ -1,12 +1,8 @@
 // SuperReddit Offscreen Document
-// Runs in the background via chrome.offscreen API.
-// Fetches Reddit's message endpoints using the user's session token
-// to extract DM usernames, replies, and message previews.
+// Fetches Reddit's /message/ endpoints using the user's session token.
+// Captures old-style PMs and comment replies (NOT Chat DMs — those come from the hidden popup approach).
 // Data is sent to the background script for storage.
 
-const STORAGE_KEY = 'sr_chat_usernames';
-const REPLIES_KEY = 'sr_chat_replies';
-const PREVIEWS_KEY = 'sr_chat_previews';
 const POLL_INTERVAL = 60_000; // 1 minute
 
 // Keep service worker alive
@@ -14,24 +10,22 @@ setInterval(() => {
   chrome.runtime.sendMessage({ type: 'OFFSCREEN_HEARTBEAT' }).catch(() => {});
 }, 20_000);
 
-// ---- Get Reddit access token from background (chrome.cookies not available in offscreen) ----
+// ---- Get Reddit access token from background ----
 async function getAccessToken() {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: 'GET_REDDIT_TOKEN' }, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve(null);
-        return;
-      }
+      if (chrome.runtime.lastError) { resolve(null); return; }
       resolve(response?.token || null);
     });
   });
 }
 
 // ---- Main sync function ----
-async function syncRedditChat() {
+async function syncRedditMessages() {
+  console.log('[SR Offscreen] Sync cycle...');
   const token = await getAccessToken();
   if (!token) {
-    console.log('[SuperReddit Offscreen] No Reddit session token');
+    console.log('[SR Offscreen] No token');
     return;
   }
 
@@ -40,7 +34,7 @@ async function syncRedditChat() {
   const replies = new Set();
   let myUsername = null;
 
-  // Step 1: Get our own username
+  // Get our own username
   try {
     const meRes = await fetch('https://oauth.reddit.com/api/v1/me', {
       headers: { 'Authorization': `Bearer ${token}` },
@@ -48,114 +42,88 @@ async function syncRedditChat() {
     if (meRes.ok) {
       const me = await meRes.json();
       myUsername = me.name;
-      console.log(`[SuperReddit Offscreen] Logged in as: ${myUsername}`);
+      console.log(`[SR Offscreen] Logged in as: ${myUsername}`);
     }
   } catch (e) {
-    console.log(`[SuperReddit Offscreen] /me failed: ${e.message}`);
+    console.log(`[SR Offscreen] /me failed: ${e.message}`);
   }
 
-  // Step 2: Fetch sent messages (DMs we sent)
-  await fetchMessages({
-    url: 'https://oauth.reddit.com/message/sent?limit=100',
-    token,
-    label: 'Sent',
-    usernames,
-    previews,
-    replies,
-    myUsername,
-    isSent: true,
-  });
-
-  // Step 3: Fetch inbox (replies + DMs received)
+  // Fetch inbox (comment replies + old PMs received)
   await fetchMessages({
     url: 'https://oauth.reddit.com/message/inbox?limit=100',
-    token,
-    label: 'Inbox',
-    usernames,
-    previews,
-    replies,
-    myUsername,
-    isSent: false,
+    token, label: 'Inbox', usernames, previews, replies, myUsername, isSent: false,
   });
 
-  // Results
+  // Fetch sent (old-style PMs sent — Chat DMs won't appear here)
+  await fetchMessages({
+    url: 'https://oauth.reddit.com/message/sent?limit=100',
+    token, label: 'Sent', usernames, previews, replies, myUsername, isSent: true,
+  });
+
   const usernameArray = Array.from(usernames);
   const replyArray = Array.from(replies);
-  console.log(`[SuperReddit Offscreen] Synced: ${usernameArray.length} usernames, ${replyArray.length} replies, ${Object.keys(previews).length} previews`);
+  console.log(`[SR Offscreen] Result: ${usernameArray.length} usernames, ${replyArray.length} replies, ${Object.keys(previews).length} previews`);
 
   if (usernameArray.length > 0) {
     storeResults(usernameArray, replyArray, previews);
   }
 }
 
-// ---- Fetch + parse a Reddit message endpoint ----
+// ---- Fetch + parse a Reddit /message/ endpoint ----
 async function fetchMessages({ url, token, label, usernames, previews, replies, myUsername, isSent }) {
   try {
     const res = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
     });
     if (!res.ok) {
-      console.log(`[SuperReddit Offscreen] ${label}: ${res.status}`);
+      console.log(`[SR Offscreen] ${label}: ${res.status}`);
       return;
     }
 
     const data = await res.json();
     const messages = data?.data?.children || [];
-    console.log(`[SuperReddit Offscreen] ${label}: ${messages.length} items`);
+    console.log(`[SR Offscreen] ${label}: ${messages.length} items`);
 
     for (const msg of messages) {
       const d = msg.data;
       if (!d) continue;
 
       if (isSent) {
-        // Sent messages: extract the recipient
         if (d.dest && looksLikeUsername(d.dest)) {
           const dest = d.dest.toLowerCase();
           usernames.add(dest);
           if (!previews[dest]) {
-            previews[dest] = {
-              text: (d.body || d.subject || '').substring(0, 120),
-              fromYou: true,
-            };
+            previews[dest] = { text: (d.body || d.subject || '').substring(0, 120), fromYou: true };
           }
         }
       } else {
-        // Inbox messages: extract the sender
         if (d.author && looksLikeUsername(d.author) && d.author !== myUsername) {
           const author = d.author.toLowerCase();
           usernames.add(author);
           replies.add(author);
           if (!previews[author]) {
-            previews[author] = {
-              text: (d.body || d.subject || '').substring(0, 120),
-              fromYou: false,
-            };
+            previews[author] = { text: (d.body || d.subject || '').substring(0, 120), fromYou: false };
           }
         }
       }
     }
   } catch (e) {
-    console.log(`[SuperReddit Offscreen] ${label} failed: ${e.message}`);
+    console.log(`[SR Offscreen] ${label} failed: ${e.message}`);
   }
 }
 
-// ---- Storage (via background script — chrome.storage not available in offscreen) ----
+// ---- Storage (via background script) ----
 function storeResults(newUsernames, newReplies, newPreviews) {
   chrome.runtime.sendMessage(
     { type: 'STORE_CHAT_USERNAMES', usernames: newUsernames },
     () => { if (chrome.runtime.lastError) { /* ignore */ } }
   );
-
   if (newReplies.length > 0) {
     chrome.runtime.sendMessage(
       { type: 'STORE_CHAT_REPLIES', replies: newReplies },
       () => { if (chrome.runtime.lastError) { /* ignore */ } }
     );
   }
-
   if (Object.keys(newPreviews).length > 0) {
     chrome.runtime.sendMessage(
       { type: 'STORE_CHAT_PREVIEWS', previews: newPreviews },
@@ -201,6 +169,6 @@ const COMMON_WORDS = new Set([
 ]);
 
 // ---- Start ----
-console.log('[SuperReddit Offscreen] Starting background DM sync');
-syncRedditChat();
-setInterval(syncRedditChat, POLL_INTERVAL);
+console.log('[SR Offscreen] Starting /message/ sync');
+syncRedditMessages();
+setInterval(syncRedditMessages, POLL_INTERVAL);

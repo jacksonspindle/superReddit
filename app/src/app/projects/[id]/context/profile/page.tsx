@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Save, Plus, X } from 'lucide-react';
+import { Loader2, Save, Plus, X, Sparkles } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,9 @@ export default function ProfilePage() {
   const [redditUsername, setRedditUsername] = useState('');
   const [keywordInput, setKeywordInput] = useState('');
   const [competitorInput, setCompetitorInput] = useState('');
+
+  // AI generation
+  const [generatingKeywords, setGeneratingKeywords] = useState(false);
 
   // Saving states
   const [savingProduct, setSavingProduct] = useState(false);
@@ -103,6 +106,32 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleGenerateKeywords() {
+    setGeneratingKeywords(true);
+    try {
+      const res = await fetch('/api/outreach/keywords/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName: project.product_name,
+          productDescription: project.product_description,
+          targetAudience: project.target_audience,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.error) {
+        toast.error(json.error);
+      } else {
+        setKeywords(json.keywords || []);
+        toast.success(`Generated ${json.keywords?.length || 0} keywords`);
+      }
+    } catch {
+      toast.error('Failed to generate keywords');
+    }
+    setGeneratingKeywords(false);
   }
 
   function addKeyword() {
@@ -296,6 +325,7 @@ export default function ProfilePage() {
           <CardTitle className="text-base">Outreach Keywords</CardTitle>
           <CardDescription>
             Keywords used to find relevant Reddit conversations for outreach.
+            At least one keyword is required for signal detection.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -306,6 +336,24 @@ export default function ProfilePage() {
             </div>
           ) : (
             <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateKeywords}
+                disabled={generatingKeywords}
+                className="w-full"
+              >
+                {generatingKeywords ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                {generatingKeywords
+                  ? 'Generating...'
+                  : keywords.length > 0
+                    ? 'Regenerate Keywords'
+                    : 'Generate Keywords from Product Info'}
+              </Button>
               <div className="flex gap-2">
                 <Input
                   value={keywordInput}

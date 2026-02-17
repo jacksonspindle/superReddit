@@ -8,7 +8,6 @@ interface RedditBridgeIndicatorProps {
   redditUsername: string | null;
   checking: boolean;
   reconciling: boolean;
-  syncing?: boolean;
   capturedCount?: number;
   youSentToCount?: number;
   theyRepliedCount?: number;
@@ -20,7 +19,6 @@ export function RedditBridgeIndicator({
   redditUsername,
   checking,
   reconciling,
-  syncing,
   capturedCount,
   youSentToCount,
   theyRepliedCount,
@@ -58,25 +56,30 @@ export function RedditBridgeIndicator({
     );
   }
 
-  if (reconciling || syncing) {
+  const totalFound = (youSentToCount || 0) + (theyRepliedCount || 0);
+  const hasData = totalFound > 0 || (capturedCount && capturedCount > 0);
+
+  // Reconciling — updating pipeline cards
+  if (reconciling) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Syncing Reddit chat data...
+        Updating pipeline{hasData ? ` — ${totalFound} conversations found` : ''}...
       </div>
     );
   }
 
-  // Connected but no chat data yet — scanning in background
-  if (capturedCount === 0) {
+  // No data yet — waiting for extension to scan Reddit chat
+  if (!hasData) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Reddit Connected — scanning chat data...
+        Reddit Connected — loading chat data...
       </div>
     );
   }
 
+  // Have some data — show live counts with scanning indicator if still growing
   const parts: string[] = [];
   if (youSentToCount && youSentToCount > 0) {
     parts.push(`${youSentToCount} DM${youSentToCount !== 1 ? 's' : ''} sent`);
@@ -84,7 +87,7 @@ export function RedditBridgeIndicator({
   if (theyRepliedCount && theyRepliedCount > 0) {
     parts.push(`${theyRepliedCount} replied`);
   }
-  if (parts.length === 0) {
+  if (parts.length === 0 && capturedCount) {
     parts.push(`${capturedCount} chat${capturedCount !== 1 ? 's' : ''} found`);
   }
 

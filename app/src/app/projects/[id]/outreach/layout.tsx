@@ -69,11 +69,11 @@ export default function OutreachLayout({ children }: { children: React.ReactNode
         </div>
         <h2 className="text-lg font-semibold">Set up Outreach</h2>
         <p className="text-sm text-muted-foreground">
-          Configure keywords and competitors so we can find the right Reddit conversations for {project.product_name}.
+          Configure keywords and competitors in your project Profile so we can find the right Reddit conversations for {project.product_name}.
         </p>
         <div className="flex flex-col gap-2">
-          <Button onClick={() => router.push(`/projects/${project.id}/outreach/setup`)}>
-            Start Setup
+          <Button onClick={() => router.push(`/projects/${project.id}/context/profile`)}>
+            Go to Profile
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSkipped(true)}>

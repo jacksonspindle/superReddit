@@ -16,6 +16,7 @@ interface PipelineToolbarProps {
   onSelectAll: () => void;
   onDismissSelected: () => void;
   onDmSelected: () => void;
+  onMarkSentSelected: () => void;
   scanning: boolean;
   onScan: () => void;
 }
@@ -29,6 +30,7 @@ export function PipelineToolbar({
   onSelectAll,
   onDismissSelected,
   onDmSelected,
+  onMarkSentSelected,
   scanning,
   onScan,
 }: PipelineToolbarProps) {
@@ -72,6 +74,15 @@ export function PipelineToolbar({
         disabled={selectedCount === 0}
       >
         Dismiss Selected
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 text-xs"
+        onClick={onMarkSentSelected}
+        disabled={selectedCount === 0}
+      >
+        Mark Sent ({selectedCount})
       </Button>
       <Button
         size="sm"

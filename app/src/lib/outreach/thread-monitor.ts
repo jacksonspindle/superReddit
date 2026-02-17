@@ -50,13 +50,18 @@ export async function monitorTrackedThreads(
     (existingDms || []).map((d) => `${d.reddit_username}::${d.source_thread_permalink}`)
   );
 
+  // 3. Fetch comments for all threads in parallel (rate limiter queues them)
+  const validThreads = allThreads.filter(t => t.thread_permalink);
+  const commentResults = await Promise.all(
+    validThreads.map(t => fetchThreadComments(t.thread_permalink))
+  );
+
   const detected: DetectedCommenter[] = [];
+  const lowerUsername = redditUsername.toLowerCase();
 
-  // 3. For each tracked thread, fetch comments and detect new leads
-  for (const reply of allThreads) {
-    if (!reply.thread_permalink) continue;
-
-    const comments = await fetchThreadComments(reply.thread_permalink);
+  for (let i = 0; i < validThreads.length; i++) {
+    const reply = validThreads[i];
+    const comments = commentResults[i];
     if (comments.length === 0) continue;
 
     // Build a set of the user's own comment IDs for reply detection
@@ -64,8 +69,6 @@ export async function monitorTrackedThreads(
     if (reply.reddit_comment_id) {
       userCommentIds.add(`t1_${reply.reddit_comment_id}`);
     }
-    // Also detect by username
-    const lowerUsername = redditUsername.toLowerCase();
 
     for (const comment of comments) {
       // Skip the user's own comments
