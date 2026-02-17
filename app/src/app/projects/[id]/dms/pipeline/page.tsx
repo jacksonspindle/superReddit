@@ -55,12 +55,8 @@ export default function DmPipelinePage() {
   const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, reconcile, checkYouSentTo, checkTheyReplied } = useRedditBridge();
-  const reconcileRan = useRef(false);
-  const allDmsRef = useRef<OutreachDM[]>([]);
-
-  // Keep ref in sync so delayed reconciliation always has latest data
-  allDmsRef.current = allDms;
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList } = useRedditBridge();
+  const bridgeSyncKeyRef = useRef('');
 
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
@@ -114,7 +110,6 @@ export default function DmPipelinePage() {
         if (json.scanned && json.count > 0) {
           toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
           await fetchDms();
-          reconcileRan.current = false;
         }
       } catch { /* silent */ }
     }
@@ -122,82 +117,72 @@ export default function DmPipelinePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
 
-  // Reddit Bridge reconciliation — polls extension data until stable, then reconciles.
-  // The extension proactively scans in the background, so data is usually ready instantly.
-  // If not (fresh install), we poll every 3s until counts stabilize.
-  const [syncing, setSyncing] = useState(false);
-
+  // Reddit Bridge reconciliation — server-side sync.
+  // Triggers off counts (reliable from extension) and fetches arrays explicitly if needed.
   useEffect(() => {
-    if (
-      loading ||
-      reconcileRan.current ||
-      !bridgeStatus.extensionInstalled ||
-      !bridgeStatus.redditLoggedIn ||
-      allDms.length === 0
-    ) return;
+    if (loading) return;
+    // Need at least counts OR arrays to proceed
+    const hasCounts = bridgeStatus.youSentToCount > 0 || bridgeStatus.theyRepliedCount > 0;
+    const hasArrays = youSentToList.length > 0 || theyRepliedList.length > 0;
+    if (!hasCounts && !hasArrays) return;
 
-    reconcileRan.current = true;
+    async function sync() {
+      // Use state arrays if available, otherwise fetch directly from extension
+      let sentList = youSentToList;
+      let repliedList = theyRepliedList;
 
-    const silentStageChange = (dmId: string, stage: string) => handleStageChange(dmId, stage, undefined, true);
-
-    function showToast(sent: number, replied: number) {
-      const parts: string[] = [];
-      if (sent > 0) parts.push(`${sent} sent DM${sent !== 1 ? 's' : ''}`);
-      if (replied > 0) parts.push(`${replied} repl${replied !== 1 ? 'ies' : 'y'}`);
-      if (parts.length > 0) {
-        toast.success(`Auto-detected from Reddit: ${parts.join(', ')}`);
+      if (sentList.length === 0 && bridgeStatus.youSentToCount > 0) {
+        try {
+          sentList = await checkYouSentTo();
+          console.log('[SR Reconcile] Fetched sentTo arrays explicitly:', sentList.length);
+        } catch { /* silent */ }
       }
-    }
+      if (repliedList.length === 0 && bridgeStatus.theyRepliedCount > 0) {
+        try {
+          repliedList = await checkTheyReplied();
+          console.log('[SR Reconcile] Fetched replied arrays explicitly:', repliedList.length);
+        } catch { /* silent */ }
+      }
 
-    let cancelled = false;
-    let prevSentCount = 0;
-    let prevRepliedCount = 0;
-    let stableChecks = 0;
+      if (sentList.length === 0 && repliedList.length === 0) return;
 
-    async function pollAndReconcile() {
-      setSyncing(true);
+      // Content-based dedupe to avoid re-syncing identical data
+      const sortedSent = [...sentList].sort().join(',');
+      const sortedReplied = [...repliedList].sort().join(',');
+      const key = `${sortedSent}|${sortedReplied}`;
+      if (key === bridgeSyncKeyRef.current) return;
+      bridgeSyncKeyRef.current = key;
 
-      // Poll until data stabilizes (same counts for 2 consecutive checks)
-      const MAX_POLLS = 8; // 8 × 3s = 24s max wait
-      for (let i = 0; i < MAX_POLLS && !cancelled; i++) {
-        const sent = await checkYouSentTo();
-        const replied = await checkTheyReplied();
-        const sentCount = sent.length;
-        const repliedCount = replied.length;
+      console.log('[SR Reconcile] Bridge sync: youSentTo=' + sentList.length + ' theyReplied=' + repliedList.length);
 
-        if (sentCount === prevSentCount && repliedCount === prevRepliedCount && (sentCount > 0 || repliedCount > 0)) {
-          stableChecks++;
+      try {
+        const res = await fetch('/api/outreach/dms/bridge-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: project.id,
+            youSentTo: sentList,
+            theyReplied: repliedList,
+          }),
+        });
+        const json = await res.json();
+        console.log('[SR Reconcile] Bridge sync result:', json);
+        if (json.error) {
+          console.error('[SR Reconcile] Bridge sync API error:', json.error);
+        } else if (json.created > 0 || json.advanced > 0 || json.reconciled > 0) {
+          toast.success(`Reddit sync: ${json.created} new, ${json.advanced} advanced, ${json.reconciled || 0} reconciled`);
         } else {
-          stableChecks = 0;
+          console.log('[SR Reconcile] Bridge sync: no changes needed (created=0, advanced=0, reconciled=0)');
         }
-        prevSentCount = sentCount;
-        prevRepliedCount = repliedCount;
-
-        // Data is stable (same for 2 checks) or we have data on first check
-        if (stableChecks >= 1 || (i === 0 && (sentCount > 0 || repliedCount > 0))) {
-          break;
-        }
-
-        // Wait 3s before next poll
-        await new Promise((r) => setTimeout(r, 3000));
+        await fetchPreviews();
+        await fetchDms();
+      } catch (err) {
+        console.error('[SR Reconcile] Bridge sync failed:', err);
       }
-
-      if (cancelled) return;
-
-      // Reconcile with the stable data
-      const currentDms = allDmsRef.current;
-      if (currentDms.length > 0) {
-        const { sent, replied } = await reconcile(currentDms, silentStageChange);
-        showToast(sent, replied);
-      }
-      setSyncing(false);
     }
-
-    pollAndReconcile();
-
-    return () => { cancelled = true; };
+    sync();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, bridgeStatus.extensionInstalled, bridgeStatus.redditLoggedIn, allDms.length]);
+  }, [loading, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
 
   // Manual scan
   async function handleScan() {
@@ -214,7 +199,6 @@ export default function DmPipelinePage() {
       } else if (json.scanned) {
         toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
         await fetchDms();
-        reconcileRan.current = false; // re-trigger reconciliation with fresh data
       } else if (json.message) {
         toast.info(json.message);
       } else {
@@ -444,7 +428,6 @@ export default function DmPipelinePage() {
               redditUsername={bridgeStatus.redditUsername}
               checking={bridgeStatus.checking}
               reconciling={reconciling}
-              syncing={syncing}
               capturedCount={bridgeStatus.capturedCount}
               youSentToCount={bridgeStatus.youSentToCount}
               theyRepliedCount={bridgeStatus.theyRepliedCount}

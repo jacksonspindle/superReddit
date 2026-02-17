@@ -71,9 +71,30 @@ export function useRedditBridge() {
   const [reconciling, setReconciling] = useState(false);
   const [previews, setPreviews] = useState<Record<string, ChatPreview>>({});
   const detectedRef = useRef(false);
+  // Store full username arrays from status polling as state (triggers re-renders for sync)
+  const [youSentToList, setYouSentToList] = useState<string[]>([]);
+  const [theyRepliedList, setTheyRepliedList] = useState<string[]>([]);
 
-  // Listen for EXTENSION_READY heartbeat
+  // Listen for EXTENSION_READY heartbeat + poll status while scanning
   useEffect(() => {
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let pollCount = 0;
+    const MAX_POLLS = 20; // 20 × 3s = 60s max polling
+
+    function startPolling() {
+      if (pollTimer) return;
+      console.log('[SR Bridge] Starting status polling (every 3s)');
+      pollTimer = setInterval(() => {
+        pollCount++;
+        console.log('[SR Bridge] Poll #' + pollCount);
+        checkStatus();
+        if (pollCount >= MAX_POLLS) {
+          console.log('[SR Bridge] Polling complete (' + MAX_POLLS + ' polls)');
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+      }, 3000);
+    }
+
     function onMessage(event: MessageEvent) {
       if (event.source !== window) return;
       if (
@@ -82,6 +103,7 @@ export function useRedditBridge() {
       ) {
         detectedRef.current = true;
         checkStatus();
+        startPolling();
       }
     }
 
@@ -90,7 +112,9 @@ export function useRedditBridge() {
     // Fallback probe after 1.5s if no heartbeat received
     const probeTimer = setTimeout(() => {
       if (!detectedRef.current) {
-        checkStatus().catch(() => {
+        checkStatus().then(() => {
+          startPolling();
+        }).catch(() => {
           setStatus((s) => ({ ...s, checking: false }));
         });
       }
@@ -99,6 +123,7 @@ export function useRedditBridge() {
     return () => {
       window.removeEventListener('message', onMessage);
       clearTimeout(probeTimer);
+      if (pollTimer) clearInterval(pollTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -112,8 +137,39 @@ export function useRedditBridge() {
         capturedCount?: number;
         youSentToCount?: number;
         theyRepliedCount?: number;
+        youSentTo?: string[];
+        theyReplied?: string[];
         error?: string;
       }>('CHECK_STATUS', 5000);
+
+      console.log('[SR Bridge] CHECK_STATUS:', { captured: result.capturedCount, sent: result.youSentToCount, replied: result.theyRepliedCount, hasArrays: !!(result.youSentTo?.length) });
+      // Save full username arrays for bridge sync (state so pipeline effect triggers)
+      if (result.youSentTo && result.youSentTo.length > 0) {
+        setYouSentToList(result.youSentTo);
+      }
+      if (result.theyReplied && result.theyReplied.length > 0) {
+        setTheyRepliedList(result.theyReplied);
+      }
+
+      // If extension returned counts but not arrays, fetch arrays explicitly
+      if ((result.youSentToCount || 0) > 0 && (!result.youSentTo || result.youSentTo.length === 0)) {
+        try {
+          const sentResult = await sendToExtension<{ usernames: string[] }>('CHECK_YOU_SENT_TO', 3000);
+          if (sentResult.usernames?.length > 0) {
+            console.log('[SR Bridge] Fetched youSentTo arrays explicitly:', sentResult.usernames.length);
+            setYouSentToList(sentResult.usernames);
+          }
+        } catch { /* extension may not support this command */ }
+      }
+      if ((result.theyRepliedCount || 0) > 0 && (!result.theyReplied || result.theyReplied.length === 0)) {
+        try {
+          const repliedResult = await sendToExtension<{ usernames: string[] }>('CHECK_THEY_REPLIED', 3000);
+          if (repliedResult.usernames?.length > 0) {
+            console.log('[SR Bridge] Fetched theyReplied arrays explicitly:', repliedResult.usernames.length);
+            setTheyRepliedList(repliedResult.usernames);
+          }
+        } catch { /* extension may not support this command */ }
+      }
 
       setStatus({
         extensionInstalled: true,
@@ -192,9 +248,15 @@ export function useRedditBridge() {
       setReconciling(true);
       try {
         // Step 1: Advance "ready" → "dm_sent" ONLY if username is in youSentTo
-        // (user definitely messaged them — "You:" was detected in their conversation)
         const youSentToUsernames = await checkYouSentTo();
         const sentSet = new Set(youSentToUsernames.map((u) => u.toLowerCase()));
+
+        const readyDms = allDms.filter((dm) => READY_STAGES.has(dm.pipeline_stage));
+        const readyUsernames = readyDms.map((dm) => dm.reddit_username.toLowerCase());
+        const matchedSent = readyUsernames.filter((u) => sentSet.has(u));
+        const unmatchedSent = Array.from(sentSet).filter((u) => !readyUsernames.includes(u) && !allDms.some((dm) => dm.reddit_username.toLowerCase() === u));
+        console.log('[SR Reconcile] Extension youSentTo:', sentSet.size, '| Pipeline READY:', readyDms.length, '| Matched:', matchedSent.length, '| Not in pipeline:', unmatchedSent.length);
+        if (unmatchedSent.length > 0 && unmatchedSent.length <= 20) console.log('[SR Reconcile] youSentTo not in pipeline:', unmatchedSent);
 
         let sentCount = 0;
         if (sentSet.size > 0) {
@@ -211,10 +273,9 @@ export function useRedditBridge() {
         }
 
         // Step 2: Advance "dm_sent" → "responded" ONLY if username is in theyReplied
-        // AND card is currently in dm_sent. This prevents people who messaged
-        // the user first from being auto-advanced.
         const theyRepliedUsernames = await checkTheyReplied();
         const repliedSet = new Set(theyRepliedUsernames.map((u) => u.toLowerCase()));
+        console.log('[SR Reconcile] Extension theyReplied:', repliedSet.size, '| allDms:', allDms.length, '| sentCount just advanced:', sentCount);
 
         let repliedCount = 0;
         if (repliedSet.size > 0) {
@@ -253,6 +314,8 @@ export function useRedditBridge() {
     status,
     reconciling,
     previews,
+    youSentToList,
+    theyRepliedList,
     checkYouSentTo,
     checkTheyReplied,
     fetchPreviews,

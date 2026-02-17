@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       query = query.lte('follow_up_due', new Date().toISOString()).not('follow_up_due', 'is', null);
     }
 
-    const { data, error } = await query.limit(100);
+    const { data, error } = await query.limit(500);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
