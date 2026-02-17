@@ -51,104 +51,109 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   // ---- Per-Conversation Detection (the core fix) ----
+  // Reddit chat uses <a href="/room/..."> with <span class="room-name"> for usernames
+  // and aria-label="Direct chat with USERNAME" on each conversation item.
+  // Message previews show "You: message" or "Username: message" in the second row.
 
-  // Walk UP from a /user/ link to find its conversation container.
-  // Crosses Shadow DOM boundaries via getRootNode().host.
-  // Stops at the first ancestor whose text is > username+10 chars AND < 500 chars.
-  function findConversationContainer(link, username) {
-    let el = link;
-    let levels = 0;
-    const minLen = username.length + 10;
-
-    while (el && levels < 12) {
-      // Cross Shadow DOM boundary
-      if (!el.parentElement) {
-        const rootNode = el.getRootNode?.();
-        if (rootNode && rootNode !== document && rootNode.host) {
-          el = rootNode.host;
-          levels++;
-          continue;
-        }
-        break;
-      }
-
-      el = el.parentElement;
-      levels++;
-
-      // Check if this is a good container
-      const tag = el.tagName?.toLowerCase() || '';
-      const role = el.getAttribute?.('role') || '';
-      const isSemanticContainer =
-        tag === 'div' || tag === 'li' || tag === 'section' ||
-        tag.startsWith('rs-') ||
-        role === 'option' || role === 'listitem' || role === 'row';
-
-      if (!isSemanticContainer) continue;
-
-      const text = (el.textContent || '').trim();
-      if (text.length >= minLen && text.length < 500) {
-        return el;
-      }
-    }
-
-    return null;
-  }
-
-  // For each /user/ link, find its container and check "You:" within it.
-  // Returns { youSentTo: string[], theyReplied: string[], previews: {} }
   function classifyConversations() {
     const youSentTo = new Set();
     const theyReplied = new Set();
     const previews = {};
-    const processed = new Set(); // track processed usernames to avoid duplicates
+    const processed = new Set();
 
-    const links = deepQueryAll('a[href*="/user/"]');
+    // Strategy A: Find conversation items via aria-label (most reliable)
+    const chatLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
+    for (const link of chatLinks) {
+      const label = link.getAttribute('aria-label') || '';
+      const match = label.match(/Direct chat with\s+(.+)/i);
+      if (!match) continue;
 
-    for (const link of links) {
-      const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
-      if (!match || match[1] === 'me') continue;
-
-      const username = match[1].toLowerCase();
-      if (processed.has(username)) continue;
+      const username = match[1].trim().toLowerCase();
+      if (processed.has(username) || isCommonWord(username)) continue;
       processed.add(username);
 
-      const container = findConversationContainer(link, username);
-      if (!container) continue;
-
-      const containerText = (container.textContent || '').trim();
-
-      // Check for "You:" ONLY within this container's text
-      const hasYou = /\bYou:\s/.test(containerText) || /\bYou sent\b/i.test(containerText);
+      // The full text of the <a> contains: "Username  Yesterday  Username: message preview"
+      // or "Username  Yesterday  You: message preview"
+      const itemText = (link.textContent || '').trim();
+      const hasYou = /\bYou:\s/.test(itemText) || /\bYou sent\b/i.test(itemText);
 
       if (hasYou) {
-        // User sent the last message in this conversation
         youSentTo.add(username);
       } else {
-        // They sent the last message (or no "You:" found = they replied)
         theyReplied.add(username);
       }
 
-      // Extract preview text from the container
+      // Extract preview from the item text
       let previewText = '';
-      const youMatch = containerText.match(/\bYou:\s*(.*)/);
+      const youMatch = itemText.match(/\bYou:\s*(.*)/);
       if (youMatch) {
         previewText = youMatch[1].trim();
       } else {
-        // Strip the username itself and clean up
-        previewText = containerText
-          .replace(new RegExp(username.replace(/[-_]/g, '\\$&'), 'gi'), '')
-          .replace(/\b(Yesterday|Today|(\d{1,2}\/\d{1,2}\/\d{2,4}))\b.*/g, '')
-          .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b.*/g, '')
-          .replace(/\b\d{1,2}:\d{2}\s*(AM|PM)?\b/gi, '')
-          .trim();
+        // Look for "Username: message" pattern
+        const escapedName = username.replace(/[-_]/g, '\\$&');
+        const theirMatch = itemText.match(new RegExp(escapedName + ':\\s*(.*)', 'i'));
+        if (theirMatch) {
+          previewText = theirMatch[1].trim();
+        }
       }
-
+      // Clean up timestamps from preview
+      previewText = previewText
+        .replace(/\b(Yesterday|Today)\b.*$/g, '')
+        .replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b.*$/g, '')
+        .replace(/\b\d{1,2}:\d{2}\s*(AM|PM)?\b/gi, '')
+        .trim();
       if (previewText.length > 120) previewText = previewText.substring(0, 120) + '...';
-
       if (previewText.length > 0) {
         previews[username] = { text: previewText, fromYou: hasYou };
       }
     }
+
+    // Strategy B: Find via span.room-name (fallback)
+    if (processed.size === 0) {
+      const roomNames = deepQueryAll('span.room-name, [class*="room-name"]');
+      for (const span of roomNames) {
+        const username = (span.textContent || '').trim().toLowerCase();
+        if (!username || processed.has(username) || isCommonWord(username)) continue;
+        if (username.length < 3 || username.length > 20) continue;
+        processed.add(username);
+
+        // Walk up to the conversation item (<a> parent)
+        let container = span;
+        for (let i = 0; i < 8; i++) {
+          if (!container.parentElement) {
+            const rn = container.getRootNode?.();
+            if (rn && rn !== document && rn.host) { container = rn.host; continue; }
+            break;
+          }
+          container = container.parentElement;
+          if (container.tagName === 'A') break;
+        }
+
+        const itemText = (container.textContent || '').trim();
+        const hasYou = /\bYou:\s/.test(itemText) || /\bYou sent\b/i.test(itemText);
+
+        if (hasYou) {
+          youSentTo.add(username);
+        } else {
+          theyReplied.add(username);
+        }
+      }
+    }
+
+    // Strategy C: /user/ links (for profile popups, etc.)
+    const userLinks = deepQueryAll('a[href*="/user/"]');
+    for (const link of userLinks) {
+      const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
+      if (!match || match[1] === 'me') continue;
+      const username = match[1].toLowerCase();
+      if (processed.has(username)) continue;
+      // Don't classify these — just note the username exists
+      processed.add(username);
+    }
+
+    console.log('[SuperReddit] classify: ' + processed.size + ' users, ' + youSentTo.size + ' youSentTo, ' + theyReplied.size + ' theyReplied (via ' + chatLinks.length + ' aria-labels)');
+    if (youSentTo.size > 0) console.log('[SuperReddit]   youSentTo:', Array.from(youSentTo));
+    if (theyReplied.size > 0) console.log('[SuperReddit]   theyReplied:', Array.from(theyReplied));
 
     return {
       youSentTo: Array.from(youSentTo),
@@ -157,11 +162,29 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     };
   }
 
-  // ---- Username-only scanning (no reply detection) ----
+  // ---- Username-only scanning ----
   function scanChatUsernames() {
     const usernames = new Set();
 
-    // Strategy 1: /user/ links (most reliable)
+    // Strategy 1: aria-label on conversation links (Reddit's actual DOM)
+    deepQueryAll('a[aria-label*="Direct chat with"]').forEach((link) => {
+      const label = link.getAttribute('aria-label') || '';
+      const match = label.match(/Direct chat with\s+(.+)/i);
+      if (match) {
+        const name = match[1].trim();
+        if (name.length >= 3 && name.length <= 20 && !isCommonWord(name)) {
+          usernames.add(name.toLowerCase());
+        }
+      }
+    });
+
+    // Strategy 2: span.room-name elements
+    deepQueryAll('span.room-name, [class*="room-name"]').forEach((el) => {
+      const name = (el.textContent || '').trim();
+      if (name && looksLikeUsername(name)) usernames.add(name.toLowerCase());
+    });
+
+    // Strategy 3: /user/ links (profile popups, etc.)
     deepQueryAll('a[href*="/user/"]').forEach((link) => {
       const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
       if (match && match[1] !== 'me') {
@@ -169,46 +192,26 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     });
 
-    // Strategy 2: Data attributes
+    // Strategy 4: Data attributes
     deepQueryAll('[data-username], [data-author], [data-user]').forEach((el) => {
       const name = el.getAttribute('data-username') || el.getAttribute('data-author') || el.getAttribute('data-user');
       if (name && looksLikeUsername(name)) usernames.add(name.toLowerCase());
     });
 
-    // Strategy 3: Chat conversation custom elements
-    deepQueryAll(
-      'rs-room, rs-conversation, rs-channel, ' +
-      '[class*="conversation"] [class*="name"], ' +
-      '[class*="chat"] [class*="username"], ' +
-      '[class*="ChatLine"] [class*="username"], ' +
-      '[data-testid*="conversation"]'
-    ).forEach((el) => {
-      if (el.shadowRoot) {
-        const innerLinks = el.shadowRoot.querySelectorAll('a[href*="/user/"]');
-        innerLinks.forEach((link) => {
-          const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
-          if (match && match[1] !== 'me') {
-            usernames.add(match[1].toLowerCase());
-          }
-        });
+    // Strategy 5: rs-room-icon custom elements (Reddit chat avatars)
+    deepQueryAll('rs-room-icon').forEach((el) => {
+      const room = el.getAttribute('room') || '';
+      // The room attribute contains room IDs, but the parent may have username info
+      const parent = el.parentElement;
+      if (parent) {
+        const label = parent.getAttribute('aria-label') || '';
+        const match = label.match(/Direct chat with\s+(.+)/i);
+        if (match) {
+          const name = match[1].trim();
+          if (name.length >= 3 && name.length <= 20) usernames.add(name.toLowerCase());
+        }
       }
     });
-
-    // Strategy 4: Sidebar conversation list
-    const sidebarCandidates = deepQueryAll(
-      '[class*="sidebar"], [class*="channel-list"], [class*="conversation-list"], ' +
-      '[class*="ThreadList"], [class*="room-list"], [role="listbox"], [role="list"]'
-    );
-
-    for (const sidebar of sidebarCandidates) {
-      const root = sidebar.shadowRoot || sidebar;
-      const items = root.querySelectorAll(
-        '[role="option"], [role="listitem"], li, [class*="item"], [class*="thread"], [class*="conversation"]'
-      );
-      for (const item of items) {
-        extractUsernameFromElement(item, usernames);
-      }
-    }
 
     return Array.from(usernames);
   }
@@ -320,14 +323,30 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       });
     }
 
-    // Store theyReplied (REPLACED each scan — current state, not cumulative)
-    // When the user responds, the person leaves this list naturally
-    console.log('[SuperReddit] Storing theyReplied (current state):', theyReplied.length);
-    chrome.storage.local.set({ [THEY_REPLIED_KEY]: theyReplied });
-    chrome.runtime.sendMessage(
-      { type: 'STORE_THEY_REPLIED', usernames: theyReplied },
-      () => { if (chrome.runtime.lastError) { /* ignore */ } }
-    );
+    // Store theyReplied (CUMULATIVE — same as youSentTo)
+    // Virtual scroll means we only see ~16 items at a time, so we must accumulate.
+    if (theyReplied.length > 0) {
+      chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+        if (chrome.runtime.lastError) return;
+        const existing = new Set(result[THEY_REPLIED_KEY] || []);
+        let changed = false;
+        for (const u of theyReplied) {
+          if (!existing.has(u)) {
+            existing.add(u);
+            changed = true;
+          }
+        }
+        if (changed) {
+          const all = Array.from(existing);
+          console.log('[SuperReddit] Storing theyReplied (cumulative):', all.length, 'total');
+          chrome.storage.local.set({ [THEY_REPLIED_KEY]: all });
+          chrome.runtime.sendMessage(
+            { type: 'STORE_THEY_REPLIED', usernames: all },
+            () => { if (chrome.runtime.lastError) { /* ignore */ } }
+          );
+        }
+      });
+    }
 
     // Store message previews (replaced each scan)
     if (previews && Object.keys(previews).length > 0) {
@@ -371,61 +390,191 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   // ---- Auto-scroll sidebar to load all conversations ----
-  function autoScrollSidebar() {
-    const candidates = deepQueryAll(
-      '[class*="sidebar"], [class*="channel-list"], [class*="conversation-list"], ' +
-      '[class*="ThreadList"], [class*="room-list"], [role="listbox"], [role="list"], ' +
-      'nav, aside'
-    );
+  let autoScrollRetries = 0;
 
-    const allScrollable = [];
-    function findScrollable(root) {
+  function findAllScrollable() {
+    const results = [];
+    function scan(root) {
       const els = (root || document).querySelectorAll('*');
       for (const el of els) {
-        if (el.scrollHeight > el.clientHeight + 50 && el.clientHeight > 100) {
-          allScrollable.push(el);
-        }
-        if (el.shadowRoot) findScrollable(el.shadowRoot);
+        try {
+          // Check computed overflow style
+          const style = window.getComputedStyle(el);
+          const oy = style.overflowY;
+          if ((oy === 'auto' || oy === 'scroll') && el.clientHeight > 50) {
+            results.push(el);
+          }
+        } catch (e) { /* skip */ }
+        if (el.shadowRoot) scan(el.shadowRoot);
       }
     }
-    findScrollable();
+    scan();
+    return results;
+  }
 
-    const scrollTargets = [...new Set([...candidates, ...allScrollable])];
-    if (scrollTargets.length === 0) return;
+  function autoScrollSidebar() {
+    const convLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
+    if (convLinks.length === 0) {
+      autoScrollRetries++;
+      if (autoScrollRetries < 5) {
+        console.log('[SuperReddit] No conversation links yet — retry ' + autoScrollRetries + '/5 in 3s');
+        setTimeout(autoScrollSidebar, 3000);
+      } else {
+        console.log('[SuperReddit] Auto-scroll: gave up finding conversation links');
+      }
+      return;
+    }
+
+    // Find all scrollable containers in the entire DOM (including Shadow DOM)
+    const scrollables = findAllScrollable();
+    console.log('[SuperReddit] Found ' + scrollables.length + ' scrollable containers:');
+    for (const sc of scrollables) {
+      console.log('[SuperReddit]   ' + sc.tagName +
+        ' class="' + (sc.className || '').toString().substring(0, 50) + '"' +
+        ' w=' + sc.clientWidth + ' h=' + sc.clientHeight +
+        ' scrollH=' + sc.scrollHeight +
+        ' canScroll=' + (sc.scrollHeight > sc.clientHeight + 10));
+    }
+
+    // The sidebar conversation list is the narrow scrollable container (< ~400px wide)
+    // that can actually scroll (scrollHeight > clientHeight)
+    let sidebarContainer = null;
+    const narrowScrollable = scrollables
+      .filter(sc => sc.clientWidth > 100 && sc.clientWidth < 500 && sc.scrollHeight > sc.clientHeight + 10)
+      .sort((a, b) => b.scrollHeight - a.scrollHeight);
+
+    if (narrowScrollable.length > 0) {
+      sidebarContainer = narrowScrollable[0];
+      console.log('[SuperReddit] Using sidebar container: ' + sidebarContainer.tagName +
+        ' w=' + sidebarContainer.clientWidth + ' scrollH=' + sidebarContainer.scrollHeight);
+    }
+
+    // Fallback: try any scrollable container that can scroll
+    if (!sidebarContainer) {
+      const anyScrollable = scrollables
+        .filter(sc => sc.scrollHeight > sc.clientHeight + 50)
+        .sort((a, b) => b.scrollHeight - a.scrollHeight);
+      if (anyScrollable.length > 0) {
+        sidebarContainer = anyScrollable[0];
+        console.log('[SuperReddit] Fallback container: ' + sidebarContainer.tagName +
+          ' w=' + sidebarContainer.clientWidth + ' scrollH=' + sidebarContainer.scrollHeight);
+      }
+    }
+
+    if (!sidebarContainer) {
+      console.log('[SuperReddit] No scrollable sidebar found — cannot auto-scroll');
+      return;
+    }
+
+    // RS-VIRTUAL-SCROLL is a custom element — check if the real scrollable is inside its shadow root
+    let scrollTarget = sidebarContainer;
+    if (sidebarContainer.shadowRoot) {
+      const innerEls = sidebarContainer.shadowRoot.querySelectorAll('*');
+      for (const el of innerEls) {
+        try {
+          const style = window.getComputedStyle(el);
+          const oy = style.overflowY;
+          if ((oy === 'auto' || oy === 'scroll') && el.clientHeight > 50) {
+            console.log('[SuperReddit] Found inner scrollable: ' + el.tagName +
+              ' scrollH=' + el.scrollHeight + ' clientH=' + el.clientHeight);
+            if (el.scrollHeight > el.clientHeight + 10) {
+              scrollTarget = el;
+            }
+          }
+        } catch (e) { /* skip */ }
+      }
+    }
+
+    console.log('[SuperReddit] Scroll target: ' + scrollTarget.tagName +
+      ' scrollH=' + scrollTarget.scrollHeight + ' h=' + scrollTarget.clientHeight +
+      ' scrollTop=' + scrollTarget.scrollTop);
+
+    // Virtual scroll: Reddit only renders ~16 items at a time.
+    // We must accumulate usernames across scroll positions.
+    const accumulated = { usernames: new Set(), youSentTo: new Set(), theyReplied: new Set(), previews: {} };
+
+    // Capture what's visible now (before scrolling)
+    function captureVisible() {
+      const { youSentTo, theyReplied, previews } = classifyConversations();
+      const usernames = scanChatUsernames();
+      for (const u of usernames) accumulated.usernames.add(u);
+      for (const u of youSentTo) accumulated.youSentTo.add(u);
+      for (const u of theyReplied) accumulated.theyReplied.add(u);
+      Object.assign(accumulated.previews, previews);
+    }
+
+    captureVisible();
+    console.log('[SuperReddit] Auto-scroll: starting with ' + accumulated.usernames.size + ' unique users');
 
     let scrollRound = 0;
     const MAX_ROUNDS = 40;
+    let staleRounds = 0;
 
     const scrollTimer = setInterval(() => {
       scrollRound++;
-      let anyScrolled = false;
 
-      for (const target of scrollTargets) {
-        const prevTop = target.scrollTop;
-        target.scrollTop = target.scrollHeight;
-        if (target.scrollTop > prevTop + 10) anyScrolled = true;
+      const prevTop = scrollTarget.scrollTop;
+      const scrollAmount = Math.max(scrollTarget.clientHeight * 0.7, 300);
+      scrollTarget.scrollTop += scrollAmount;
+
+      // Dispatch scroll event to trigger virtual scroll component update
+      scrollTarget.dispatchEvent(new Event('scroll', { bubbles: true }));
+      if (scrollTarget !== sidebarContainer) {
+        sidebarContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
       }
 
-      runScan();
+      const newTop = scrollTarget.scrollTop;
+      const scrolled = newTop > prevTop + 5;
 
-      if (!anyScrolled || scrollRound >= MAX_ROUNDS) {
+      // Capture usernames at this scroll position
+      const prevSize = accumulated.usernames.size;
+      captureVisible();
+      const newSize = accumulated.usernames.size;
+
+      if (newSize > prevSize) {
+        console.log('[SuperReddit] Round ' + scrollRound + ': ' + prevSize + ' → ' + newSize + ' unique users (scrollTop=' + newTop.toFixed(0) + ')');
+        staleRounds = 0;
+      } else {
+        staleRounds++;
+      }
+
+      if (scrollRound <= 3) {
+        console.log('[SuperReddit] Round ' + scrollRound + ': scrollTop ' + prevTop.toFixed(0) + ' → ' + newTop.toFixed(0) + ' scrolled=' + scrolled + ' users=' + newSize);
+      }
+
+      // Stop if: no scroll AND no new users for 5 rounds, or max rounds
+      if ((!scrolled && staleRounds >= 5) || scrollRound >= MAX_ROUNDS) {
         clearInterval(scrollTimer);
-        setTimeout(runScan, 1000);
+
+        const finalUsernames = Array.from(accumulated.usernames);
+        const finalYouSentTo = Array.from(accumulated.youSentTo);
+        const finalTheyReplied = Array.from(accumulated.theyReplied);
+
+        console.log('[SuperReddit] Auto-scroll DONE: ' + finalUsernames.length + ' users, ' +
+          finalYouSentTo.length + ' youSentTo, ' + finalTheyReplied.length + ' theyReplied (' + scrollRound + ' rounds)');
+        console.log('[SuperReddit]   youSentTo:', finalYouSentTo);
+        console.log('[SuperReddit]   theyReplied:', finalTheyReplied);
+
+        // Store accumulated results
+        storeResults(finalUsernames, finalYouSentTo, finalTheyReplied, accumulated.previews);
+
+        // Scroll back to top
+        scrollTarget.scrollTop = 0;
+        if (scrollTarget !== sidebarContainer) sidebarContainer.scrollTop = 0;
       }
-    }, 1000);
+    }, 1200);
   }
 
   // ---- Send consolidated scan result to background ----
-  let scanResultSent = false;
+  let lastSentCount = 0;
 
   function sendScanResult() {
-    if (scanResultSent) return;
-
     const allUsernames = scanChatUsernames();
     const { youSentTo, theyReplied, previews } = classifyConversations();
 
-    if (allUsernames.length > 0) {
-      scanResultSent = true;
+    // Only send if we have new data
+    if (allUsernames.length > 0 && allUsernames.length !== lastSentCount) {
+      lastSentCount = allUsernames.length;
       console.log(`[SuperReddit] Sending CHAT_SCAN_RESULT: ${allUsernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
       chrome.runtime.sendMessage(
         { type: 'CHAT_SCAN_RESULT', usernames: allUsernames, youSentTo, theyReplied, previews },
@@ -445,10 +594,12 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     setInterval(runScan, SCAN_INTERVAL);
 
-    // After auto-scroll completes (~25s), send consolidated result to background
-    setTimeout(sendScanResult, 25_000);
+    // Send results at intervals — sendScanResult is idempotent (only sends if count changed)
     setTimeout(sendScanResult, 8_000);
     setTimeout(sendScanResult, 15_000);
+    setTimeout(sendScanResult, 25_000);
+    setTimeout(sendScanResult, 45_000);
+    setTimeout(sendScanResult, 60_000);
   }
 
   if (isOnChatPage()) {

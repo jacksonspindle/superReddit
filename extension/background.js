@@ -113,20 +113,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'CHECK_YOU_SENT_TO') {
-    ensureChatData(30_000).then(() =>
-      getStoredYouSentTo().then((usernames) => sendResponse({ usernames }))
-    ).catch((err) =>
-      sendResponse({ usernames: [], error: err.message })
-    );
+    // Return immediately with whatever we have — don't block waiting for chat data.
+    // The 2nd reconciliation pass (45s) will catch late-arriving data.
+    getStoredYouSentTo().then((usernames) => sendResponse({ usernames }));
     return true;
   }
 
   if (message.type === 'CHECK_THEY_REPLIED') {
-    ensureChatData(30_000).then(() =>
-      getStoredTheyReplied().then((usernames) => sendResponse({ usernames }))
-    ).catch((err) =>
-      sendResponse({ usernames: [], error: err.message })
-    );
+    // Return immediately — same reasoning as CHECK_YOU_SENT_TO
+    getStoredTheyReplied().then((usernames) => sendResponse({ usernames }));
     return true;
   }
 
@@ -177,11 +172,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'STORE_THEY_REPLIED') {
-    // Replace entirely — current state, NOT cumulative
-    const usernames = message.usernames || [];
-    chrome.storage.local.set({ [THEY_REPLIED_KEY]: usernames });
-    sendResponse({ ok: true });
-    return false;
+    // Cumulative merge — same as youSentTo (virtual scroll only shows ~16 at a time)
+    const newUsernames = message.usernames || [];
+    chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+      const existing = new Set(result[THEY_REPLIED_KEY] || []);
+      for (const u of newUsernames) existing.add(u);
+      chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
+      sendResponse({ ok: true });
+    });
+    return true;
   }
 
   // Legacy handler — keep for backwards compat during transition
@@ -217,8 +216,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
         });
       }
-      // theyReplied — replace (current state)
-      chrome.storage.local.set({ [THEY_REPLIED_KEY]: theyReplied });
+      // theyReplied — cumulative merge (virtual scroll only shows ~16 at a time)
+      if (theyReplied.length > 0) {
+        chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+          const existing = new Set(result[THEY_REPLIED_KEY] || []);
+          for (const u of theyReplied) existing.add(u);
+          chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
+        });
+      }
       // Previews
       if (Object.keys(previews).length > 0) {
         chrome.storage.local.set({ [PREVIEWS_KEY]: previews });

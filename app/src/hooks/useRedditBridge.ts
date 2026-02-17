@@ -140,7 +140,7 @@ export function useRedditBridge() {
       const result = await sendToExtension<{
         usernames: string[];
         error?: string;
-      }>('CHECK_YOU_SENT_TO', 15_000);
+      }>('CHECK_YOU_SENT_TO', 3_000);
 
       const usernames = result.usernames || [];
       if (usernames.length > 0) {
@@ -157,7 +157,7 @@ export function useRedditBridge() {
       const result = await sendToExtension<{
         usernames: string[];
         error?: string;
-      }>('CHECK_THEY_REPLIED', 15_000);
+      }>('CHECK_THEY_REPLIED', 3_000);
 
       const usernames = result.usernames || [];
       if (usernames.length > 0) {
@@ -174,7 +174,7 @@ export function useRedditBridge() {
       const result = await sendToExtension<{
         previews: Record<string, ChatPreview>;
         error?: string;
-      }>('CHECK_PREVIEWS', 15_000);
+      }>('CHECK_PREVIEWS', 3_000);
 
       const p = result.previews || {};
       setPreviews(p);
