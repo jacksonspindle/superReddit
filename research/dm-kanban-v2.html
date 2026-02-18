@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperReddit DM Kanban v2</title>
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #141416;
+    --surface2: #1c1c1f;
+    --surface3: #242428;
+    --border: #2a2a2e;
+    --border-hover: #3a3a3f;
+    --text: #e4e4e7;
+    --text-muted: #71717a;
+    --text-dim: #52525b;
+    --primary: #6366f1;
+    --primary-dim: #4f46e5;
+    --green: #22c55e;
+    --green-dim: #16a34a;
+    --green-bg: rgba(34,197,94,0.1);
+    --yellow: #eab308;
+    --yellow-bg: rgba(234,179,8,0.1);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59,130,246,0.1);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.1);
+    --orange: #f97316;
+    --orange-bg: rgba(249,115,22,0.1);
+    --purple: #a855f7;
+    --purple-bg: rgba(168,85,247,0.1);
+    --cyan: #06b6d4;
+    --cyan-bg: rgba(6,182,212,0.1);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.5; padding: 24px 32px; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .page-header h1 { font-size: 22px; font-weight: 700; }
+  .page-header-actions { display: flex; gap: 8px; }
+
+  /* Stats bar */
+  .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+  .stat-change { font-size: 11px; margin-top: 2px; }
+  .stat-change.up { color: var(--green); }
+
+  /* Post filter section */
+  .post-filter-section { margin-bottom: 20px; }
+  .post-filter-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  .post-filter-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .post-cards-row {
+    display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;
+    scrollbar-width: thin; scrollbar-color: var(--surface3) transparent;
+  }
+  .post-cards-row::-webkit-scrollbar { height: 4px; }
+  .post-cards-row::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+
+  /* "All Posts" card */
+  .post-card-all {
+    min-width: 100px; flex-shrink: 0; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px 18px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; transition: all 0.2s; position: relative; overflow: hidden;
+  }
+  .post-card-all:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .post-card-all.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 4px 16px rgba(99,102,241,0.15); }
+  .post-card-all .all-icon { font-size: 22px; margin-bottom: 4px; opacity: 0.6; }
+  .post-card-all .all-label { font-size: 12px; font-weight: 700; }
+  .post-card-all .all-count { font-size: 20px; font-weight: 800; color: var(--primary); margin-top: 2px; }
+
+  /* Reddit-style post cards */
+  .post-card {
+    min-width: 300px; max-width: 320px; flex-shrink: 0; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; transition: all 0.2s; position: relative;
+    display: flex; flex-direction: row;
+  }
+  .post-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+  .post-card.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 4px 16px rgba(99,102,241,0.15); }
+
+  /* Vote column (left side like Reddit) */
+  .post-card-votes {
+    width: 44px; flex-shrink: 0;
+    background: var(--surface2); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+    padding: 12px 0; border-right: 1px solid var(--border);
+  }
+  .post-card-votes .vote-arrow {
+    font-size: 14px; color: var(--text-dim); line-height: 1;
+  }
+  .post-card-votes .vote-arrow.up { color: var(--orange); }
+  .post-card-votes .vote-score {
+    font-size: 14px; font-weight: 800; color: var(--text);
+  }
+
+  /* Post content (right side) */
+  .post-card-content { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; min-width: 0; }
+
+  .post-card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .post-card-sub-icon {
+    width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; color: white;
+  }
+  .post-card-sub-name { font-size: 11px; font-weight: 700; }
+  .post-card-author { font-size: 10px; color: var(--text-dim); }
+  .post-card-age { font-size: 10px; color: var(--text-dim); }
+
+  .post-card-title {
+    font-size: 13px; font-weight: 600; line-height: 1.35; margin-bottom: 6px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  .post-card-body-preview {
+    font-size: 11px; color: var(--text-dim); line-height: 1.4; margin-bottom: 8px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  .post-card-bottom { display: flex; align-items: center; gap: 12px; margin-top: auto; }
+  .post-card-action-btn {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600; color: var(--text-dim);
+    padding: 3px 6px; border-radius: 4px; transition: background 0.15s;
+  }
+  .post-card-action-btn:hover { background: var(--surface3); }
+  .post-card-action-btn .act-icon { font-size: 12px; }
+
+  /* Leads badge overlaid at bottom-right */
+  .post-card-leads-badge {
+    position: absolute; bottom: 8px; right: 8px;
+    background: var(--primary); color: white;
+    padding: 3px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; gap: 4px;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+  }
+  .post-card-leads-badge .leads-icon { font-size: 10px; }
+
+  /* Mini pipeline strip at very bottom */
+  .post-card-pipeline-strip {
+    display: flex; height: 3px; width: 100%;
+  }
+  .post-card-pipeline-strip .ps-seg { height: 100%; transition: width 0.3s; }
+
+  /* Active glow */
+  .post-card.active .post-card-leads-badge { background: var(--green); box-shadow: 0 2px 8px rgba(34,197,94,0.4); }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar-search {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 12px; color: var(--text); font-size: 13px; width: 220px; outline: none;
+  }
+  .toolbar-search:focus { border-color: var(--primary); }
+  .toolbar-btn {
+    padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .toolbar-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .toolbar-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .toolbar-btn.primary:hover { background: var(--primary-dim); }
+  .spacer { flex: 1; }
+
+  /* ========== KANBAN ========== */
+  .kanban-wrapper { position: relative; }
+
+  .kanban {
+    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    gap: 0; align-items: stretch; min-height: 600px;
+  }
+
+  .kanban-col {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 12px; display: flex; flex-direction: column; min-width: 0;
+  }
+  .kanban-col-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 6px 14px; border-bottom: 2px solid var(--border); margin-bottom: 10px;
+  }
+  .kanban-col-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kanban-col-count {
+    font-size: 11px; color: var(--text-muted); background: var(--surface3);
+    padding: 2px 10px; border-radius: 10px; font-weight: 600;
+  }
+  .kanban-cards { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 560px; padding-right: 4px; }
+
+  /* Arrow between columns */
+  .kanban-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; flex-shrink: 0;
+  }
+  .kanban-arrow svg { color: var(--text-dim); }
+
+  /* DM Card */
+  .dm-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; cursor: pointer; transition: all 0.25s ease;
+    position: relative;
+  }
+  .dm-card:hover { border-color: var(--border-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+
+  /* Expand hint on hover */
+  .dm-card .expand-hint {
+    position: absolute; top: 8px; right: 8px;
+    width: 26px; height: 26px; border-radius: 6px;
+    background: var(--surface3); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: all 0.2s; z-index: 2;
+  }
+  .dm-card .expand-hint svg { width: 14px; height: 14px; color: var(--text-muted); }
+  .dm-card:hover .expand-hint { opacity: 1; }
+  .dm-card:hover .expand-hint:hover { background: var(--primary); border-color: var(--primary); }
+  .dm-card:hover .expand-hint:hover svg { color: white; }
+
+  /* "Click to expand" bar at bottom of card on hover */
+  .dm-card .expand-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 0; background: linear-gradient(to top, rgba(99,102,241,0.12), transparent);
+    border-radius: 0 0 var(--radius) var(--radius);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 0; overflow: hidden;
+    transition: all 0.25s ease; pointer-events: none;
+  }
+  .dm-card .expand-bar span {
+    font-size: 10px; font-weight: 600; color: var(--primary);
+    opacity: 0; transition: opacity 0.2s; padding-bottom: 4px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .dm-card:hover .expand-bar { height: 28px; padding-bottom: 0; }
+  .dm-card:hover .expand-bar span { opacity: 1; }
+
+  /* ========== FULL PAGE DETAIL OVERLAY ========== */
+  .detail-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.25s ease;
+  }
+  .detail-overlay.open { display: flex; opacity: 1; }
+
+  .detail-panel {
+    width: 90%; max-width: 900px; max-height: 90vh;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    transform: scale(0.95) translateY(20px); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .detail-overlay.open .detail-panel { transform: scale(1) translateY(0); }
+
+  .detail-panel-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+  .detail-panel-header .detail-avatar {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: var(--text-muted); flex-shrink: 0;
+  }
+  .detail-panel-header .detail-user-info { flex: 1; }
+  .detail-panel-header .detail-username { font-size: 18px; font-weight: 700; }
+  .detail-panel-header .detail-sub { font-size: 13px; color: var(--text-muted); }
+  .detail-panel-close {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; color: var(--text-muted); transition: all 0.15s;
+  }
+  .detail-panel-close:hover { background: var(--surface3); color: var(--text); }
+
+  .detail-panel-body {
+    flex: 1; overflow-y: auto; padding: 24px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+
+  .detail-section {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .detail-section.full-width { grid-column: 1 / -1; }
+  .detail-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 10px;
+  }
+  .detail-section-content { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+  .detail-panel-footer {
+    padding: 16px 24px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+  }
+  .detail-panel-footer .footer-left { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+  .detail-stage-indicator {
+    display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);
+  }
+  .detail-stage-indicator .stage-step {
+    padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    background: var(--surface3); color: var(--text-dim);
+  }
+  .detail-stage-indicator .stage-step.current { background: var(--primary); color: white; }
+  .detail-stage-indicator .stage-arrow { color: var(--text-dim); font-size: 10px; }
+  .dm-card.moving {
+    animation: cardMoveOut 0.4s ease forwards;
+  }
+  @keyframes cardMoveOut {
+    0% { transform: translateX(0); opacity: 1; }
+    50% { transform: translateX(30px); opacity: 0.5; }
+    100% { transform: translateX(60px); opacity: 0; height: 0; padding: 0; margin: 0; border: 0; overflow: hidden; }
+  }
+  .dm-card.moving-in {
+    animation: cardMoveIn 0.4s ease forwards;
+  }
+  @keyframes cardMoveIn {
+    0% { transform: translateX(-60px); opacity: 0; }
+    50% { transform: translateX(-20px); opacity: 0.5; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Flying card animation */
+  .flying-card {
+    position: fixed; z-index: 1000; pointer-events: none;
+    background: var(--surface2); border: 1px solid var(--primary); border-radius: var(--radius);
+    padding: 12px; box-shadow: 0 8px 32px rgba(99,102,241,0.3);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dm-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .dm-card .avatar {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .dm-card .username { font-size: 13px; font-weight: 600; }
+  .dm-card .subreddit { font-size: 11px; color: var(--text-muted); }
+  .dm-card .comment-text {
+    font-size: 12px; color: var(--text-muted); margin-bottom: 8px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .dm-card .ai-note {
+    font-size: 11px; color: var(--blue); background: var(--blue-bg);
+    padding: 4px 8px; border-radius: 4px; margin-bottom: 8px;
+  }
+  .dm-card .source-post {
+    font-size: 10px; color: var(--text-dim); background: var(--surface3);
+    padding: 3px 8px; border-radius: 4px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .dm-card .source-post .post-icon { font-size: 9px; }
+  .dm-card .meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+  .dm-card .actions { display: flex; gap: 6px; margin-top: 10px; }
+  .dm-card .actions button {
+    flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface3); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .dm-card .actions button:hover { color: var(--text); border-color: var(--border-hover); }
+  .dm-card .actions button.primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .dm-card .actions button.primary:hover { background: var(--primary-dim); }
+  .dm-card .actions button.dismiss { color: var(--text-dim); font-size: 10px; }
+
+  .dm-card .checkbox { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; }
+
+  /* Touch info */
+  .touch-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+    display: inline-block;
+  }
+  .touch-badge.touch1 { background: var(--blue-bg); color: var(--blue); }
+  .touch-badge.touch2 { background: var(--orange-bg); color: var(--orange); }
+  .touch-badge.touch3 { background: var(--red-bg); color: var(--red); }
+
+  /* Follow-up timer */
+  .followup-timer {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .followup-timer.active { background: var(--yellow-bg); color: var(--yellow); }
+  .followup-timer.overdue { background: var(--red-bg); color: var(--red); }
+
+  /* Tracked link */
+  .tracked-link {
+    display: flex; align-items: center; gap: 4px; font-size: 10px;
+    color: var(--green); margin-top: 4px;
+  }
+
+  /* Inline DM expansion */
+  .inline-dm {
+    background: var(--surface3); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px; margin-top: 10px; display: none;
+  }
+  .inline-dm.open { display: block; animation: expandDm 0.2s ease; }
+  @keyframes expandDm {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 400px; }
+  }
+  .inline-dm textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 10px; color: var(--text); font-size: 12px; font-family: inherit;
+    resize: vertical; min-height: 80px; outline: none;
+  }
+  .inline-dm textarea:focus { border-color: var(--primary); }
+  .inline-dm .dm-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+
+  /* Success pulse animation */
+  @keyframes successPulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+  .dm-card.success-pulse {
+    animation: successPulse 0.6s ease;
+    border-color: var(--green);
+  }
+
+  /* Toast notification */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+    background: var(--surface); border: 1px solid var(--green); border-radius: var(--radius-lg);
+    padding: 14px 20px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(100px); opacity: 0; transition: all 0.3s ease;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast .toast-icon { font-size: 18px; color: var(--green); }
+  .toast .toast-text { font-size: 13px; }
+  .toast .toast-sub { font-size: 11px; color: var(--text-muted); }
+
+  /* Column stage color borders */
+  .kanban-col.ready .kanban-col-header { border-bottom-color: var(--blue); }
+  .kanban-col.sent .kanban-col-header { border-bottom-color: var(--orange); }
+  .kanban-col.followup .kanban-col-header { border-bottom-color: var(--yellow); }
+  .kanban-col.converted .kanban-col-header { border-bottom-color: var(--green); }
+
+  /* Empty column state */
+  .kanban-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 16px; color: var(--text-dim); font-size: 12px; text-align: center;
+  }
+  .kanban-empty .empty-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.3; }
+
+  /* Responsive */
+  @media (max-width: 1100px) {
+    .kanban { grid-template-columns: 1fr; gap: 12px; }
+    .kanban-arrow { display: none; }
+    .stats-bar { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Page Header -->
+<div class="page-header">
+  <h1>DM Pipeline</h1>
+  <div class="page-header-actions">
+    <button class="toolbar-btn">Export CSV</button>
+    <button class="toolbar-btn primary">Scan for New Leads</button>
+  </div>
+</div>
+
+<!-- Stats removed for v1 -->
+
+<!-- Post Filter / Organizer -->
+<div class="post-filter-section">
+  <div class="post-filter-header">
+    <span class="post-filter-title">Your Posts</span>
+    <span style="font-size:11px;color:var(--text-dim)">Click a post to filter the board</span>
+  </div>
+  <div class="post-cards-row">
+
+    <!-- All Posts card -->
+    <div class="post-card-all active" onclick="filterByPost('all', this)">
+      <div class="all-icon">&#9783;</div>
+      <div class="all-label">All Posts</div>
+      <div class="all-count">90</div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">total leads</div>
+    </div>
+
+    <!-- Post 1: Reddit-style -->
+    <div class="post-card" onclick="filterByPost('post1', this)" data-postid="post1">
+      <div class="post-card-votes">
+        <span class="vote-arrow up">&#9650;</span>
+        <span class="vote-score">34</span>
+        <span class="vote-arrow">&#9660;</span>
+      </div>
+      <div class="post-card-content">
+        <div class="post-card-header">
+          <div class="post-card-sub-icon" style="background:var(--purple)">S</div>
+          <span class="post-card-sub-name" style="color:var(--purple)">r/SaaS</span>
+          <span class="post-card-author">&#183; Posted by u/you</span>
+          <span class="post-card-age">&#183; 4h ago</span>
+        </div>
+        <div class="post-card-title">What tools are you using for Reddit lead gen?</div>
+        <div class="post-card-body-preview">I've been experimenting with different approaches to find potential customers on Reddit. Currently using a mix of manual search and keyword alerts but looking for something better...</div>
+        <div class="post-card-bottom">
+          <div class="post-card-action-btn"><span class="act-icon">&#128172;</span> 18 Comments</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#8593;</span> Share</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#9734;</span> Save</div>
+        </div>
+      </div>
+      <div class="post-card-leads-badge"><span class="leads-icon">&#9733;</span> 23 leads</div>
+      <div class="post-card-pipeline-strip" style="position:absolute;bottom:0;left:0;right:0">
+        <div class="ps-seg" style="width:45%;background:var(--blue)"></div>
+        <div class="ps-seg" style="width:25%;background:var(--orange)"></div>
+        <div class="ps-seg" style="width:15%;background:var(--yellow)"></div>
+        <div class="ps-seg" style="width:15%;background:var(--green)"></div>
+      </div>
+    </div>
+
+    <!-- Post 2 -->
+    <div class="post-card" onclick="filterByPost('post2', this)" data-postid="post2">
+      <div class="post-card-votes">
+        <span class="vote-arrow up">&#9650;</span>
+        <span class="vote-score">89</span>
+        <span class="vote-arrow">&#9660;</span>
+      </div>
+      <div class="post-card-content">
+        <div class="post-card-header">
+          <div class="post-card-sub-icon" style="background:var(--orange)">s</div>
+          <span class="post-card-sub-name" style="color:var(--orange)">r/startups</span>
+          <span class="post-card-author">&#183; Posted by u/you</span>
+          <span class="post-card-age">&#183; 1d ago</span>
+        </div>
+        <div class="post-card-title">How we grew to 1k users via Reddit (no ads)</div>
+        <div class="post-card-body-preview">8 months ago we had 0 users. Today we passed 1,000 — and 80% came from Reddit. Here's the exact playbook we used, including which subreddits worked and which didn't...</div>
+        <div class="post-card-bottom">
+          <div class="post-card-action-btn"><span class="act-icon">&#128172;</span> 42 Comments</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#8593;</span> Share</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#9734;</span> Save</div>
+        </div>
+      </div>
+      <div class="post-card-leads-badge"><span class="leads-icon">&#9733;</span> 31 leads</div>
+      <div class="post-card-pipeline-strip" style="position:absolute;bottom:0;left:0;right:0">
+        <div class="ps-seg" style="width:40%;background:var(--blue)"></div>
+        <div class="ps-seg" style="width:20%;background:var(--orange)"></div>
+        <div class="ps-seg" style="width:25%;background:var(--yellow)"></div>
+        <div class="ps-seg" style="width:15%;background:var(--green)"></div>
+      </div>
+    </div>
+
+    <!-- Post 3 -->
+    <div class="post-card" onclick="filterByPost('post3', this)" data-postid="post3">
+      <div class="post-card-votes">
+        <span class="vote-arrow up">&#9650;</span>
+        <span class="vote-score">56</span>
+        <span class="vote-arrow">&#9660;</span>
+      </div>
+      <div class="post-card-content">
+        <div class="post-card-header">
+          <div class="post-card-sub-icon" style="background:var(--cyan)">E</div>
+          <span class="post-card-sub-name" style="color:var(--cyan)">r/Entrepreneur</span>
+          <span class="post-card-author">&#183; Posted by u/you</span>
+          <span class="post-card-age">&#183; 3d ago</span>
+        </div>
+        <div class="post-card-title">Honest review: 5 Reddit monitoring tools I tested</div>
+        <div class="post-card-body-preview">I spent 2 weeks testing every Reddit monitoring tool I could find. Here's what actually works, what's overpriced, and what I'd recommend depending on your budget...</div>
+        <div class="post-card-bottom">
+          <div class="post-card-action-btn"><span class="act-icon">&#128172;</span> 27 Comments</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#8593;</span> Share</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#9734;</span> Save</div>
+        </div>
+      </div>
+      <div class="post-card-leads-badge"><span class="leads-icon">&#9733;</span> 18 leads</div>
+      <div class="post-card-pipeline-strip" style="position:absolute;bottom:0;left:0;right:0">
+        <div class="ps-seg" style="width:35%;background:var(--blue)"></div>
+        <div class="ps-seg" style="width:30%;background:var(--orange)"></div>
+        <div class="ps-seg" style="width:20%;background:var(--yellow)"></div>
+        <div class="ps-seg" style="width:15%;background:var(--green)"></div>
+      </div>
+    </div>
+
+    <!-- Post 4 -->
+    <div class="post-card" onclick="filterByPost('post4', this)" data-postid="post4">
+      <div class="post-card-votes">
+        <span class="vote-arrow up">&#9650;</span>
+        <span class="vote-score">23</span>
+        <span class="vote-arrow">&#9660;</span>
+      </div>
+      <div class="post-card-content">
+        <div class="post-card-header">
+          <div class="post-card-sub-icon" style="background:var(--blue)">M</div>
+          <span class="post-card-sub-name" style="color:var(--blue)">r/Marketing</span>
+          <span class="post-card-author">&#183; Posted by u/you</span>
+          <span class="post-card-age">&#183; 5d ago</span>
+        </div>
+        <div class="post-card-title">Our content marketing stack for 2026</div>
+        <div class="post-card-body-preview">We've been refining our content stack all year. Here's what we settled on for writing, distribution, analytics, and community engagement...</div>
+        <div class="post-card-bottom">
+          <div class="post-card-action-btn"><span class="act-icon">&#128172;</span> 14 Comments</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#8593;</span> Share</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#9734;</span> Save</div>
+        </div>
+      </div>
+      <div class="post-card-leads-badge"><span class="leads-icon">&#9733;</span> 12 leads</div>
+      <div class="post-card-pipeline-strip" style="position:absolute;bottom:0;left:0;right:0">
+        <div class="ps-seg" style="width:50%;background:var(--blue)"></div>
+        <div class="ps-seg" style="width:25%;background:var(--orange)"></div>
+        <div class="ps-seg" style="width:15%;background:var(--yellow)"></div>
+        <div class="ps-seg" style="width:10%;background:var(--green)"></div>
+      </div>
+    </div>
+
+    <!-- Post 5 -->
+    <div class="post-card" onclick="filterByPost('post5', this)" data-postid="post5">
+      <div class="post-card-votes">
+        <span class="vote-arrow up">&#9650;</span>
+        <span class="vote-score">12</span>
+        <span class="vote-arrow">&#9660;</span>
+      </div>
+      <div class="post-card-content">
+        <div class="post-card-header">
+          <div class="post-card-sub-icon" style="background:var(--purple)">S</div>
+          <span class="post-card-sub-name" style="color:var(--purple)">r/SaaS</span>
+          <span class="post-card-author">&#183; Posted by u/you</span>
+          <span class="post-card-age">&#183; 1w ago</span>
+        </div>
+        <div class="post-card-title">Building in public: week 8 update</div>
+        <div class="post-card-body-preview">Week 8 numbers: 1,247 users, $4.2k MRR, 89% retention. Here's what went wrong this week and what we're changing for next sprint...</div>
+        <div class="post-card-bottom">
+          <div class="post-card-action-btn"><span class="act-icon">&#128172;</span> 8 Comments</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#8593;</span> Share</div>
+          <div class="post-card-action-btn"><span class="act-icon">&#9734;</span> Save</div>
+        </div>
+      </div>
+      <div class="post-card-leads-badge"><span class="leads-icon">&#9733;</span> 6 leads</div>
+      <div class="post-card-pipeline-strip" style="position:absolute;bottom:0;left:0;right:0">
+        <div class="ps-seg" style="width:55%;background:var(--blue)"></div>
+        <div class="ps-seg" style="width:20%;background:var(--orange)"></div>
+        <div class="ps-seg" style="width:15%;background:var(--yellow)"></div>
+        <div class="ps-seg" style="width:10%;background:var(--green)"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <input type="text" class="toolbar-search" placeholder="Search leads...">
+  <button class="toolbar-btn">Sort: Newest</button>
+  <div class="spacer"></div>
+  <span style="font-size:11px;color:var(--text-dim)">Bulk:</span>
+  <button class="toolbar-btn">Select All</button>
+  <button class="toolbar-btn">Dismiss Selected</button>
+  <button class="toolbar-btn primary">DM Selected</button>
+</div>
+
+<!-- Kanban Board -->
+<div class="kanban-wrapper">
+  <div class="kanban">
+
+    <!-- ===== READY TO DM ===== -->
+    <div class="kanban-col ready">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--blue)">Ready to DM</span>
+        <span class="kanban-col-count">47</span>
+      </div>
+      <div class="kanban-cards" id="col-ready">
+
+        <div class="dm-card" id="card-tk" data-post="post1">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">TK</div>
+            <div>
+              <div class="username">u/techkid_42</div>
+              <div class="subreddit">r/SaaS</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "What tools for Reddit lead gen?"</div>
+          <div class="comment-text">"This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months..."</div>
+          <div class="ai-note">High intent — mentions manual pain point, tried other tools</div>
+          <div class="meta"><span>2h ago</span><span>&#183;</span><span>4.2k karma</span></div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Draft DM &#8594;</button>
+            <button class="dismiss" onclick="dismissCard('card-tk')">&#10005;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey techkid_42 — saw your comment about tracking Reddit leads in a spreadsheet. Been there!
+
+We built automated monitoring that flags high-intent posts in real-time: yourproduct.com/?ref=dm_tk42
+
+Want me to walk you through how it works?</textarea>
+            <div class="tracked-link">&#128279; Tracked: yourproduct.com/?ref=dm_tk42</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-tk', 'col-sent')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-ms" data-post="post2">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">MS</div>
+            <div>
+              <div class="username">u/marketing_sarah</div>
+              <div class="subreddit">r/startups</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "How we grew to 1k users via Reddit"</div>
+          <div class="comment-text">"How does this compare to GummySearch? We're currently using that but the pricing is getting out of hand"</div>
+          <div class="ai-note">Competitor switch — price sensitivity, small team</div>
+          <div class="meta"><span>45m ago</span><span>&#183;</span><span>8.1k karma</span></div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Draft DM &#8594;</button>
+            <button class="dismiss" onclick="dismissCard('card-ms')">&#10005;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey Sarah — saw your comment about GummySearch pricing in r/startups.
+
+We built something for small teams without the enterprise price tag. Quick comparison: yourproduct.com/?ref=dm_sarah
+
+Happy to chat differences — no pressure!</textarea>
+            <div class="tracked-link">&#128279; Tracked: yourproduct.com/?ref=dm_sarah</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-ms', 'col-sent')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-np" data-post="post1">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">NP</div>
+            <div>
+              <div class="username">u/nocode_pete</div>
+              <div class="subreddit">r/SaaS</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "What tools for Reddit lead gen?"</div>
+          <div class="comment-text">"Would love to try this for our agency. Do you have a free trial?"</div>
+          <div class="ai-note">Trial interest — buying intent, agency = multi-seat potential</div>
+          <div class="meta"><span>3h ago</span><span>&#183;</span><span>2.1k karma</span></div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Draft DM &#8594;</button>
+            <button class="dismiss" onclick="dismissCard('card-np')">&#10005;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey Pete — saw your comment about using this for your agency. We do have a free trial!
+
+Here's a link to get started: yourproduct.com/?ref=dm_np42
+
+Happy to walk you through the agency workflow if you want.</textarea>
+            <div class="tracked-link">&#128279; Tracked: yourproduct.com/?ref=dm_np42</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-np', 'col-sent')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-lw" data-post="post2">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">LW</div>
+            <div>
+              <div class="username">u/lisa_writes</div>
+              <div class="subreddit">r/Marketing</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "How we grew to 1k users via Reddit"</div>
+          <div class="comment-text">"This is genius. Bookmarking for later. How do you handle subreddit rules compliance?"</div>
+          <div class="ai-note">Interest + compliance question — product-aware lead</div>
+          <div class="meta"><span>5h ago</span><span>&#183;</span><span>6.3k karma</span></div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Draft DM &#8594;</button>
+            <button class="dismiss" onclick="dismissCard('card-lw')">&#10005;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey Lisa — great question about compliance. We actually built an automated rules checker that scans each subreddit's policies before you post.
+
+Full breakdown here: yourproduct.com/?ref=dm_lisa
+
+Let me know if you want a walkthrough!</textarea>
+            <div class="tracked-link">&#128279; Tracked: yourproduct.com/?ref=dm_lisa</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-lw', 'col-sent')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-cp" data-post="post3">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">CP</div>
+            <div>
+              <div class="username">u/content_pro</div>
+              <div class="subreddit">r/Entrepreneur</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "Honest review: 5 Reddit monitoring tools"</div>
+          <div class="comment-text">"Interesting approach. Does this work for B2C or mainly B2B SaaS?"</div>
+          <div class="ai-note">Qualification question — exploring fit for their use case</div>
+          <div class="meta"><span>1h ago</span><span>&#183;</span><span>12k karma</span></div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Draft DM &#8594;</button>
+            <button class="dismiss" onclick="dismissCard('card-cp')">&#10005;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey content_pro — works for both! Most of our users are B2B SaaS but we've got agencies and B2C brands using it too.
+
+The keyword engine adapts to any niche: yourproduct.com/?ref=dm_cp
+
+Want me to share some B2C examples?</textarea>
+            <div class="tracked-link">&#128279; Tracked: yourproduct.com/?ref=dm_cp</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-cp', 'col-sent')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Arrow 1 -->
+    <div class="kanban-arrow">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </div>
+
+    <!-- ===== DM SENT ===== -->
+    <div class="kanban-col sent">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--orange)">DM Sent</span>
+        <span class="kanban-col-count">24</span>
+      </div>
+      <div class="kanban-cards" id="col-sent">
+
+        <div class="dm-card" id="card-ab" data-post="post2">
+          <div class="dm-card-top">
+            <div class="avatar">AB</div>
+            <div>
+              <div class="username">u/alex_b2b</div>
+              <div class="subreddit">r/startups</div>
+            </div>
+            <div class="spacer"></div>
+            <span class="touch-badge touch1">Touch 1</span>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "How we grew to 1k users via Reddit"</div>
+          <div class="comment-text">"This looks solid. What's the onboarding like?"</div>
+          <div class="meta"><span>Sent 6h ago</span></div>
+          <div class="tracked-link">&#128279; dm_alex_b2b &#8212; 0 clicks</div>
+          <div class="actions">
+            <button class="primary" onclick="moveCard('card-ab', 'col-followup')">Got Reply &#10003;</button>
+            <button onclick="moveCard('card-ab', 'col-followup')">No Response</button>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-gj" data-post="post1">
+          <div class="dm-card-top">
+            <div class="avatar">GJ</div>
+            <div>
+              <div class="username">u/growth_jen</div>
+              <div class="subreddit">r/SaaS</div>
+            </div>
+            <div class="spacer"></div>
+            <span class="touch-badge touch1">Touch 1</span>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "What tools for Reddit lead gen?"</div>
+          <div class="comment-text">"I've been using GummySearch — it's okay but limited"</div>
+          <div class="meta"><span>Sent 3h ago</span></div>
+          <div class="tracked-link">&#128279; dm_jen_gj &#8212; 1 click</div>
+          <div class="actions">
+            <button class="primary" onclick="moveCard('card-gj', 'col-followup')">Got Reply &#10003;</button>
+            <button onclick="moveCard('card-gj', 'col-followup')">No Response</button>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-mf" data-post="post3">
+          <div class="dm-card-top">
+            <div class="avatar">MF</div>
+            <div>
+              <div class="username">u/mike_founder</div>
+              <div class="subreddit">r/Entrepreneur</div>
+            </div>
+            <div class="spacer"></div>
+            <span class="touch-badge touch1">Touch 1</span>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "Honest review: 5 Reddit monitoring tools"</div>
+          <div class="comment-text">"Surprised you didn't include Syften in the review"</div>
+          <div class="meta"><span>Sent 1d ago</span></div>
+          <div class="tracked-link">&#128279; dm_mike_mf &#8212; 0 clicks</div>
+          <div class="actions">
+            <button class="primary" onclick="moveCard('card-mf', 'col-followup')">Got Reply &#10003;</button>
+            <button onclick="moveCard('card-mf', 'col-followup')">No Response</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Arrow 2 -->
+    <div class="kanban-arrow">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </div>
+
+    <!-- ===== FOLLOW UP ===== -->
+    <div class="kanban-col followup">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--yellow)">Follow Up</span>
+        <span class="kanban-col-count">11</span>
+      </div>
+      <div class="kanban-cards" id="col-followup">
+
+        <div class="dm-card" id="card-rk" data-post="post1">
+          <div class="dm-card-top">
+            <div class="avatar">RK</div>
+            <div>
+              <div class="username">u/revops_kate</div>
+              <div class="subreddit">r/SaaS</div>
+            </div>
+            <div class="spacer"></div>
+            <span class="touch-badge touch2">Touch 2</span>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "What tools for Reddit lead gen?"</div>
+          <div class="comment-text">"She replied: 'This looks promising, how does pricing work for teams?'"</div>
+          <div class="followup-timer overdue">&#9200; Follow-up overdue by 6h</div>
+          <div class="tracked-link">&#128279; dm_kate_rk &#8212; 3 clicks</div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Send Follow-up &#8594;</button>
+            <button onclick="moveCard('card-rk', 'col-converted')">Converted &#10003;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey Kate — glad that was helpful! For teams, we've got a plan starting at $49/mo for up to 5 seats.
+
+Here's the full pricing breakdown: yourproduct.com/pricing?ref=dm_kate_rk
+
+Want me to set up a quick 10-min walkthrough? No pitch — just a sanity check to see if it's a fit.</textarea>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-rk', 'col-converted')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-sd" data-post="post3">
+          <div class="dm-card-top">
+            <div class="avatar">SD</div>
+            <div>
+              <div class="username">u/startup_dan</div>
+              <div class="subreddit">r/Entrepreneur</div>
+            </div>
+            <div class="spacer"></div>
+            <span class="touch-badge touch1">Touch 1</span>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "Honest review: 5 Reddit monitoring tools"</div>
+          <div class="comment-text">"He replied: 'Interesting, do you have case studies?'"</div>
+          <div class="followup-timer active">&#9200; Follow-up in 18h</div>
+          <div class="tracked-link">&#128279; dm_dan_sd &#8212; 1 click</div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Send Follow-up &#8594;</button>
+            <button onclick="moveCard('card-sd', 'col-converted')">Converted &#10003;</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey Dan — absolutely! Here are a couple case studies from similar companies:
+
+1. SaaS startup went from 0 to 47 Reddit leads/mo: yourproduct.com/case-study-1
+2. Agency uses us to manage 12 client accounts: yourproduct.com/case-study-2
+
+Both started with our free trial. Want me to set one up for you?</textarea>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-sd', 'col-converted')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card" id="card-jm" data-post="post2">
+          <div class="dm-card-top">
+            <div class="avatar">JM</div>
+            <div>
+              <div class="username">u/jenny_mktg</div>
+              <div class="subreddit">r/startups</div>
+            </div>
+            <div class="spacer"></div>
+            <span class="touch-badge touch3">Touch 3</span>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "How we grew to 1k users via Reddit"</div>
+          <div class="comment-text">"No response to Touch 2 — final close-loop DM"</div>
+          <div class="followup-timer active">&#9200; Send final touch today</div>
+          <div class="actions">
+            <button class="primary" onclick="openDraftInline(this)">Send Close-out &#8594;</button>
+            <button class="dismiss" onclick="dismissCard('card-jm')">Close Lost</button>
+          </div>
+          <div class="inline-dm">
+            <textarea>Hey Jenny — last ping on this. Still relevant, or should I close this out?
+
+Either way, the growth playbook I shared is yours to keep. Good luck with the launch!</textarea>
+            <div class="dm-actions">
+              <button class="toolbar-btn" style="font-size:10px">Regenerate</button>
+              <button class="toolbar-btn primary" style="font-size:11px" onclick="moveCard('card-jm', 'col-converted')">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Arrow 3 -->
+    <div class="kanban-arrow">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </div>
+
+    <!-- ===== CONVERTED ===== -->
+    <div class="kanban-col converted">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--green)">Converted</span>
+        <span class="kanban-col-count">8</span>
+      </div>
+      <div class="kanban-cards" id="col-converted">
+
+        <div class="dm-card success-pulse" data-post="post1">
+          <div class="dm-card-top">
+            <div class="avatar" style="background:var(--green-bg);color:var(--green)">DM</div>
+            <div>
+              <div class="username">u/dev_marco</div>
+              <div class="subreddit">r/webdev</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "What tools for Reddit lead gen?"</div>
+          <div class="tracked-link" style="font-size:11px">&#10003; Clicked tracked link 3h ago &#8212; signed up for trial</div>
+          <div class="meta"><span>Touch 1</span><span>&#183;</span><span>DM to conversion: 4h</span></div>
+        </div>
+
+        <div class="dm-card" data-post="post3">
+          <div class="dm-card-top">
+            <div class="avatar" style="background:var(--green-bg);color:var(--green)">SL</div>
+            <div>
+              <div class="username">u/startup_laura</div>
+              <div class="subreddit">r/Entrepreneur</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "Honest review: 5 Reddit monitoring tools"</div>
+          <div class="tracked-link" style="font-size:11px">&#10003; Signed up via tracked link &#8212; upgraded to Pro</div>
+          <div class="meta"><span>Touch 2</span><span>&#183;</span><span>DM to conversion: 2d</span></div>
+        </div>
+
+        <div class="dm-card" data-post="post2">
+          <div class="dm-card-top">
+            <div class="avatar" style="background:var(--green-bg);color:var(--green)">BH</div>
+            <div>
+              <div class="username">u/b2b_henry</div>
+              <div class="subreddit">r/startups</div>
+            </div>
+          </div>
+          <div class="source-post"><span class="post-icon">&#128196;</span> "How we grew to 1k users via Reddit"</div>
+          <div class="tracked-link" style="font-size:11px">&#10003; Booked a demo call &#8212; closed deal ($99/mo)</div>
+          <div class="meta"><span>Touch 2</span><span>&#183;</span><span>DM to conversion: 5d</span></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Full-page detail overlay -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-panel">
+    <div class="detail-panel-header">
+      <div class="detail-avatar" id="detailAvatar">TK</div>
+      <div class="detail-user-info">
+        <div class="detail-username" id="detailUsername">u/techkid_42</div>
+        <div class="detail-sub" id="detailSub">r/SaaS · 4.2k karma · Redditor for 3y</div>
+      </div>
+      <div id="detailStageBadge" style="display:flex;align-items:center;gap:6px"></div>
+      <div class="detail-panel-close" onclick="closeDetail()">&#10005;</div>
+    </div>
+
+    <div class="detail-panel-body">
+      <!-- Their comment -->
+      <div class="detail-section">
+        <div class="detail-section-title">Their Comment</div>
+        <div class="detail-section-content" id="detailComment" style="font-size:14px;color:var(--text);line-height:1.7"></div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="detail-section">
+        <div class="detail-section-title">AI Analysis</div>
+        <div class="detail-section-content" id="detailAI" style="color:var(--blue)"></div>
+      </div>
+
+      <!-- Source thread -->
+      <div class="detail-section">
+        <div class="detail-section-title">Source Thread</div>
+        <div class="detail-section-content" id="detailThread"></div>
+      </div>
+
+      <!-- Lead history -->
+      <div class="detail-section">
+        <div class="detail-section-title">Lead History</div>
+        <div class="detail-section-content" id="detailHistory">
+          <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">Comment detected on your post</div>
+          <div style="padding:6px 0;font-size:12px;color:var(--text-dim)">First interaction — no prior DMs</div>
+        </div>
+      </div>
+
+      <!-- DM Compose -->
+      <div class="detail-section full-width">
+        <div class="detail-section-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>DM Draft</span>
+          <div style="display:flex;gap:6px">
+            <button class="toolbar-btn" style="font-size:10px;padding:4px 10px">Regenerate</button>
+            <button class="toolbar-btn" style="font-size:10px;padding:4px 10px">Use Template</button>
+          </div>
+        </div>
+        <textarea id="detailDraft" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;min-height:120px;outline:none;margin-bottom:8px"></textarea>
+        <div class="tracked-link" id="detailTracked" style="font-size:11px">&#128279; Tracked: yourproduct.com/?ref=dm_tk42</div>
+      </div>
+    </div>
+
+    <div class="detail-panel-footer">
+      <div class="footer-left">
+        <div class="detail-stage-indicator">
+          <span class="stage-step current" id="stageReady">Ready to DM</span>
+          <span class="stage-arrow">&#8594;</span>
+          <span class="stage-step" id="stageSent">DM Sent</span>
+          <span class="stage-arrow">&#8594;</span>
+          <span class="stage-step" id="stageFollow">Follow Up</span>
+          <span class="stage-arrow">&#8594;</span>
+          <span class="stage-step" id="stageConverted">Converted</span>
+        </div>
+      </div>
+      <button class="toolbar-btn" onclick="closeDetail()" style="color:var(--red)">Dismiss</button>
+      <button class="toolbar-btn">View Thread &#8599;</button>
+      <button class="toolbar-btn primary" onclick="closeDetail()">Copy & Open Reddit DM &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast">
+  <span class="toast-icon">&#10003;</span>
+  <div>
+    <div class="toast-text" id="toast-text">DM copied & Reddit opened!</div>
+    <div class="toast-sub" id="toast-sub">u/techkid_42 moved to DM Sent</div>
+  </div>
+</div>
+
+<script>
+  // Open inline DM draft
+  function openDraftInline(btn) {
+    const card = btn.closest('.dm-card');
+    const dm = card.querySelector('.inline-dm');
+    if (dm) {
+      dm.classList.toggle('open');
+      if (dm.classList.contains('open')) {
+        btn.textContent = 'Close Draft';
+      } else {
+        btn.innerHTML = btn.closest('.kanban-col').classList.contains('followup') ? 'Send Follow-up &#8594;' : 'Draft DM &#8594;';
+      }
+    }
+  }
+
+  // Move card with animation
+  function moveCard(cardId, targetColId) {
+    const card = document.getElementById(cardId);
+    const targetCol = document.getElementById(targetColId);
+    if (!card || !targetCol) return;
+
+    // Close any open inline DM
+    const openDm = card.querySelector('.inline-dm.open');
+    if (openDm) openDm.classList.remove('open');
+
+    // Get card position for flying animation
+    const cardRect = card.getBoundingClientRect();
+
+    // Create flying card clone
+    const flyingCard = document.createElement('div');
+    flyingCard.className = 'flying-card';
+    flyingCard.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--text-muted)">${card.querySelector('.avatar').textContent}</div>
+        <span style="font-size:12px;font-weight:600">${card.querySelector('.username').textContent}</span>
+      </div>
+    `;
+    flyingCard.style.left = cardRect.left + 'px';
+    flyingCard.style.top = cardRect.top + 'px';
+    flyingCard.style.width = cardRect.width + 'px';
+    document.body.appendChild(flyingCard);
+
+    // Animate original card out
+    card.classList.add('moving');
+
+    // Get target position
+    setTimeout(() => {
+      const targetRect = targetCol.getBoundingClientRect();
+      flyingCard.style.left = targetRect.left + 12 + 'px';
+      flyingCard.style.top = targetRect.top + 60 + 'px';
+      flyingCard.style.width = (targetRect.width - 24) + 'px';
+      flyingCard.style.opacity = '0.8';
+    }, 50);
+
+    // After animation, move the actual card
+    setTimeout(() => {
+      flyingCard.remove();
+      card.classList.remove('moving');
+      card.classList.add('moving-in');
+
+      // Update card content for new stage
+      updateCardForStage(card, targetColId);
+
+      // Prepend to target column
+      targetCol.prepend(card);
+
+      // Show toast
+      const username = card.querySelector('.username').textContent;
+      const stageNames = { 'col-sent': 'DM Sent', 'col-followup': 'Follow Up', 'col-converted': 'Converted' };
+      showToast(
+        targetColId === 'col-converted' ? 'Lead converted!' : 'Card moved!',
+        `${username} moved to ${stageNames[targetColId]}`
+      );
+
+      // Update counts
+      updateCounts();
+
+      setTimeout(() => card.classList.remove('moving-in'), 400);
+    }, 550);
+  }
+
+  // Update card appearance for new stage
+  function updateCardForStage(card, targetColId) {
+    const actionsDiv = card.querySelector('.actions');
+
+    if (targetColId === 'col-sent') {
+      // Remove inline DM
+      const dm = card.querySelector('.inline-dm');
+      if (dm) dm.remove();
+
+      // Update actions
+      actionsDiv.innerHTML = `
+        <button class="primary" onclick="moveCard('${card.id}', 'col-followup')">Got Reply &#10003;</button>
+        <button onclick="moveCard('${card.id}', 'col-followup')">No Response</button>
+      `;
+
+      // Add touch badge
+      const top = card.querySelector('.dm-card-top');
+      if (!card.querySelector('.touch-badge')) {
+        const spacer = document.createElement('div');
+        spacer.className = 'spacer';
+        top.appendChild(spacer);
+        const badge = document.createElement('span');
+        badge.className = 'touch-badge touch1';
+        badge.textContent = 'Touch 1';
+        top.appendChild(badge);
+      }
+
+      // Update meta
+      const meta = card.querySelector('.meta');
+      if (meta) meta.innerHTML = '<span>Sent just now</span>';
+
+    } else if (targetColId === 'col-followup') {
+      actionsDiv.innerHTML = `
+        <button class="primary" onclick="openDraftInline(this)">Send Follow-up &#8594;</button>
+        <button onclick="moveCard('${card.id}', 'col-converted')">Converted &#10003;</button>
+      `;
+
+    } else if (targetColId === 'col-converted') {
+      // Remove inline DM
+      const dm = card.querySelector('.inline-dm');
+      if (dm) dm.remove();
+
+      // Update avatar color
+      const avatar = card.querySelector('.avatar');
+      avatar.style.background = 'var(--green-bg)';
+      avatar.style.color = 'var(--green)';
+
+      // Remove actions, add conversion info
+      actionsDiv.remove();
+      const trackedDiv = document.createElement('div');
+      trackedDiv.className = 'tracked-link';
+      trackedDiv.style.fontSize = '11px';
+      trackedDiv.innerHTML = '&#10003; Converted just now';
+      card.appendChild(trackedDiv);
+
+      card.classList.add('success-pulse');
+    }
+  }
+
+  // Dismiss card with fade out
+  function dismissCard(cardId) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    card.style.transition = 'all 0.3s ease';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      card.remove();
+      updateCounts();
+      showToast('Lead dismissed', card.querySelector('.username')?.textContent + ' removed');
+    }, 300);
+  }
+
+  // Update column counts
+  function updateCounts() {
+    ['col-ready', 'col-sent', 'col-followup', 'col-converted'].forEach(colId => {
+      const col = document.getElementById(colId);
+      const count = col.querySelectorAll('.dm-card').length;
+      col.closest('.kanban-col').querySelector('.kanban-col-count').textContent = count;
+    });
+  }
+
+  // Show toast notification
+  function showToast(text, sub) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-text').textContent = text;
+    document.getElementById('toast-sub').textContent = sub;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  // Inject expand hints on every card on load
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.dm-card').forEach(card => {
+      // Expand icon (top right)
+      const hint = document.createElement('div');
+      hint.className = 'expand-hint';
+      hint.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+      hint.onclick = function(e) { e.stopPropagation(); openDetail(card); };
+      card.appendChild(hint);
+
+      // "Click to expand" bar (bottom)
+      const bar = document.createElement('div');
+      bar.className = 'expand-bar';
+      bar.innerHTML = '<span>Click to expand &#8599;</span>';
+      card.appendChild(bar);
+
+      // Click card body to expand (but not buttons)
+      card.addEventListener('click', function(e) {
+        if (e.target.closest('button') || e.target.closest('.checkbox') || e.target.closest('textarea') || e.target.closest('.inline-dm')) return;
+        openDetail(card);
+      });
+    });
+  });
+
+  // Open detail overlay
+  function openDetail(card) {
+    const overlay = document.getElementById('detailOverlay');
+    const username = card.querySelector('.username')?.textContent || 'Unknown';
+    const subreddit = card.querySelector('.subreddit')?.textContent || '';
+    const avatar = card.querySelector('.avatar')?.textContent || '??';
+    const comment = card.querySelector('.comment-text')?.textContent || '';
+    const aiNote = card.querySelector('.ai-note')?.textContent || 'No analysis available';
+    const sourcePost = card.querySelector('.source-post')?.textContent || '';
+
+    document.getElementById('detailAvatar').textContent = avatar;
+    document.getElementById('detailUsername').textContent = username;
+    document.getElementById('detailSub').textContent = subreddit + ' · Redditor';
+    document.getElementById('detailComment').textContent = comment;
+    document.getElementById('detailAI').textContent = aiNote;
+    document.getElementById('detailThread').innerHTML = '<div style="font-size:12px">' + sourcePost + '</div>';
+
+    // Figure out which stage this card is in
+    const col = card.closest('.kanban-col');
+    const stages = ['stageReady', 'stageSent', 'stageFollow', 'stageConverted'];
+    const colClasses = ['ready', 'sent', 'followup', 'converted'];
+    stages.forEach(s => document.getElementById(s).classList.remove('current'));
+    colClasses.forEach((cls, i) => {
+      if (col && col.classList.contains(cls)) {
+        document.getElementById(stages[i]).classList.add('current');
+      }
+    });
+
+    // Set draft text
+    const draft = card.querySelector('.inline-dm textarea');
+    document.getElementById('detailDraft').value = draft ? draft.value : 'Hey ' + username.replace('u/', '') + ' — saw your comment and wanted to reach out...\n\nyourproduct.com/?ref=dm_' + username.replace('u/', '').substring(0, 8);
+    document.getElementById('detailTracked').innerHTML = '&#128279; Tracked: yourproduct.com/?ref=dm_' + username.replace('u/', '').substring(0, 8);
+
+    // Stage badge
+    let stageName = 'Ready to DM';
+    let stageColor = 'var(--blue)';
+    if (col?.classList.contains('sent')) { stageName = 'DM Sent'; stageColor = 'var(--orange)'; }
+    if (col?.classList.contains('followup')) { stageName = 'Follow Up'; stageColor = 'var(--yellow)'; }
+    if (col?.classList.contains('converted')) { stageName = 'Converted'; stageColor = 'var(--green)'; }
+    document.getElementById('detailStageBadge').innerHTML = '<span style="padding:4px 12px;border-radius:10px;font-size:11px;font-weight:600;background:' + stageColor.replace(')', ',0.15)').replace('var(', 'rgba(').replace('--', '') + ';color:' + stageColor + '">' + stageName + '</span>';
+    // Simpler approach for the badge color
+    const badgeEl = document.getElementById('detailStageBadge');
+    const bgMap = { 'Ready to DM': 'var(--blue-bg)', 'DM Sent': 'var(--orange-bg)', 'Follow Up': 'var(--yellow-bg)', 'Converted': 'var(--green-bg)' };
+    const fgMap = { 'Ready to DM': 'var(--blue)', 'DM Sent': 'var(--orange)', 'Follow Up': 'var(--yellow)', 'Converted': 'var(--green)' };
+    badgeEl.innerHTML = '<span style="padding:4px 14px;border-radius:10px;font-size:12px;font-weight:600;background:' + bgMap[stageName] + ';color:' + fgMap[stageName] + '">' + stageName + '</span>';
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+  }
+
+  // Close detail overlay
+  function closeDetail() {
+    const overlay = document.getElementById('detailOverlay');
+    overlay.classList.remove('open');
+    setTimeout(() => overlay.style.display = 'none', 300);
+  }
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDetail();
+  });
+
+  // Filter by post
+  function filterByPost(postId, el) {
+    // Update active state on all post cards
+    document.querySelectorAll('.post-card, .post-card-all').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+
+    // Filter kanban cards with animation
+    document.querySelectorAll('.dm-card').forEach(card => {
+      if (postId === 'all' || card.dataset.post === postId) {
+        card.style.display = '';
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(8px)';
+        requestAnimationFrame(() => {
+          card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        });
+      } else {
+        card.style.transition = 'opacity 0.15s ease';
+        card.style.opacity = '0';
+        setTimeout(() => { card.style.display = 'none'; }, 150);
+      }
+    });
+  }
+</script>
+
+</body>
+</html>

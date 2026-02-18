@@ -247,6 +247,27 @@ export async function fetchThreadComments(permalink: string): Promise<ThreadComm
   }
 }
 
+export async function fetchUserPosts(username: string, limit = 10): Promise<RedditPost[]> {
+  // Strip leading u/ or /u/ from username
+  const cleanUsername = username.replace(/^\/?u\//, '');
+  const cacheKey = `userposts:${cleanUsername}:${limit}`;
+  const cached = getFromMemoryCache(cacheKey);
+  if (cached) return cached.posts;
+
+  try {
+    const url = `${REDDIT_BASE}/user/${cleanUsername}/submitted.json?limit=${limit}&sort=new&raw_json=1`;
+    const json = await fetchFromReddit(url) as { data: { children: Record<string, unknown>[] } };
+
+    const posts = json.data.children.map(parseRedditPost);
+
+    setMemoryCache(cacheKey, { posts });
+    return posts;
+  } catch (error) {
+    console.error('Failed to fetch user posts:', error);
+    return [];
+  }
+}
+
 export async function searchSubredditPosts(
   subreddit: string,
   query: string,

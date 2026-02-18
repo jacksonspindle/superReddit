@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PermissionType } from '@/types';
-import { fetchThreadComments } from '@/lib/reddit/fetcher';
+import { fetchThreadComments, fetchUserPosts } from '@/lib/reddit/fetcher';
 import { detectPermission } from '@/lib/outreach/permission-detector';
 
 export interface DetectedCommenter {
@@ -27,7 +27,18 @@ export async function monitorTrackedThreads(
     .order('created_at', { ascending: false })
     .limit(10);
 
-  if (!replies || replies.length === 0) return [];
+  // Also fetch the user's recent Reddit posts
+  const userPosts = await fetchUserPosts(redditUsername, 10);
+  const replyPermalinks = new Set((replies || []).map(r => r.thread_permalink));
+
+  // Merge user posts into the thread list (avoid duplicates)
+  const userPostThreads = userPosts
+    .filter(p => !replyPermalinks.has(p.permalink))
+    .map(p => ({ thread_permalink: p.permalink, signal_id: null, reddit_comment_id: null }));
+
+  const allThreads = [...(replies || []), ...userPostThreads];
+
+  if (allThreads.length === 0) return [];
 
   // 2. Get already-tracked usernames for this project to avoid duplicates
   const { data: existingDms } = await supabase
@@ -39,13 +50,18 @@ export async function monitorTrackedThreads(
     (existingDms || []).map((d) => `${d.reddit_username}::${d.source_thread_permalink}`)
   );
 
+  // 3. Fetch comments for all threads in parallel (rate limiter queues them)
+  const validThreads = allThreads.filter(t => t.thread_permalink);
+  const commentResults = await Promise.all(
+    validThreads.map(t => fetchThreadComments(t.thread_permalink))
+  );
+
   const detected: DetectedCommenter[] = [];
+  const lowerUsername = redditUsername.toLowerCase();
 
-  // 3. For each tracked thread, fetch comments and detect new leads
-  for (const reply of replies) {
-    if (!reply.thread_permalink) continue;
-
-    const comments = await fetchThreadComments(reply.thread_permalink);
+  for (let i = 0; i < validThreads.length; i++) {
+    const reply = validThreads[i];
+    const comments = commentResults[i];
     if (comments.length === 0) continue;
 
     // Build a set of the user's own comment IDs for reply detection
@@ -53,8 +69,6 @@ export async function monitorTrackedThreads(
     if (reply.reddit_comment_id) {
       userCommentIds.add(`t1_${reply.reddit_comment_id}`);
     }
-    // Also detect by username
-    const lowerUsername = redditUsername.toLowerCase();
 
     for (const comment of comments) {
       // Skip the user's own comments

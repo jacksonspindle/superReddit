@@ -370,6 +370,8 @@ export interface OutreachDM {
     title: string;
     subreddit: string;
     permalink: string;
+    score: number;
+    num_comments: number;
   } | null;
 }
 

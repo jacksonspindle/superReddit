@@ -20,6 +20,11 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    if ('keywords' in updates) {
+      const kw = updates.keywords;
+      updates.setup_completed = Array.isArray(kw) && kw.length > 0;
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }

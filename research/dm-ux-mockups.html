@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperReddit DM CRM — 11 UX Concepts</title>
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #141416;
+    --surface2: #1c1c1f;
+    --surface3: #242428;
+    --border: #2a2a2e;
+    --border-hover: #3a3a3f;
+    --text: #e4e4e7;
+    --text-muted: #71717a;
+    --text-dim: #52525b;
+    --primary: #6366f1;
+    --primary-dim: #4f46e5;
+    --green: #22c55e;
+    --green-dim: #16a34a;
+    --green-bg: rgba(34,197,94,0.1);
+    --yellow: #eab308;
+    --yellow-bg: rgba(234,179,8,0.1);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59,130,246,0.1);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.1);
+    --orange: #f97316;
+    --orange-bg: rgba(249,115,22,0.1);
+    --purple: #a855f7;
+    --purple-bg: rgba(168,85,247,0.1);
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.5; }
+
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 16px 32px; display: flex; gap: 12px; align-items: center;
+    overflow-x: auto;
+  }
+  .nav-title { font-size: 14px; color: var(--text-muted); white-space: nowrap; margin-right: 8px; }
+  .nav a {
+    padding: 8px 16px; border-radius: 6px; text-decoration: none;
+    font-size: 13px; font-weight: 500; white-space: nowrap;
+    color: var(--text-muted); background: var(--surface2); border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .nav a:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface3); }
+  .nav a.active { color: var(--primary); border-color: var(--primary); background: rgba(99,102,241,0.08); }
+
+  .concept { padding: 32px; min-height: 100vh; display: none; }
+  .concept.active { display: block; }
+  .concept-header { margin-bottom: 24px; }
+  .concept-header h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .concept-header p { color: var(--text-muted); font-size: 13px; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+  .stat-change { font-size: 11px; margin-top: 2px; }
+  .stat-change.up { color: var(--green); }
+  .stat-change.down { color: var(--red); }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .toolbar-search {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 12px; color: var(--text); font-size: 13px; width: 220px; outline: none;
+  }
+  .toolbar-search:focus { border-color: var(--primary); }
+  .toolbar-btn {
+    padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .toolbar-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .toolbar-btn.active { color: var(--primary); border-color: var(--primary); background: rgba(99,102,241,0.08); }
+  .toolbar-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .toolbar-btn.primary:hover { background: var(--primary-dim); }
+  .spacer { flex: 1; }
+  .bulk-actions { display: flex; gap: 6px; align-items: center; }
+  .bulk-label { font-size: 11px; color: var(--text-muted); }
+
+  /* Stage pills */
+  .stage-pills { display: flex; gap: 6px; margin-bottom: 16px; }
+  .stage-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .stage-pill:hover { color: var(--text); }
+  .stage-pill.active { border-color: var(--primary); color: var(--primary); background: rgba(99,102,241,0.08); }
+  .stage-pill .count {
+    background: var(--surface3); padding: 1px 7px; border-radius: 10px; font-size: 11px;
+  }
+  .stage-pill.active .count { background: rgba(99,102,241,0.2); }
+
+  /* ========== CONCEPT 1: KANBAN ========== */
+  .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; min-height: 600px; }
+  .kanban-col {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 12px; display: flex; flex-direction: column;
+  }
+  .kanban-col-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 4px 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+  }
+  .kanban-col-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kanban-col-count { font-size: 11px; color: var(--text-muted); background: var(--surface3); padding: 2px 8px; border-radius: 10px; }
+  .kanban-cards { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+
+  .dm-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .dm-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+  .dm-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .dm-card .avatar {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .dm-card .username { font-size: 13px; font-weight: 600; }
+  .dm-card .subreddit { font-size: 11px; color: var(--text-muted); }
+  .dm-card .comment-text { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .dm-card .ai-note { font-size: 11px; color: var(--blue); background: var(--blue-bg); padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; }
+  .dm-card .meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+  .dm-card .actions { display: flex; gap: 6px; margin-top: 8px; }
+  .dm-card .actions button {
+    flex: 1; padding: 5px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface3); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .dm-card .actions button:hover { color: var(--text); border-color: var(--border-hover); }
+  .dm-card .actions button.primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .dm-card .actions button.dismiss { color: var(--red); }
+
+  .dm-card .checkbox { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; }
+
+  /* Stage dot */
+  .stage-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .stage-dot.detected { background: var(--yellow); }
+  .stage-dot.ready { background: var(--blue); }
+  .stage-dot.sent { background: var(--orange); }
+  .stage-dot.converted { background: var(--green); }
+  .stage-dot.dismissed { background: var(--red); }
+
+  /* ========== CONCEPT 2: TABLE CRM ========== */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .crm-table { width: 100%; border-collapse: collapse; }
+  .crm-table th {
+    text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+  }
+  .crm-table td {
+    padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .crm-table tr:hover td { background: var(--surface2); }
+  .crm-table .user-cell { display: flex; align-items: center; gap: 8px; }
+  .crm-table .stage-badge {
+    padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; display: inline-block;
+  }
+  .stage-badge.detected { background: var(--yellow-bg); color: var(--yellow); }
+  .stage-badge.ready { background: var(--blue-bg); color: var(--blue); }
+  .stage-badge.sent { background: var(--orange-bg); color: var(--orange); }
+  .stage-badge.converted { background: var(--green-bg); color: var(--green); }
+  .stage-badge.dismissed { background: var(--red-bg); color: var(--red); }
+
+  .crm-table .comment-preview { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px; }
+  .crm-table .actions-cell { display: flex; gap: 4px; }
+  .crm-table .actions-cell button {
+    padding: 4px 10px; border-radius: 4px; font-size: 11px;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface3); color: var(--text-muted);
+  }
+  .crm-table .actions-cell button.primary { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* Pagination */
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; font-size: 12px; color: var(--text-muted);
+    border-top: 1px solid var(--border);
+  }
+  .pagination .pages { display: flex; gap: 4px; }
+  .pagination .page-btn {
+    padding: 4px 10px; border-radius: 4px; font-size: 12px;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+  }
+  .pagination .page-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* ========== CONCEPT 3: PIPELINE CARDS ========== */
+  .pipeline-section { margin-bottom: 28px; }
+  .pipeline-section-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .pipeline-section-title { font-size: 14px; font-weight: 600; }
+  .pipeline-section-count { font-size: 12px; color: var(--text-muted); }
+  .pipeline-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+
+  .pipe-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; transition: all 0.15s;
+  }
+  .pipe-card:hover { border-color: var(--border-hover); }
+  .pipe-card-stage-bar { height: 3px; }
+  .pipe-card-stage-bar.detected { background: var(--yellow); }
+  .pipe-card-stage-bar.ready { background: var(--blue); }
+  .pipe-card-stage-bar.sent { background: var(--orange); }
+  .pipe-card-stage-bar.converted { background: var(--green); }
+  .pipe-card-body { padding: 14px; }
+  .pipe-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .pipe-card .avatar-lg {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--text-muted);
+  }
+  .pipe-card .user-info { flex: 1; }
+  .pipe-card .user-info .name { font-size: 14px; font-weight: 600; }
+  .pipe-card .user-info .sub { font-size: 12px; color: var(--text-muted); }
+  .pipe-card .comment-block {
+    background: var(--surface2); border-radius: 6px; padding: 10px; margin-bottom: 10px;
+    font-size: 12px; color: var(--text-muted); border-left: 2px solid var(--border);
+  }
+  .pipe-card .dm-draft-area {
+    background: var(--surface2); border-radius: 6px; padding: 10px; margin-bottom: 10px;
+    font-size: 12px; color: var(--text); border: 1px dashed var(--border);
+    min-height: 60px; cursor: text;
+  }
+  .pipe-card .dm-draft-area .placeholder { color: var(--text-dim); }
+
+  /* ========== CONCEPT 4: HYBRID (Kanban overview + detail) ========== */
+  .hybrid-top {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px;
+  }
+  .hybrid-col-summary {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px; text-align: center; cursor: pointer; transition: all 0.15s;
+  }
+  .hybrid-col-summary:hover { border-color: var(--border-hover); }
+  .hybrid-col-summary.active { border-color: var(--primary); }
+  .hybrid-col-summary .count { font-size: 28px; font-weight: 700; }
+  .hybrid-col-summary .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .hybrid-detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+
+  /* ========== CONCEPT 5: TIMELINE/FEED ========== */
+  .timeline { max-width: 800px; margin: 0 auto; }
+  .timeline-item { display: flex; gap: 16px; margin-bottom: 2px; position: relative; }
+  .timeline-line {
+    position: absolute; left: 19px; top: 40px; bottom: -2px; width: 2px; background: var(--border);
+  }
+  .timeline-dot-wrap { display: flex; flex-direction: column; align-items: center; padding-top: 14px; }
+  .timeline-dot {
+    width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border);
+    background: var(--surface); flex-shrink: 0; z-index: 1;
+  }
+  .timeline-dot.detected { border-color: var(--yellow); background: var(--yellow); }
+  .timeline-dot.ready { border-color: var(--blue); background: var(--blue); }
+  .timeline-dot.sent { border-color: var(--orange); background: var(--orange); }
+  .timeline-dot.converted { border-color: var(--green); background: var(--green); }
+
+  .timeline-content {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 14px; margin-bottom: 10px;
+  }
+  .timeline-content:hover { border-color: var(--border-hover); }
+  .timeline-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .timeline-time { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  /* ========== INLINE DM EXPANSION ========== */
+  .inline-dm {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; margin-top: 10px;
+  }
+  .inline-dm textarea {
+    width: 100%; background: var(--surface3); border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 10px; color: var(--text); font-size: 12px; font-family: inherit;
+    resize: vertical; min-height: 80px; outline: none;
+  }
+  .inline-dm textarea:focus { border-color: var(--primary); }
+  .inline-dm .dm-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+
+  /* Tracked link */
+  .tracked-link {
+    display: flex; align-items: center; gap: 6px; font-size: 11px;
+    color: var(--green); background: var(--green-bg); padding: 4px 8px; border-radius: 4px;
+    margin-top: 6px;
+  }
+  .tracked-link .icon { font-size: 10px; }
+
+  /* ========== CONCEPT 6: INBOX / MASTER-DETAIL ========== */
+  .inbox-layout { display: grid; grid-template-columns: 360px 1fr; gap: 0; height: 700px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .inbox-list { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .inbox-list-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .inbox-list-header input { flex: 1; }
+  .inbox-list-items { flex: 1; overflow-y: auto; }
+  .inbox-item {
+    padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: all 0.15s; display: flex; gap: 10px;
+  }
+  .inbox-item:hover { background: var(--surface2); }
+  .inbox-item.active { background: var(--surface2); border-left: 3px solid var(--primary); }
+  .inbox-item .inbox-item-content { flex: 1; min-width: 0; }
+  .inbox-item .inbox-item-top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .inbox-item .inbox-item-name { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .inbox-item .inbox-item-sub { font-size: 11px; color: var(--text-muted); }
+  .inbox-item .inbox-item-time { font-size: 10px; color: var(--text-dim); margin-left: auto; white-space: nowrap; }
+  .inbox-item .inbox-item-preview { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inbox-item .inbox-item-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+
+  .inbox-detail { display: flex; flex-direction: column; }
+  .inbox-detail-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .inbox-detail-header .avatar-lg { width: 40px; height: 40px; }
+  .inbox-detail-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .inbox-detail-section { margin-bottom: 20px; }
+  .inbox-detail-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .inbox-detail-compose { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface2); }
+
+  /* ========== CONCEPT 7: CARD STACK / TINDER ========== */
+  .card-stack-container { max-width: 540px; margin: 0 auto; }
+  .card-stack-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .card-stack-progress .progress-bar { flex: 1; height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+  .card-stack-progress .progress-fill { height: 100%; border-radius: 2px; background: var(--primary); }
+  .card-stack-progress .progress-text { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+  .stack-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; position: relative;
+  }
+  .stack-card-stage-bar { height: 4px; }
+  .stack-card-body { padding: 24px; }
+  .stack-card-user { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+  .stack-card-user .avatar-xl {
+    width: 52px; height: 52px; border-radius: 50%; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; color: var(--text-muted);
+  }
+  .stack-card-user .user-details { flex: 1; }
+  .stack-card-user .user-details .name { font-size: 18px; font-weight: 600; }
+  .stack-card-user .user-details .sub-info { font-size: 13px; color: var(--text-muted); }
+  .stack-card .full-comment {
+    background: var(--surface2); border-radius: 8px; padding: 16px; margin-bottom: 16px;
+    font-size: 14px; color: var(--text-muted); border-left: 3px solid var(--border); line-height: 1.6;
+  }
+  .stack-card .ai-analysis {
+    background: var(--blue-bg); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: var(--blue);
+  }
+  .stack-card .dm-compose { margin-bottom: 16px; }
+  .stack-card .dm-compose textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; color: var(--text); font-size: 13px; font-family: inherit;
+    resize: vertical; min-height: 120px; outline: none;
+  }
+  .stack-card .dm-compose textarea:focus { border-color: var(--primary); }
+
+  .stack-actions {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 0 24px 24px;
+  }
+  .stack-actions button {
+    padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .stack-actions button:hover { border-color: var(--border-hover); color: var(--text); }
+  .stack-actions button.skip { color: var(--text-dim); }
+  .stack-actions button.dismiss-btn { color: var(--red); border-color: rgba(239,68,68,0.3); }
+  .stack-actions button.dismiss-btn:hover { background: var(--red-bg); }
+  .stack-actions button.dm-btn { background: var(--primary); color: white; border-color: var(--primary); }
+  .stack-actions button.dm-btn:hover { background: var(--primary-dim); }
+
+  .stack-nav { display: flex; justify-content: center; gap: 16px; margin-top: 16px; }
+  .stack-nav button {
+    padding: 8px 20px; border-radius: 6px; font-size: 13px;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+  }
+
+  /* ========== CONCEPT 8: ACTION QUEUE ========== */
+  .queue-container { max-width: 700px; margin: 0 auto; }
+  .queue-header-bar {
+    display: flex; align-items: center; gap: 12px; padding: 16px; margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  }
+  .queue-header-bar .queue-count { font-size: 28px; font-weight: 700; color: var(--primary); }
+  .queue-header-bar .queue-label { font-size: 13px; color: var(--text-muted); }
+  .queue-filters { display: flex; gap: 6px; margin-left: auto; }
+
+  .queue-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    margin-bottom: 8px; overflow: hidden; transition: all 0.15s;
+  }
+  .queue-item:hover { border-color: var(--border-hover); }
+  .queue-item.current { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .queue-item-bar { height: 3px; }
+  .queue-item-body { padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
+  .queue-item-number {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--surface3);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+  .queue-item.current .queue-item-number { background: var(--primary); color: white; }
+  .queue-item-content { flex: 1; }
+  .queue-item-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .queue-item-action {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .queue-item-action.dm { background: var(--blue-bg); color: var(--blue); }
+  .queue-item-action.followup { background: var(--orange-bg); color: var(--orange); }
+  .queue-item-action.close { background: var(--red-bg); color: var(--red); }
+  .queue-item-action.review { background: var(--yellow-bg); color: var(--yellow); }
+  .queue-item-comment { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .queue-item-right { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+  .queue-item-right .time-badge { font-size: 11px; color: var(--text-dim); }
+  .queue-item-right .priority-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+  .priority-badge.high { background: var(--red-bg); color: var(--red); }
+  .priority-badge.medium { background: var(--yellow-bg); color: var(--yellow); }
+  .priority-badge.low { background: var(--surface3); color: var(--text-dim); }
+
+  .queue-item-expanded {
+    padding: 0 16px 16px; padding-left: 62px; /* align with content */
+  }
+  .queue-done-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .queue-done-title { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .queue-done-item {
+    padding: 10px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 4px; opacity: 0.5;
+    display: flex; align-items: center; gap: 10px; font-size: 13px;
+  }
+  .queue-done-item .checkmark { color: var(--green); font-size: 14px; }
+
+  /* ========== CONCEPT 9: SPLIT CONVERSATION VIEW ========== */
+  .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: 700px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .split-thread { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .split-thread-header { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .split-thread-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .split-dm { display: flex; flex-direction: column; }
+  .split-dm-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .split-dm-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .split-dm-compose { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface2); }
+
+  .thread-post {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; margin-bottom: 12px;
+  }
+  .thread-post-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .thread-post-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+  .thread-post-body { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+  .thread-comment {
+    padding: 12px; margin-bottom: 8px; border-left: 2px solid var(--border); margin-left: 16px;
+  }
+  .thread-comment.highlighted { border-left-color: var(--primary); background: rgba(99,102,241,0.04); border-radius: 0 var(--radius) var(--radius) 0; }
+  .thread-comment-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+  .thread-comment-body { font-size: 13px; color: var(--text-muted); }
+
+  .dm-message {
+    max-width: 85%; padding: 12px 16px; border-radius: 12px; margin-bottom: 10px; font-size: 13px; line-height: 1.5;
+  }
+  .dm-message.outgoing { background: var(--primary); color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+  .dm-message.incoming { background: var(--surface2); color: var(--text); border-bottom-left-radius: 4px; }
+  .dm-message-time { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+  .dm-empty-state { text-align: center; color: var(--text-dim); font-size: 13px; padding: 40px; }
+
+  .split-lead-nav {
+    display: flex; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .split-lead-tab {
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    white-space: nowrap; transition: all 0.15s;
+  }
+  .split-lead-tab:hover { color: var(--text); }
+  .split-lead-tab.active { border-color: var(--primary); color: var(--primary); background: rgba(99,102,241,0.08); }
+
+  /* ========== CONCEPT 10: SPREADSHEET / AIRTABLE ========== */
+  .airtable-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .airtable-toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .airtable-view-tabs { display: flex; gap: 2px; }
+  .airtable-view-tab {
+    padding: 6px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 1px solid transparent; border-radius: 6px; color: var(--text-muted); transition: all 0.15s;
+  }
+  .airtable-view-tab:hover { color: var(--text); }
+  .airtable-view-tab.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
+  .airtable-filter-btn {
+    padding: 5px 12px; border-radius: 4px; font-size: 11px;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .airtable-filter-btn .icon { font-size: 10px; }
+
+  .airtable-table { width: 100%; border-collapse: collapse; }
+  .airtable-table th {
+    text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 500;
+    color: var(--text-muted); background: var(--surface2); border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border); cursor: pointer; position: relative; user-select: none;
+  }
+  .airtable-table th:hover { background: var(--surface3); }
+  .airtable-table th:last-child { border-right: none; }
+  .airtable-table td {
+    padding: 6px 12px; font-size: 12px; border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border); vertical-align: middle;
+  }
+  .airtable-table td:last-child { border-right: none; }
+  .airtable-table tr:hover td { background: rgba(99,102,241,0.03); }
+  .airtable-table .cell-editable { cursor: text; padding: 4px 8px; border-radius: 3px; }
+  .airtable-table .cell-editable:hover { background: var(--surface3); outline: 1px solid var(--border); }
+  .airtable-table .cell-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 500;
+  }
+  .airtable-table .row-num { font-size: 11px; color: var(--text-dim); text-align: center; width: 40px; }
+  .airtable-table .expand-btn {
+    width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text-dim); font-size: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .airtable-add-row {
+    padding: 8px 12px; font-size: 12px; color: var(--text-dim); cursor: pointer; border-top: 1px solid var(--border);
+  }
+  .airtable-add-row:hover { color: var(--text-muted); background: var(--surface2); }
+
+  .group-header {
+    padding: 8px 12px; background: var(--surface2); font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px; cursor: pointer; border-bottom: 1px solid var(--border);
+  }
+  .group-header .group-toggle { font-size: 10px; color: var(--text-dim); }
+
+  /* ========== CONCEPT 11: DASHBOARD COMMAND CENTER ========== */
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .dashboard-grid .full-width { grid-column: 1 / -1; }
+  .dash-widget {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .dash-widget-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .dash-widget-title { font-size: 13px; font-weight: 600; }
+  .dash-widget-action { font-size: 11px; color: var(--primary); cursor: pointer; }
+  .dash-widget-body { padding: 16px; }
+
+  .dash-chart-bar { display: flex; align-items: flex-end; gap: 6px; height: 100px; padding-top: 8px; }
+  .dash-bar {
+    flex: 1; border-radius: 3px 3px 0 0; min-height: 4px; position: relative;
+  }
+  .dash-bar-label { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--text-dim); white-space: nowrap; }
+
+  .dash-funnel { display: flex; flex-direction: column; gap: 4px; }
+  .dash-funnel-step {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px;
+  }
+  .dash-funnel-bar { height: 24px; border-radius: 4px; display: flex; align-items: center; padding: 0 10px; font-size: 11px; font-weight: 600; color: white; }
+  .dash-funnel-label { font-size: 12px; color: var(--text-muted); width: 80px; text-align: right; flex-shrink: 0; }
+  .dash-funnel-count { font-size: 12px; font-weight: 600; width: 40px; flex-shrink: 0; }
+
+  .dash-action-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .dash-action-item:last-child { border-bottom: none; }
+  .dash-action-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .dash-leaderboard-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .dash-leaderboard-row:last-child { border-bottom: none; }
+  .dash-leaderboard-rank { font-size: 12px; font-weight: 700; color: var(--text-dim); width: 20px; }
+  .dash-leaderboard-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .dash-leaderboard-bar-wrap { width: 120px; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+  .dash-leaderboard-bar-fill { height: 100%; border-radius: 3px; }
+  .dash-leaderboard-value { font-size: 12px; color: var(--text-muted); width: 50px; text-align: right; }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .kanban { grid-template-columns: repeat(3, 1fr); }
+    .hybrid-top { grid-template-columns: repeat(3, 1fr); }
+    .inbox-layout { grid-template-columns: 280px 1fr; }
+    .split-layout { grid-template-columns: 1fr; height: auto; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .kanban { grid-template-columns: 1fr; }
+    .hybrid-top { grid-template-columns: repeat(2, 1fr); }
+    .pipeline-grid { grid-template-columns: 1fr; }
+    .inbox-layout { grid-template-columns: 1fr; }
+    .card-stack-container { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">DM CRM Concepts:</span>
+  <a href="#" class="active" onclick="showConcept(0, this)">1. Kanban Board</a>
+  <a href="#" onclick="showConcept(1, this)">2. Table CRM</a>
+  <a href="#" onclick="showConcept(2, this)">3. Pipeline Cards</a>
+  <a href="#" onclick="showConcept(3, this)">4. Hybrid (Kanban + Detail)</a>
+  <a href="#" onclick="showConcept(4, this)">5. Timeline Feed</a>
+  <a href="#" onclick="showConcept(5, this)">6. Inbox / Master-Detail</a>
+  <a href="#" onclick="showConcept(6, this)">7. Card Stack / Tinder</a>
+  <a href="#" onclick="showConcept(7, this)">8. Action Queue</a>
+  <a href="#" onclick="showConcept(8, this)">9. Split Conversation</a>
+  <a href="#" onclick="showConcept(9, this)">10. Spreadsheet / Airtable</a>
+  <a href="#" onclick="showConcept(10, this)">11. Dashboard Command Center</a>
+</nav>
+
+<!-- ==================== CONCEPT 1: KANBAN ==================== -->
+<div class="concept active" id="c1">
+  <div class="concept-header">
+    <h2>Concept 1: Kanban Board</h2>
+    <p>Drag-and-drop columns like Trello. Each stage is a column. Cards flow left to right. Best for visual pipeline overview at a glance.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Detected</div><div class="stat-value">47</div><div class="stat-change up">+12 today</div></div>
+    <div class="stat-card"><div class="stat-label">Ready to DM</div><div class="stat-value">38</div><div class="stat-change up">81% qualify</div></div>
+    <div class="stat-card"><div class="stat-label">DMs Sent</div><div class="stat-value">24</div><div class="stat-change up">+6 today</div></div>
+    <div class="stat-card"><div class="stat-label">Converted</div><div class="stat-value">8</div><div class="stat-change up">33% rate</div></div>
+    <div class="stat-card"><div class="stat-label">Dismissed</div><div class="stat-value">9</div><div class="stat-change">19% filtered</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="toolbar-search" placeholder="Search leads...">
+    <div class="bulk-actions">
+      <span class="bulk-label">Bulk:</span>
+      <button class="toolbar-btn">Select All</button>
+      <button class="toolbar-btn">Dismiss Selected</button>
+      <button class="toolbar-btn primary">DM Selected</button>
+    </div>
+  </div>
+
+  <div class="kanban">
+    <!-- Detected Column -->
+    <div class="kanban-col">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--yellow)">Detected</span>
+        <span class="kanban-col-count">47</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">TK</div>
+            <div><div class="username">u/techkid_42</div><div class="subreddit">r/SaaS</div></div>
+          </div>
+          <div class="comment-text">"This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months..."</div>
+          <div class="ai-note">High intent — mentions manual pain point, active user</div>
+          <div class="meta"><span>2h ago</span><span>·</span><span>4.2k karma</span></div>
+          <div class="actions">
+            <button class="primary">Draft DM →</button>
+            <button class="dismiss">Dismiss</button>
+          </div>
+        </div>
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">MS</div>
+            <div><div class="username">u/marketing_sarah</div><div class="subreddit">r/startups</div></div>
+          </div>
+          <div class="comment-text">"How does this compare to GummySearch? We're currently using that but the pricing is getting out of hand"</div>
+          <div class="ai-note">Competitor comparison — switching intent</div>
+          <div class="meta"><span>45m ago</span><span>·</span><span>8.1k karma</span></div>
+          <div class="actions">
+            <button class="primary">Draft DM →</button>
+            <button class="dismiss">Dismiss</button>
+          </div>
+        </div>
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">JR</div>
+            <div><div class="username">u/jake_runs</div><div class="subreddit">r/Entrepreneur</div></div>
+          </div>
+          <div class="comment-text">"Cool concept but seems overpriced lol"</div>
+          <div class="ai-note" style="background:var(--red-bg);color:var(--red)">Negative sentiment — price objection</div>
+          <div class="meta"><span>1h ago</span><span>·</span><span>203 karma</span></div>
+          <div class="actions">
+            <button>Draft DM →</button>
+            <button class="dismiss">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ready Column -->
+    <div class="kanban-col">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--blue)">Ready to DM</span>
+        <span class="kanban-col-count">38</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">NP</div>
+            <div><div class="username">u/nocode_pete</div><div class="subreddit">r/SaaS</div></div>
+          </div>
+          <div class="comment-text">"Would love to try this for our agency. Do you have a free trial?"</div>
+          <div class="ai-note">Trial interest — high buying intent</div>
+          <div class="meta"><span>3h ago</span></div>
+          <div class="actions">
+            <button class="primary">Send DM ✉</button>
+            <button class="dismiss">Dismiss</button>
+          </div>
+          <div class="inline-dm" style="margin-top:10px">
+            <textarea>Hey Pete — saw your comment about trying this for your agency. We do have a free trial! Here's a link to get started: yourproduct.com/?ref=dm_np42
+
+Happy to walk you through the agency workflow if you want — just let me know.</textarea>
+            <div class="tracked-link"><span class="icon">🔗</span> Tracked link: yourproduct.com/?ref=dm_np42</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn">Edit Template</button>
+              <button class="toolbar-btn primary">Copy & Open Reddit DM →</button>
+            </div>
+          </div>
+        </div>
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <input type="checkbox" class="checkbox">
+            <div class="avatar">LW</div>
+            <div><div class="username">u/lisa_writes</div><div class="subreddit">r/Marketing</div></div>
+          </div>
+          <div class="comment-text">"This is genius. Bookmarking for later. How do you handle the subreddit rules compliance part?"</div>
+          <div class="meta"><span>5h ago</span></div>
+          <div class="actions">
+            <button class="primary">Send DM ✉</button>
+            <button>Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sent Column -->
+    <div class="kanban-col">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--orange)">DM Sent</span>
+        <span class="kanban-col-count">24</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <div class="avatar">AB</div>
+            <div><div class="username">u/alex_b2b</div><div class="subreddit">r/startups</div></div>
+          </div>
+          <div class="comment-text">"Sent 6h ago — awaiting response"</div>
+          <div class="meta"><span>Touch 1</span><span>·</span><span>Follow-up in 18h</span></div>
+          <div class="actions">
+            <button>Got Reply ✓</button>
+            <button>No Response</button>
+          </div>
+        </div>
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <div class="avatar">RK</div>
+            <div><div class="username">u/revops_kate</div><div class="subreddit">r/SaaS</div></div>
+          </div>
+          <div class="comment-text">"Sent 2d ago — Touch 2 sent, awaiting response"</div>
+          <div class="meta"><span>Touch 2</span><span>·</span><span style="color:var(--yellow)">Follow-up overdue</span></div>
+          <div class="actions">
+            <button>Got Reply ✓</button>
+            <button>Close Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Converted Column -->
+    <div class="kanban-col">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--green)">Converted</span>
+        <span class="kanban-col-count">8</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <div class="avatar">DM</div>
+            <div><div class="username">u/dev_marco</div><div class="subreddit">r/webdev</div></div>
+          </div>
+          <div class="tracked-link"><span class="icon">✓</span> Clicked tracked link 3h ago</div>
+          <div class="comment-text">Original: "How does the API integration work?"</div>
+          <div class="meta"><span>Converted 3h ago</span><span>·</span><span>via dm_marco_7</span></div>
+        </div>
+        <div class="dm-card">
+          <div class="dm-card-top">
+            <div class="avatar">SL</div>
+            <div><div class="username">u/startup_laura</div><div class="subreddit">r/Entrepreneur</div></div>
+          </div>
+          <div class="tracked-link"><span class="icon">✓</span> Signed up via tracked link</div>
+          <div class="meta"><span>Converted 1d ago</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dismissed Column -->
+    <div class="kanban-col">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title" style="color:var(--red)">Dismissed</span>
+        <span class="kanban-col-count">9</span>
+      </div>
+      <div class="kanban-cards">
+        <div class="dm-card" style="opacity:0.6">
+          <div class="dm-card-top">
+            <div class="avatar">JR</div>
+            <div><div class="username">u/jake_runs</div><div class="subreddit">r/Entrepreneur</div></div>
+          </div>
+          <div class="comment-text">"Cool concept but seems overpriced lol"</div>
+          <div class="meta"><span>Dismissed · Price objection</span></div>
+          <div class="actions"><button>Restore</button></div>
+        </div>
+        <div class="dm-card" style="opacity:0.6">
+          <div class="dm-card-top">
+            <div class="avatar">BT</div>
+            <div><div class="username">u/bot_troll_99</div><div class="subreddit">r/SaaS</div></div>
+          </div>
+          <div class="comment-text">"lmao just use chatgpt bro"</div>
+          <div class="meta"><span>Auto-dismissed · Troll</span></div>
+          <div class="actions"><button>Restore</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 2: TABLE CRM ==================== -->
+<div class="concept" id="c2">
+  <div class="concept-header">
+    <h2>Concept 2: Table CRM</h2>
+    <p>Spreadsheet-style view like HubSpot. Sortable columns, inline actions, bulk select. Best for managing high volume (50-100+ leads).</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total Leads</div><div class="stat-value">126</div><div class="stat-change up">+18 this week</div></div>
+    <div class="stat-card"><div class="stat-label">DMs Sent</div><div class="stat-value">64</div><div class="stat-change up">51% send rate</div></div>
+    <div class="stat-card"><div class="stat-label">Converted</div><div class="stat-value">21</div><div class="stat-change up">33% conversion</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Response</div><div class="stat-value">4.2h</div><div class="stat-change down">+0.8h vs last week</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue Attr.</div><div class="stat-value">$2.1k</div><div class="stat-change up">+$840 this week</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="toolbar-search" placeholder="Search username, subreddit...">
+    <button class="toolbar-btn active">All (126)</button>
+    <button class="toolbar-btn">Detected (47)</button>
+    <button class="toolbar-btn">Ready (38)</button>
+    <button class="toolbar-btn">Sent (24)</button>
+    <button class="toolbar-btn">Converted (8)</button>
+    <button class="toolbar-btn">Dismissed (9)</button>
+    <div class="spacer"></div>
+    <button class="toolbar-btn">Export CSV</button>
+    <button class="toolbar-btn primary">Bulk DM (3)</button>
+  </div>
+
+  <div class="table-wrap">
+    <table class="crm-table">
+      <thead>
+        <tr>
+          <th style="width:30px"><input type="checkbox"></th>
+          <th>User</th>
+          <th>Comment</th>
+          <th>Subreddit</th>
+          <th>Stage</th>
+          <th>Touch</th>
+          <th>Detected</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">TK</div><span style="font-weight:600;font-size:13px">u/techkid_42</span></div></td>
+          <td><div class="comment-preview">"This is exactly what I've been looking for! Been manually tracking..."</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/SaaS</td>
+          <td><span class="stage-badge detected">Detected</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">—</td>
+          <td style="font-size:12px;color:var(--text-dim)">2h ago</td>
+          <td><div class="actions-cell"><button class="primary">DM</button><button>✕</button></div></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">MS</div><span style="font-weight:600;font-size:13px">u/marketing_sarah</span></div></td>
+          <td><div class="comment-preview">"How does this compare to GummySearch? We're currently using that..."</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/startups</td>
+          <td><span class="stage-badge ready">Ready</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">—</td>
+          <td style="font-size:12px;color:var(--text-dim)">45m ago</td>
+          <td><div class="actions-cell"><button class="primary">DM</button><button>✕</button></div></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">NP</div><span style="font-weight:600;font-size:13px">u/nocode_pete</span></div></td>
+          <td><div class="comment-preview">"Would love to try this for our agency. Do you have a free trial?"</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/SaaS</td>
+          <td><span class="stage-badge ready">Ready</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">—</td>
+          <td style="font-size:12px;color:var(--text-dim)">3h ago</td>
+          <td><div class="actions-cell"><button class="primary">DM</button><button>✕</button></div></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">AB</div><span style="font-weight:600;font-size:13px">u/alex_b2b</span></div></td>
+          <td><div class="comment-preview">"This looks solid. What's the onboarding like?"</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/startups</td>
+          <td><span class="stage-badge sent">Sent</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">Touch 1</td>
+          <td style="font-size:12px;color:var(--text-dim)">6h ago</td>
+          <td><div class="actions-cell"><button>Reply ✓</button><button>✕</button></div></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">DM</div><span style="font-weight:600;font-size:13px">u/dev_marco</span></div></td>
+          <td><div class="comment-preview">"How does the API integration work?"</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/webdev</td>
+          <td><span class="stage-badge converted">Converted</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">Touch 1</td>
+          <td style="font-size:12px;color:var(--text-dim)">1d ago</td>
+          <td><div class="actions-cell"><button>View</button></div></td>
+        </tr>
+        <tr style="opacity:0.5">
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">JR</div><span style="font-weight:600;font-size:13px">u/jake_runs</span></div></td>
+          <td><div class="comment-preview">"Cool concept but seems overpriced lol"</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/Entrepreneur</td>
+          <td><span class="stage-badge dismissed">Dismissed</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">—</td>
+          <td style="font-size:12px;color:var(--text-dim)">1h ago</td>
+          <td><div class="actions-cell"><button>Restore</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">
+      <span>Showing 1-25 of 126 leads</span>
+      <div class="pages">
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">4</button>
+        <button class="page-btn">5</button>
+        <button class="page-btn">→</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 3: PIPELINE CARDS ==================== -->
+<div class="concept" id="c3">
+  <div class="concept-header">
+    <h2>Concept 3: Pipeline Cards</h2>
+    <p>Vertical sections per stage with grid cards. Stage filter pills at top. Cards expand inline for DM drafting. Best for focused work on one stage at a time.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Detected</div><div class="stat-value">47</div></div>
+    <div class="stat-card"><div class="stat-label">Ready</div><div class="stat-value">38</div></div>
+    <div class="stat-card"><div class="stat-label">Sent</div><div class="stat-value">24</div></div>
+    <div class="stat-card"><div class="stat-label">Converted</div><div class="stat-value">8</div></div>
+    <div class="stat-card"><div class="stat-label">Conversion Rate</div><div class="stat-value">33%</div><div class="stat-change up">+5% vs last week</div></div>
+  </div>
+
+  <div class="stage-pills">
+    <div class="stage-pill active"><span class="stage-dot detected"></span> Detected <span class="count">47</span></div>
+    <div class="stage-pill"><span class="stage-dot ready"></span> Ready to DM <span class="count">38</span></div>
+    <div class="stage-pill"><span class="stage-dot sent"></span> DM Sent <span class="count">24</span></div>
+    <div class="stage-pill"><span class="stage-dot converted"></span> Converted <span class="count">8</span></div>
+    <div class="stage-pill"><span class="stage-dot dismissed"></span> Dismissed <span class="count">9</span></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="toolbar-search" placeholder="Search leads...">
+    <button class="toolbar-btn">Sort: Newest</button>
+    <button class="toolbar-btn">Subreddit: All</button>
+    <div class="spacer"></div>
+    <button class="toolbar-btn">Select All</button>
+    <button class="toolbar-btn primary">Bulk DM</button>
+  </div>
+
+  <div class="pipeline-section">
+    <div class="pipeline-section-header">
+      <span class="stage-dot detected"></span>
+      <span class="pipeline-section-title">Detected</span>
+      <span class="pipeline-section-count">47 leads</span>
+    </div>
+    <div class="pipeline-grid">
+      <div class="pipe-card">
+        <div class="pipe-card-stage-bar detected"></div>
+        <div class="pipe-card-body">
+          <div class="pipe-card-top">
+            <div class="avatar-lg">TK</div>
+            <div class="user-info">
+              <div class="name">u/techkid_42</div>
+              <div class="sub">r/SaaS · 2h ago · 4.2k karma</div>
+            </div>
+            <input type="checkbox" class="checkbox">
+          </div>
+          <div class="comment-block">"This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months and it's killing me."</div>
+          <div class="ai-note">High intent — mentions manual pain, active SaaS user</div>
+          <div class="actions" style="margin-top:10px">
+            <button class="primary">Draft DM →</button>
+            <button class="dismiss">Dismiss</button>
+            <button>View Thread ↗</button>
+          </div>
+        </div>
+      </div>
+      <div class="pipe-card">
+        <div class="pipe-card-stage-bar detected"></div>
+        <div class="pipe-card-body">
+          <div class="pipe-card-top">
+            <div class="avatar-lg">MS</div>
+            <div class="user-info">
+              <div class="name">u/marketing_sarah</div>
+              <div class="sub">r/startups · 45m ago · 8.1k karma</div>
+            </div>
+            <input type="checkbox" class="checkbox">
+          </div>
+          <div class="comment-block">"How does this compare to GummySearch? We're currently using that but the pricing is getting out of hand for our small team."</div>
+          <div class="ai-note">Competitor switch intent — price sensitivity, small team</div>
+          <div class="actions" style="margin-top:10px">
+            <button class="primary">Draft DM →</button>
+            <button class="dismiss">Dismiss</button>
+            <button>View Thread ↗</button>
+          </div>
+          <!-- Expanded inline DM draft example -->
+          <div class="inline-dm">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">DM Draft — click to edit:</div>
+            <textarea>Hey Sarah — saw your comment about GummySearch pricing in r/startups.
+
+We built something specifically for small teams that need Reddit lead gen without the enterprise price tag. Here's a quick comparison of what's different: yourproduct.com/?ref=dm_sarah_ms
+
+Happy to walk through the differences if you want — no pressure either way!</textarea>
+            <div class="tracked-link"><span class="icon">🔗</span> Tracked: yourproduct.com/?ref=dm_sarah_ms</div>
+            <div class="dm-actions">
+              <button class="toolbar-btn">Regenerate</button>
+              <button class="toolbar-btn">Use Template</button>
+              <button class="toolbar-btn primary">Copy & Open Reddit DM →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pipe-card">
+        <div class="pipe-card-stage-bar detected"></div>
+        <div class="pipe-card-body">
+          <div class="pipe-card-top">
+            <div class="avatar-lg">CP</div>
+            <div class="user-info">
+              <div class="name">u/content_pro</div>
+              <div class="sub">r/Marketing · 1h ago · 12k karma</div>
+            </div>
+            <input type="checkbox" class="checkbox">
+          </div>
+          <div class="comment-block">"Interesting approach. Does this work for B2C or mainly B2B SaaS?"</div>
+          <div class="ai-note">Qualification question — exploring fit</div>
+          <div class="actions" style="margin-top:10px">
+            <button class="primary">Draft DM →</button>
+            <button class="dismiss">Dismiss</button>
+            <button>View Thread ↗</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 4: HYBRID ==================== -->
+<div class="concept" id="c4">
+  <div class="concept-header">
+    <h2>Concept 4: Hybrid (Kanban Overview + Detail View)</h2>
+    <p>Stage summary cards at top as clickable navigation. Click a stage to see its leads in detail below. Combines overview awareness with focused workflow.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total Pipeline</div><div class="stat-value">126</div><div class="stat-change up">+18 this week</div></div>
+    <div class="stat-card"><div class="stat-label">Conversion Rate</div><div class="stat-value">33%</div><div class="stat-change up">+5%</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Time to DM</div><div class="stat-value">1.8h</div><div class="stat-change up">-0.4h</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue Attributed</div><div class="stat-value">$2.1k</div><div class="stat-change up">+$840</div></div>
+  </div>
+
+  <div class="hybrid-top">
+    <div class="hybrid-col-summary active" style="border-top: 3px solid var(--yellow)">
+      <div class="count" style="color:var(--yellow)">47</div>
+      <div class="label">Detected</div>
+    </div>
+    <div class="hybrid-col-summary" style="border-top: 3px solid var(--blue)">
+      <div class="count" style="color:var(--blue)">38</div>
+      <div class="label">Ready to DM</div>
+    </div>
+    <div class="hybrid-col-summary" style="border-top: 3px solid var(--orange)">
+      <div class="count" style="color:var(--orange)">24</div>
+      <div class="label">DM Sent</div>
+    </div>
+    <div class="hybrid-col-summary" style="border-top: 3px solid var(--green)">
+      <div class="count" style="color:var(--green)">8</div>
+      <div class="label">Converted</div>
+    </div>
+    <div class="hybrid-col-summary" style="border-top: 3px solid var(--red)">
+      <div class="count" style="color:var(--red)">9</div>
+      <div class="label">Dismissed</div>
+    </div>
+  </div>
+
+  <div class="hybrid-detail">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <span class="stage-dot detected"></span>
+      <span style="font-weight:600;font-size:14px">Detected Leads</span>
+      <span style="font-size:12px;color:var(--text-muted)">47 leads</span>
+      <div class="spacer"></div>
+      <input type="text" class="toolbar-search" placeholder="Search..." style="width:160px">
+      <button class="toolbar-btn">Select All</button>
+      <button class="toolbar-btn primary">Bulk DM</button>
+    </div>
+    <table class="crm-table">
+      <thead>
+        <tr>
+          <th style="width:30px"><input type="checkbox"></th>
+          <th>User</th>
+          <th>Comment</th>
+          <th>Subreddit</th>
+          <th>AI Note</th>
+          <th>Time</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">TK</div><span style="font-weight:600;font-size:13px">u/techkid_42</span></div></td>
+          <td><div class="comment-preview">"This is exactly what I've been looking for!..."</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/SaaS</td>
+          <td><span style="font-size:11px;color:var(--blue)">High intent — manual pain</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">2h ago</td>
+          <td><div class="actions-cell"><button class="primary">DM</button><button>✕</button></div></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">MS</div><span style="font-weight:600;font-size:13px">u/marketing_sarah</span></div></td>
+          <td><div class="comment-preview">"How does this compare to GummySearch?..."</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/startups</td>
+          <td><span style="font-size:11px;color:var(--blue)">Competitor switch</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">45m ago</td>
+          <td><div class="actions-cell"><button class="primary">DM</button><button>✕</button></div></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td><div class="user-cell"><div class="avatar" style="width:24px;height:24px;font-size:9px">NP</div><span style="font-weight:600;font-size:13px">u/nocode_pete</span></div></td>
+          <td><div class="comment-preview">"Would love to try this for our agency..."</div></td>
+          <td style="font-size:12px;color:var(--text-muted)">r/SaaS</td>
+          <td><span style="font-size:11px;color:var(--green)">Trial interest</span></td>
+          <td style="font-size:12px;color:var(--text-dim)">3h ago</td>
+          <td><div class="actions-cell"><button class="primary">DM</button><button>✕</button></div></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pagination">
+      <span>Showing 1-25 of 47</span>
+      <div class="pages">
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">→</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 5: TIMELINE FEED ==================== -->
+<div class="concept" id="c5">
+  <div class="concept-header">
+    <h2>Concept 5: Activity Timeline</h2>
+    <p>Chronological feed showing all DM pipeline activity. Each event is a card on the timeline. Best for seeing the full story of each lead and recent activity. Feels like a social feed.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Today's Activity</div><div class="stat-value">23</div><div class="stat-change up">events</div></div>
+    <div class="stat-card"><div class="stat-label">New Leads</div><div class="stat-value">12</div><div class="stat-change up">+12 today</div></div>
+    <div class="stat-card"><div class="stat-label">DMs Sent</div><div class="stat-value">6</div></div>
+    <div class="stat-card"><div class="stat-label">Conversions</div><div class="stat-value">2</div><div class="stat-change up">🔥</div></div>
+  </div>
+
+  <div class="stage-pills" style="justify-content:center">
+    <div class="stage-pill active">All Activity <span class="count">23</span></div>
+    <div class="stage-pill"><span class="stage-dot detected"></span> Detected <span class="count">12</span></div>
+    <div class="stage-pill"><span class="stage-dot sent"></span> Sent <span class="count">6</span></div>
+    <div class="stage-pill"><span class="stage-dot converted"></span> Converted <span class="count">2</span></div>
+  </div>
+
+  <div class="timeline">
+    <!-- Conversion event -->
+    <div class="timeline-item">
+      <div class="timeline-dot-wrap">
+        <div class="timeline-dot converted"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content" style="border-left: 3px solid var(--green)">
+        <div class="timeline-header">
+          <span class="stage-badge converted">Converted</span>
+          <span style="font-weight:600;font-size:13px">u/dev_marco</span>
+          <span style="font-size:12px;color:var(--text-muted)">clicked tracked link</span>
+          <span class="timeline-time">12 minutes ago</span>
+        </div>
+        <div class="tracked-link"><span class="icon">✓</span> Visited yourproduct.com via dm_marco_7 — signed up for trial</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">
+          Original comment: "How does the API integration work?" · r/webdev · DM sent 3h ago
+        </div>
+      </div>
+    </div>
+
+    <!-- DM Sent event -->
+    <div class="timeline-item">
+      <div class="timeline-dot-wrap">
+        <div class="timeline-dot sent"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content" style="border-left: 3px solid var(--orange)">
+        <div class="timeline-header">
+          <span class="stage-badge sent">DM Sent</span>
+          <span style="font-weight:600;font-size:13px">u/alex_b2b</span>
+          <span style="font-size:12px;color:var(--text-muted)">Touch 1 sent</span>
+          <span class="timeline-time">2 hours ago</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+          DM: "Hey Alex — saw your question about onboarding in r/startups..."
+        </div>
+        <div style="font-size:11px;color:var(--yellow);margin-top:6px">⏰ Follow-up (Touch 2) scheduled in 22h</div>
+      </div>
+    </div>
+
+    <!-- Detected events -->
+    <div class="timeline-item">
+      <div class="timeline-dot-wrap">
+        <div class="timeline-dot detected"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content" style="border-left: 3px solid var(--yellow)">
+        <div class="timeline-header">
+          <span class="stage-badge detected">Detected</span>
+          <span style="font-weight:600;font-size:13px">u/techkid_42</span>
+          <span style="font-size:12px;color:var(--text-muted)">commented on your post</span>
+          <span class="timeline-time">2 hours ago</span>
+        </div>
+        <div class="comment-block" style="margin-top:8px;margin-bottom:0">
+          "This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months and it's killing me."
+        </div>
+        <div class="ai-note" style="margin-top:8px">High intent — mentions manual pain point, active SaaS user</div>
+        <div class="actions" style="margin-top:10px">
+          <button class="primary">Draft DM →</button>
+          <button class="dismiss">Dismiss</button>
+          <button>View Thread ↗</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot-wrap">
+        <div class="timeline-dot detected"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content" style="border-left: 3px solid var(--yellow)">
+        <div class="timeline-header">
+          <span class="stage-badge detected">Detected</span>
+          <span style="font-weight:600;font-size:13px">u/marketing_sarah</span>
+          <span style="font-size:12px;color:var(--text-muted)">commented on your post</span>
+          <span class="timeline-time">45 minutes ago</span>
+        </div>
+        <div class="comment-block" style="margin-top:8px;margin-bottom:0">
+          "How does this compare to GummySearch? We're currently using that but the pricing is getting out of hand for our small team."
+        </div>
+        <div class="ai-note" style="margin-top:8px">Competitor switch — price sensitivity, small team qualifier</div>
+        <div class="actions" style="margin-top:10px">
+          <button class="primary">Draft DM →</button>
+          <button class="dismiss">Dismiss</button>
+          <button>View Thread ↗</button>
+        </div>
+        <!-- Expanded DM draft -->
+        <div class="inline-dm">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">DM Draft:</div>
+          <textarea>Hey Sarah — saw your comment about GummySearch pricing in r/startups.
+
+We built something for small teams that need Reddit lead gen without enterprise pricing. Quick comparison: yourproduct.com/?ref=dm_sarah
+
+Happy to chat differences — no pressure!</textarea>
+          <div class="tracked-link"><span class="icon">🔗</span> Tracked: yourproduct.com/?ref=dm_sarah</div>
+          <div class="dm-actions">
+            <button class="toolbar-btn">Regenerate</button>
+            <button class="toolbar-btn primary">Copy & Open Reddit DM →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-dot-wrap">
+        <div class="timeline-dot ready"></div>
+        <div class="timeline-line" style="display:none"></div>
+      </div>
+      <div class="timeline-content" style="border-left: 3px solid var(--blue)">
+        <div class="timeline-header">
+          <span class="stage-badge ready">Ready</span>
+          <span style="font-weight:600;font-size:13px">u/nocode_pete</span>
+          <span style="font-size:12px;color:var(--text-muted)">DM draft ready</span>
+          <span class="timeline-time">3 hours ago</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+          "Would love to try this for our agency. Do you have a free trial?"
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button class="primary">Send DM ✉</button>
+          <button>Edit Draft</button>
+          <button class="dismiss">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 6: INBOX / MASTER-DETAIL ==================== -->
+<div class="concept" id="c6">
+  <div class="concept-header">
+    <h2>Concept 6: Inbox / Master-Detail</h2>
+    <p>Gmail/Superhuman style. Lead list on the left, full detail + DM composer on the right. Click a lead to see everything. Best for high-volume processing where you work through leads one by one.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Inbox</div><div class="stat-value">38</div><div class="stat-change up">ready to DM</div></div>
+    <div class="stat-card"><div class="stat-label">Sent Today</div><div class="stat-value">6</div></div>
+    <div class="stat-card"><div class="stat-label">Response Rate</div><div class="stat-value">42%</div><div class="stat-change up">+8% vs avg</div></div>
+    <div class="stat-card"><div class="stat-label">Conversions</div><div class="stat-value">8</div><div class="stat-change up">33%</div></div>
+  </div>
+
+  <div class="inbox-layout">
+    <!-- Left: Lead list -->
+    <div class="inbox-list">
+      <div class="inbox-list-header">
+        <input type="text" class="toolbar-search" placeholder="Search leads..." style="width:100%">
+      </div>
+      <div style="display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border)">
+        <button class="toolbar-btn active" style="font-size:11px;padding:4px 10px">All (126)</button>
+        <button class="toolbar-btn" style="font-size:11px;padding:4px 10px">Ready (38)</button>
+        <button class="toolbar-btn" style="font-size:11px;padding:4px 10px">Sent (24)</button>
+      </div>
+      <div class="inbox-list-items">
+        <div class="inbox-item active">
+          <div class="avatar" style="margin-top:2px">TK</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/techkid_42</span>
+              <span class="inbox-item-time">2h</span>
+            </div>
+            <div class="inbox-item-preview">"This is exactly what I've been looking for!..."</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge detected" style="font-size:10px;padding:1px 6px">Detected</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/SaaS</span>
+            </div>
+          </div>
+        </div>
+        <div class="inbox-item">
+          <div class="avatar" style="margin-top:2px">MS</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/marketing_sarah</span>
+              <span class="inbox-item-time">45m</span>
+            </div>
+            <div class="inbox-item-preview">"How does this compare to GummySearch?..."</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge ready" style="font-size:10px;padding:1px 6px">Ready</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/startups</span>
+            </div>
+          </div>
+        </div>
+        <div class="inbox-item">
+          <div class="avatar" style="margin-top:2px">NP</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/nocode_pete</span>
+              <span class="inbox-item-time">3h</span>
+            </div>
+            <div class="inbox-item-preview">"Would love to try this for our agency..."</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge ready" style="font-size:10px;padding:1px 6px">Ready</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/SaaS</span>
+            </div>
+          </div>
+        </div>
+        <div class="inbox-item">
+          <div class="avatar" style="margin-top:2px">AB</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/alex_b2b</span>
+              <span class="inbox-item-time">6h</span>
+            </div>
+            <div class="inbox-item-preview">DM sent — awaiting response</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge sent" style="font-size:10px;padding:1px 6px">Sent</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/startups</span>
+            </div>
+          </div>
+        </div>
+        <div class="inbox-item">
+          <div class="avatar" style="margin-top:2px">DM</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/dev_marco</span>
+              <span class="inbox-item-time">1d</span>
+            </div>
+            <div class="inbox-item-preview">Clicked tracked link — signed up</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge converted" style="font-size:10px;padding:1px 6px">Converted</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/webdev</span>
+            </div>
+          </div>
+        </div>
+        <div class="inbox-item">
+          <div class="avatar" style="margin-top:2px">LW</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/lisa_writes</span>
+              <span class="inbox-item-time">5h</span>
+            </div>
+            <div class="inbox-item-preview">"This is genius. Bookmarking for later..."</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge ready" style="font-size:10px;padding:1px 6px">Ready</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/Marketing</span>
+            </div>
+          </div>
+        </div>
+        <div class="inbox-item">
+          <div class="avatar" style="margin-top:2px">CP</div>
+          <div class="inbox-item-content">
+            <div class="inbox-item-top">
+              <span class="inbox-item-name">u/content_pro</span>
+              <span class="inbox-item-time">1h</span>
+            </div>
+            <div class="inbox-item-preview">"Interesting approach. Does this work for B2C?..."</div>
+            <div class="inbox-item-meta">
+              <span class="stage-badge detected" style="font-size:10px;padding:1px 6px">Detected</span>
+              <span style="font-size:10px;color:var(--text-dim)">r/Marketing</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Detail view -->
+    <div class="inbox-detail">
+      <div class="inbox-detail-header">
+        <div class="avatar-lg" style="width:40px;height:40px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--text-muted)">TK</div>
+        <div>
+          <div style="font-size:15px;font-weight:600">u/techkid_42</div>
+          <div style="font-size:12px;color:var(--text-muted)">r/SaaS · 4.2k karma · Redditor for 3y</div>
+        </div>
+        <div class="spacer"></div>
+        <span class="stage-badge detected">Detected</span>
+        <button class="toolbar-btn" style="font-size:11px">View Thread &#8599;</button>
+      </div>
+
+      <div class="inbox-detail-body">
+        <div class="inbox-detail-section">
+          <div class="inbox-detail-section-title">Their Comment</div>
+          <div class="comment-block" style="margin:0">"This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months and it's killing me. Does this actually automate the monitoring part?"</div>
+        </div>
+
+        <div class="inbox-detail-section">
+          <div class="inbox-detail-section-title">AI Analysis</div>
+          <div class="ai-note" style="margin:0">
+            <strong>High intent lead.</strong> Manual pain point = strong buying signal. Asking about automation = ready for product. Active SaaS user (4.2k karma, frequent poster in r/SaaS and r/startups).
+          </div>
+        </div>
+
+        <div class="inbox-detail-section">
+          <div class="inbox-detail-section-title">Thread Context</div>
+          <div style="font-size:12px;color:var(--text-muted)">
+            <div style="margin-bottom:4px"><strong>Thread:</strong> "What tools are you using for Reddit lead gen?" · r/SaaS</div>
+            <div style="margin-bottom:4px"><strong>Your reply:</strong> "We built something that monitors subreddits and flags high-intent posts..."</div>
+            <div><strong>Thread engagement:</strong> 34 upvotes · 18 comments · OP active in replies</div>
+          </div>
+        </div>
+
+        <div class="inbox-detail-section">
+          <div class="inbox-detail-section-title">Lead History</div>
+          <div style="font-size:12px;color:var(--text-dim)">
+            <div style="padding:4px 0;border-bottom:1px solid var(--border)">2h ago — Comment detected on your post in r/SaaS</div>
+            <div style="padding:4px 0">First interaction — no prior DMs</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inbox-detail-compose">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+          <span>DM Draft — Touch 1</span>
+          <div style="display:flex;gap:6px">
+            <button class="toolbar-btn" style="font-size:10px;padding:3px 8px">Regenerate</button>
+            <button class="toolbar-btn" style="font-size:10px;padding:3px 8px">Use Template</button>
+          </div>
+        </div>
+        <textarea style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:100px;outline:none">Hey techkid_42 — saw your comment about manually tracking Reddit leads in a spreadsheet. Been there!
+
+We built an automated monitoring system that flags high-intent posts across subreddits in real-time: yourproduct.com/?ref=dm_tk42
+
+It handles the scanning part so you just focus on the leads worth replying to. Happy to walk you through how the automation works if you're curious.</textarea>
+        <div class="tracked-link"><span class="icon">&#128279;</span> Tracked: yourproduct.com/?ref=dm_tk42</div>
+        <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+          <button class="toolbar-btn">Dismiss Lead</button>
+          <button class="toolbar-btn primary">Copy & Open Reddit DM &#8594;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 7: CARD STACK / TINDER ==================== -->
+<div class="concept" id="c7">
+  <div class="concept-header">
+    <h2>Concept 7: Card Stack / Tinder-Style</h2>
+    <p>One lead at a time, full focus. See all context, draft the DM, then act: Send, Skip, or Dismiss. Great for daily processing sessions — forces focus, prevents overwhelm. Swipe through your queue.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">In Queue</div><div class="stat-value">38</div><div class="stat-change">leads to process</div></div>
+    <div class="stat-card"><div class="stat-label">Processed Today</div><div class="stat-value">14</div><div class="stat-change up">37% done</div></div>
+    <div class="stat-card"><div class="stat-label">DMs Sent</div><div class="stat-value">9</div><div class="stat-change up">64% send rate</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Process Time</div><div class="stat-value">28s</div><div class="stat-change up">per lead</div></div>
+  </div>
+
+  <div class="card-stack-container">
+    <div class="card-stack-progress">
+      <div class="progress-text">14 / 38</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:37%"></div></div>
+      <div class="progress-text">Lead #15</div>
+    </div>
+
+    <div class="stack-card">
+      <div class="stack-card-stage-bar" style="background:var(--yellow)"></div>
+      <div class="stack-card-body">
+        <div class="stack-card-user">
+          <div class="avatar-xl">TK</div>
+          <div class="user-details">
+            <div class="name">u/techkid_42</div>
+            <div class="sub-info">r/SaaS · 4.2k karma · 2h ago</div>
+          </div>
+          <span class="stage-badge detected">Detected</span>
+        </div>
+
+        <div class="full-comment">
+          "This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months and it's killing me. Does this actually automate the monitoring part? I've tried a few tools but they all feel half-baked."
+        </div>
+
+        <div class="ai-analysis">
+          <strong>High intent.</strong> Manual pain (spreadsheet tracking), asking about automation, tried competitors. Strong buying signal — this user is actively seeking a solution and has budget context (tried multiple tools).
+        </div>
+
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;padding:10px;background:var(--surface2);border-radius:6px">
+          <div style="margin-bottom:4px"><strong>Thread:</strong> "What tools are you using for Reddit lead gen?"</div>
+          <div><strong>Your reply:</strong> "We built something that monitors subreddits and flags high-intent posts..." · 12 upvotes</div>
+        </div>
+
+        <div class="dm-compose">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+            <span>DM Draft</span>
+            <div style="display:flex;gap:6px">
+              <button class="toolbar-btn" style="font-size:10px;padding:3px 8px">Regenerate</button>
+              <button class="toolbar-btn" style="font-size:10px;padding:3px 8px">Use Template</button>
+            </div>
+          </div>
+          <textarea>Hey techkid_42 — saw your comment about the spreadsheet struggle. Been there!
+
+We built automated monitoring that flags high-intent posts across subreddits in real-time: yourproduct.com/?ref=dm_tk42
+
+Handles the scanning so you just focus on leads worth replying to. Want me to walk you through how it works?</textarea>
+          <div class="tracked-link"><span class="icon">&#128279;</span> Tracked: yourproduct.com/?ref=dm_tk42</div>
+        </div>
+      </div>
+
+      <div class="stack-actions">
+        <button class="dismiss-btn">Dismiss</button>
+        <button class="skip">Skip for Now</button>
+        <button class="dm-btn">Copy & Send DM &#8594;</button>
+      </div>
+    </div>
+
+    <div class="stack-nav">
+      <button>&#8592; Previous</button>
+      <button>Next &#8594;</button>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text-dim)">
+      Keyboard: &#8592; Previous &middot; &#8594; Next &middot; D Dismiss &middot; S Skip &middot; Enter Send DM
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 8: ACTION QUEUE ==================== -->
+<div class="concept" id="c8">
+  <div class="concept-header">
+    <h2>Concept 8: Action Queue</h2>
+    <p>Support ticket style. Only shows leads that need your action RIGHT NOW, sorted by priority. No stages visible — just a to-do list. "Do this, then this, then this." Fastest way to process leads.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Actions Pending</div><div class="stat-value">14</div><div class="stat-change up">things to do</div></div>
+    <div class="stat-card"><div class="stat-label">Completed Today</div><div class="stat-value">9</div><div class="stat-change up">39% done</div></div>
+    <div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value" style="color:var(--red)">2</div><div class="stat-change down">need attention</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Handle Time</div><div class="stat-value">22s</div></div>
+  </div>
+
+  <div class="queue-container">
+    <div class="queue-header-bar">
+      <div class="queue-count">14</div>
+      <div>
+        <div style="font-weight:600;font-size:14px">Actions Remaining</div>
+        <div class="queue-label">Sorted by priority. Top item = do this next.</div>
+      </div>
+      <div class="queue-filters">
+        <button class="toolbar-btn active" style="font-size:11px">All (14)</button>
+        <button class="toolbar-btn" style="font-size:11px">DM (8)</button>
+        <button class="toolbar-btn" style="font-size:11px">Follow-up (4)</button>
+        <button class="toolbar-btn" style="font-size:11px">Close (2)</button>
+      </div>
+    </div>
+
+    <!-- Current item (expanded) -->
+    <div class="queue-item current">
+      <div class="queue-item-bar" style="background:var(--blue)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">1</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action dm">Send DM</span>
+            <span style="font-weight:600;font-size:13px">u/techkid_42</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/SaaS</span>
+          </div>
+          <div class="queue-item-comment">"This is exactly what I've been looking for! Been manually tracking Reddit leads..."</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge high">P0</span>
+          <span class="time-badge">2h ago</span>
+        </div>
+      </div>
+      <div class="queue-item-expanded">
+        <div class="ai-note" style="margin-bottom:10px">High intent — manual pain, automation question, tried competitors</div>
+        <textarea style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:80px;outline:none">Hey techkid_42 — saw your comment about the spreadsheet struggle. We built automated monitoring that flags high-intent posts in real-time: yourproduct.com/?ref=dm_tk42
+
+Want me to walk you through it?</textarea>
+        <div class="tracked-link"><span class="icon">&#128279;</span> Tracked: yourproduct.com/?ref=dm_tk42</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="toolbar-btn primary">Copy & Open Reddit DM &#8594;</button>
+          <button class="toolbar-btn">Skip</button>
+          <button class="toolbar-btn" style="color:var(--red)">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Queued items -->
+    <div class="queue-item">
+      <div class="queue-item-bar" style="background:var(--blue)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">2</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action dm">Send DM</span>
+            <span style="font-weight:600;font-size:13px">u/marketing_sarah</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/startups</span>
+          </div>
+          <div class="queue-item-comment">"How does this compare to GummySearch? Pricing is getting out of hand..."</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge high">P0</span>
+          <span class="time-badge">45m ago</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-item">
+      <div class="queue-item-bar" style="background:var(--blue)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">3</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action dm">Send DM</span>
+            <span style="font-weight:600;font-size:13px">u/nocode_pete</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/SaaS</span>
+          </div>
+          <div class="queue-item-comment">"Would love to try this for our agency. Do you have a free trial?"</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge high">P0</span>
+          <span class="time-badge">3h ago</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-item">
+      <div class="queue-item-bar" style="background:var(--orange)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">4</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action followup">Follow-up Touch 2</span>
+            <span style="font-weight:600;font-size:13px">u/revops_kate</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/SaaS</span>
+          </div>
+          <div class="queue-item-comment">Touch 1 sent 2d ago — replied positively, time for deeper offer</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge medium">P1</span>
+          <span class="time-badge" style="color:var(--red)">Overdue</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-item">
+      <div class="queue-item-bar" style="background:var(--orange)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">5</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action followup">Follow-up Touch 2</span>
+            <span style="font-weight:600;font-size:13px">u/alex_b2b</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/startups</span>
+          </div>
+          <div class="queue-item-comment">Touch 1 sent 24h ago — no response yet, send follow-up</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge medium">P1</span>
+          <span class="time-badge">Due now</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-item">
+      <div class="queue-item-bar" style="background:var(--red)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">6</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action close">Close Out Touch 3</span>
+            <span style="font-weight:600;font-size:13px">u/saas_founder_99</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/Entrepreneur</span>
+          </div>
+          <div class="queue-item-comment">Touch 2 sent 72h ago — no response, time to close loop</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge low">P2</span>
+          <span class="time-badge" style="color:var(--red)">Overdue</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-item">
+      <div class="queue-item-bar" style="background:var(--yellow)"></div>
+      <div class="queue-item-body">
+        <div class="queue-item-number">7</div>
+        <div class="queue-item-content">
+          <div class="queue-item-top">
+            <span class="queue-item-action review">Review Lead</span>
+            <span style="font-weight:600;font-size:13px">u/content_pro</span>
+            <span style="font-size:12px;color:var(--text-muted)">r/Marketing</span>
+          </div>
+          <div class="queue-item-comment">"Interesting approach. Does this work for B2C?" — needs qualification review</div>
+        </div>
+        <div class="queue-item-right">
+          <span class="priority-badge medium">P1</span>
+          <span class="time-badge">1h ago</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Done section -->
+    <div class="queue-done-section">
+      <div class="queue-done-title">Completed today (9)</div>
+      <div class="queue-done-item">
+        <span class="checkmark">&#10003;</span>
+        <span>DM sent to u/dev_marco</span>
+        <div class="spacer"></div>
+        <span class="stage-badge converted" style="font-size:10px">Converted</span>
+      </div>
+      <div class="queue-done-item">
+        <span class="checkmark">&#10003;</span>
+        <span>DM sent to u/startup_laura</span>
+        <div class="spacer"></div>
+        <span class="stage-badge converted" style="font-size:10px">Converted</span>
+      </div>
+      <div class="queue-done-item">
+        <span class="checkmark">&#10003;</span>
+        <span>Dismissed u/bot_troll_99</span>
+        <div class="spacer"></div>
+        <span class="stage-badge dismissed" style="font-size:10px">Dismissed</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 9: SPLIT CONVERSATION VIEW ==================== -->
+<div class="concept" id="c9">
+  <div class="concept-header">
+    <h2>Concept 9: Split Conversation View</h2>
+    <p>Intercom/Drift style. Thread context on the left, DM draft/history on the right. Conversation-centric — see exactly what they said, craft the perfect response. Tab between leads at the top.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Active Conversations</div><div class="stat-value">12</div></div>
+    <div class="stat-card"><div class="stat-label">Awaiting Reply</div><div class="stat-value">6</div></div>
+    <div class="stat-card"><div class="stat-label">New Leads</div><div class="stat-value">38</div><div class="stat-change up">ready to DM</div></div>
+    <div class="stat-card"><div class="stat-label">Converted</div><div class="stat-value">8</div><div class="stat-change up">33%</div></div>
+  </div>
+
+  <div style="margin-bottom:0">
+    <div class="split-lead-nav" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0;border-bottom:none">
+      <div class="split-lead-tab active">
+        <span class="stage-dot detected" style="display:inline-block;margin-right:4px"></span>
+        u/techkid_42
+      </div>
+      <div class="split-lead-tab">
+        <span class="stage-dot ready" style="display:inline-block;margin-right:4px"></span>
+        u/marketing_sarah
+      </div>
+      <div class="split-lead-tab">
+        <span class="stage-dot ready" style="display:inline-block;margin-right:4px"></span>
+        u/nocode_pete
+      </div>
+      <div class="split-lead-tab">
+        <span class="stage-dot sent" style="display:inline-block;margin-right:4px"></span>
+        u/alex_b2b
+      </div>
+      <div class="split-lead-tab">
+        <span class="stage-dot converted" style="display:inline-block;margin-right:4px"></span>
+        u/dev_marco
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center">
+        <button class="toolbar-btn" style="font-size:11px">+ Add Lead</button>
+      </div>
+    </div>
+
+    <div class="split-layout" style="border-radius:0 0 var(--radius-lg) var(--radius-lg)">
+      <!-- Left: Thread context -->
+      <div class="split-thread">
+        <div class="split-thread-header">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted)">Thread Context</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:2px">r/SaaS · 34 upvotes · 18 comments</div>
+        </div>
+        <div class="split-thread-body">
+          <div class="thread-post">
+            <div class="thread-post-meta">
+              <span style="font-weight:600">u/saas_curious_tom</span> (OP) · 4h ago
+            </div>
+            <div class="thread-post-title">What tools are you using for Reddit lead gen?</div>
+            <div class="thread-post-body">
+              I've been trying to find a good system for finding potential customers on Reddit. Currently I just search manually and it takes forever. Looking for something that can monitor specific subreddits and alert me when someone posts about problems my product solves.
+              <br><br>
+              Budget is flexible but would prefer under $100/mo. Anyone using something that actually works?
+            </div>
+          </div>
+
+          <div class="thread-comment">
+            <div class="thread-comment-meta"><span style="font-weight:600">u/growth_hacker_jen</span> · 3h ago · 8 pts</div>
+            <div class="thread-comment-body">I've been using GummySearch for this. It's okay but gets expensive fast once you start monitoring more than 5 subreddits.</div>
+          </div>
+
+          <div class="thread-comment" style="margin-left:40px">
+            <div class="thread-comment-meta"><span style="font-weight:600;color:var(--primary)">You</span> · 2.5h ago · 12 pts</div>
+            <div class="thread-comment-body">We built something that monitors subreddits and flags high-intent posts automatically. It uses AI to score each post so you only see the ones worth replying to. Free trial available if you want to test it.</div>
+          </div>
+
+          <div class="thread-comment highlighted" style="margin-left:64px">
+            <div class="thread-comment-meta">
+              <span style="font-weight:600;color:var(--yellow)">u/techkid_42</span> · 2h ago · 4 pts
+              <span class="stage-badge detected" style="font-size:9px;padding:1px 6px;margin-left:6px">Lead</span>
+            </div>
+            <div class="thread-comment-body">"This is exactly what I've been looking for! Been manually tracking Reddit leads in a spreadsheet for months and it's killing me. Does this actually automate the monitoring part? I've tried a few tools but they all feel half-baked."</div>
+          </div>
+
+          <div class="thread-comment" style="margin-left:40px">
+            <div class="thread-comment-meta"><span style="font-weight:600">u/marketing_sarah</span> · 45m ago · 3 pts</div>
+            <div class="thread-comment-body">How does this compare to GummySearch? We're currently using that but the pricing is getting out of hand for our small team.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: DM conversation -->
+      <div class="split-dm">
+        <div class="split-dm-header">
+          <div class="avatar" style="width:28px;height:28px;font-size:10px">TK</div>
+          <div>
+            <span style="font-weight:600;font-size:13px">u/techkid_42</span>
+            <span class="stage-badge detected" style="font-size:10px;margin-left:6px">Detected</span>
+          </div>
+          <div class="spacer"></div>
+          <div style="font-size:11px;color:var(--text-muted)">Touch 0 · No DMs yet</div>
+        </div>
+
+        <div class="split-dm-body">
+          <div class="dm-empty-state">
+            <div style="font-size:32px;margin-bottom:8px;opacity:0.3">&#9993;</div>
+            <div>No DMs sent yet</div>
+            <div style="margin-top:4px;font-size:12px">Draft your first message below</div>
+          </div>
+
+          <div class="ai-note" style="margin-top:20px">
+            <strong>AI Suggestion:</strong> Reference their spreadsheet pain point. They've tried other tools — differentiate on automation quality. Ask a qualifying question about their current volume.
+          </div>
+        </div>
+
+        <div class="split-dm-compose">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:11px;color:var(--text-muted)">Subject: Re: your comment about Reddit lead gen</span>
+            <div style="display:flex;gap:4px">
+              <button class="toolbar-btn" style="font-size:10px;padding:3px 8px">Template</button>
+              <button class="toolbar-btn" style="font-size:10px;padding:3px 8px">Regenerate</button>
+            </div>
+          </div>
+          <textarea style="width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);font-size:12px;font-family:inherit;resize:vertical;min-height:100px;outline:none">Hey techkid_42 — saw your comment about the spreadsheet struggle for tracking Reddit leads. Been there!
+
+We built automated monitoring that flags high-intent posts across subreddits in real-time: yourproduct.com/?ref=dm_tk42
+
+The AI scoring means you only see leads worth replying to (no more manual scanning). How many subreddits are you currently trying to monitor?</textarea>
+          <div class="tracked-link"><span class="icon">&#128279;</span> Tracked: yourproduct.com/?ref=dm_tk42</div>
+          <div style="display:flex;gap:6px;margin-top:8px;justify-content:space-between">
+            <button class="toolbar-btn" style="color:var(--red);font-size:11px">Dismiss</button>
+            <div style="display:flex;gap:6px">
+              <button class="toolbar-btn">Skip</button>
+              <button class="toolbar-btn primary">Copy & Open Reddit DM &#8594;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 10: SPREADSHEET / AIRTABLE ==================== -->
+<div class="concept" id="c10">
+  <div class="concept-header">
+    <h2>Concept 10: Spreadsheet / Airtable-Style</h2>
+    <p>Full power-user spreadsheet with editable cells, grouping by stage, sortable columns, inline tags, and row expansion. Maximum information density. Feels like a database you can manipulate.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total Records</div><div class="stat-value">126</div></div>
+    <div class="stat-card"><div class="stat-label">Filtered</div><div class="stat-value">126</div><div class="stat-change">showing all</div></div>
+    <div class="stat-card"><div class="stat-label">Conversion</div><div class="stat-value">33%</div><div class="stat-change up">+5%</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value">$2.1k</div><div class="stat-change up">attributed</div></div>
+  </div>
+
+  <div class="airtable-wrap">
+    <div class="airtable-toolbar">
+      <div class="airtable-view-tabs">
+        <div class="airtable-view-tab active">All Leads</div>
+        <div class="airtable-view-tab">By Stage</div>
+        <div class="airtable-view-tab">By Subreddit</div>
+        <div class="airtable-view-tab">Converted Only</div>
+        <div class="airtable-view-tab" style="color:var(--primary)">+ Add View</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="airtable-filter-btn"><span class="icon">&#9707;</span> Filter</div>
+      <div class="airtable-filter-btn"><span class="icon">&#8645;</span> Sort</div>
+      <div class="airtable-filter-btn"><span class="icon">&#9783;</span> Group</div>
+      <div class="airtable-filter-btn"><span class="icon">&#9783;</span> Hide Fields</div>
+      <input type="text" class="toolbar-search" placeholder="Search..." style="width:140px">
+    </div>
+
+    <table class="airtable-table">
+      <thead>
+        <tr>
+          <th style="width:30px"><input type="checkbox"></th>
+          <th style="width:40px">#</th>
+          <th style="width:28px"></th>
+          <th>Username</th>
+          <th>Comment</th>
+          <th>Subreddit</th>
+          <th>Stage</th>
+          <th>Touch</th>
+          <th>Intent</th>
+          <th>Detected</th>
+          <th>DM Sent</th>
+          <th>Tracked Link</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Group header -->
+        <tr>
+          <td colspan="13">
+            <div class="group-header">
+              <span class="group-toggle">&#9660;</span>
+              <span class="stage-dot detected"></span>
+              <span>Detected</span>
+              <span style="color:var(--text-dim);font-weight:400">(47 records)</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td class="row-num">1</td>
+          <td><div class="expand-btn">&#8599;</div></td>
+          <td><span class="cell-editable" style="font-weight:600">u/techkid_42</span></td>
+          <td><span class="cell-editable" style="color:var(--text-muted);max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"This is exactly what I've been looking for!..."</span></td>
+          <td><span class="cell-tag" style="background:var(--purple-bg);color:var(--purple)">r/SaaS</span></td>
+          <td><span class="cell-tag" style="background:var(--yellow-bg);color:var(--yellow)">Detected</span></td>
+          <td style="color:var(--text-dim)">--</td>
+          <td><span style="color:var(--green);font-weight:600">9.2</span></td>
+          <td style="color:var(--text-dim)">2h ago</td>
+          <td style="color:var(--text-dim)">--</td>
+          <td style="color:var(--text-dim)">--</td>
+          <td><span class="cell-editable" style="color:var(--text-dim)">High intent, manual pain</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td class="row-num">2</td>
+          <td><div class="expand-btn">&#8599;</div></td>
+          <td><span class="cell-editable" style="font-weight:600">u/marketing_sarah</span></td>
+          <td><span class="cell-editable" style="color:var(--text-muted);max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"How does this compare to GummySearch?..."</span></td>
+          <td><span class="cell-tag" style="background:rgba(249,115,22,0.1);color:var(--orange)">r/startups</span></td>
+          <td><span class="cell-tag" style="background:var(--yellow-bg);color:var(--yellow)">Detected</span></td>
+          <td style="color:var(--text-dim)">--</td>
+          <td><span style="color:var(--green);font-weight:600">8.7</span></td>
+          <td style="color:var(--text-dim)">45m ago</td>
+          <td style="color:var(--text-dim)">--</td>
+          <td style="color:var(--text-dim)">--</td>
+          <td><span class="cell-editable" style="color:var(--text-dim)">Competitor switch</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td class="row-num">3</td>
+          <td><div class="expand-btn">&#8599;</div></td>
+          <td><span class="cell-editable" style="font-weight:600">u/content_pro</span></td>
+          <td><span class="cell-editable" style="color:var(--text-muted);max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"Interesting approach. Does this work for B2C?"</span></td>
+          <td><span class="cell-tag" style="background:var(--blue-bg);color:var(--blue)">r/Marketing</span></td>
+          <td><span class="cell-tag" style="background:var(--yellow-bg);color:var(--yellow)">Detected</span></td>
+          <td style="color:var(--text-dim)">--</td>
+          <td><span style="color:var(--yellow);font-weight:600">5.4</span></td>
+          <td style="color:var(--text-dim)">1h ago</td>
+          <td style="color:var(--text-dim)">--</td>
+          <td style="color:var(--text-dim)">--</td>
+          <td><span class="cell-editable" style="color:var(--text-dim)">Qualification needed</span></td>
+        </tr>
+
+        <!-- Group: Sent -->
+        <tr>
+          <td colspan="13">
+            <div class="group-header">
+              <span class="group-toggle">&#9660;</span>
+              <span class="stage-dot sent"></span>
+              <span>DM Sent</span>
+              <span style="color:var(--text-dim);font-weight:400">(24 records)</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td class="row-num">48</td>
+          <td><div class="expand-btn">&#8599;</div></td>
+          <td><span class="cell-editable" style="font-weight:600">u/alex_b2b</span></td>
+          <td><span class="cell-editable" style="color:var(--text-muted);max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"This looks solid. What's the onboarding like?"</span></td>
+          <td><span class="cell-tag" style="background:rgba(249,115,22,0.1);color:var(--orange)">r/startups</span></td>
+          <td><span class="cell-tag" style="background:var(--orange-bg);color:var(--orange)">Sent</span></td>
+          <td>Touch 1</td>
+          <td><span style="color:var(--green);font-weight:600">7.8</span></td>
+          <td style="color:var(--text-dim)">6h ago</td>
+          <td style="color:var(--text-dim)">6h ago</td>
+          <td><span style="color:var(--text-dim)">dm_alex_b2b</span></td>
+          <td><span class="cell-editable" style="color:var(--text-dim)">Awaiting response</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td class="row-num">49</td>
+          <td><div class="expand-btn">&#8599;</div></td>
+          <td><span class="cell-editable" style="font-weight:600">u/revops_kate</span></td>
+          <td><span class="cell-editable" style="color:var(--text-muted);max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"Would love a walkthrough of the pipeline view"</span></td>
+          <td><span class="cell-tag" style="background:var(--purple-bg);color:var(--purple)">r/SaaS</span></td>
+          <td><span class="cell-tag" style="background:var(--orange-bg);color:var(--orange)">Sent</span></td>
+          <td>Touch 2</td>
+          <td><span style="color:var(--green);font-weight:600">8.1</span></td>
+          <td style="color:var(--text-dim)">2d ago</td>
+          <td style="color:var(--text-dim)">2d ago</td>
+          <td><span style="color:var(--text-dim)">dm_kate_rk</span></td>
+          <td><span class="cell-editable" style="color:var(--yellow)">Follow-up overdue</span></td>
+        </tr>
+
+        <!-- Group: Converted -->
+        <tr>
+          <td colspan="13">
+            <div class="group-header">
+              <span class="group-toggle">&#9660;</span>
+              <span class="stage-dot converted"></span>
+              <span>Converted</span>
+              <span style="color:var(--text-dim);font-weight:400">(8 records)</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><input type="checkbox"></td>
+          <td class="row-num">86</td>
+          <td><div class="expand-btn">&#8599;</div></td>
+          <td><span class="cell-editable" style="font-weight:600">u/dev_marco</span></td>
+          <td><span class="cell-editable" style="color:var(--text-muted);max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"How does the API integration work?"</span></td>
+          <td><span class="cell-tag" style="background:var(--blue-bg);color:var(--blue)">r/webdev</span></td>
+          <td><span class="cell-tag" style="background:var(--green-bg);color:var(--green)">Converted</span></td>
+          <td>Touch 1</td>
+          <td><span style="color:var(--green);font-weight:600">7.2</span></td>
+          <td style="color:var(--text-dim)">1d ago</td>
+          <td style="color:var(--text-dim)">1d ago</td>
+          <td><span style="color:var(--green)">dm_marco_7 &#10003;</span></td>
+          <td><span class="cell-editable" style="color:var(--green)">Signed up for trial</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="airtable-add-row">+ Add lead manually</div>
+
+    <div class="pagination">
+      <span>126 records · Grouped by Stage</span>
+      <div class="pages">
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <button class="page-btn">&#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONCEPT 11: DASHBOARD COMMAND CENTER ==================== -->
+<div class="concept" id="c11">
+  <div class="concept-header">
+    <h2>Concept 11: Dashboard Command Center</h2>
+    <p>Widget-based layout. Pipeline funnel, action queue, performance chart, subreddit leaderboard, and recent activity — all visible at once. Overview-first: see everything, drill into what matters.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total Pipeline</div><div class="stat-value">126</div><div class="stat-change up">+18 this week</div></div>
+    <div class="stat-card"><div class="stat-label">DMs Sent</div><div class="stat-value">64</div><div class="stat-change up">51% rate</div></div>
+    <div class="stat-card"><div class="stat-label">Conversions</div><div class="stat-value">21</div><div class="stat-change up">33%</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value">$2.1k</div><div class="stat-change up">+$840</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Response</div><div class="stat-value">4.2h</div></div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- Pipeline Funnel -->
+    <div class="dash-widget">
+      <div class="dash-widget-header">
+        <span class="dash-widget-title">Pipeline Funnel</span>
+        <span class="dash-widget-action">View All &#8594;</span>
+      </div>
+      <div class="dash-widget-body">
+        <div class="dash-funnel">
+          <div class="dash-funnel-step">
+            <span class="dash-funnel-label">Detected</span>
+            <span class="dash-funnel-count">47</span>
+            <div class="dash-funnel-bar" style="background:var(--yellow);width:100%">100%</div>
+          </div>
+          <div class="dash-funnel-step">
+            <span class="dash-funnel-label">Ready</span>
+            <span class="dash-funnel-count">38</span>
+            <div class="dash-funnel-bar" style="background:var(--blue);width:81%">81%</div>
+          </div>
+          <div class="dash-funnel-step">
+            <span class="dash-funnel-label">Sent</span>
+            <span class="dash-funnel-count">24</span>
+            <div class="dash-funnel-bar" style="background:var(--orange);width:51%">51%</div>
+          </div>
+          <div class="dash-funnel-step">
+            <span class="dash-funnel-label">Converted</span>
+            <span class="dash-funnel-count">8</span>
+            <div class="dash-funnel-bar" style="background:var(--green);width:17%">17%</div>
+          </div>
+          <div class="dash-funnel-step">
+            <span class="dash-funnel-label">Dismissed</span>
+            <span class="dash-funnel-count">9</span>
+            <div class="dash-funnel-bar" style="background:var(--red);width:19%;opacity:0.6">19%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Queue -->
+    <div class="dash-widget">
+      <div class="dash-widget-header">
+        <span class="dash-widget-title">Next Actions</span>
+        <span class="dash-widget-action">Open Queue &#8594;</span>
+      </div>
+      <div class="dash-widget-body">
+        <div class="dash-action-item">
+          <div class="dash-action-dot" style="background:var(--red)"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">Send DM to u/techkid_42</div>
+            <div style="font-size:11px;color:var(--text-dim)">r/SaaS · High intent · 2h ago</div>
+          </div>
+          <span class="priority-badge high" style="font-size:10px">P0</span>
+        </div>
+        <div class="dash-action-item">
+          <div class="dash-action-dot" style="background:var(--red)"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">Send DM to u/marketing_sarah</div>
+            <div style="font-size:11px;color:var(--text-dim)">r/startups · Competitor switch · 45m ago</div>
+          </div>
+          <span class="priority-badge high" style="font-size:10px">P0</span>
+        </div>
+        <div class="dash-action-item">
+          <div class="dash-action-dot" style="background:var(--yellow)"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">Follow-up Touch 2: u/revops_kate</div>
+            <div style="font-size:11px;color:var(--text-dim)">r/SaaS · Replied positively</div>
+          </div>
+          <span class="priority-badge medium" style="font-size:10px">P1</span>
+        </div>
+        <div class="dash-action-item">
+          <div class="dash-action-dot" style="background:var(--yellow)"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">Follow-up Touch 2: u/alex_b2b</div>
+            <div style="font-size:11px;color:var(--text-dim)">r/startups · No response yet</div>
+          </div>
+          <span class="priority-badge medium" style="font-size:10px">P1</span>
+        </div>
+        <div class="dash-action-item">
+          <div class="dash-action-dot" style="background:var(--surface3)"></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">Close out: u/saas_founder_99</div>
+            <div style="font-size:11px;color:var(--text-dim)">r/Entrepreneur · No response 72h</div>
+          </div>
+          <span class="priority-badge low" style="font-size:10px">P2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly DM Activity Chart -->
+    <div class="dash-widget">
+      <div class="dash-widget-header">
+        <span class="dash-widget-title">Weekly DM Activity</span>
+        <span style="font-size:11px;color:var(--text-dim)">Last 7 days</span>
+      </div>
+      <div class="dash-widget-body">
+        <div class="dash-chart-bar">
+          <div class="dash-bar" style="background:var(--blue);height:30%"><div class="dash-bar-label">Mon</div></div>
+          <div class="dash-bar" style="background:var(--blue);height:55%"><div class="dash-bar-label">Tue</div></div>
+          <div class="dash-bar" style="background:var(--blue);height:45%"><div class="dash-bar-label">Wed</div></div>
+          <div class="dash-bar" style="background:var(--blue);height:70%"><div class="dash-bar-label">Thu</div></div>
+          <div class="dash-bar" style="background:var(--blue);height:85%"><div class="dash-bar-label">Fri</div></div>
+          <div class="dash-bar" style="background:var(--blue);height:40%"><div class="dash-bar-label">Sat</div></div>
+          <div class="dash-bar" style="background:var(--primary);height:100%"><div class="dash-bar-label">Today</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:24px;font-size:11px;color:var(--text-dim)">
+          <span>Sent: 64 total</span>
+          <span>Avg: 9.1/day</span>
+          <span>Best: 14 (Today)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subreddit Leaderboard -->
+    <div class="dash-widget">
+      <div class="dash-widget-header">
+        <span class="dash-widget-title">Top Subreddits by Conversion</span>
+        <span class="dash-widget-action">See All &#8594;</span>
+      </div>
+      <div class="dash-widget-body">
+        <div class="dash-leaderboard-row">
+          <span class="dash-leaderboard-rank">1</span>
+          <span class="dash-leaderboard-name">r/SaaS</span>
+          <div class="dash-leaderboard-bar-wrap"><div class="dash-leaderboard-bar-fill" style="width:85%;background:var(--green)"></div></div>
+          <span class="dash-leaderboard-value">42% conv</span>
+        </div>
+        <div class="dash-leaderboard-row">
+          <span class="dash-leaderboard-rank">2</span>
+          <span class="dash-leaderboard-name">r/startups</span>
+          <div class="dash-leaderboard-bar-wrap"><div class="dash-leaderboard-bar-fill" style="width:65%;background:var(--blue)"></div></div>
+          <span class="dash-leaderboard-value">31% conv</span>
+        </div>
+        <div class="dash-leaderboard-row">
+          <span class="dash-leaderboard-rank">3</span>
+          <span class="dash-leaderboard-name">r/Entrepreneur</span>
+          <div class="dash-leaderboard-bar-wrap"><div class="dash-leaderboard-bar-fill" style="width:50%;background:var(--blue)"></div></div>
+          <span class="dash-leaderboard-value">24% conv</span>
+        </div>
+        <div class="dash-leaderboard-row">
+          <span class="dash-leaderboard-rank">4</span>
+          <span class="dash-leaderboard-name">r/webdev</span>
+          <div class="dash-leaderboard-bar-wrap"><div class="dash-leaderboard-bar-fill" style="width:40%;background:var(--orange)"></div></div>
+          <span class="dash-leaderboard-value">19% conv</span>
+        </div>
+        <div class="dash-leaderboard-row">
+          <span class="dash-leaderboard-rank">5</span>
+          <span class="dash-leaderboard-name">r/Marketing</span>
+          <div class="dash-leaderboard-bar-wrap"><div class="dash-leaderboard-bar-fill" style="width:30%;background:var(--orange)"></div></div>
+          <span class="dash-leaderboard-value">14% conv</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity (full width) -->
+    <div class="dash-widget full-width">
+      <div class="dash-widget-header">
+        <span class="dash-widget-title">Recent Activity</span>
+        <span class="dash-widget-action">View Timeline &#8594;</span>
+      </div>
+      <div class="dash-widget-body" style="padding:0">
+        <table class="crm-table" style="font-size:12px">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>User</th>
+              <th>Subreddit</th>
+              <th>Detail</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="stage-badge converted" style="font-size:10px">Converted</span></td>
+              <td style="font-weight:600">u/dev_marco</td>
+              <td style="color:var(--text-muted)">r/webdev</td>
+              <td style="color:var(--green)">Clicked tracked link, signed up for trial</td>
+              <td style="color:var(--text-dim)">12m ago</td>
+            </tr>
+            <tr>
+              <td><span class="stage-badge sent" style="font-size:10px">DM Sent</span></td>
+              <td style="font-weight:600">u/alex_b2b</td>
+              <td style="color:var(--text-muted)">r/startups</td>
+              <td style="color:var(--text-muted)">Touch 1 — resource delivery DM</td>
+              <td style="color:var(--text-dim)">2h ago</td>
+            </tr>
+            <tr>
+              <td><span class="stage-badge detected" style="font-size:10px">Detected</span></td>
+              <td style="font-weight:600">u/techkid_42</td>
+              <td style="color:var(--text-muted)">r/SaaS</td>
+              <td style="color:var(--text-muted)">Commented on your post — high intent</td>
+              <td style="color:var(--text-dim)">2h ago</td>
+            </tr>
+            <tr>
+              <td><span class="stage-badge detected" style="font-size:10px">Detected</span></td>
+              <td style="font-weight:600">u/marketing_sarah</td>
+              <td style="color:var(--text-muted)">r/startups</td>
+              <td style="color:var(--text-muted)">Competitor comparison question</td>
+              <td style="color:var(--text-dim)">45m ago</td>
+            </tr>
+            <tr>
+              <td><span class="stage-badge dismissed" style="font-size:10px">Dismissed</span></td>
+              <td style="font-weight:600">u/bot_troll_99</td>
+              <td style="color:var(--text-muted)">r/SaaS</td>
+              <td style="color:var(--text-dim)">Auto-dismissed — troll detected</td>
+              <td style="color:var(--text-dim)">1h ago</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showConcept(index, el) {
+    document.querySelectorAll('.concept').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+    document.querySelectorAll('.concept')[index].classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+
+</body>
+</html>

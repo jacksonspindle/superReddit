@@ -3,6 +3,10 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { monitorTrackedThreads } from '@/lib/outreach/thread-monitor';
 import { clearCommentCache } from '@/lib/reddit/fetcher';
 
+// Per-project scan lock: prevents duplicate concurrent scans
+// Stores the result data (not Response objects, which can only be consumed once)
+const activeScansByProject = new Map<string, Promise<{ body: Record<string, unknown>; status: number }>>();
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -58,6 +62,31 @@ export async function POST(request: NextRequest) {
       clearCommentCache();
     }
 
+    // Dedup: if a scan is already running for this project, wait for it
+    const existing = activeScansByProject.get(project_id);
+    if (existing) {
+      const result = await existing;
+      return NextResponse.json(result.body, { status: result.status });
+    }
+
+    const scanPromise = runScan(supabase, project_id);
+    activeScansByProject.set(project_id, scanPromise);
+    try {
+      const result = await scanPromise;
+      return NextResponse.json(result.body, { status: result.status });
+    } finally {
+      activeScansByProject.delete(project_id);
+    }
+  } catch (error) {
+    console.error('DM scan error:', error);
+    return NextResponse.json({ error: 'Failed to scan threads' }, { status: 500 });
+  }
+}
+
+async function runScan(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  project_id: string
+): Promise<{ body: Record<string, unknown>; status: number }> {
     // Get outreach config for reddit username
     const { data: config } = await supabase
       .from('outreach_configs')
@@ -66,11 +95,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (!config?.setup_completed) {
-      return NextResponse.json({ message: 'Outreach setup not completed', scanned: false });
+      return { body: { message: 'Outreach setup not completed', scanned: false }, status: 200 };
     }
 
     if (!config?.reddit_username) {
-      return NextResponse.json({ message: 'Reddit username not configured. Set it in Outreach setup.', scanned: false });
+      return { body: { message: 'Reddit username not configured. Set it in your project Profile.', scanned: false }, status: 200 };
     }
 
     // Run thread monitoring
@@ -80,7 +109,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (detected.length === 0) {
-      return NextResponse.json({ message: 'No new commenters detected', scanned: true, count: 0 });
+      return { body: { message: 'No new commenters detected', scanned: true, count: 0 }, status: 200 };
     }
 
     // Upsert detected commenters into outreach_dms
@@ -103,12 +132,8 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('DM upsert error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return { body: { error: error.message }, status: 500 };
     }
 
-    return NextResponse.json({ scanned: true, count: detected.length });
-  } catch (error) {
-    console.error('DM scan error:', error);
-    return NextResponse.json({ error: 'Failed to scan threads' }, { status: 500 });
-  }
+    return { body: { scanned: true, count: detected.length }, status: 200 };
 }

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('outreach_dms')
-      .select('*, signal:outreach_signals(title, subreddit, permalink)')
+      .select('*, signal:outreach_signals(title, subreddit, permalink, score, num_comments)')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       query = query.lte('follow_up_due', new Date().toISOString()).not('follow_up_due', 'is', null);
     }
 
-    const { data, error } = await query.limit(100);
+    const { data, error } = await query.limit(500);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

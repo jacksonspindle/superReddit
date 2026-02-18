@@ -1,0 +1,604 @@
+// SuperReddit DM Bridge — Background Service Worker
+// Automatically opens reddit.com/chat in a background tab to scrape chat data.
+// The user never needs to manually open the chat tab.
+
+const STORAGE_KEY = 'sr_chat_usernames';
+const YOU_SENT_TO_KEY = 'sr_you_sent_to';
+const THEY_REPLIED_KEY = 'sr_they_replied';
+const PREVIEWS_KEY = 'sr_chat_previews';
+const SCAN_READY_KEY = 'sr_scan_ready';
+
+const SCAN_ALARM = 'sr_periodic_scan';
+const SCAN_INTERVAL_MINUTES = 5;
+let lastTabOpenTime = 0;
+let lastSendDmTime = 0;
+let pendingSendDm = null; // { resolve, tabId, timer }
+let composeTabId = null;
+
+// ---- On install/update: start periodic scanning ----
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    // Fresh install — clear any stale data
+    chrome.storage.local.remove(
+      [STORAGE_KEY, YOU_SENT_TO_KEY, THEY_REPLIED_KEY, PREVIEWS_KEY, SCAN_READY_KEY],
+      () => console.log('[SR BG] Fresh install — cleared data')
+    );
+  }
+
+  // After install/update, reload any existing reddit chat tabs so they get fresh content scripts
+  // (old content scripts are orphaned and can't communicate with the new background)
+  setTimeout(async () => {
+    const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
+    for (const tab of tabs) {
+      console.log('[SR BG] Reloading chat tab ' + tab.id + ' for fresh content script');
+      chrome.tabs.reload(tab.id);
+    }
+    // If no chat tabs exist, open one
+    if (tabs.length === 0) {
+      ensureChatTab().catch(() => {});
+    }
+  }, 1000);
+
+  // Start periodic scan — first one after 3 min (gives initial scan time to complete)
+  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 3, periodInMinutes: SCAN_INTERVAL_MINUTES });
+});
+
+// ---- On browser startup: ensure scanning is active ----
+chrome.runtime.onStartup.addListener(() => {
+  console.log('[SR BG] Browser started — scheduling chat scan');
+  chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 1, periodInMinutes: SCAN_INTERVAL_MINUTES });
+  // Open chat tab to start scanning
+  setTimeout(() => ensureChatTab().catch(() => {}), 5000);
+});
+
+// ---- Periodic alarm: refresh chat data in background ----
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === SCAN_ALARM) {
+    console.log('[SR BG] Periodic scan — ensuring chat tab is open');
+    refreshChatTab();
+  }
+});
+
+// Refresh the chat tab to trigger a fresh scan by the content script
+async function refreshChatTab() {
+  try {
+    const hasSession = await hasRedditSession();
+    if (!hasSession) return;
+
+    // Don't reload if we just opened/refreshed the tab recently (< 2 min ago)
+    const now = Date.now();
+    if (now - lastTabOpenTime < 120_000) {
+      console.log('[SR BG] Tab opened recently, skipping refresh');
+      return;
+    }
+
+    const tabId = await ensureChatTab();
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab && !tab.active) {
+        lastTabOpenTime = now;
+        chrome.tabs.reload(tabId);
+        console.log('[SR BG] Refreshed chat tab for periodic scan');
+      }
+    } catch { /* tab gone */ }
+  } catch (err) {
+    console.log('[SR BG] Periodic scan error:', err.message);
+  }
+}
+
+// ---- Side Panel ----
+
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+// ---- Chat Tab Management ----
+
+let chatTabId = null;
+let scanResolvers = []; // Promises waiting for scan data
+
+// Find or create a background reddit.com/chat tab
+async function ensureChatTab() {
+  // Check if our tracked tab still exists
+  if (chatTabId !== null) {
+    try {
+      const tab = await chrome.tabs.get(chatTabId);
+      if (tab && tab.url && tab.url.includes('reddit.com/chat')) {
+        return chatTabId;
+      }
+    } catch {
+      chatTabId = null;
+    }
+  }
+
+  // Look for any existing chat tab
+  const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
+  if (tabs.length > 0) {
+    chatTabId = tabs[0].id;
+    return chatTabId;
+  }
+
+  // Create a new background tab (active: false = doesn't steal focus)
+  lastTabOpenTime = Date.now();
+  console.log('[SR BG] Opening reddit.com/chat in background tab');
+  const tab = await chrome.tabs.create({
+    url: 'https://www.reddit.com/chat',
+    active: false,
+  });
+  chatTabId = tab.id;
+  return chatTabId;
+}
+
+// Ensure chat data is available — opens tab if needed, waits for scan
+async function ensureChatData(timeoutMs = 60_000) {
+  // If we already have data, return immediately
+  const existing = await getStoredUsernames();
+  if (existing.length > 0) {
+    return;
+  }
+
+  // Open the chat tab
+  await ensureChatTab();
+
+  // Wait for the content script to send data (CHAT_SCAN_RESULT)
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      // Timeout — resolve with whatever we have
+      scanResolvers = scanResolvers.filter((r) => r !== resolve);
+      resolve();
+    }, timeoutMs);
+
+    scanResolvers.push(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+function notifyScanResolvers() {
+  const resolvers = [...scanResolvers];
+  scanResolvers = [];
+  for (const resolve of resolvers) resolve();
+}
+
+// ---- Message Handlers ----
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // ---- App bridge queries ----
+
+  if (message.type === 'CHECK_STATUS') {
+    handleCheckStatus().then(sendResponse).catch((err) =>
+      sendResponse({ installed: true, redditLoggedIn: false, error: err.message })
+    );
+    return true;
+  }
+
+  if (message.type === 'CHECK_SENT_MESSAGES') {
+    // Auto-open chat tab if needed, then return data
+    ensureChatData(30_000).then(() =>
+      handleCheckSentMessages().then(sendResponse)
+    ).catch((err) =>
+      sendResponse({ usernames: [], error: err.message })
+    );
+    return true;
+  }
+
+  if (message.type === 'CHECK_YOU_SENT_TO') {
+    (async () => {
+      try { await ensureChatTab(); } catch {}
+      let usernames = await getStoredYouSentTo();
+      // If storage empty, pull from chat tab directly
+      if (usernames.length === 0 && chatTabId !== null) {
+        const pulled = await pullDataFromChatTab();
+        if (pulled && pulled.youSentTo && pulled.youSentTo.length > 0) {
+          usernames = pulled.youSentTo;
+        }
+      }
+      sendResponse({ usernames });
+    })();
+    return true;
+  }
+
+  if (message.type === 'CHECK_THEY_REPLIED') {
+    (async () => {
+      try { await ensureChatTab(); } catch {}
+      let usernames = await getStoredTheyReplied();
+      // If storage empty, pull from chat tab directly
+      if (usernames.length === 0 && chatTabId !== null) {
+        const pulled = await pullDataFromChatTab();
+        if (pulled && pulled.theyReplied && pulled.theyReplied.length > 0) {
+          usernames = pulled.theyReplied;
+        }
+      }
+      sendResponse({ usernames });
+    })();
+    return true;
+  }
+
+  if (message.type === 'CHECK_REPLIES') {
+    // Legacy — redirect to CHECK_THEY_REPLIED behavior
+    ensureChatData(30_000).then(() =>
+      getStoredTheyReplied().then((replies) => sendResponse({ replies }))
+    ).catch((err) =>
+      sendResponse({ replies: [], error: err.message })
+    );
+    return true;
+  }
+
+  if (message.type === 'CHECK_PREVIEWS') {
+    handleCheckPreviews().then(sendResponse).catch((err) =>
+      sendResponse({ previews: {}, error: err.message })
+    );
+    return true;
+  }
+
+  // ---- SEND_DM: Auto-send a DM via compose page ----
+
+  if (message.type === 'SEND_DM') {
+    (async () => {
+      try {
+        const { username, subject, body } = message.data || {};
+        if (!username || !subject || !body) {
+          sendResponse({ success: false, error: 'Missing username, subject, or body' });
+          return;
+        }
+
+        // Single-send lock
+        if (pendingSendDm) {
+          sendResponse({ success: false, error: 'Another send is in progress', rateLimited: true, retryAfterMs: 5000 });
+          return;
+        }
+
+        // 8s cooldown between sends
+        const now = Date.now();
+        const cooldownMs = 8000;
+        const elapsed = now - lastSendDmTime;
+        if (elapsed < cooldownMs) {
+          const retryAfterMs = cooldownMs - elapsed;
+          sendResponse({ success: false, error: 'Rate limited — wait ' + Math.ceil(retryAfterMs / 1000) + 's', rateLimited: true, retryAfterMs });
+          return;
+        }
+
+        // Check Reddit session
+        const hasSession = await hasRedditSession();
+        if (!hasSession) {
+          sendResponse({ success: false, error: 'Not logged into Reddit' });
+          return;
+        }
+
+        // Build compose URL
+        const composeUrl = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(body)}`;
+        console.log('[SR BG] SEND_DM: opening compose tab for u/' + username);
+
+        // Open compose page in background tab
+        const tab = await chrome.tabs.create({ url: composeUrl, active: false });
+        composeTabId = tab.id;
+
+        // Set up promise to wait for COMPOSE_RESULT
+        const result = await new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            console.log('[SR BG] SEND_DM: 30s timeout for u/' + username);
+            if (pendingSendDm && pendingSendDm.tabId === tab.id) {
+              pendingSendDm = null;
+            }
+            // Close the compose tab
+            try { chrome.tabs.remove(tab.id); } catch {}
+            composeTabId = null;
+            resolve({ success: false, error: 'Send timed out after 30s — the compose page may not have loaded' });
+          }, 30000);
+
+          pendingSendDm = { resolve, tabId: tab.id, timer };
+        });
+
+        lastSendDmTime = Date.now();
+        sendResponse(result);
+      } catch (err) {
+        console.log('[SR BG] SEND_DM error:', err.message);
+        pendingSendDm = null;
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // ---- COMPOSE_RESULT: Result from reddit-content.js on compose page ----
+
+  if (message.type === 'COMPOSE_RESULT') {
+    const { success, error, username } = message;
+    console.log('[SR BG] COMPOSE_RESULT:', { success, error, username });
+
+    if (pendingSendDm) {
+      clearTimeout(pendingSendDm.timer);
+      const tabId = pendingSendDm.tabId;
+      const resolve = pendingSendDm.resolve;
+      pendingSendDm = null;
+
+      // Close compose tab
+      try { chrome.tabs.remove(tabId); } catch {}
+      composeTabId = null;
+
+      // On success, add username to youSentTo storage
+      if (success && username) {
+        chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+          const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+          existing.add(username.toLowerCase());
+          chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+          console.log('[SR BG] Added ' + username + ' to youSentTo');
+        });
+      }
+
+      resolve({ success, error });
+    } else {
+      // No pending send — just close the tab if it's a compose tab
+      if (sender.tab && sender.tab.id) {
+        try { chrome.tabs.remove(sender.tab.id); } catch {}
+      }
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  // ---- Data from reddit-content.js (chat tab scraping) ----
+
+  if (message.type === 'STORE_CHAT_USERNAMES') {
+    const usernames = message.usernames || [];
+    if (usernames.length > 0) {
+      chrome.storage.local.get(STORAGE_KEY, (result) => {
+        const existing = new Set(result[STORAGE_KEY] || []);
+        for (const u of usernames) existing.add(u);
+        chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
+      });
+      // Data arrived — notify anyone waiting
+      notifyScanResolvers();
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === 'STORE_YOU_SENT_TO') {
+    // Cumulative merge — add, never remove
+    const newUsernames = message.usernames || [];
+    chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+      const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+      for (const u of newUsernames) existing.add(u);
+      chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  if (message.type === 'STORE_THEY_REPLIED') {
+    // Cumulative merge — same as youSentTo (virtual scroll only shows ~16 at a time)
+    const newUsernames = message.usernames || [];
+    chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+      const existing = new Set(result[THEY_REPLIED_KEY] || []);
+      for (const u of newUsernames) existing.add(u);
+      chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  // Legacy handler — keep for backwards compat during transition
+  if (message.type === 'STORE_CHAT_REPLIES') {
+    const newReplies = message.replies || [];
+    chrome.storage.local.set({ [THEY_REPLIED_KEY]: newReplies });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === 'STORE_CHAT_PREVIEWS') {
+    const previews = message.previews || {};
+    chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === 'CHAT_SCAN_RESULT') {
+    const { usernames = [], youSentTo = [], theyReplied = [], previews = {} } = message;
+    console.log(`[SR BG] Chat scan complete: ${usernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
+    if (usernames.length > 0) {
+      // Usernames — cumulative
+      chrome.storage.local.get(STORAGE_KEY, (result) => {
+        const existing = new Set(result[STORAGE_KEY] || []);
+        for (const u of usernames) existing.add(u);
+        chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
+      });
+      // youSentTo — cumulative merge
+      if (youSentTo.length > 0) {
+        chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+          const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+          for (const u of youSentTo) existing.add(u);
+          chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+        });
+      }
+      // theyReplied — cumulative merge (virtual scroll only shows ~16 at a time)
+      if (theyReplied.length > 0) {
+        chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+          const existing = new Set(result[THEY_REPLIED_KEY] || []);
+          for (const u of theyReplied) existing.add(u);
+          chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
+        });
+      }
+      // Previews
+      if (Object.keys(previews).length > 0) {
+        chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+      }
+    }
+    // Notify anyone waiting for scan data
+    notifyScanResolvers();
+    sendResponse({ ok: true });
+    return false;
+  }
+});
+
+// ---- Track tab closure ----
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === chatTabId) {
+    chatTabId = null;
+  }
+  // If compose tab closed prematurely, resolve pending send with error
+  if (tabId === composeTabId) {
+    composeTabId = null;
+    if (pendingSendDm && pendingSendDm.tabId === tabId) {
+      clearTimeout(pendingSendDm.timer);
+      pendingSendDm.resolve({ success: false, error: 'Compose tab was closed before send completed' });
+      pendingSendDm = null;
+    }
+  }
+});
+
+// ---- Cookie / Session Check ----
+
+async function hasRedditSession() {
+  const cookieNames = ['token_v2', 'reddit_session', 'session_tracker'];
+  for (const name of cookieNames) {
+    const cookie = await new Promise((resolve) => {
+      chrome.cookies.get({ url: 'https://www.reddit.com', name }, (c) => resolve(c));
+    });
+    if (cookie) return true;
+  }
+  return false;
+}
+
+// ---- Storage Helpers ----
+
+async function getStoredUsernames() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(STORAGE_KEY, (result) => {
+      resolve(result[STORAGE_KEY] || []);
+    });
+  });
+}
+
+async function getStoredYouSentTo() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+      resolve(result[YOU_SENT_TO_KEY] || []);
+    });
+  });
+}
+
+async function getStoredTheyReplied() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+      resolve(result[THEY_REPLIED_KEY] || []);
+    });
+  });
+}
+
+async function getStoredPreviews() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(PREVIEWS_KEY, (result) => {
+      resolve(result[PREVIEWS_KEY] || {});
+    });
+  });
+}
+
+// ---- Pull data directly from chat tab's content script ----
+// Bypasses chrome.storage issues with orphaned content scripts.
+// Background uses chrome.tabs.sendMessage() to ask the content script for data.
+
+async function pullDataFromChatTab() {
+  const tabId = chatTabId;
+  if (!tabId) return null;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab || !tab.url || !tab.url.includes('reddit.com/chat')) return null;
+  } catch {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), 5000);
+    try {
+      chrome.tabs.sendMessage(tabId, { type: 'GET_SCAN_DATA' }, (response) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError || !response) {
+          console.log('[SR BG] Pull from chat tab failed:', chrome.runtime.lastError?.message || 'no response');
+          resolve(null);
+          return;
+        }
+        console.log('[SR BG] Pulled data from chat tab:', response.usernames?.length, 'usernames,', response.youSentTo?.length, 'youSentTo,', response.theyReplied?.length, 'theyReplied');
+        // Store pulled data into chrome.storage (background always has valid storage access)
+        const { usernames = [], youSentTo = [], theyReplied = [], previews = {} } = response;
+        if (usernames.length > 0) {
+          chrome.storage.local.get(STORAGE_KEY, (result) => {
+            const existing = new Set(result[STORAGE_KEY] || []);
+            for (const u of usernames) existing.add(u);
+            chrome.storage.local.set({ [STORAGE_KEY]: Array.from(existing) });
+          });
+        }
+        if (youSentTo.length > 0) {
+          chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+            const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+            for (const u of youSentTo) existing.add(u);
+            chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+          });
+        }
+        if (theyReplied.length > 0) {
+          chrome.storage.local.get(THEY_REPLIED_KEY, (result) => {
+            const existing = new Set(result[THEY_REPLIED_KEY] || []);
+            for (const u of theyReplied) existing.add(u);
+            chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
+          });
+        }
+        if (Object.keys(previews).length > 0) {
+          chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+        }
+        resolve(response);
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      console.log('[SR BG] Pull error:', err.message);
+      resolve(null);
+    }
+  });
+}
+
+// ---- Response Handlers ----
+
+async function handleCheckStatus() {
+  const hasSession = await hasRedditSession();
+  if (!hasSession) {
+    return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0, youSentToCount: 0, theyRepliedCount: 0 };
+  }
+
+  // Auto-open chat tab to start scanning in the background
+  try { await ensureChatTab(); } catch {}
+
+  let stored = await getStoredUsernames();
+  let youSentTo = await getStoredYouSentTo();
+  let theyReplied = await getStoredTheyReplied();
+
+  // If storage is empty but chat tab exists, pull data directly from content script
+  if (stored.length === 0 && youSentTo.length === 0 && chatTabId !== null) {
+    console.log('[SR BG] Storage empty — pulling data from chat tab');
+    const pulled = await pullDataFromChatTab();
+    if (pulled && pulled.usernames && pulled.usernames.length > 0) {
+      stored = pulled.usernames;
+      youSentTo = pulled.youSentTo || [];
+      theyReplied = pulled.theyReplied || [];
+    }
+  }
+
+  return {
+    installed: true,
+    redditLoggedIn: true,
+    username: null,
+    capturedCount: stored.length,
+    youSentToCount: youSentTo.length,
+    theyRepliedCount: theyReplied.length,
+    youSentTo,
+    theyReplied,
+  };
+}
+
+async function handleCheckSentMessages() {
+  const stored = await getStoredUsernames();
+  return { usernames: stored };
+}
+
+async function handleCheckPreviews() {
+  const previews = await getStoredPreviews();
+  return { previews };
+}
