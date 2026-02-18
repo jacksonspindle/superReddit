@@ -396,6 +396,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
   let lastLoggedCount = 0;
   let autoScrollTriggered = false;
+  let autoScrollRunning = false;
+  let lastAutoScrollTime = 0;
+  const AUTO_SCROLL_INTERVAL = 3 * 60 * 1000; // Re-run auto-scroll every 3 minutes
 
   function runScan() {
     // Step 1: Discover all usernames
@@ -418,10 +421,14 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
       storeResults(allUsernames, youSentTo, theyReplied, previews);
 
-      // Trigger auto-scroll the first time we detect real usernames
+      // Trigger auto-scroll on first detection, then re-run periodically
+      const now = Date.now();
       if (!autoScrollTriggered) {
         autoScrollTriggered = true;
         console.log('[SuperReddit] Usernames detected — starting auto-scroll');
+        setTimeout(autoScrollSidebar, 500);
+      } else if (!autoScrollRunning && now - lastAutoScrollTime > AUTO_SCROLL_INTERVAL) {
+        console.log('[SuperReddit] Periodic auto-scroll (picks up new conversations)');
         setTimeout(autoScrollSidebar, 500);
       }
     }
@@ -450,9 +457,13 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   function autoScrollSidebar() {
+    autoScrollRunning = true;
+    lastAutoScrollTime = Date.now();
+
     const convLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
     if (convLinks.length === 0) {
       console.log('[SuperReddit] Auto-scroll: no conversation links, skipping');
+      autoScrollRunning = false;
       return;
     }
 
@@ -618,6 +629,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         // Scroll back to top
         scrollTarget.scrollTop = 0;
         if (scrollTarget !== sidebarContainer) sidebarContainer.scrollTop = 0;
+        autoScrollRunning = false;
       }
     }, 1200);
   }

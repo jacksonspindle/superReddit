@@ -141,12 +141,15 @@ export default function DmPipelinePage() {
       // Fire post sync in background after initial render
       syncPosts();
       // Fetch chat previews from extension and persist to DB
-      // Retry after delays since extension may need time to scan chats
       fetchAndPersistPreviews();
       setTimeout(() => fetchAndPersistPreviews(), 5000);
       setTimeout(() => fetchAndPersistPreviews(), 15000);
     }
     init();
+
+    // Poll for preview updates every 30s so data stays fresh as conversations happen
+    const previewPoll = setInterval(() => fetchAndPersistPreviews(), 30_000);
+    return () => clearInterval(previewPoll);
   }, [fetchDms, fetchPosts, fetchMonitoredPosts, syncPosts, fetchAndPersistPreviews]);
 
   // Auto-scan on mount
