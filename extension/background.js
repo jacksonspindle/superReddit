@@ -11,6 +11,9 @@ const SCAN_READY_KEY = 'sr_scan_ready';
 const SCAN_ALARM = 'sr_periodic_scan';
 const SCAN_INTERVAL_MINUTES = 5;
 let lastTabOpenTime = 0;
+let lastSendDmTime = 0;
+let pendingSendDm = null; // { resolve, tabId, timer }
+let composeTabId = null;
 
 // ---- On install/update: start periodic scanning ----
 chrome.runtime.onInstalled.addListener((details) => {
@@ -227,6 +230,112 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ---- SEND_DM: Auto-send a DM via compose page ----
+
+  if (message.type === 'SEND_DM') {
+    (async () => {
+      try {
+        const { username, subject, body } = message.data || {};
+        if (!username || !subject || !body) {
+          sendResponse({ success: false, error: 'Missing username, subject, or body' });
+          return;
+        }
+
+        // Single-send lock
+        if (pendingSendDm) {
+          sendResponse({ success: false, error: 'Another send is in progress', rateLimited: true, retryAfterMs: 5000 });
+          return;
+        }
+
+        // 8s cooldown between sends
+        const now = Date.now();
+        const cooldownMs = 8000;
+        const elapsed = now - lastSendDmTime;
+        if (elapsed < cooldownMs) {
+          const retryAfterMs = cooldownMs - elapsed;
+          sendResponse({ success: false, error: 'Rate limited — wait ' + Math.ceil(retryAfterMs / 1000) + 's', rateLimited: true, retryAfterMs });
+          return;
+        }
+
+        // Check Reddit session
+        const hasSession = await hasRedditSession();
+        if (!hasSession) {
+          sendResponse({ success: false, error: 'Not logged into Reddit' });
+          return;
+        }
+
+        // Build compose URL
+        const composeUrl = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(body)}`;
+        console.log('[SR BG] SEND_DM: opening compose tab for u/' + username);
+
+        // Open compose page in background tab
+        const tab = await chrome.tabs.create({ url: composeUrl, active: false });
+        composeTabId = tab.id;
+
+        // Set up promise to wait for COMPOSE_RESULT
+        const result = await new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            console.log('[SR BG] SEND_DM: 30s timeout for u/' + username);
+            if (pendingSendDm && pendingSendDm.tabId === tab.id) {
+              pendingSendDm = null;
+            }
+            // Close the compose tab
+            try { chrome.tabs.remove(tab.id); } catch {}
+            composeTabId = null;
+            resolve({ success: false, error: 'Send timed out after 30s — the compose page may not have loaded' });
+          }, 30000);
+
+          pendingSendDm = { resolve, tabId: tab.id, timer };
+        });
+
+        lastSendDmTime = Date.now();
+        sendResponse(result);
+      } catch (err) {
+        console.log('[SR BG] SEND_DM error:', err.message);
+        pendingSendDm = null;
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // ---- COMPOSE_RESULT: Result from reddit-content.js on compose page ----
+
+  if (message.type === 'COMPOSE_RESULT') {
+    const { success, error, username } = message;
+    console.log('[SR BG] COMPOSE_RESULT:', { success, error, username });
+
+    if (pendingSendDm) {
+      clearTimeout(pendingSendDm.timer);
+      const tabId = pendingSendDm.tabId;
+      const resolve = pendingSendDm.resolve;
+      pendingSendDm = null;
+
+      // Close compose tab
+      try { chrome.tabs.remove(tabId); } catch {}
+      composeTabId = null;
+
+      // On success, add username to youSentTo storage
+      if (success && username) {
+        chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+          const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+          existing.add(username.toLowerCase());
+          chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+          console.log('[SR BG] Added ' + username + ' to youSentTo');
+        });
+      }
+
+      resolve({ success, error });
+    } else {
+      // No pending send — just close the tab if it's a compose tab
+      if (sender.tab && sender.tab.id) {
+        try { chrome.tabs.remove(sender.tab.id); } catch {}
+      }
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
   // ---- Data from reddit-content.js (chat tab scraping) ----
 
   if (message.type === 'STORE_CHAT_USERNAMES') {
@@ -321,10 +430,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// ---- Track chat tab closure ----
+// ---- Track tab closure ----
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === chatTabId) {
     chatTabId = null;
+  }
+  // If compose tab closed prematurely, resolve pending send with error
+  if (tabId === composeTabId) {
+    composeTabId = null;
+    if (pendingSendDm && pendingSendDm.tabId === tabId) {
+      clearTimeout(pendingSendDm.timer);
+      pendingSendDm.resolve({ success: false, error: 'Compose tab was closed before send completed' });
+      pendingSendDm = null;
+    }
   }
 });
 

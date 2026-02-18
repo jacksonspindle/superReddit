@@ -2,10 +2,7 @@
 
 import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle, MessageSquare, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cardHover, cardTap } from '@/lib/motion';
 import { timeAgo, followUpStatus } from '@/lib/time';
 import type { OutreachDM, PermissionType } from '@/types';
@@ -59,10 +56,10 @@ export function KanbanLeadCard({
   const fuStatus = followUpStatus(dm.follow_up_due);
 
   return (
-    <motion.div whileHover={cardHover} whileTap={cardTap}>
-      <Card className="p-2.5 space-y-1.5 transition-shadow hover:shadow-md bg-card/80 border border-border overflow-hidden">
-        {/* Top row: avatar + username + subreddit */}
-        <div className="flex items-center gap-1.5 min-w-0">
+    <motion.div whileHover={cardHover} whileTap={cardTap} className="w-full min-w-0">
+      <div className="w-full rounded-lg border border-border bg-card/80 p-3 transition-shadow hover:shadow-md">
+        {/* Header: checkbox + avatar + name + actions */}
+        <div className="flex items-center gap-2 mb-2">
           {stage === 'ready' && onSelect && (
             <input
               type="checkbox"
@@ -71,21 +68,21 @@ export function KanbanLeadCard({
               className="h-3.5 w-3.5 rounded border-border cursor-pointer shrink-0"
             />
           )}
-          <Avatar className="h-6 w-6 shrink-0">
-            <AvatarFallback className="text-[9px] font-semibold">
+          <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-semibold text-muted-foreground">
               {getInitials(dm.reddit_username)}
-            </AvatarFallback>
-          </Avatar>
+            </span>
+          </div>
           <div className="min-w-0 flex-1">
-            <span className="font-medium text-xs truncate block">u/{dm.reddit_username}</span>
+            <div className="font-medium text-sm truncate">u/{dm.reddit_username}</div>
             {subreddit && (
-              <span className="text-[10px] text-muted-foreground truncate block">r/{subreddit}</span>
+              <div className="text-xs text-muted-foreground truncate">r/{subreddit}</div>
             )}
           </div>
           {dm.touch_number > 0 && stage !== 'ready' && (
             <Badge
               variant="secondary"
-              className={`text-[9px] px-1 py-0 shrink-0 ${
+              className={`text-[10px] px-1.5 py-0 shrink-0 ${
                 dm.touch_number >= 3
                   ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
                   : dm.touch_number >= 2
@@ -97,64 +94,63 @@ export function KanbanLeadCard({
             </Badge>
           )}
           {stage === 'ready' && onDismiss && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive shrink-0"
+            <button
+              type="button"
+              className="h-5 w-5 flex items-center justify-center text-muted-foreground hover:text-destructive shrink-0 cursor-pointer"
               onClick={() => onDismiss(dm.id)}
             >
               <X className="h-3 w-3" />
-            </Button>
+            </button>
           )}
         </div>
 
-        {/* Source thread */}
+        {/* Thread link */}
         {dm.signal && (
           <a
             href={`https://reddit.com${dm.signal.permalink}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5 hover:bg-muted transition-colors min-w-0"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1 mb-2 hover:bg-muted transition-colors overflow-hidden"
           >
-            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+            <ExternalLink className="h-3 w-3 shrink-0" />
             <span className="truncate">{threadTitle}</span>
           </a>
         )}
 
-        {/* Comment quote (only on ready/followup/converted, not sent) */}
+        {/* Comment quote */}
         {dm.comment_text && stage !== 'sent' && (
-          <p className="text-[11px] text-muted-foreground line-clamp-2 italic break-words">
+          <p className="text-sm text-muted-foreground italic mb-2 line-clamp-3 break-all overflow-hidden">
             &ldquo;{dm.comment_text}&rdquo;
           </p>
         )}
 
         {/* Permission badge + time (ready) */}
         {stage === 'ready' && (
-          <div className="flex items-center gap-1 min-w-0">
-            <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 shrink-0 ${permission.className}`}>
+          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+            <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${permission.className}`}>
               {permission.label}
             </Badge>
-            <span className="text-[9px] text-muted-foreground ml-auto shrink-0">
+            <span className="text-[10px] text-muted-foreground ml-auto">
               <Clock className="inline h-2.5 w-2.5 mr-0.5" />
               {timeAgo(dm.created_at)}
             </span>
           </div>
         )}
 
-        {/* Follow-up: show their reply from chat */}
+        {/* Follow-up chat preview */}
         {stage === 'followup' && chatPreview && (
-          <div className="bg-blue-50 dark:bg-blue-950/30 rounded px-1.5 py-1 min-w-0">
-            <p className="text-[9px] font-medium text-muted-foreground mb-0.5">
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1 mb-2 overflow-hidden">
+            <p className="text-[10px] font-medium text-muted-foreground">
               {chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`}
             </p>
-            <p className="text-[10px] line-clamp-2 break-words">{chatPreview.text}</p>
+            <p className="text-xs line-clamp-2 break-all">{chatPreview.text}</p>
           </div>
         )}
 
-        {/* Follow-up status (followup) */}
+        {/* Follow-up status */}
         {stage === 'followup' && fuStatus && (
           <div
-            className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
+            className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded mb-2 ${
               fuStatus.overdue
                 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                 : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
@@ -165,124 +161,105 @@ export function KanbanLeadCard({
           </div>
         )}
 
-        {/* Sent DM info — show last message from chat */}
+        {/* Sent DM info */}
         {stage === 'sent' && (
-          <>
+          <div className="mb-2">
             {chatPreview ? (
-              <div className={`rounded px-1.5 py-1 min-w-0 ${chatPreview.fromYou ? 'bg-muted/50' : 'bg-blue-50 dark:bg-blue-950/30'}`}>
-                <p className="text-[9px] font-medium text-muted-foreground mb-0.5">
+              <div className={`rounded px-2 py-1 overflow-hidden ${chatPreview.fromYou ? 'bg-muted/50' : 'bg-blue-50 dark:bg-blue-950/30'}`}>
+                <p className="text-[10px] font-medium text-muted-foreground">
                   {chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`}
                 </p>
-                <p className="text-[10px] line-clamp-2 break-words">{chatPreview.text}</p>
+                <p className="text-xs line-clamp-2 break-all">{chatPreview.text}</p>
               </div>
             ) : (dm.dm_body || dm.dm_subject) ? (
-              <div className="bg-muted/50 rounded px-1.5 py-1 space-y-0.5 min-w-0">
+              <div className="bg-muted/50 rounded px-2 py-1 overflow-hidden">
                 {dm.dm_subject && (
-                  <p className="text-[10px] font-medium truncate">{dm.dm_subject}</p>
+                  <p className="text-xs font-medium truncate">{dm.dm_subject}</p>
                 )}
                 {dm.dm_body && (
-                  <p className="text-[10px] text-muted-foreground line-clamp-2 break-words">{dm.dm_body}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 break-all">{dm.dm_body}</p>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/50 rounded px-1.5 py-1">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
                 <MessageSquare className="h-2.5 w-2.5 shrink-0" />
                 <span>Awaiting reply</span>
               </div>
             )}
             {dm.dm_sent_at && (
-              <span className="text-[9px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground mt-1 block">
                 Sent {timeAgo(dm.dm_sent_at)}
               </span>
             )}
-          </>
+          </div>
         )}
 
         {/* Converted info */}
         {stage === 'converted' && (
-          <div className="space-y-1">
+          <div className="mb-2">
             {dm.outcome && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 mb-1 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
                 {dm.outcome}
               </Badge>
             )}
-            <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               {dm.touch_number > 0 && <span>{dm.touch_number} touch{dm.touch_number !== 1 ? 'es' : ''}</span>}
               {dm.dm_sent_at && <span className="truncate">DM to conversion: {timeAgo(dm.dm_sent_at)}</span>}
             </div>
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1 pt-0.5 min-w-0">
+        {/* Actions */}
+        <div className="flex items-center gap-3 pt-1.5 border-t border-border/50">
           {stage === 'ready' && (
-            <Button
-              variant="default"
-              size="sm"
-              className="h-6 text-[11px] px-2 w-full"
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
               onClick={() => onDraft?.(dm)}
             >
-              Draft DM
-              <ArrowRight className="ml-1 h-3 w-3 shrink-0" />
-            </Button>
+              Draft DM <ArrowRight className="h-3 w-3" />
+            </button>
           )}
 
           {stage === 'sent' && (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
+              <button
+                type="button"
+                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
                 onClick={() => onStageChange(dm.id, 'dm_ready')}
               >
-                <Undo2 className="h-3 w-3 shrink-0 mr-0.5" />
-                <span className="truncate">Not sent</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
+                <Undo2 className="h-3 w-3" /> Not sent
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-destructive hover:underline cursor-pointer"
                 onClick={() => onStageChange(dm.id, 'closed', 'no_response')}
               >
-                <X className="h-3 w-3 shrink-0 mr-0.5" />
-                <span className="truncate">Close</span>
-              </Button>
+                <X className="h-3 w-3" /> Close
+              </button>
             </>
           )}
 
           {stage === 'followup' && (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 min-w-0 text-muted-foreground"
-                onClick={() => onStageChange(dm.id, 'dm_sent')}
-              >
-                <Undo2 className="h-3 w-3 shrink-0 mr-0.5" />
-                <span className="truncate">Wrong</span>
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 flex-1 min-w-0"
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
                 onClick={() => onDraft?.(dm)}
               >
-                <span className="truncate">Follow-up</span>
-                <ArrowRight className="ml-1 h-3 w-3 shrink-0" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-[11px] px-1.5 min-w-0 text-green-600"
+                Follow-up <ArrowRight className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-0.5 text-xs font-medium text-green-600 hover:underline cursor-pointer ml-auto"
                 onClick={() => onStageChange(dm.id, 'converted')}
               >
-                <Check className="h-3 w-3 shrink-0" />
-                <span className="truncate">Won</span>
-              </Button>
+                <Check className="h-3 w-3" /> Won
+              </button>
             </>
           )}
         </div>
-      </Card>
+      </div>
     </motion.div>
   );
 }

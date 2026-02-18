@@ -15,7 +15,10 @@
 
     const { type, requestId } = event.data;
 
-    chrome.runtime.sendMessage({ type }, (response) => {
+    const forwardMsg = { type };
+    if (event.data.data) forwardMsg.data = event.data.data;
+
+    chrome.runtime.sendMessage(forwardMsg, (response) => {
       // Handle extension context invalidation (e.g. extension reloaded)
       if (chrome.runtime.lastError) {
         window.postMessage(

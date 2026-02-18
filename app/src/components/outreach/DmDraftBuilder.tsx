@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Copy, ExternalLink, Sparkles, Check, X } from 'lucide-react';
+import { Loader2, Copy, ExternalLink, Sparkles, Check, X, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { scaleFadeVariants } from '@/lib/motion';
 import { toast } from 'sonner';
+import { useRedditBridge } from '@/hooks/useRedditBridge';
 import type { DmTemplate } from '@/types';
 
 interface DmDraftBuilderProps {
@@ -24,8 +25,11 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [followUpDays, setFollowUpDays] = useState<string>('3');
+  const { status: bridgeStatus, sendDm } = useRedditBridge();
 
   // Fetch templates
   useEffect(() => {
@@ -87,6 +91,33 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
     } catch {
       toast.error('Failed to copy to clipboard');
     }
+  }
+
+  async function handleSendDm() {
+    setSending(true);
+    setSendError(null);
+    try {
+      const result = await sendDm(username, subject, body);
+      if (result.success) {
+        toast.success('DM sent to u/' + username);
+        // Auto-confirm sent (same as clicking "Yes, sent")
+        await handleConfirmSent();
+      } else if (result.rateLimited) {
+        const secs = result.retryAfterMs ? Math.ceil(result.retryAfterMs / 1000) : 8;
+        const msg = 'Rate limited — wait ' + secs + 's before sending again';
+        setSendError(msg);
+        toast.error(msg);
+      } else {
+        const msg = result.error || 'Failed to send DM';
+        setSendError(msg);
+        toast.error(msg);
+      }
+    } catch {
+      const msg = 'Failed to send DM';
+      setSendError(msg);
+      toast.error(msg);
+    }
+    setSending(false);
   }
 
   async function handleConfirmSent() {
@@ -166,25 +197,46 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
 
       {/* Actions */}
       {(subject || body) && !showConfirm && (
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handleCopyAndOpen}
-          >
-            <Copy className="mr-1 h-3 w-3" />
-            Copy & Open DM
-          </Button>
-          <a
-            href={`https://www.reddit.com/user/${username}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="ghost" size="sm" className="h-8 text-xs">
-              <ExternalLink className="mr-1 h-3 w-3" />
-              u/{username}
-            </Button>
-          </a>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            {bridgeStatus.extensionInstalled && bridgeStatus.redditLoggedIn ? (
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={handleSendDm}
+                disabled={sending}
+              >
+                {sending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="mr-1 h-3 w-3" />
+                )}
+                {sending ? 'Sending...' : 'Send DM'}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={handleCopyAndOpen}
+              >
+                <Copy className="mr-1 h-3 w-3" />
+                Copy & Open DM
+              </Button>
+            )}
+            <a
+              href={`https://www.reddit.com/user/${username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                <ExternalLink className="mr-1 h-3 w-3" />
+                u/{username}
+              </Button>
+            </a>
+          </div>
+          {sendError && (
+            <p className="text-xs text-red-600 dark:text-red-400">{sendError}</p>
+          )}
         </div>
       )}
 

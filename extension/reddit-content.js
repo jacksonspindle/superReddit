@@ -639,7 +639,175 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     }
   });
 
-  if (isOnChatPage()) {
+  // ---- Compose Page Auto-Send ----
+
+  function isOnComposePage() {
+    return location.pathname.includes('/message/compose');
+  }
+
+  function handleComposePage() {
+    console.log('[SuperReddit] Compose page detected — waiting for form to load');
+
+    // Extract username from URL for reporting
+    const urlParams = new URLSearchParams(location.search);
+    const toUsername = urlParams.get('to') || '';
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 20; // 20 × 500ms = 10s max wait for form
+
+    const formWaiter = setInterval(() => {
+      attempts++;
+
+      // Look for the send/submit button
+      const sendBtn = findSendButton();
+      if (!sendBtn) {
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(formWaiter);
+          console.log('[SuperReddit] Compose: could not find Send button after ' + MAX_ATTEMPTS + ' attempts');
+          reportComposeResult(false, 'Could not find Send button on compose page', toUsername);
+        }
+        return;
+      }
+
+      clearInterval(formWaiter);
+
+      // Verify pre-filled fields are present
+      const toField = document.querySelector('input[name="to"]') || document.querySelector('#to');
+      const subjectField = document.querySelector('input[name="subject"]') || document.querySelector('#subject');
+      const messageField = document.querySelector('textarea[name="message"]') || document.querySelector('#message') || document.querySelector('textarea[name="text"]') || document.querySelector('#text');
+
+      console.log('[SuperReddit] Compose form found — to:', toField?.value, 'subject:', subjectField?.value?.substring(0, 30), 'body length:', messageField?.value?.length);
+
+      // Check for obvious errors before clicking
+      const preError = detectComposeError();
+      if (preError) {
+        console.log('[SuperReddit] Compose: pre-send error detected:', preError);
+        reportComposeResult(false, preError, toUsername);
+        return;
+      }
+
+      // Click send
+      console.log('[SuperReddit] Compose: clicking Send button');
+      sendBtn.click();
+
+      // Poll for success/failure after clicking send
+      detectSendOutcome(toUsername);
+    }, 500);
+  }
+
+  function findSendButton() {
+    // Strategy 1: submit button with "send" text
+    const buttons = document.querySelectorAll('button[type="submit"], button, input[type="submit"]');
+    for (const btn of buttons) {
+      const text = (btn.textContent || btn.value || '').toLowerCase().trim();
+      if (text === 'send' || text === 'send message') return btn;
+    }
+
+    // Strategy 2: .c-btn-primary or .btn (Reddit's old design)
+    const primary = document.querySelector('.c-btn-primary, .btn[type="submit"], .submit button');
+    if (primary) return primary;
+
+    // Strategy 3: any submit button
+    const anySubmit = document.querySelector('button[type="submit"], input[type="submit"]');
+    if (anySubmit) return anySubmit;
+
+    return null;
+  }
+
+  function detectComposeError() {
+    // Check for error elements
+    const errorEls = document.querySelectorAll('.error, .c-form-error, [class*="error"]');
+    for (const el of errorEls) {
+      const text = (el.textContent || '').trim();
+      if (text.length > 0 && text.length < 200) {
+        // Filter out generic class-name matches that aren't actual errors
+        if (el.offsetHeight > 0 && el.offsetWidth > 0) return text;
+      }
+    }
+
+    // Check for captcha
+    const captcha = document.querySelector('.g-recaptcha, [class*="captcha"], iframe[src*="captcha"]');
+    if (captcha) return 'Captcha required — please send this DM manually';
+
+    // Check for rate limit messages in page body
+    const bodyText = document.body?.textContent || '';
+    if (/you are doing that too much/i.test(bodyText)) {
+      const match = bodyText.match(/try again in (\d+ \w+)/i);
+      return 'Reddit rate limit: ' + (match ? 'try again in ' + match[1] : 'you are doing that too much');
+    }
+
+    return null;
+  }
+
+  function detectSendOutcome(username) {
+    let checks = 0;
+    const MAX_CHECKS = 20; // 20 × 500ms = 10s
+
+    const checker = setInterval(() => {
+      checks++;
+
+      // Check for success: Reddit redirects or shows success message after sending
+      // Old Reddit redirects to /message/sent or shows a success banner
+      if (location.pathname.includes('/message/sent') || location.pathname.includes('/message/compose') === false) {
+        clearInterval(checker);
+        console.log('[SuperReddit] Compose: send success (page redirected)');
+        reportComposeResult(true, null, username);
+        return;
+      }
+
+      // Check for success message on page
+      const successEls = document.querySelectorAll('.success, [class*="success"], .infobar');
+      for (const el of successEls) {
+        const text = (el.textContent || '').trim().toLowerCase();
+        if (text.includes('your message has been delivered') || text.includes('message sent')) {
+          clearInterval(checker);
+          console.log('[SuperReddit] Compose: send success (success message found)');
+          reportComposeResult(true, null, username);
+          return;
+        }
+      }
+
+      // Check for errors that appeared after clicking send
+      const error = detectComposeError();
+      if (error && checks > 2) { // Wait at least 2 checks before reporting error (to skip transient states)
+        clearInterval(checker);
+        console.log('[SuperReddit] Compose: send failed —', error);
+        reportComposeResult(false, error, username);
+        return;
+      }
+
+      if (checks >= MAX_CHECKS) {
+        clearInterval(checker);
+        // If we're still on the compose page with no error, it might have worked (some Reddit versions don't redirect)
+        const finalError = detectComposeError();
+        if (finalError) {
+          console.log('[SuperReddit] Compose: timed out with error —', finalError);
+          reportComposeResult(false, finalError, username);
+        } else {
+          // Assume success if no error after 10s — Reddit sometimes doesn't show clear confirmation
+          console.log('[SuperReddit] Compose: timed out with no error — assuming success');
+          reportComposeResult(true, null, username);
+        }
+      }
+    }, 500);
+  }
+
+  function reportComposeResult(success, error, username) {
+    try {
+      chrome.runtime.sendMessage(
+        { type: 'COMPOSE_RESULT', success, error, username },
+        () => { if (chrome.runtime.lastError) { /* ignore */ } }
+      );
+    } catch (e) {
+      console.log('[SuperReddit] Failed to report compose result:', e.message);
+    }
+  }
+
+  // ---- Routing ----
+  if (isOnComposePage()) {
+    // Auto-send on compose page (opened by SEND_DM)
+    handleComposePage();
+  } else if (isOnChatPage()) {
     startScanning();
   } else {
     setTimeout(runScan, 2000);

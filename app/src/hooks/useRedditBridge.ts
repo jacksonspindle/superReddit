@@ -23,7 +23,7 @@ const READY_STAGES = new Set(['detected', 'dm_ready', 'draft_generated']);
 
 let requestCounter = 0;
 
-function sendToExtension<T = unknown>(type: string, timeoutMs = 10_000): Promise<T> {
+function sendToExtension<T = unknown>(type: string, timeoutMs = 10_000, data?: Record<string, unknown>): Promise<T> {
   return new Promise((resolve, reject) => {
     const requestId = `sr_${++requestCounter}_${Date.now()}`;
 
@@ -49,10 +49,10 @@ function sendToExtension<T = unknown>(type: string, timeoutMs = 10_000): Promise
 
     window.addEventListener('message', handler);
 
-    window.postMessage(
-      { target: 'superreddit-extension', type, requestId },
-      '*'
-    );
+    const msg: Record<string, unknown> = { target: 'superreddit-extension', type, requestId };
+    if (data) msg.data = data;
+
+    window.postMessage(msg, '*');
   });
 }
 
@@ -240,6 +240,26 @@ export function useRedditBridge() {
     }
   }, []);
 
+  const sendDm = useCallback(async (username: string, subject: string, body: string): Promise<{
+    success: boolean;
+    error?: string;
+    rateLimited?: boolean;
+    retryAfterMs?: number;
+  }> => {
+    try {
+      const result = await sendToExtension<{
+        success: boolean;
+        error?: string;
+        rateLimited?: boolean;
+        retryAfterMs?: number;
+      }>('SEND_DM', 35_000, { username, subject, body });
+
+      return result;
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error sending DM' };
+    }
+  }, []);
+
   const reconcile = useCallback(
     async (
       allDms: OutreachDM[],
@@ -316,6 +336,7 @@ export function useRedditBridge() {
     previews,
     youSentToList,
     theyRepliedList,
+    sendDm,
     checkYouSentTo,
     checkTheyReplied,
     fetchPreviews,

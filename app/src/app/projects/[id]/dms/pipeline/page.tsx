@@ -394,7 +394,7 @@ export default function DmPipelinePage() {
         <div className="flex h-full flex-col">
           <Header title="DM Pipeline" />
           <div className="flex-1 overflow-auto">
-            <div className="mx-auto max-w-[1400px] p-6 space-y-6">
+            <div className="mx-auto max-w-[1800px] p-6 space-y-6">
               <div className="grid grid-cols-4 gap-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-[500px] rounded-xl" />
@@ -412,7 +412,7 @@ export default function DmPipelinePage() {
       <div className="flex h-full flex-col">
         <Header title="DM Pipeline" />
         <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-[1400px] p-6 space-y-5">
+          <div className="mx-auto max-w-[1800px] p-6 space-y-5">
             {/* Post filter row */}
             <PostFilterRow
               posts={postInfos}
@@ -450,7 +450,7 @@ export default function DmPipelinePage() {
 
             {/* Kanban board */}
             <div className="overflow-x-auto -mx-6 px-6">
-            <div className="grid grid-cols-[minmax(260px,1fr)_32px_minmax(260px,1fr)_32px_minmax(260px,1fr)_32px_minmax(260px,1fr)] gap-0 items-stretch min-w-[1136px]">
+            <div className="grid grid-cols-[minmax(320px,1fr)_32px_minmax(320px,1fr)_32px_minmax(320px,1fr)_32px_minmax(320px,1fr)] gap-0 items-stretch min-w-[1376px]">
               {/* Ready to DM */}
               <KanbanColumn
                 title="Ready to DM"
