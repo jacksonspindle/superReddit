@@ -386,8 +386,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'STORE_CHAT_PREVIEWS') {
+    // Content script already merges — just store the merged result
     const previews = message.previews || {};
-    chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+    if (Object.keys(previews).length > 0) {
+      chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+    }
     sendResponse({ ok: true });
     return false;
   }
@@ -418,9 +421,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           chrome.storage.local.set({ [THEY_REPLIED_KEY]: Array.from(existing) });
         });
       }
-      // Previews
+      // Previews — merge with existing to preserve theirText
       if (Object.keys(previews).length > 0) {
-        chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+        chrome.storage.local.get(PREVIEWS_KEY, (result) => {
+          const existing = result[PREVIEWS_KEY] || {};
+          const merged = { ...existing };
+          for (const [username, newP] of Object.entries(previews)) {
+            const old = merged[username];
+            let theirText = newP.theirText || null;
+            if (!theirText && !newP.fromYou) theirText = newP.text;
+            if (!theirText && old) theirText = old.theirText || (!old.fromYou ? old.text : null);
+            merged[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
+          }
+          chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
+        });
       }
     }
     // Notify anyone waiting for scan data
@@ -543,7 +557,19 @@ async function pullDataFromChatTab() {
           });
         }
         if (Object.keys(previews).length > 0) {
-          chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
+          // Merge preserving theirText
+          chrome.storage.local.get(PREVIEWS_KEY, (result) => {
+            const existing = result[PREVIEWS_KEY] || {};
+            const merged = { ...existing };
+            for (const [username, newP] of Object.entries(previews)) {
+              const old = merged[username];
+              let theirText = newP.theirText || null;
+              if (!theirText && !newP.fromYou) theirText = newP.text;
+              if (!theirText && old) theirText = old.theirText || (!old.fromYou ? old.text : null);
+              merged[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
+            }
+            chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
+          });
         }
         resolve(response);
       });

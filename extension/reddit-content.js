@@ -531,7 +531,17 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       for (const u of usernames) accumulated.usernames.add(u);
       for (const u of youSentTo) accumulated.youSentTo.add(u);
       for (const u of theyReplied) accumulated.theyReplied.add(u);
-      Object.assign(accumulated.previews, previews);
+      // Merge previews preserving theirText (their last reply to you)
+      for (const [username, newP] of Object.entries(previews)) {
+        const old = accumulated.previews[username];
+        let theirText = null;
+        if (!newP.fromYou) {
+          theirText = newP.text;
+        } else if (old) {
+          theirText = old.theirText || (!old.fromYou ? old.text : null);
+        }
+        accumulated.previews[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
+      }
     }
 
     captureVisible();
