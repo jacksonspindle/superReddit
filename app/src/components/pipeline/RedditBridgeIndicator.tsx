@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Unplug, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 
 interface RedditBridgeIndicatorProps {
@@ -23,6 +24,21 @@ export function RedditBridgeIndicator({
   youSentToCount,
   theyRepliedCount,
 }: RedditBridgeIndicatorProps) {
+  const [dismissed, setDismissed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-dismiss the "connected" banner after 4s
+  const isConnectedIdle = extensionInstalled && redditLoggedIn && !checking && !reconciling;
+  useEffect(() => {
+    if (isConnectedIdle && !dismissed) {
+      timerRef.current = setTimeout(() => setDismissed(true), 4000);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
+    // Reset if state goes back to non-idle (e.g. reconciling again)
+    if (!isConnectedIdle && dismissed) {
+      setDismissed(false);
+    }
+  }, [isConnectedIdle, dismissed]);
   if (checking) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
@@ -91,8 +107,11 @@ export function RedditBridgeIndicator({
     parts.push(`${capturedCount} chat${capturedCount !== 1 ? 's' : ''} found`);
   }
 
+  // Auto-dismiss: fade out then hide
+  if (dismissed) return null;
+
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400">
+    <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-600 dark:text-green-400 animate-in fade-in duration-300">
       <CheckCircle2 className="h-3.5 w-3.5" />
       Reddit Connected · {parts.join(' · ')}
     </div>

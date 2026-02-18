@@ -268,6 +268,51 @@ export async function fetchUserPosts(username: string, limit = 10): Promise<Redd
   }
 }
 
+/**
+ * Paginated fetch of ALL user posts (up to Reddit's ~1000 cap).
+ * No caching — data goes straight to DB via the caller.
+ * `shouldStop(redditIds)` lets the caller halt early when hitting known posts.
+ */
+export async function fetchAllUserPosts(
+  username: string,
+  options?: { shouldStop?: (ids: string[]) => boolean; maxPages?: number }
+): Promise<RedditPost[]> {
+  const cleanUsername = username.replace(/^\/?u\//, '');
+  const maxPages = options?.maxPages ?? 10;
+  const allPosts: RedditPost[] = [];
+  let after: string | null = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const afterParam = after ? `&after=${after}` : '';
+    const url = `${REDDIT_BASE}/user/${cleanUsername}/submitted.json?limit=100&sort=new&raw_json=1${afterParam}`;
+
+    let json: { data: { children: Record<string, unknown>[]; after: string | null } };
+    try {
+      json = await fetchFromReddit(url) as typeof json;
+    } catch (error) {
+      console.error(`fetchAllUserPosts page ${page} error:`, error);
+      break;
+    }
+
+    const children = json.data?.children || [];
+    if (children.length === 0) break;
+
+    const pagePosts = children.map(parseRedditPost);
+    allPosts.push(...pagePosts);
+
+    // Let caller stop early (e.g. when hitting already-known posts)
+    if (options?.shouldStop) {
+      const pageIds = pagePosts.map((p) => p.id);
+      if (options.shouldStop(pageIds)) break;
+    }
+
+    after = json.data.after;
+    if (!after) break; // No more pages
+  }
+
+  return allPosts;
+}
+
 export async function searchSubredditPosts(
   subreddit: string,
   query: string,

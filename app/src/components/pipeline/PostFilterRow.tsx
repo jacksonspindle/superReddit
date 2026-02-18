@@ -1,17 +1,19 @@
 'use client';
 
-import { MessageSquare, ArrowUp } from 'lucide-react';
+import { MessageSquare, ArrowUp, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { OutreachDM } from '@/types';
 
 interface PostInfo {
-  signalId: string;
+  postId: string;
+  permalink: string;
   title: string;
   subreddit: string;
   score: number;
   numComments: number;
-  body: string | null;
+  selftext: string | null;
+  imageUrl: string | null;
   leadsCount: number;
   stages: { ready: number; sent: number; followup: number; converted: number };
 }
@@ -69,7 +71,7 @@ export function PostFilterRow({ posts, allDms, selectedPostId, onSelectPost }: P
       </div>
 
       <ScrollArea className="w-full overflow-visible">
-        <div className="flex gap-2.5 py-2">
+        <div className="flex gap-2.5 py-2 items-stretch">
           {/* All Posts card */}
           <button
             onClick={() => onSelectPost(null)}
@@ -90,7 +92,7 @@ export function PostFilterRow({ posts, allDms, selectedPostId, onSelectPost }: P
           {posts.length === 0 && (
             <div className="min-w-[280px] shrink-0 rounded-xl border border-dashed bg-card/50 p-4 flex items-center justify-center text-center">
               <p className="text-xs text-muted-foreground">
-                Post replies to signals and your threads will appear here for filtering.
+                Set your Reddit username in Context &gt; Profile to sync your posts here.
               </p>
             </div>
           )}
@@ -98,44 +100,61 @@ export function PostFilterRow({ posts, allDms, selectedPostId, onSelectPost }: P
           {/* Individual post cards */}
           {posts.map((post) => (
             <button
-              key={post.signalId}
-              onClick={() => onSelectPost(post.signalId)}
+              key={post.postId}
+              onClick={() => onSelectPost(post.postId)}
               className={cn(
-                'min-w-[280px] max-w-[310px] shrink-0 rounded-xl border bg-card overflow-hidden transition-all hover:-translate-y-0.5 text-left relative',
-                selectedPostId === post.signalId
+                'min-w-[280px] max-w-[310px] shrink-0 rounded-xl border bg-card overflow-hidden transition-all hover:-translate-y-0.5 text-left relative flex flex-col',
+                selectedPostId === post.postId
                   ? 'ring-2 ring-primary border-primary shadow-md'
                   : 'hover:border-muted-foreground/30'
               )}
             >
-              <div className="flex">
-                {/* Vote column */}
-                <div className="w-10 shrink-0 bg-muted/50 flex flex-col items-center justify-center gap-0.5 py-2 border-r">
-                  <ArrowUp className="h-3 w-3 text-orange-500" />
-                  <span className="text-xs font-extrabold">{post.score}</span>
+              {/* Image banner */}
+              {post.imageUrl ? (
+                <div className="w-full h-[120px] bg-muted/30 overflow-hidden">
+                  <img
+                    src={post.imageUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-[120px] bg-gradient-to-b from-muted/20 to-transparent flex items-center justify-center">
+                  <ImageIcon className="h-6 w-6 text-muted-foreground/10" />
+                </div>
+              )}
+
+              <div className="flex flex-1">
+                {/* Vote + Comments column */}
+                <div className="w-10 shrink-0 bg-muted/50 flex flex-col items-center justify-center gap-2 py-2 border-r">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <ArrowUp className="h-3 w-3 text-orange-500" />
+                    <span className="text-xs font-extrabold">{post.score}</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] font-bold text-muted-foreground">{post.numComments}</span>
+                  </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 p-2.5 min-w-0 space-y-1">
+                <div className="flex-1 p-2.5 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <div className={cn('w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0', getSubredditColor(post.subreddit))}>
                       {post.subreddit.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-[11px] font-bold">r/{post.subreddit}</span>
                   </div>
-                  <p className="text-xs font-semibold line-clamp-1">{post.title}</p>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-0.5">
-                      <MessageSquare className="h-2.5 w-2.5" />
-                      {post.numComments}
-                    </span>
-                  </div>
+                  <p className="text-xs font-semibold line-clamp-2 leading-snug">{post.title}</p>
                 </div>
               </div>
 
               {/* Leads badge */}
               <div className={cn(
-                'absolute bottom-5 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full text-white shadow',
-                selectedPostId === post.signalId ? 'bg-green-500' : 'bg-primary'
+                'absolute top-2 right-2 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm z-10',
+                selectedPostId === post.postId
+                  ? 'bg-green-500 text-white'
+                  : 'bg-green-500/15 text-green-500 ring-1 ring-green-500/30 backdrop-blur-sm'
               )}>
                 {post.leadsCount} leads
               </div>
