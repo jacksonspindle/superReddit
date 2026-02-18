@@ -117,8 +117,8 @@ export function KanbanLeadCard({
           </a>
         )}
 
-        {/* Comment quote */}
-        {dm.comment_text && stage !== 'sent' && (
+        {/* Comment quote (only in ready stage — not relevant in follow-up/sent/converted) */}
+        {dm.comment_text && stage === 'ready' && (
           <p className="text-sm text-muted-foreground italic mb-2 line-clamp-3 break-all overflow-hidden">
             &ldquo;{dm.comment_text}&rdquo;
           </p>
@@ -137,13 +137,17 @@ export function KanbanLeadCard({
           </div>
         )}
 
-        {/* Follow-up chat preview */}
-        {stage === 'followup' && chatPreview && (
-          <div className="bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1 mb-2 overflow-hidden">
-            <p className="text-[10px] font-medium text-muted-foreground">
-              {chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`}
+        {/* Follow-up: show their last message (live preview or persisted) */}
+        {stage === 'followup' && (chatPreview || dm.last_reply_text) && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1.5 mb-2 overflow-hidden">
+            <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
+              {chatPreview
+                ? (chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`)
+                : `${dm.reddit_username}:`}
             </p>
-            <p className="text-xs line-clamp-2 break-all">{chatPreview.text}</p>
+            <p className="text-xs line-clamp-3 break-all">
+              {chatPreview ? chatPreview.text : dm.last_reply_text}
+            </p>
           </div>
         )}
 

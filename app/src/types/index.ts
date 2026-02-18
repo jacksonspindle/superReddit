@@ -388,6 +388,7 @@ export interface OutreachDM {
   touch_number: number;
   outcome: string | null;
   notes: string | null;
+  last_reply_text: string | null;
   created_at: string;
   updated_at: string;
   signal?: {

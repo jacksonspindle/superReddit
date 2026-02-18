@@ -58,11 +58,16 @@ export async function POST(request: NextRequest) {
     const repliedSet = new Set((theyReplied || []).map(normalizeUsername));
     const sentSet = new Set((youSentTo || []).map(normalizeUsername));
 
-    // Helper: get "You:" preview text for a username from extension previews
+    // Helpers: get preview text for a username from extension previews
     function getYouPreview(username: string): string | null {
       if (!previews) return null;
       const p = previews[username];
       return (p?.fromYou && p?.text) ? p.text : null;
+    }
+    function getReplyPreview(username: string): string | null {
+      if (!previews) return null;
+      const p = previews[username];
+      return (!p?.fromYou && p?.text) ? p.text : null;
     }
 
     let created = 0;
@@ -170,20 +175,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Persist preview text as dm_body for entries that don't have it yet
+    // 4. Persist preview text for entries: dm_body (what you sent) + last_reply_text (what they replied)
     let previewsPersisted = 0;
     if (previews && Object.keys(previews).length > 0) {
-      const { data: needBody } = await supabase
+      const { data: dmsToPersist } = await supabase
         .from('outreach_dms')
-        .select('id, reddit_username')
+        .select('id, reddit_username, dm_body, last_reply_text')
         .eq('project_id', project_id)
-        .is('dm_body', null)
         .in('pipeline_stage', ['dm_sent', 'responded']);
 
-      for (const dm of needBody || []) {
-        const previewText = getYouPreview(normalizeUsername(dm.reddit_username));
-        if (previewText) {
-          await supabase.from('outreach_dms').update({ dm_body: previewText }).eq('id', dm.id);
+      for (const dm of dmsToPersist || []) {
+        const uname = normalizeUsername(dm.reddit_username);
+        const updates: Record<string, string> = {};
+
+        const youText = getYouPreview(uname);
+        if (youText && !dm.dm_body) updates.dm_body = youText;
+
+        const replyText = getReplyPreview(uname);
+        if (replyText && dm.last_reply_text !== replyText) updates.last_reply_text = replyText;
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('outreach_dms').update(updates).eq('id', dm.id);
           previewsPersisted++;
         }
       }
