@@ -17,14 +17,40 @@ export async function POST(request: NextRequest) {
     const client = getAnthropicClient();
     const systemPrompt = buildChatSystemPrompt(project);
 
+    // Build messages with optional image support
+    const formattedMessages = messages.map((m: { role: string; content: string; images?: { dataUrl: string }[] }) => {
+      const role = m.role as 'user' | 'assistant';
+
+      // If message has images, use multi-content format
+      if (m.images?.length && role === 'user') {
+        const content: Array<{ type: 'image'; source: { type: 'base64'; media_type: string; data: string } } | { type: 'text'; text: string }> = [];
+
+        for (const img of m.images) {
+          // Parse data URL: data:image/png;base64,<data>
+          const match = img.dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+          if (match) {
+            content.push({
+              type: 'image',
+              source: { type: 'base64', media_type: match[1], data: match[2] },
+            });
+          }
+        }
+
+        if (m.content) {
+          content.push({ type: 'text', text: m.content });
+        }
+
+        return { role, content };
+      }
+
+      return { role, content: m.content };
+    });
+
     const stream = await client.messages.stream({
       model: AI_MODEL,
       max_tokens: MAX_TOKENS,
       system: systemPrompt,
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
+      messages: formattedMessages,
     });
 
     // Return streaming response

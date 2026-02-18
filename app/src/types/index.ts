@@ -186,6 +186,7 @@ export interface RedditSubredditInfo {
 export interface RedditApiResponse {
   posts: RedditPost[];
   subredditInfo?: RedditSubredditInfo;
+  after?: string | null;
   error?: string;
 }
 
@@ -226,34 +227,6 @@ export interface RewriteRequest {
 
 export interface RewriteResponse {
   text: string;
-}
-
-export interface SpliceRequest {
-  selectedPosts: {
-    title: string;
-    body: string | null;
-    score: number;
-    subreddit: string;
-    numComments: number;
-  }[];
-  productContext: {
-    name: string;
-    description: string;
-    url?: string;
-    audience?: string;
-    tone: string;
-  };
-  controls: {
-    tone: 'casual' | 'professional' | 'edgy';
-    length: 'short' | 'medium' | 'long';
-    targetSubreddit: string;
-    additionalPrompt?: string;
-  };
-}
-
-export interface SpliceResponse {
-  title: string;
-  body: string;
 }
 
 export type AiTone = 'Engaging' | 'Humorous' | 'Creative' | 'Sarcastic' | 'Inspirational' | 'Concise';
