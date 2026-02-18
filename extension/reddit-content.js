@@ -398,7 +398,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   let autoScrollTriggered = false;
   let autoScrollRunning = false;
   let lastAutoScrollTime = 0;
-  const AUTO_SCROLL_INTERVAL = 3 * 60 * 1000; // Re-run auto-scroll every 3 minutes
+  // Re-run auto-scroll every 5 minutes + random jitter (0-60s) to look human
+  const AUTO_SCROLL_BASE = 5 * 60 * 1000;
+  function autoScrollInterval() { return AUTO_SCROLL_BASE + Math.random() * 60_000; }
 
   function runScan() {
     // Step 1: Discover all usernames
@@ -427,7 +429,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         autoScrollTriggered = true;
         console.log('[SuperReddit] Usernames detected — starting auto-scroll');
         setTimeout(autoScrollSidebar, 500);
-      } else if (!autoScrollRunning && now - lastAutoScrollTime > AUTO_SCROLL_INTERVAL) {
+      } else if (!autoScrollRunning && now - lastAutoScrollTime > autoScrollInterval()) {
         console.log('[SuperReddit] Periodic auto-scroll (picks up new conversations)');
         setTimeout(autoScrollSidebar, 500);
       }
@@ -562,6 +564,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     const MAX_ROUNDS = 40;
     let staleRounds = 0;
 
+    // Randomized scroll speed (800-1600ms) to look human
     const scrollTimer = setInterval(() => {
       scrollRound++;
 
@@ -631,7 +634,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         if (scrollTarget !== sidebarContainer) sidebarContainer.scrollTop = 0;
         autoScrollRunning = false;
       }
-    }, 1200);
+    }, 800 + Math.random() * 800); // 800-1600ms randomized
   }
 
   // ---- Send consolidated scan result to background ----
