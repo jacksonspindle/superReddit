@@ -136,19 +136,21 @@ export async function fetchSubredditPosts(
   subreddit: string,
   sort: 'hot' | 'top' | 'rising' | 'new' = 'hot',
   timeFilter: 'hour' | 'day' | 'week' | 'month' | 'year' | 'all' = 'week',
-  limit: number = 25
+  limit: number = 25,
+  after?: string
 ): Promise<RedditApiResponse> {
-  const cacheKey = `posts:${subreddit}:${sort}:${timeFilter}:${limit}`;
+  const cacheKey = `posts:${subreddit}:${sort}:${timeFilter}:${limit}:${after || ''}`;
   const cached = getFromMemoryCache(cacheKey);
   if (cached) return cached;
 
   try {
     const timeParam = sort === 'top' ? `&t=${timeFilter}` : '';
-    const url = `${REDDIT_BASE}/r/${subreddit}/${sort}.json?limit=${limit}${timeParam}&raw_json=1`;
-    const json = await fetchFromReddit(url) as { data: { children: Record<string, unknown>[] } };
+    const afterParam = after ? `&after=${after}` : '';
+    const url = `${REDDIT_BASE}/r/${subreddit}/${sort}.json?limit=${limit}${timeParam}${afterParam}&raw_json=1`;
+    const json = await fetchFromReddit(url) as { data: { children: Record<string, unknown>[]; after: string | null } };
 
     const posts = json.data.children.map(parseRedditPost);
-    const result: RedditApiResponse = { posts };
+    const result: RedditApiResponse = { posts, after: json.data.after };
 
     setMemoryCache(cacheKey, result);
     return result;

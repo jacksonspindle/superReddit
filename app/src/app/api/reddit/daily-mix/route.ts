@@ -60,10 +60,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // --- Feed: hot posts from tracked subs (up to 6) ---
-  const feedSubs = trackedSubreddits.slice(0, 6);
+  // --- Feed: hot posts from tracked subs (up to 8) ---
+  const feedSubs = trackedSubreddits.slice(0, 8);
   const feedResults = await Promise.all(
-    feedSubs.map((sub) => fetchSubredditPosts(sub, 'hot', 'week', 5))
+    feedSubs.map((sub) => fetchSubredditPosts(sub, 'hot', 'week', 15))
   );
 
   const feedSeen = new Set<string>();
