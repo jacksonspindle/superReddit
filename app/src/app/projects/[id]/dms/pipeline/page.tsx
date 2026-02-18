@@ -18,6 +18,7 @@ import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicat
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
 import { useRedditBridge } from '@/hooks/useRedditBridge';
+import type { ChatPreview } from '@/hooks/useRedditBridge';
 import type { OutreachDM, DmPipelineStage, MonitoredPost } from '@/types';
 
 type KanbanStage = 'ready' | 'sent' | 'followup' | 'converted';
@@ -74,6 +75,28 @@ export default function DmPipelinePage() {
     }
   }, [project.id]);
 
+  // Persist chat previews to DB as dm_body (so they survive even when extension doesn't return them)
+  const persistPreviews = useCallback(async (previewData: Record<string, ChatPreview>) => {
+    if (!previewData || Object.keys(previewData).length === 0) return;
+    try {
+      await fetch('/api/outreach/dms/persist-previews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: project.id, previews: previewData }),
+      });
+    } catch { /* silent */ }
+  }, [project.id]);
+
+  // Wrapper: fetch previews from extension and persist to DB
+  const fetchAndPersistPreviews = useCallback(async () => {
+    const p = await fetchPreviews();
+    if (Object.keys(p).length > 0) {
+      await persistPreviews(p);
+      await fetchDms();
+    }
+    return p;
+  }, [fetchPreviews, persistPreviews, fetchDms]);
+
   // Fetch replies (posts the user has replied to)
   const fetchPosts = useCallback(async () => {
     try {
@@ -117,9 +140,14 @@ export default function DmPipelinePage() {
       setLoading(false);
       // Fire post sync in background after initial render
       syncPosts();
+      // Fetch chat previews from extension and persist to DB
+      // Retry after delays since extension may need time to scan chats
+      fetchAndPersistPreviews();
+      setTimeout(() => fetchAndPersistPreviews(), 5000);
+      setTimeout(() => fetchAndPersistPreviews(), 15000);
     }
     init();
-  }, [fetchDms, fetchPosts, fetchMonitoredPosts, syncPosts]);
+  }, [fetchDms, fetchPosts, fetchMonitoredPosts, syncPosts, fetchAndPersistPreviews]);
 
   // Auto-scan on mount
   useEffect(() => {
@@ -180,6 +208,9 @@ export default function DmPipelinePage() {
       console.log('[SR Reconcile] Bridge sync: youSentTo=' + sentList.length + ' theyReplied=' + repliedList.length);
 
       try {
+        // Fetch previews first so we can pass them to bridge-sync for dm_body persistence
+        const currentPreviews = await fetchPreviews();
+
         const res = await fetch('/api/outreach/dms/bridge-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -187,6 +218,7 @@ export default function DmPipelinePage() {
             project_id: project.id,
             youSentTo: sentList,
             theyReplied: repliedList,
+            previews: currentPreviews,
           }),
         });
         const json = await res.json();
@@ -198,7 +230,6 @@ export default function DmPipelinePage() {
         } else {
           console.log('[SR Reconcile] Bridge sync: no changes needed (created=0, advanced=0, reconciled=0)');
         }
-        await fetchPreviews();
         await fetchDms();
       } catch (err) {
         console.error('[SR Reconcile] Bridge sync failed:', err);

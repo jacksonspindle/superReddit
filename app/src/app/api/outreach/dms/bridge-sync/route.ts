@@ -9,10 +9,11 @@ function normalizeUsername(raw: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { project_id, youSentTo, theyReplied } = body as {
+    const { project_id, youSentTo, theyReplied, previews } = body as {
       project_id: string;
       youSentTo: string[];
       theyReplied: string[];
+      previews?: Record<string, { text: string; fromYou: boolean }>;
     };
 
     if (!project_id) {
@@ -57,25 +58,46 @@ export async function POST(request: NextRequest) {
     const repliedSet = new Set((theyReplied || []).map(normalizeUsername));
     const sentSet = new Set((youSentTo || []).map(normalizeUsername));
 
+    // Helper: get "You:" preview text for a username from extension previews
+    function getYouPreview(username: string): string | null {
+      if (!previews) return null;
+      const p = previews[username];
+      return (p?.fromYou && p?.text) ? p.text : null;
+    }
 
     let created = 0;
     let advanced = 0;
 
     // 1. Create new entries for users not in pipeline
-    const toInsert: { project_id: string; reddit_username: string; pipeline_stage: string; source_thread_permalink: string; permission_type: string; permission_score: number }[] = [];
+    const toInsert: {
+      project_id: string;
+      reddit_username: string;
+      pipeline_stage: string;
+      source_thread_permalink: string;
+      permission_type: string;
+      permission_score: number;
+      dm_body?: string;
+      dm_sent_at?: string;
+    }[] = [];
 
     // Users you sent to (not yet in pipeline)
     for (const username of sentSet) {
       if (existingByUsername.has(username)) continue;
       const stage = repliedSet.has(username) ? 'responded' : 'dm_sent';
-      toInsert.push({
+      const entry: typeof toInsert[number] = {
         project_id,
         reddit_username: username,
         pipeline_stage: stage,
         source_thread_permalink: `chat://${username}`,
         permission_type: 'direct_chat',
         permission_score: 1,
-      });
+      };
+      const previewText = getYouPreview(username);
+      if (previewText) {
+        entry.dm_body = previewText;
+        entry.dm_sent_at = new Date().toISOString();
+      }
+      toInsert.push(entry);
     }
 
     // Users who replied but weren't in youSentTo (edge case)
@@ -148,8 +170,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[Bridge Sync] sent=${sentSet.size} replied=${repliedSet.size} existing=${existingByUsername.size} → created=${created} advanced=${advanced} reconciled=${reconciled}`);
-    return NextResponse.json({ created, advanced, reconciled });
+    // 4. Persist preview text as dm_body for entries that don't have it yet
+    let previewsPersisted = 0;
+    if (previews && Object.keys(previews).length > 0) {
+      const { data: needBody } = await supabase
+        .from('outreach_dms')
+        .select('id, reddit_username')
+        .eq('project_id', project_id)
+        .is('dm_body', null)
+        .in('pipeline_stage', ['dm_sent', 'responded']);
+
+      for (const dm of needBody || []) {
+        const previewText = getYouPreview(normalizeUsername(dm.reddit_username));
+        if (previewText) {
+          await supabase.from('outreach_dms').update({ dm_body: previewText }).eq('id', dm.id);
+          previewsPersisted++;
+        }
+      }
+    }
+
+    console.log(`[Bridge Sync] sent=${sentSet.size} replied=${repliedSet.size} existing=${existingByUsername.size} → created=${created} advanced=${advanced} reconciled=${reconciled} previewsPersisted=${previewsPersisted}`);
+    return NextResponse.json({ created, advanced, reconciled, previewsPersisted });
   } catch (error) {
     console.error('Bridge sync error:', error);
     return NextResponse.json({ error: 'Failed to sync bridge data' }, { status: 500 });
