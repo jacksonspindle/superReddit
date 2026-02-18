@@ -18,7 +18,8 @@ import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicat
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
 import { useRedditBridge } from '@/hooks/useRedditBridge';
-import type { OutreachDM, DmPipelineStage } from '@/types';
+import type { ChatPreview } from '@/hooks/useRedditBridge';
+import type { OutreachDM, DmPipelineStage, MonitoredPost } from '@/types';
 
 type KanbanStage = 'ready' | 'sent' | 'followup' | 'converted';
 
@@ -43,6 +44,7 @@ export default function DmPipelinePage() {
   const { project } = useProject();
   const [allDms, setAllDms] = useState<OutreachDM[]>([]);
   const [posts, setPosts] = useState<OutreachReplyRow[]>([]);
+  const [monitoredPosts, setMonitoredPosts] = useState<MonitoredPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
 
@@ -73,6 +75,28 @@ export default function DmPipelinePage() {
     }
   }, [project.id]);
 
+  // Persist chat previews to DB as dm_body (so they survive even when extension doesn't return them)
+  const persistPreviews = useCallback(async (previewData: Record<string, ChatPreview>) => {
+    if (!previewData || Object.keys(previewData).length === 0) return;
+    try {
+      await fetch('/api/outreach/dms/persist-previews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: project.id, previews: previewData }),
+      });
+    } catch { /* silent */ }
+  }, [project.id]);
+
+  // Wrapper: fetch previews from extension and persist to DB
+  const fetchAndPersistPreviews = useCallback(async () => {
+    const p = await fetchPreviews();
+    if (Object.keys(p).length > 0) {
+      await persistPreviews(p);
+      await fetchDms();
+    }
+    return p;
+  }, [fetchPreviews, persistPreviews, fetchDms]);
+
   // Fetch replies (posts the user has replied to)
   const fetchPosts = useCallback(async () => {
     try {
@@ -87,15 +111,46 @@ export default function DmPipelinePage() {
     } catch { /* silent */ }
   }, [project.id]);
 
+  // Fetch monitored posts from DB
+  const fetchMonitoredPosts = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/outreach/posts?project_id=${project.id}`);
+      const json = await res.json();
+      if (json.posts) setMonitoredPosts(json.posts);
+    } catch { /* silent */ }
+  }, [project.id]);
+
+  // Sync user posts from Reddit → DB (fire-and-forget on mount, await on scan)
+  const syncPosts = useCallback(async () => {
+    try {
+      await fetch('/api/outreach/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: project.id }),
+      });
+      await fetchMonitoredPosts();
+    } catch { /* silent */ }
+  }, [project.id, fetchMonitoredPosts]);
+
   // Initial data load
   useEffect(() => {
     async function init() {
       setLoading(true);
-      await Promise.all([fetchDms(), fetchPosts()]);
+      await Promise.all([fetchDms(), fetchPosts(), fetchMonitoredPosts()]);
       setLoading(false);
+      // Fire post sync in background after initial render
+      syncPosts();
+      // Fetch chat previews from extension and persist to DB
+      fetchAndPersistPreviews();
+      setTimeout(() => fetchAndPersistPreviews(), 5000);
+      setTimeout(() => fetchAndPersistPreviews(), 15000);
     }
     init();
-  }, [fetchDms, fetchPosts]);
+
+    // Poll for preview updates every 30s so data stays fresh as conversations happen
+    const previewPoll = setInterval(() => fetchAndPersistPreviews(), 30_000);
+    return () => clearInterval(previewPoll);
+  }, [fetchDms, fetchPosts, fetchMonitoredPosts, syncPosts, fetchAndPersistPreviews]);
 
   // Auto-scan on mount
   useEffect(() => {
@@ -156,6 +211,9 @@ export default function DmPipelinePage() {
       console.log('[SR Reconcile] Bridge sync: youSentTo=' + sentList.length + ' theyReplied=' + repliedList.length);
 
       try {
+        // Fetch previews first so we can pass them to bridge-sync for dm_body persistence
+        const currentPreviews = await fetchPreviews();
+
         const res = await fetch('/api/outreach/dms/bridge-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -163,6 +221,7 @@ export default function DmPipelinePage() {
             project_id: project.id,
             youSentTo: sentList,
             theyReplied: repliedList,
+            previews: currentPreviews,
           }),
         });
         const json = await res.json();
@@ -174,7 +233,6 @@ export default function DmPipelinePage() {
         } else {
           console.log('[SR Reconcile] Bridge sync: no changes needed (created=0, advanced=0, reconciled=0)');
         }
-        await fetchPreviews();
         await fetchDms();
       } catch (err) {
         console.error('[SR Reconcile] Bridge sync failed:', err);
@@ -188,6 +246,9 @@ export default function DmPipelinePage() {
   async function handleScan() {
     setScanning(true);
     try {
+      // Sync posts first (picks up any new Reddit posts)
+      await syncPosts();
+
       const res = await fetch('/api/outreach/dms/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,79 +305,66 @@ export default function DmPipelinePage() {
     handleStageChange(dmId, 'closed', 'dismissed');
   }
 
-  // Derive post filter cards from DMs grouped by source signal
-  const postInfos = useMemo<PostInfo[]>(() => {
-    const signalMap = new Map<string, PostInfo>();
+  // Helper: normalize permalink for comparison
+  const normalizePermalink = (p: string) => p.replace(/\/$/, '');
 
-    // Build from DMs — each DM has a source_signal_id and signal data
+  // Derive post filter cards from monitored posts + DM permalink matching
+  const postInfos = useMemo<PostInfo[]>(() => {
+    // Build Map<normalizedPermalink, DM[]> for O(N+M) lookup
+    const dmsByPermalink = new Map<string, OutreachDM[]>();
     for (const dm of allDms) {
-      if (!dm.source_signal_id || !dm.signal) continue;
-      if (signalMap.has(dm.source_signal_id)) {
-        // Already tracked, just update counts
-        const existing = signalMap.get(dm.source_signal_id)!;
-        existing.leadsCount++;
-        if (['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage)) existing.stages.ready++;
-        else if (dm.pipeline_stage === 'dm_sent') existing.stages.sent++;
-        else if (dm.pipeline_stage === 'responded') existing.stages.followup++;
-        else if (dm.pipeline_stage === 'converted') existing.stages.converted++;
-        continue;
+      const key = normalizePermalink(dm.source_thread_permalink);
+      // Skip chat:// DMs — they don't belong to any post
+      if (key.startsWith('chat://')) continue;
+      const arr = dmsByPermalink.get(key) || [];
+      arr.push(dm);
+      dmsByPermalink.set(key, arr);
+    }
+
+    // Map monitored posts → PostInfo (even 0-lead posts)
+    return monitoredPosts.map((mp) => {
+      const key = normalizePermalink(mp.permalink);
+      const dms = dmsByPermalink.get(key) || [];
+
+      const stages = { ready: 0, sent: 0, followup: 0, converted: 0 };
+      for (const dm of dms) {
+        if (['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage)) stages.ready++;
+        else if (dm.pipeline_stage === 'dm_sent') stages.sent++;
+        else if (dm.pipeline_stage === 'responded') stages.followup++;
+        else if (dm.pipeline_stage === 'converted') stages.converted++;
       }
 
-      const stages = {
-        ready: ['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage) ? 1 : 0,
-        sent: dm.pipeline_stage === 'dm_sent' ? 1 : 0,
-        followup: dm.pipeline_stage === 'responded' ? 1 : 0,
-        converted: dm.pipeline_stage === 'converted' ? 1 : 0,
-      };
+      // Only use high-res preview_url (thumbnail is 140px and blurry when scaled)
+      const imageUrl = mp.preview_url || null;
 
-      signalMap.set(dm.source_signal_id, {
-        signalId: dm.source_signal_id,
-        title: dm.signal.title,
-        subreddit: dm.signal.subreddit,
-        score: dm.signal.score || 0,
-        numComments: dm.signal.num_comments || 0,
-        body: null,
-        leadsCount: 1,
+      return {
+        postId: mp.id,
+        permalink: mp.permalink,
+        title: mp.title,
+        subreddit: mp.subreddit,
+        score: mp.score,
+        numComments: mp.num_comments,
+        selftext: mp.selftext,
+        imageUrl,
+        leadsCount: dms.length,
         stages,
-      });
-    }
-
-    // Also merge any outreach_replies that have linked signals
-    for (const reply of posts) {
-      if (!reply.signal_id || !reply.signal) continue;
-      if (signalMap.has(reply.signal_id)) continue;
-
-      const dmsForSignal = allDms.filter((d) => d.source_signal_id === reply.signal_id);
-      const stages = {
-        ready: dmsForSignal.filter((d) => ['detected', 'dm_ready', 'draft_generated'].includes(d.pipeline_stage)).length,
-        sent: dmsForSignal.filter((d) => d.pipeline_stage === 'dm_sent').length,
-        followup: dmsForSignal.filter((d) => d.pipeline_stage === 'responded').length,
-        converted: dmsForSignal.filter((d) => d.pipeline_stage === 'converted').length,
       };
-
-      signalMap.set(reply.signal_id, {
-        signalId: reply.signal_id,
-        title: reply.signal.title,
-        subreddit: reply.signal.subreddit,
-        score: reply.signal.score,
-        numComments: reply.signal.num_comments,
-        body: reply.signal.body,
-        leadsCount: dmsForSignal.length,
-        stages,
-      });
-    }
-
-    // Sort by lead count descending
-    return Array.from(signalMap.values()).sort((a, b) => b.leadsCount - a.leadsCount);
-  }, [posts, allDms]);
+    }).sort((a, b) => b.leadsCount - a.leadsCount);
+  }, [monitoredPosts, allDms]);
 
   // Column mapping
   const columns = useMemo(() => {
     let filtered = allDms;
 
-    // Filter by selected post
+    // Filter by selected post (permalink match)
     if (selectedPostId) {
-      filtered = filtered.filter((d) => d.source_signal_id === selectedPostId);
+      const selectedPost = postInfos.find((p) => p.postId === selectedPostId);
+      if (selectedPost) {
+        const selectedPermalink = normalizePermalink(selectedPost.permalink);
+        filtered = filtered.filter(
+          (d) => normalizePermalink(d.source_thread_permalink) === selectedPermalink
+        );
+      }
     }
 
     // Search filter
@@ -338,7 +386,7 @@ export default function DmPipelinePage() {
       followup: sorted.filter((d) => d.pipeline_stage === 'responded'),
       converted: sorted.filter((d) => d.pipeline_stage === 'converted'),
     };
-  }, [allDms, selectedPostId, searchQuery, sortBy]);
+  }, [allDms, selectedPostId, searchQuery, sortBy, postInfos]);
 
   // Selection handlers
   function handleSelect(id: string) {
@@ -439,11 +487,6 @@ export default function DmPipelinePage() {
               onSearchChange={setSearchQuery}
               sortBy={sortBy}
               onSortChange={setSortBy}
-              selectedCount={selectedIds.size}
-              onSelectAll={handleSelectAll}
-              onDismissSelected={handleDismissSelected}
-              onDmSelected={handleDmSelected}
-              onMarkSentSelected={handleMarkSentSelected}
               scanning={scanning}
               onScan={handleScan}
             />

@@ -117,8 +117,8 @@ export function KanbanLeadCard({
           </a>
         )}
 
-        {/* Comment quote */}
-        {dm.comment_text && stage !== 'sent' && (
+        {/* Comment quote (only in ready stage — not relevant in follow-up/sent/converted) */}
+        {dm.comment_text && stage === 'ready' && (
           <p className="text-sm text-muted-foreground italic mb-2 line-clamp-3 break-all overflow-hidden">
             &ldquo;{dm.comment_text}&rdquo;
           </p>
@@ -137,15 +137,22 @@ export function KanbanLeadCard({
           </div>
         )}
 
-        {/* Follow-up chat preview */}
-        {stage === 'followup' && chatPreview && (
-          <div className="bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1 mb-2 overflow-hidden">
-            <p className="text-[10px] font-medium text-muted-foreground">
-              {chatPreview.fromYou ? 'You:' : `${dm.reddit_username}:`}
-            </p>
-            <p className="text-xs line-clamp-2 break-all">{chatPreview.text}</p>
-          </div>
-        )}
+        {/* Follow-up: show their last message (theirText → last_reply_text → dm_body fallback) */}
+        {stage === 'followup' && (() => {
+          // Priority: theirText from live preview (never lost) → DB last_reply_text → DB dm_body
+          const theirMsg = chatPreview?.theirText || dm.last_reply_text;
+          const fallbackMsg = chatPreview?.text || dm.dm_body;
+          const displayText = theirMsg || fallbackMsg;
+          if (!displayText) return null;
+          const isFromThem = !!theirMsg;
+          const label = isFromThem ? `${dm.reddit_username}:` : 'You:';
+          return (
+            <div className={`rounded px-2 py-1.5 mb-2 overflow-hidden ${isFromThem ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-muted/50'}`}>
+              <p className="text-[10px] font-medium text-muted-foreground mb-0.5">{label}</p>
+              <p className="text-xs line-clamp-3 break-all">{displayText}</p>
+            </div>
+          );
+        })()}
 
         {/* Follow-up status */}
         {stage === 'followup' && fuStatus && (

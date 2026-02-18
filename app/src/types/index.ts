@@ -304,6 +304,30 @@ export interface SubredditRule {
   analyzed_at: string;
 }
 
+// ---- Monitored Posts (user's own Reddit posts) ----
+
+export interface MonitoredPost {
+  id: string;
+  project_id: string;
+  reddit_id: string;
+  title: string;
+  selftext: string | null;
+  subreddit: string;
+  author: string;
+  score: number;
+  num_comments: number;
+  permalink: string;
+  url: string | null;
+  created_utc: number;
+  is_self: boolean;
+  thumbnail: string | null;
+  preview_url: string | null;
+  link_flair_text: string | null;
+  synced_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // ---- DM Workflow types ----
 
 export type DmPipelineStage =
@@ -337,6 +361,7 @@ export interface OutreachDM {
   touch_number: number;
   outcome: string | null;
   notes: string | null;
+  last_reply_text: string | null;
   created_at: string;
   updated_at: string;
   signal?: {

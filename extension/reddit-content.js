@@ -354,13 +354,34 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       });
     }
 
-    // Store message previews (replaced each scan)
+    // Store message previews (CUMULATIVE — merge with existing, don't replace)
+    // Each preview stores: { text, fromYou, theirText }
+    //   text/fromYou = latest message in the conversation
+    //   theirText = their last message to you (NEVER overwritten by your replies)
     if (previews && Object.keys(previews).length > 0) {
-      chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
-      chrome.runtime.sendMessage(
-        { type: 'STORE_CHAT_PREVIEWS', previews },
-        () => { if (chrome.runtime.lastError) { /* ignore */ } }
-      );
+      chrome.storage.local.get(PREVIEWS_KEY, (result) => {
+        if (chrome.runtime.lastError) return;
+        const existing = result[PREVIEWS_KEY] || {};
+        const merged = { ...existing };
+        for (const [username, newP] of Object.entries(previews)) {
+          const old = merged[username];
+          // Determine theirText: their last message to you (never lost when you reply)
+          let theirText = null;
+          if (!newP.fromYou) {
+            // Current message IS from them — use it
+            theirText = newP.text;
+          } else if (old) {
+            // Current message is from you — preserve their previous reply
+            theirText = old.theirText || (!old.fromYou ? old.text : null);
+          }
+          merged[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
+        }
+        chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
+        chrome.runtime.sendMessage(
+          { type: 'STORE_CHAT_PREVIEWS', previews: merged },
+          () => { if (chrome.runtime.lastError) { /* ignore */ } }
+        );
+      });
     }
   }
 
@@ -375,6 +396,11 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
   let lastLoggedCount = 0;
   let autoScrollTriggered = false;
+  let autoScrollRunning = false;
+  let lastAutoScrollTime = 0;
+  // Re-run auto-scroll every 5 minutes + random jitter (0-60s) to look human
+  const AUTO_SCROLL_BASE = 5 * 60 * 1000;
+  function autoScrollInterval() { return AUTO_SCROLL_BASE + Math.random() * 60_000; }
 
   function runScan() {
     // Step 1: Discover all usernames
@@ -397,10 +423,14 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
       storeResults(allUsernames, youSentTo, theyReplied, previews);
 
-      // Trigger auto-scroll the first time we detect real usernames
+      // Trigger auto-scroll on first detection, then re-run periodically
+      const now = Date.now();
       if (!autoScrollTriggered) {
         autoScrollTriggered = true;
         console.log('[SuperReddit] Usernames detected — starting auto-scroll');
+        setTimeout(autoScrollSidebar, 500);
+      } else if (!autoScrollRunning && now - lastAutoScrollTime > autoScrollInterval()) {
+        console.log('[SuperReddit] Periodic auto-scroll (picks up new conversations)');
         setTimeout(autoScrollSidebar, 500);
       }
     }
@@ -429,9 +459,13 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   function autoScrollSidebar() {
+    autoScrollRunning = true;
+    lastAutoScrollTime = Date.now();
+
     const convLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
     if (convLinks.length === 0) {
       console.log('[SuperReddit] Auto-scroll: no conversation links, skipping');
+      autoScrollRunning = false;
       return;
     }
 
@@ -510,7 +544,17 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       for (const u of usernames) accumulated.usernames.add(u);
       for (const u of youSentTo) accumulated.youSentTo.add(u);
       for (const u of theyReplied) accumulated.theyReplied.add(u);
-      Object.assign(accumulated.previews, previews);
+      // Merge previews preserving theirText (their last reply to you)
+      for (const [username, newP] of Object.entries(previews)) {
+        const old = accumulated.previews[username];
+        let theirText = null;
+        if (!newP.fromYou) {
+          theirText = newP.text;
+        } else if (old) {
+          theirText = old.theirText || (!old.fromYou ? old.text : null);
+        }
+        accumulated.previews[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
+      }
     }
 
     captureVisible();
@@ -520,6 +564,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     const MAX_ROUNDS = 40;
     let staleRounds = 0;
 
+    // Randomized scroll speed (800-1600ms) to look human
     const scrollTimer = setInterval(() => {
       scrollRound++;
 
@@ -587,8 +632,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         // Scroll back to top
         scrollTarget.scrollTop = 0;
         if (scrollTarget !== sidebarContainer) sidebarContainer.scrollTop = 0;
+        autoScrollRunning = false;
       }
-    }, 1200);
+    }, 800 + Math.random() * 800); // 800-1600ms randomized
   }
 
   // ---- Send consolidated scan result to background ----
