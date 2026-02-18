@@ -354,13 +354,20 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       });
     }
 
-    // Store message previews (replaced each scan)
+    // Store message previews (CUMULATIVE — merge with existing, don't replace)
+    // This preserves previews captured during auto-scroll even after the regular
+    // 3-second scan only sees ~16 currently visible conversations.
     if (previews && Object.keys(previews).length > 0) {
-      chrome.storage.local.set({ [PREVIEWS_KEY]: previews });
-      chrome.runtime.sendMessage(
-        { type: 'STORE_CHAT_PREVIEWS', previews },
-        () => { if (chrome.runtime.lastError) { /* ignore */ } }
-      );
+      chrome.storage.local.get(PREVIEWS_KEY, (result) => {
+        if (chrome.runtime.lastError) return;
+        const existing = result[PREVIEWS_KEY] || {};
+        const merged = { ...existing, ...previews };
+        chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
+        chrome.runtime.sendMessage(
+          { type: 'STORE_CHAT_PREVIEWS', previews: merged },
+          () => { if (chrome.runtime.lastError) { /* ignore */ } }
+        );
+      });
     }
   }
 
