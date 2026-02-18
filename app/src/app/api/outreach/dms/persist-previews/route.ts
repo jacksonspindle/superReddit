@@ -45,12 +45,16 @@ export async function POST(request: NextRequest) {
 
       const updates: Record<string, string> = {};
 
-      if (preview.fromYou && !dm.dm_body) {
-        updates.dm_body = preview.text;
-      }
-      if (!preview.fromYou && dm.last_reply_text !== preview.text) {
-        // Always update reply text to latest message (they may have sent more)
-        updates.last_reply_text = preview.text;
+      if (preview.fromYou) {
+        // Save what you sent as dm_body (only if not already set)
+        if (!dm.dm_body) updates.dm_body = preview.text;
+      } else {
+        // Save their reply as last_reply_text (always update to latest)
+        if (dm.last_reply_text !== preview.text) {
+          updates.last_reply_text = preview.text;
+        }
+        // Also backfill dm_body if we don't have it yet
+        // (means you sent first but we missed capturing it)
       }
 
       if (Object.keys(updates).length > 0) {
