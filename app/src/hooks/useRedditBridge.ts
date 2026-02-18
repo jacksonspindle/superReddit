@@ -6,6 +6,7 @@ import type { OutreachDM } from '@/types';
 export interface ChatPreview {
   text: string;
   fromYou: boolean;
+  theirText?: string | null;
 }
 
 interface BridgeStatus {

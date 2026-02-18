@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { project_id, previews } = body as {
       project_id: string;
-      previews: Record<string, { text: string; fromYou: boolean }>;
+      previews: Record<string, { text: string; fromYou: boolean; theirText?: string | null }>;
     };
 
     if (!project_id || !previews || Object.keys(previews).length === 0) {
@@ -45,16 +45,18 @@ export async function POST(request: NextRequest) {
 
       const updates: Record<string, string> = {};
 
-      if (preview.fromYou) {
-        // Save what you sent as dm_body (only if not already set)
-        if (!dm.dm_body) updates.dm_body = preview.text;
-      } else {
-        // Save their reply as last_reply_text (always update to latest)
-        if (dm.last_reply_text !== preview.text) {
-          updates.last_reply_text = preview.text;
-        }
-        // Also backfill dm_body if we don't have it yet
-        // (means you sent first but we missed capturing it)
+      // Save what you sent as dm_body (only if not already set)
+      if (preview.fromYou && !dm.dm_body) {
+        updates.dm_body = preview.text;
+      }
+      if (!preview.fromYou && !dm.dm_body) {
+        // They replied but we don't have your sent text — you must have sent first
+      }
+
+      // Save their reply text: use theirText (preserved across your replies) or direct text
+      const theirReply = preview.theirText || (!preview.fromYou ? preview.text : null);
+      if (theirReply && dm.last_reply_text !== theirReply) {
+        updates.last_reply_text = theirReply;
       }
 
       if (Object.keys(updates).length > 0) {

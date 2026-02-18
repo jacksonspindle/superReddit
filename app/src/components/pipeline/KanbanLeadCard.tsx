@@ -137,16 +137,19 @@ export function KanbanLeadCard({
           </div>
         )}
 
-        {/* Follow-up: show last message (live preview → last_reply_text → dm_body fallback) */}
+        {/* Follow-up: show their last message (theirText → last_reply_text → dm_body fallback) */}
         {stage === 'followup' && (() => {
-          const previewText = chatPreview?.text || dm.last_reply_text || dm.dm_body;
-          if (!previewText) return null;
-          const isFromYou = chatPreview ? chatPreview.fromYou : !dm.last_reply_text && !!dm.dm_body;
-          const label = isFromYou ? 'You:' : `${dm.reddit_username}:`;
+          // Priority: theirText from live preview (never lost) → DB last_reply_text → DB dm_body
+          const theirMsg = chatPreview?.theirText || dm.last_reply_text;
+          const fallbackMsg = chatPreview?.text || dm.dm_body;
+          const displayText = theirMsg || fallbackMsg;
+          if (!displayText) return null;
+          const isFromThem = !!theirMsg;
+          const label = isFromThem ? `${dm.reddit_username}:` : 'You:';
           return (
-            <div className={`rounded px-2 py-1.5 mb-2 overflow-hidden ${isFromYou ? 'bg-muted/50' : 'bg-blue-50 dark:bg-blue-950/30'}`}>
+            <div className={`rounded px-2 py-1.5 mb-2 overflow-hidden ${isFromThem ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-muted/50'}`}>
               <p className="text-[10px] font-medium text-muted-foreground mb-0.5">{label}</p>
-              <p className="text-xs line-clamp-3 break-all">{previewText}</p>
+              <p className="text-xs line-clamp-3 break-all">{displayText}</p>
             </div>
           );
         })()}

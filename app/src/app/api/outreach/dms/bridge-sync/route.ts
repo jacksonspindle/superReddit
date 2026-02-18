@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       project_id: string;
       youSentTo: string[];
       theyReplied: string[];
-      previews?: Record<string, { text: string; fromYou: boolean }>;
+      previews?: Record<string, { text: string; fromYou: boolean; theirText?: string | null }>;
     };
 
     if (!project_id) {
@@ -67,7 +67,8 @@ export async function POST(request: NextRequest) {
     function getReplyPreview(username: string): string | null {
       if (!previews) return null;
       const p = previews[username];
-      return (!p?.fromYou && p?.text) ? p.text : null;
+      // Use theirText (preserved across your replies) or direct text if from them
+      return p?.theirText || (!p?.fromYou && p?.text) ? (p?.theirText || p?.text) : null;
     }
 
     let created = 0;

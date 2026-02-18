@@ -355,13 +355,27 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     }
 
     // Store message previews (CUMULATIVE — merge with existing, don't replace)
-    // This preserves previews captured during auto-scroll even after the regular
-    // 3-second scan only sees ~16 currently visible conversations.
+    // Each preview stores: { text, fromYou, theirText }
+    //   text/fromYou = latest message in the conversation
+    //   theirText = their last message to you (NEVER overwritten by your replies)
     if (previews && Object.keys(previews).length > 0) {
       chrome.storage.local.get(PREVIEWS_KEY, (result) => {
         if (chrome.runtime.lastError) return;
         const existing = result[PREVIEWS_KEY] || {};
-        const merged = { ...existing, ...previews };
+        const merged = { ...existing };
+        for (const [username, newP] of Object.entries(previews)) {
+          const old = merged[username];
+          // Determine theirText: their last message to you (never lost when you reply)
+          let theirText = null;
+          if (!newP.fromYou) {
+            // Current message IS from them — use it
+            theirText = newP.text;
+          } else if (old) {
+            // Current message is from you — preserve their previous reply
+            theirText = old.theirText || (!old.fromYou ? old.text : null);
+          }
+          merged[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
+        }
         chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
         chrome.runtime.sendMessage(
           { type: 'STORE_CHAT_PREVIEWS', previews: merged },
