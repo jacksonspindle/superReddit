@@ -31,11 +31,10 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // On update: keep all data (chatUrls, conversations) — clearing them
-  // creates a race condition where the drawer opens before the scan
-  // repopulates the URLs. The scan will update stale data naturally.
+  // On update: only log, don't clear data — conversations and chatUrls
+  // should persist so the drawer works immediately after reload
   if (details.reason === 'update') {
-    console.log('[SR BG] Extension updated — preserving chatUrls + conversations');
+    console.log('[SR BG] Extension updated — preserving all data');
   }
 
   // After install/update, re-inject content scripts into existing tabs

@@ -823,6 +823,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     console.log('[SuperReddit] DOM scraper: starting on ' + location.pathname);
 
     // Find the message thread container — it's typically the wider panel (not the sidebar)
+    // Reddit renders messages as individual elements within a scrollable container
     const allScrollable = findAllScrollable().filter(function (el) {
       return el.clientWidth > 400; // wider than sidebar
     });
@@ -837,7 +838,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       ' w=' + threadContainer.clientWidth + ' h=' + threadContainer.clientHeight +
       ' children=' + threadContainer.children.length);
 
-    // Strategy 1: Reddit chat-specific selectors (broad — catches RS custom elements)
+    // Strategy 1: Reddit chat-specific selectors
     var msgEls = threadContainer.querySelectorAll(
       '[class*="message"], [class*="Message"], [data-testid*="message"], ' +
       'rs-message, [class*="chat-message"], [class*="ChatMessage"], ' +
@@ -869,14 +870,19 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     }
 
-    // Garbage filter — reject page chrome / JS code
+    // Aggressive garbage filter — reject anything that looks like page chrome or JS
     function isGarbage(text) {
+      // JS code patterns
       if (/^(window\.|if\(|var |let |const |function |import |export |@font-face|@media|@keyframes)/i.test(text)) return true;
       if (/\b(window\.__servedBy|document\.(hidden|get|query)|chrome-extension:\/\/|createElement|addEventListener|innerHTML)\b/.test(text)) return true;
       if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && (text.indexOf('function') !== -1 || text.indexOf('=>') !== -1)) return true;
+      // Page chrome / navigation text
       if (/^(Skip to |Page not found|Explore Reddit|<!DOCTYPE|Loading\.\.\.|Reddit - |Log In|Sign Up)/i.test(text)) return true;
+      // CSS or HTML
       if (/^(\.|#|@)\{/.test(text) || /<(div|span|script|style|html|head|body)\b/i.test(text)) return true;
+      // Very long strings with no spaces are likely encoded/minified content
       if (text.length > 200 && text.split(' ').length < 5) return true;
+      // URLs that aren't message content
       if (/^https?:\/\/[^\s]+$/.test(text) && text.length > 100) return true;
       return false;
     }
@@ -929,35 +935,11 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     }
 
     console.log('[SuperReddit] DOM scraper: extracted ' + messages.length + ' messages');
-    if (messages.length > 0) {
-      for (var m = 0; m < Math.min(5, messages.length); m++) {
+    if (messages.length > 0 && messages.length <= 5) {
+      // Log first few messages for debugging
+      for (var m = 0; m < messages.length; m++) {
         console.log('[SuperReddit] DOM msg[' + m + ']: ' + messages[m].author + ': ' + messages[m].text.substring(0, 80));
       }
-    }
-
-    // ---- Deduplicate: collapse identical message text ----
-    // Parent/child elements often produce the same text. Keep first, prefer real author.
-    if (messages.length > 1) {
-      var seen = {};
-      var deduped = [];
-      for (var dm = 0; dm < messages.length; dm++) {
-        var key = messages[dm].text.substring(0, 100).toLowerCase().replace(/\s+/g, ' ');
-        if (seen[key] !== undefined) {
-          var kept = deduped[seen[key]];
-          if (kept.author === 'them' && messages[dm].author !== 'them') {
-            kept.author = messages[dm].author;
-            kept.isFromYou = messages[dm].isFromYou;
-          }
-          continue;
-        }
-        seen[key] = deduped.length;
-        deduped.push(messages[dm]);
-      }
-      for (var ri = 0; ri < deduped.length; ri++) {
-        deduped[ri].id = 'dom_' + ri;
-      }
-      console.log('[SuperReddit] DOM scraper: ' + deduped.length + ' after dedup (was ' + messages.length + ')');
-      return deduped;
     }
 
     return messages;

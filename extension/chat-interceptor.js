@@ -287,58 +287,5 @@
   window.WebSocket.CLOSING = OriginalWebSocket.CLOSING;
   window.WebSocket.CLOSED = OriginalWebSocket.CLOSED;
 
-  // --- Capture initial page state (SSR-embedded chat data) ---
-  // Reddit may embed chat messages in a <script> tag as part of server-side rendering.
-  // We check for this after DOM loads since fetch intercepts won't catch SSR data.
-  document.addEventListener('DOMContentLoaded', function () {
-    try {
-      var scripts = document.querySelectorAll('script:not([src])');
-      for (var i = 0; i < scripts.length; i++) {
-        var text = scripts[i].textContent || '';
-        if (text.length < 100) continue;
-        // Look for embedded state with chat/message data
-        var hasChat = text.indexOf('message') !== -1 && (
-          text.indexOf('channel_url') !== -1 ||
-          text.indexOf('room_id') !== -1 ||
-          text.indexOf('chatMessage') !== -1 ||
-          text.indexOf('"body"') !== -1
-        );
-        if (hasChat) {
-          console.log('[SuperReddit] Found script with potential chat data (' + text.length + ' chars): ' + text.substring(0, 200));
-          // Try to extract JSON objects
-          var jsonMatch = text.match(/(?:window\.__\w+__\s*=\s*|=\s*)(\{[\s\S]{50,})/);
-          if (jsonMatch) {
-            try {
-              // Find the matching closing brace
-              var jsonStr = jsonMatch[1];
-              var braceDepth = 0;
-              var end = 0;
-              for (var c = 0; c < jsonStr.length && c < 500000; c++) {
-                if (jsonStr[c] === '{') braceDepth++;
-                else if (jsonStr[c] === '}') {
-                  braceDepth--;
-                  if (braceDepth === 0) { end = c + 1; break; }
-                }
-              }
-              if (end > 0) {
-                var parsed = JSON.parse(jsonStr.substring(0, end));
-                console.log('[SuperReddit] Parsed embedded state: ' + Object.keys(parsed).join(',').substring(0, 200));
-                window.postMessage({
-                  type: MSG_TYPE,
-                  url: 'embedded_state',
-                  data: parsed,
-                  operationName: 'EmbeddedState',
-                  ts: Date.now(),
-                }, '*');
-              }
-            } catch (e) {
-              // Not valid JSON — expected for most scripts
-            }
-          }
-        }
-      }
-    } catch (e) { /* never break the page */ }
-  });
-
   console.log('[SuperReddit] Chat API observer loaded (passive observation + WebSocket)');
 })();
