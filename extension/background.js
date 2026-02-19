@@ -434,7 +434,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'GET_FULL_CONVERSATION') {
-    const { username } = message;
+    const { username } = message.data || message;
     if (!username) {
       sendResponse({ messages: [], error: 'No username provided' });
       return false;
