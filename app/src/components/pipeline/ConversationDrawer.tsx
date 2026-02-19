@@ -76,19 +76,25 @@ function deduplicateMessages(
     .filter((msg) => !timestampOnly.test(msg.text.trim()))
     // Step 1b: Remove Reddit UI chrome text ("Send message", etc.)
     .filter((msg) => !uiChrome.has(msg.text.trim().toLowerCase()))
-    // Step 2: Normalize — strip leading timestamp prefix, fix "them" author
-    .map((msg) => ({
-      ...msg,
-      text: msg.text.replace(timestampPrefix, '').trim(),
-      author: msg.author === 'them' ? otherLower : msg.author,
-    }))
+    // Step 2: Normalize — strip leading timestamp prefix, fix "them" author, fix isFromYou
+    .map((msg) => {
+      const author = msg.author === 'them' ? otherLower : msg.author;
+      const isOtherUser = author.toLowerCase() === otherLower;
+      return {
+        ...msg,
+        text: msg.text.replace(timestampPrefix, '').trim(),
+        author,
+        isFromYou: isOtherUser ? false : true,
+      };
+    })
     // Step 3: Remove messages that became empty after timestamp strip
     .filter((msg) => msg.text.length > 0);
 
-  // Step 4: Deduplicate by (lowercase text + direction) — keeps first occurrence
+  // Step 4: Deduplicate by lowercase text only — in 1:1 DMs identical text is
+  // always a scraper artifact (parent/child overlap), not two people saying the same thing
   const seen = new Set<string>();
   return processed.filter((msg) => {
-    const key = msg.text.toLowerCase() + '|' + String(msg.isFromYou);
+    const key = msg.text.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
