@@ -49,6 +49,44 @@ const stageConfig: Record<string, { label: string; className: string }> = {
   closed: { label: 'Closed', className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
 };
 
+/**
+ * Post-process scraped DOM messages to remove duplicates caused by
+ * parent/child CSS selector overlap in the DOM scraper.
+ */
+function deduplicateMessages(
+  messages: ConversationMessage[],
+  otherUsername: string
+): ConversationMessage[] {
+  if (messages.length === 0) return messages;
+
+  const otherLower = otherUsername.toLowerCase();
+  // Matches "9:36 AM" or "4:30 PM" as the ENTIRE message text
+  const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
+  // Matches "9:36 AM " at the START of message text (timestamp prefix from parent element)
+  const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
+
+  const processed = messages
+    // Step 1: Remove pure timestamp messages ("9:36 AM", "4:30 PM")
+    .filter((msg) => !timestampOnly.test(msg.text.trim()))
+    // Step 2: Normalize — strip leading timestamp prefix, fix "them" author
+    .map((msg) => ({
+      ...msg,
+      text: msg.text.replace(timestampPrefix, '').trim(),
+      author: msg.author === 'them' ? otherLower : msg.author,
+    }))
+    // Step 3: Remove messages that became empty after timestamp strip
+    .filter((msg) => msg.text.length > 0);
+
+  // Step 4: Deduplicate by (lowercase text + direction) — keeps first occurrence
+  const seen = new Set<string>();
+  return processed.filter((msg) => {
+    const key = msg.text.toLowerCase() + '|' + String(msg.isFromYou);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function getInitials(username: string): string {
   return username.slice(0, 2).toUpperCase();
 }
@@ -79,7 +117,7 @@ export function ConversationDrawer({
     setLoadingMessages(true);
     fetchConversation(dm.reddit_username).then((msgs) => {
       if (!cancelled) {
-        setFullMessages(msgs);
+        setFullMessages(deduplicateMessages(msgs, dm.reddit_username));
         setLoadingMessages(false);
       }
     });
