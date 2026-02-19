@@ -46,16 +46,27 @@
     return originalFetch.apply(this, args).then(function (response) {
       try {
         if (isChatRelated(url)) {
+          console.log('[SuperReddit] Fetch intercept: ' + url.substring(0, 120) + ' [' + response.status + ']');
           var clone = response.clone();
-          clone.json().then(function (data) {
-            window.postMessage({
-              type: MSG_TYPE,
-              url: url,
-              data: data,
-              operationName: (reqBody && reqBody.operationName) || null,
-              ts: Date.now(),
-            }, '*');
-          }).catch(function () { /* not JSON — ignore */ });
+          clone.text().then(function (text) {
+            // Try JSON parse
+            try {
+              var data = JSON.parse(text);
+              console.log('[SuperReddit] Fetch JSON: ' + url.substring(0, 80) + ' keys=' + Object.keys(data).join(','));
+              window.postMessage({
+                type: MSG_TYPE,
+                url: url,
+                data: data,
+                operationName: (reqBody && reqBody.operationName) || null,
+                ts: Date.now(),
+              }, '*');
+            } catch (e) {
+              // Not JSON — log first 200 chars for debugging
+              if (text.length > 0) {
+                console.log('[SuperReddit] Fetch non-JSON: ' + url.substring(0, 80) + ' body=' + text.substring(0, 200));
+              }
+            }
+          }).catch(function () { /* read error — ignore */ });
         }
       } catch (e) { /* never break the page */ }
       return response;

@@ -77,8 +77,12 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       // Capture chat URL for direct navigation
       const href = link.getAttribute('href');
       if (href && href.length > 1 && href !== '#') {
-        // Accept any non-trivial href (Reddit uses /chat/room/..., /chat/channel/..., etc.)
-        chatUrls[username] = href;
+        // Reddit links use /room/!MATRIX_ID but actual URL needs /chat prefix
+        let chatPath = href;
+        if (chatPath.startsWith('/room/') && !chatPath.startsWith('/chat/')) {
+          chatPath = '/chat' + chatPath;
+        }
+        chatUrls[username] = chatPath;
       }
 
       // The full text of the <a> contains: "Username  Yesterday  Username: message preview"
@@ -850,6 +854,11 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       var el = msgEls[j];
       var text = (el.textContent || '').trim();
       if (!text || text.length < 1 || text.length > 5000) continue;
+
+      // Filter out page chrome, JS code, and navigation text (not chat messages)
+      if (/^(window\.|if\(|@font-face|Skip to |Page not found|Explore Reddit|<!DOCTYPE)/i.test(text)) continue;
+      if (/\b(window\.__servedBy|document\.hidden|chrome-extension:\/\/)\b/.test(text)) continue;
+      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && text.indexOf('function') !== -1) continue;
 
       // Try to determine sender from DOM hints
       var isFromYou = false;

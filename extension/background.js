@@ -31,6 +31,13 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
+  // Clear stale chatUrls on update (paths may have changed format)
+  if (details.reason === 'update') {
+    chrome.storage.local.remove(CHAT_URLS_KEY, () =>
+      console.log('[SR BG] Update — cleared stale chatUrls')
+    );
+  }
+
   // After install/update, re-inject content scripts into existing tabs
   // (old content scripts are orphaned and can't communicate with the new background)
   setTimeout(async () => {
@@ -986,7 +993,12 @@ async function fetchConversationViaNavigation(username) {
 
     if (chatPath) {
       // Direct URL navigation — much more reliable than sidebar clicking
-      const fullUrl = chatPath.startsWith('http') ? chatPath : 'https://www.reddit.com' + chatPath;
+      // Fix path: Reddit link hrefs are /room/!... but actual URL needs /chat/room/!...
+      let adjustedPath = chatPath;
+      if (adjustedPath.startsWith('/room/') && !adjustedPath.startsWith('/chat/')) {
+        adjustedPath = '/chat' + adjustedPath;
+      }
+      const fullUrl = adjustedPath.startsWith('http') ? adjustedPath : 'https://www.reddit.com' + adjustedPath;
       console.log('[SR BG] Navigating directly to ' + fullUrl + ' for u/' + username);
       await chrome.tabs.update(tabId, { url: fullUrl });
 
