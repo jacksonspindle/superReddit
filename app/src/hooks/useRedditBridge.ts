@@ -269,8 +269,21 @@ export function useRedditBridge() {
     }
   }, []);
 
+  const refreshConversations = useCallback(async (): Promise<boolean> => {
+    try {
+      const result = await sendToExtension<{
+        fetched: boolean;
+        count?: number;
+      }>('FETCH_ALL_CONVERSATIONS', 15_000);
+      return result.fetched && (result.count || 0) > 0;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const fetchConversation = useCallback(async (username: string): Promise<ConversationMessage[]> => {
     try {
+      // First try cached data
       const result = await sendToExtension<{
         messages: ConversationMessage[];
         lastUpdated: number | null;
@@ -278,11 +291,24 @@ export function useRedditBridge() {
         error?: string;
       }>('GET_FULL_CONVERSATION', 5_000, { username: username.toLowerCase() });
 
-      return result.messages || [];
+      if (result.messages && result.messages.length > 0) {
+        return result.messages;
+      }
+
+      // No cached data — trigger a background fetch from Reddit API, then retry
+      await refreshConversations();
+      const retry = await sendToExtension<{
+        messages: ConversationMessage[];
+        lastUpdated: number | null;
+        source: string | null;
+        error?: string;
+      }>('GET_FULL_CONVERSATION', 5_000, { username: username.toLowerCase() });
+
+      return retry.messages || [];
     } catch {
       return [];
     }
-  }, []);
+  }, [refreshConversations]);
 
   const reconcile = useCallback(
     async (

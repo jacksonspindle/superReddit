@@ -10,7 +10,9 @@ const CONVERSATIONS_KEY = 'sr_conversations';
 const SCAN_READY_KEY = 'sr_scan_ready';
 
 const SCAN_ALARM = 'sr_periodic_scan';
+const MSG_FETCH_ALARM = 'sr_message_fetch';
 const SCAN_INTERVAL_MINUTES = 5;
+const MSG_FETCH_INTERVAL_MINUTES = 3;
 let lastTabOpenTime = 0;
 let lastSendDmTime = 0;
 let pendingSendDm = null; // { resolve, tabId, timer }
@@ -42,14 +44,19 @@ chrome.runtime.onInstalled.addListener((details) => {
 
   // Start periodic scan — first one after 3 min (gives initial scan time to complete)
   chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 3, periodInMinutes: SCAN_INTERVAL_MINUTES });
+  // Start background message fetching — first one after 30s, then every 3 min
+  chrome.alarms.create(MSG_FETCH_ALARM, { delayInMinutes: 0.5, periodInMinutes: MSG_FETCH_INTERVAL_MINUTES });
 });
 
 // ---- On browser startup: ensure scanning is active ----
 chrome.runtime.onStartup.addListener(() => {
   console.log('[SR BG] Browser started — scheduling chat scan');
   chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 1, periodInMinutes: SCAN_INTERVAL_MINUTES });
+  chrome.alarms.create(MSG_FETCH_ALARM, { delayInMinutes: 0.5, periodInMinutes: MSG_FETCH_INTERVAL_MINUTES });
   // Open chat tab to start scanning
   setTimeout(() => ensureChatTab().catch(() => {}), 5000);
+  // Fetch messages from Reddit API immediately
+  setTimeout(() => fetchRedditMessages(), 3000);
 });
 
 // ---- Periodic alarm: refresh chat data in background ----
@@ -57,6 +64,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === SCAN_ALARM) {
     console.log('[SR BG] Periodic scan — ensuring chat tab is open');
     refreshChatTab();
+  }
+  if (alarm.name === MSG_FETCH_ALARM) {
+    fetchRedditMessages();
   }
 });
 
@@ -433,6 +443,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'FETCH_ALL_CONVERSATIONS') {
+    fetchRedditMessages().then(sendResponse).catch(() => sendResponse({ fetched: false }));
+    return true;
+  }
+
   if (message.type === 'GET_FULL_CONVERSATION') {
     const { username } = message.data || message;
     if (!username) {
@@ -635,6 +650,159 @@ async function pullDataFromChatTab() {
       resolve(null);
     }
   });
+}
+
+// ---- Background Reddit Message Fetching ----
+// Fetches inbox + sent messages from Reddit's JSON API using session cookies.
+// Runs on a periodic alarm so conversation data is always fresh — no user action needed.
+
+async function getRedditCookieHeader() {
+  try {
+    const cookies = await chrome.cookies.getAll({ domain: '.reddit.com' });
+    if (cookies.length === 0) return null;
+    return cookies.map((c) => c.name + '=' + c.value).join('; ');
+  } catch {
+    return null;
+  }
+}
+
+function parseRedditMessageListing(children, myUsername) {
+  const messages = [];
+  for (const child of children) {
+    const d = child && child.data;
+    if (!d || !d.body) continue;
+
+    const author = (d.author || '').toLowerCase();
+    const dest = (d.dest || '').toLowerCase();
+    const isFromYou = myUsername ? author === myUsername : false;
+
+    messages.push({
+      id: d.name || ('t4_' + d.id),
+      text: d.body,
+      author: author,
+      dest: dest,
+      subject: d.subject || '',
+      isFromYou: isFromYou,
+      timestamp: (d.created_utc || 0) * 1000,
+    });
+  }
+  return messages;
+}
+
+async function fetchRedditMessages() {
+  const cookieHeader = await getRedditCookieHeader();
+  if (!cookieHeader) {
+    console.log('[SR BG] No Reddit cookies — skipping message fetch');
+    return { fetched: false, reason: 'no_cookies' };
+  }
+
+  const headers = {
+    'Cookie': cookieHeader,
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) SuperReddit/1.6',
+  };
+
+  try {
+    const [inboxRes, sentRes] = await Promise.all([
+      fetch('https://www.reddit.com/message/inbox.json?limit=100&raw_json=1', { headers, credentials: 'omit' }),
+      fetch('https://www.reddit.com/message/sent.json?limit=100&raw_json=1', { headers, credentials: 'omit' }),
+    ]);
+
+    if (!inboxRes.ok || !sentRes.ok) {
+      console.log('[SR BG] Reddit message fetch HTTP error: inbox=' + inboxRes.status + ' sent=' + sentRes.status);
+      return { fetched: false, reason: 'http_error' };
+    }
+
+    // Check we got JSON back (not an HTML login page)
+    const inboxType = inboxRes.headers.get('content-type') || '';
+    if (!inboxType.includes('json')) {
+      console.log('[SR BG] Reddit returned non-JSON — session may be expired');
+      return { fetched: false, reason: 'not_json' };
+    }
+
+    const [inbox, sent] = await Promise.all([inboxRes.json(), sentRes.json()]);
+
+    // Determine who "me" is from sent messages
+    const sentChildren = (sent && sent.data && sent.data.children) || [];
+    let myUsername = null;
+    for (const child of sentChildren) {
+      if (child.data && child.data.author) {
+        myUsername = child.data.author.toLowerCase();
+        break;
+      }
+    }
+
+    // Parse messages
+    const inboxChildren = (inbox && inbox.data && inbox.data.children) || [];
+    const inboxMessages = parseRedditMessageListing(inboxChildren, myUsername);
+    const sentMessages = parseRedditMessageListing(sentChildren, myUsername);
+    const allMessages = inboxMessages.concat(sentMessages);
+
+    if (allMessages.length === 0) {
+      console.log('[SR BG] No messages found in inbox/sent');
+      return { fetched: true, count: 0, conversations: 0 };
+    }
+
+    // If we couldn't determine "me" from sent, try from inbox (dest is me)
+    if (!myUsername && inboxMessages.length > 0) {
+      myUsername = inboxMessages[0].dest;
+      // Re-tag sent messages now that we know who "me" is
+      for (const msg of sentMessages) {
+        msg.isFromYou = msg.author === myUsername;
+      }
+    }
+
+    // Group by conversation partner
+    const grouped = {};
+    for (const msg of allMessages) {
+      const partner = msg.isFromYou ? msg.dest : msg.author;
+      if (!partner || partner === myUsername) continue;
+      if (!grouped[partner]) grouped[partner] = [];
+      grouped[partner].push({
+        id: msg.id,
+        text: msg.text,
+        author: msg.isFromYou ? (myUsername || 'you') : partner,
+        isFromYou: msg.isFromYou,
+        timestamp: msg.timestamp,
+      });
+    }
+
+    // Merge into conversation storage
+    const result = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+    const convos = result[CONVERSATIONS_KEY] || {};
+    let totalAdded = 0;
+
+    for (const [partner, messages] of Object.entries(grouped)) {
+      const existing = convos[partner] || { messages: [], lastUpdated: 0 };
+      const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+
+      let added = 0;
+      for (const msg of messages) {
+        if (msg.id && existingIds.has(msg.id)) continue;
+        existing.messages.push(msg);
+        added++;
+      }
+
+      existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      if (existing.messages.length > 200) {
+        existing.messages = existing.messages.slice(-200);
+      }
+      existing.lastUpdated = Date.now();
+      // Don't overwrite 'api_intercept' source if we already have richer data
+      if (!existing.source || existing.source === 'background_fetch') {
+        existing.source = 'background_fetch';
+      }
+      convos[partner] = existing;
+      totalAdded += added;
+    }
+
+    await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+    console.log('[SR BG] Message fetch: ' + totalAdded + ' new messages across ' + Object.keys(grouped).length + ' conversations');
+    return { fetched: true, count: totalAdded, conversations: Object.keys(grouped).length };
+  } catch (err) {
+    console.log('[SR BG] Message fetch error:', err.message);
+    return { fetched: false, reason: err.message };
+  }
 }
 
 // ---- Response Handlers ----
