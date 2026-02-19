@@ -68,7 +68,7 @@ export default function DmPipelinePage() {
   }, []);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
   // Fetch all DMs
@@ -670,6 +670,7 @@ export default function DmPipelinePage() {
           fetchDms();
           fetchAndPersistPreviews();
         }}
+        fetchConversation={fetchConversation}
       />
     </PageTransition>
   );

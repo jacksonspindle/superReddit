@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ExternalLink, Send, Copy, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ExternalLink, Send, Copy, Sparkles, Loader2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConversationTimeline } from './ConversationTimeline';
 import { toast } from 'sonner';
 import type { OutreachDM } from '@/types';
-import type { ChatPreview } from '@/hooks/useRedditBridge';
+import type { ChatPreview, ConversationMessage } from '@/hooks/useRedditBridge';
 
 interface ConversationDrawerProps {
   dm: OutreachDM | null;
@@ -36,6 +36,7 @@ interface ConversationDrawerProps {
   }>;
   extensionReady?: boolean;
   onSent?: () => void;
+  fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
 }
 
 const stageConfig: Record<string, { label: string; className: string }> = {
@@ -61,9 +62,29 @@ export function ConversationDrawer({
   sendDm,
   extensionReady,
   onSent,
+  fetchConversation,
 }: ConversationDrawerProps) {
   const [replyBody, setReplyBody] = useState('');
   const [sending, setSending] = useState(false);
+  const [fullMessages, setFullMessages] = useState<ConversationMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Fetch full conversation from extension when drawer opens
+  useEffect(() => {
+    if (!open || !dm || !fetchConversation) {
+      setFullMessages([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingMessages(true);
+    fetchConversation(dm.reddit_username).then((msgs) => {
+      if (!cancelled) {
+        setFullMessages(msgs);
+        setLoadingMessages(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [open, dm?.reddit_username, fetchConversation]);
 
   if (!dm) return null;
 
@@ -73,7 +94,8 @@ export function ConversationDrawer({
     if (!dm || !replyBody.trim() || !sendDm) return;
     setSending(true);
     try {
-      const result = await sendDm(dm.reddit_username, dm.dm_subject || '', replyBody);
+      const subject = dm.dm_subject?.trim() || `Hey ${dm.reddit_username}`;
+      const result = await sendDm(dm.reddit_username, subject, replyBody);
       if (result.success) {
         await fetch('/api/outreach/dms/sent', {
           method: 'POST',
@@ -101,7 +123,8 @@ export function ConversationDrawer({
       .writeText(replyBody)
       .then(() => toast.success('Copied to clipboard'))
       .catch(() => {});
-    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(dm.dm_subject || '')}&message=${encodeURIComponent(replyBody)}`;
+    const subject = dm.dm_subject?.trim() || `Hey ${dm.reddit_username}`;
+    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(replyBody)}`;
     window.open(url, '_blank');
   }
 
@@ -150,7 +173,14 @@ export function ConversationDrawer({
 
         {/* Timeline */}
         <ScrollArea className="flex-1 px-5">
-          <ConversationTimeline dm={dm} chatPreview={chatPreview} />
+          {loadingMessages ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading conversation...</span>
+            </div>
+          ) : (
+            <ConversationTimeline dm={dm} chatPreview={chatPreview} fullMessages={fullMessages} />
+          )}
         </ScrollArea>
 
         {/* Footer — reply area */}

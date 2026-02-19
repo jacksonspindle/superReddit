@@ -683,7 +683,98 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       sendResponse(latestScanData);
       return true;
     }
+    if (message.type === 'SCRAPE_OPEN_THREAD') {
+      // Attempt to scrape messages from the currently visible chat thread DOM
+      const threadMessages = scrapeVisibleThread();
+      sendResponse({ messages: threadMessages });
+      return true;
+    }
   });
+
+  // ---- DOM Thread Scraper ----
+  // Scrapes messages from the currently open chat conversation panel.
+  // This complements the API interceptor — captures what's visible in the DOM.
+
+  function scrapeVisibleThread() {
+    const messages = [];
+    const me = getLoggedInUsername();
+
+    // Find the message thread container — it's typically the wider panel (not the sidebar)
+    // Reddit renders messages as individual elements within a scrollable container
+    const allScrollable = findAllScrollable().filter(function (el) {
+      return el.clientWidth > 400; // wider than sidebar
+    });
+
+    if (allScrollable.length === 0) return messages;
+
+    var threadContainer = allScrollable[0];
+
+    // Look for message-like elements within the thread
+    // Reddit uses various class patterns — try common ones
+    var msgEls = threadContainer.querySelectorAll(
+      '[class*="message"], [class*="Message"], [data-testid*="message"]'
+    );
+
+    // If no class-based matches, look for repeating child structures
+    if (msgEls.length === 0) {
+      // Find children that look like message containers (have text + similar structure)
+      var children = threadContainer.children;
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        var text = (child.textContent || '').trim();
+        if (text.length > 0 && text.length < 2000) {
+          msgEls = threadContainer.children;
+          break;
+        }
+      }
+    }
+
+    for (var j = 0; j < msgEls.length; j++) {
+      var el = msgEls[j];
+      var text = (el.textContent || '').trim();
+      if (!text || text.length < 1 || text.length > 5000) continue;
+
+      // Try to determine sender from DOM hints
+      var isFromYou = false;
+      var authorName = '';
+
+      // Check for "You" indicator or username mentions
+      var spans = el.querySelectorAll('span, strong, b');
+      for (var k = 0; k < spans.length; k++) {
+        var spanText = (spans[k].textContent || '').trim();
+        if (spanText === 'You' || spanText === 'you') {
+          isFromYou = true;
+          break;
+        }
+        if (looksLikeUsername(spanText) && !isCommonWord(spanText)) {
+          authorName = spanText.toLowerCase();
+        }
+      }
+
+      // If we know our username, check if author matches
+      if (me && authorName === me) isFromYou = true;
+      if (me && authorName && authorName !== me) isFromYou = false;
+
+      // Clean text — remove author name prefix if present
+      var cleanText = text;
+      if (authorName) {
+        cleanText = cleanText.replace(new RegExp('^' + authorName + '[:\\s]+', 'i'), '').trim();
+      }
+      cleanText = cleanText.replace(/^You[:\s]+/i, '').trim();
+
+      if (cleanText.length > 0) {
+        messages.push({
+          id: 'dom_' + j,
+          text: cleanText,
+          author: isFromYou ? (me || 'you') : (authorName || 'them'),
+          isFromYou: isFromYou,
+          timestamp: 0, // DOM doesn't reliably give timestamps
+        });
+      }
+    }
+
+    return messages;
+  }
 
   // ---- Compose Page Auto-Send ----
 
@@ -848,6 +939,195 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       console.log('[SuperReddit] Failed to report compose result:', e.message);
     }
   }
+
+  // ---- Chat API Interception Handler ----
+  // Listens for passively intercepted API responses from the MAIN world script.
+  // Extracts conversation messages and forwards them to background for storage.
+
+  let loggedInUsername = null; // cached after first detection
+
+  function getLoggedInUsername() {
+    if (loggedInUsername) return loggedInUsername;
+    // Strategy 1: Profile link in header/nav
+    const profileLinks = document.querySelectorAll('a[href*="/user/"]');
+    for (const link of profileLinks) {
+      const ariaLabel = (link.getAttribute('aria-label') || '').toLowerCase();
+      if (ariaLabel.includes('profile') || ariaLabel.includes('avatar') || ariaLabel.includes('account')) {
+        const match = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
+        if (match && match[1] !== 'me') {
+          loggedInUsername = match[1].toLowerCase();
+          return loggedInUsername;
+        }
+      }
+    }
+    // Strategy 2: Reddit config data in page
+    const scripts = document.querySelectorAll('script');
+    for (const script of scripts) {
+      const text = script.textContent || '';
+      const match = text.match(/"username"\s*:\s*"([A-Za-z0-9_-]{3,20})"/);
+      if (match) {
+        loggedInUsername = match[1].toLowerCase();
+        return loggedInUsername;
+      }
+    }
+    return null;
+  }
+
+  // Generic message extractor — tries known Reddit API patterns
+  function extractMessagesFromResponse(data) {
+    const messages = [];
+    const seen = new Set();
+
+    function addMsg(msg) {
+      if (!msg || !msg.text) return;
+      const key = msg.id || (msg.author + ':' + msg.text.substring(0, 50) + ':' + msg.timestamp);
+      if (seen.has(key)) return;
+      seen.add(key);
+      messages.push(msg);
+    }
+
+    function tryExtract(obj) {
+      if (!obj || typeof obj !== 'object') return null;
+      // Must have text
+      const text = obj.message || obj.text || obj.body ||
+                   (obj.content && (obj.content.text || obj.content.body)) ||
+                   obj.richtext || obj.plainText || obj.messageBody;
+      if (!text || typeof text !== 'string' || text.length === 0) return null;
+      // Must have author
+      const author = (obj.user && (obj.user.nickname || obj.user.name || obj.user.username)) ||
+                     (obj.author && (obj.author.name || obj.author.username)) ||
+                     (obj.sender && (obj.sender.name || obj.sender.username)) ||
+                     obj.user_id || obj.authorId || obj.senderId || obj.authorName;
+      if (!author) return null;
+      const ts = obj.created_at || obj.createdAt || obj.timestamp || obj.ts || obj.sentAt || 0;
+      const id = obj.message_id || obj.id || obj.messageId || '';
+      return {
+        id: String(id),
+        text: String(text),
+        author: String(author).replace(/^t2_/i, '').toLowerCase(),
+        timestamp: typeof ts === 'number' ? ts : (new Date(ts).getTime() || 0),
+      };
+    }
+
+    function walk(obj, depth) {
+      if (depth > 12 || !obj) return;
+      if (Array.isArray(obj)) {
+        for (var i = 0; i < obj.length; i++) {
+          var msg = tryExtract(obj[i]);
+          if (msg) addMsg(msg);
+          else walk(obj[i], depth + 1);
+        }
+      } else if (typeof obj === 'object') {
+        // GraphQL edges pattern
+        if (obj.edges && Array.isArray(obj.edges)) {
+          for (var j = 0; j < obj.edges.length; j++) {
+            var edge = obj.edges[j];
+            if (edge && edge.node) {
+              var m = tryExtract(edge.node);
+              if (m) addMsg(m);
+              else walk(edge.node, depth + 1);
+            }
+          }
+        }
+        // Direct arrays
+        for (var key in obj) {
+          if (!obj.hasOwnProperty(key)) continue;
+          walk(obj[key], depth + 1);
+        }
+      }
+    }
+
+    walk(data, 0);
+    return messages;
+  }
+
+  // Determine which conversation partner the messages belong to
+  function identifyConversationUser(messages) {
+    if (messages.length === 0) return null;
+    var me = getLoggedInUsername();
+    var authors = {};
+    for (var i = 0; i < messages.length; i++) {
+      var a = messages[i].author;
+      if (a) authors[a] = (authors[a] || 0) + 1;
+    }
+    var authorList = Object.keys(authors);
+    // 1-on-1 chat: 2 participants, one is "me"
+    if (authorList.length === 2 && me) {
+      var other = authorList[0] === me ? authorList[1] : authorList[0];
+      return other;
+    }
+    // If we don't know who "me" is, pick the author matching a known conversation
+    if (authorList.length === 2) {
+      // Check which author is in our known conversations list from sidebar scanning
+      for (var j = 0; j < authorList.length; j++) {
+        if (latestScanData.usernames.indexOf(authorList[j]) !== -1) {
+          return authorList[j];
+        }
+      }
+    }
+    // Single author — might be all from one person (the other user)
+    if (authorList.length === 1 && me && authorList[0] !== me) {
+      return authorList[0];
+    }
+    return null;
+  }
+
+  // Tag messages with isFromYou
+  function tagMessages(messages, conversationUser) {
+    var me = getLoggedInUsername();
+    return messages.map(function (msg) {
+      var isFromYou = false;
+      if (me) {
+        isFromYou = msg.author === me;
+      } else {
+        isFromYou = msg.author !== conversationUser;
+      }
+      return {
+        id: msg.id,
+        text: msg.text,
+        author: msg.author,
+        isFromYou: isFromYou,
+        timestamp: msg.timestamp,
+      };
+    });
+  }
+
+  // Listen for intercepted API responses from MAIN world
+  window.addEventListener('message', function (event) {
+    if (event.source !== window) return;
+    if (!event.data || event.data.type !== '__SR_CHAT_INTERCEPT__') return;
+
+    var url = event.data.url || '';
+    var data = event.data.data;
+    var opName = event.data.operationName;
+
+    // Log for debugging — helps us refine the parser for Reddit's specific API format
+    if (url.indexOf('gql.reddit.com') !== -1) {
+      var topKeys = data && data.data ? Object.keys(data.data) : Object.keys(data || {});
+      console.log('[SuperReddit] GQL intercept: op=' + (opName || '?') + ' keys=' + topKeys.join(','));
+    }
+
+    var messages = extractMessagesFromResponse(data);
+    if (messages.length === 0) return;
+
+    var conversationUser = identifyConversationUser(messages);
+    if (!conversationUser) {
+      console.log('[SuperReddit] Intercepted ' + messages.length + ' messages but could not identify conversation partner');
+      return;
+    }
+
+    var tagged = tagMessages(messages, conversationUser);
+    console.log('[SuperReddit] Intercepted ' + tagged.length + ' messages for u/' + conversationUser);
+
+    try {
+      chrome.runtime.sendMessage({
+        type: 'STORE_CONVERSATION_MESSAGES',
+        username: conversationUser,
+        messages: tagged,
+        source: 'api_intercept',
+      }, function () { if (chrome.runtime.lastError) { /* ignore */ } });
+    } catch (e) { /* orphaned context */ }
+  });
 
   // ---- Routing ----
   if (isOnComposePage()) {

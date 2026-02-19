@@ -9,6 +9,14 @@ export interface ChatPreview {
   theirText?: string | null;
 }
 
+export interface ConversationMessage {
+  id: string;
+  text: string;
+  author: string;
+  isFromYou: boolean;
+  timestamp: number;
+}
+
 interface BridgeStatus {
   extensionInstalled: boolean;
   redditLoggedIn: boolean;
@@ -261,6 +269,21 @@ export function useRedditBridge() {
     }
   }, []);
 
+  const fetchConversation = useCallback(async (username: string): Promise<ConversationMessage[]> => {
+    try {
+      const result = await sendToExtension<{
+        messages: ConversationMessage[];
+        lastUpdated: number | null;
+        source: string | null;
+        error?: string;
+      }>('GET_FULL_CONVERSATION', 5_000, { username: username.toLowerCase() });
+
+      return result.messages || [];
+    } catch {
+      return [];
+    }
+  }, []);
+
   const reconcile = useCallback(
     async (
       allDms: OutreachDM[],
@@ -338,6 +361,7 @@ export function useRedditBridge() {
     youSentToList,
     theyRepliedList,
     sendDm,
+    fetchConversation,
     checkYouSentTo,
     checkTheyReplied,
     fetchPreviews,

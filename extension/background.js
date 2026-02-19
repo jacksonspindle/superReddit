@@ -6,6 +6,7 @@ const STORAGE_KEY = 'sr_chat_usernames';
 const YOU_SENT_TO_KEY = 'sr_you_sent_to';
 const THEY_REPLIED_KEY = 'sr_they_replied';
 const PREVIEWS_KEY = 'sr_chat_previews';
+const CONVERSATIONS_KEY = 'sr_conversations';
 const SCAN_READY_KEY = 'sr_scan_ready';
 
 const SCAN_ALARM = 'sr_periodic_scan';
@@ -393,6 +394,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     sendResponse({ ok: true });
     return false;
+  }
+
+  // ---- Full conversation data (from chat-interceptor + content script parsing) ----
+
+  if (message.type === 'STORE_CONVERSATION_MESSAGES') {
+    const { username, messages, source } = message;
+    if (!username || !messages || messages.length === 0) {
+      sendResponse({ ok: false });
+      return false;
+    }
+    chrome.storage.local.get(CONVERSATIONS_KEY, (result) => {
+      const convos = result[CONVERSATIONS_KEY] || {};
+      const existing = convos[username] || { messages: [], lastUpdated: 0 };
+      // Merge: add new messages by ID, avoiding duplicates
+      const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+      let added = 0;
+      for (const msg of messages) {
+        if (msg.id && existingIds.has(msg.id)) continue;
+        existing.messages.push(msg);
+        added++;
+      }
+      // Sort by timestamp
+      existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      // Cap at 200 messages per conversation
+      if (existing.messages.length > 200) {
+        existing.messages = existing.messages.slice(-200);
+      }
+      existing.lastUpdated = Date.now();
+      existing.source = source || 'unknown';
+      convos[username] = existing;
+      chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos });
+      if (added > 0) {
+        console.log('[SR BG] Stored ' + added + ' new messages for u/' + username + ' (total: ' + existing.messages.length + ')');
+      }
+      sendResponse({ ok: true, added });
+    });
+    return true;
+  }
+
+  if (message.type === 'GET_FULL_CONVERSATION') {
+    const { username } = message;
+    if (!username) {
+      sendResponse({ messages: [], error: 'No username provided' });
+      return false;
+    }
+    chrome.storage.local.get(CONVERSATIONS_KEY, (result) => {
+      const convos = result[CONVERSATIONS_KEY] || {};
+      const convo = convos[username.toLowerCase()] || null;
+      sendResponse({
+        messages: convo ? convo.messages : [],
+        lastUpdated: convo ? convo.lastUpdated : null,
+        source: convo ? convo.source : null,
+      });
+    });
+    return true;
   }
 
   if (message.type === 'CHAT_SCAN_RESULT') {
