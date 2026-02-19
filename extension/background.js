@@ -828,6 +828,7 @@ async function fetchRedditMessages() {
     const allRaw = [];
 
     for (const child of inboxChildren) {
+      if (child.kind !== 't4') continue; // Only DMs, skip comment replies (t1) and post replies (t3)
       const d = child && child.data;
       if (!d || !d.body) continue;
       allRaw.push({
