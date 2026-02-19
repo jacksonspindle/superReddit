@@ -21,6 +21,7 @@ interface ColumnExpandOverlayProps {
   onDraft?: (dm: OutreachDM) => void;
   onStageChange: (dmId: string, stage: string, outcome?: string) => void;
   onDismiss?: (dmId: string) => void;
+  onOpenConversation?: (dm: OutreachDM) => void;
 }
 
 const permissionConfig: Record<PermissionType, { label: string; className: string }> = {
@@ -51,6 +52,7 @@ export function ColumnExpandOverlay({
   onDraft,
   onStageChange,
   onDismiss,
+  onOpenConversation,
 }: ColumnExpandOverlayProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -109,7 +111,12 @@ export function ColumnExpandOverlay({
                     return (
                       <div
                         key={dm.id}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-card/80 hover:bg-muted/30 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-card/80 hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button, a, input, [role="button"]')) return;
+                          onOpenConversation?.(dm);
+                        }}
                       >
                         {/* Avatar */}
                         <Avatar className="h-8 w-8 shrink-0">
