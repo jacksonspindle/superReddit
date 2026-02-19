@@ -31,10 +31,12 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // On update: only log, don't clear data — conversations and chatUrls
-  // should persist so the drawer works immediately after reload
+  // On update: clear conversations (forces fresh scrape) but keep chatUrls
+  // (so direct navigation still works immediately)
   if (details.reason === 'update') {
-    console.log('[SR BG] Extension updated — preserving all data');
+    chrome.storage.local.remove(CONVERSATIONS_KEY, () =>
+      console.log('[SR BG] Update — cleared stale conversations, keeping chatUrls')
+    );
   }
 
   // After install/update, re-inject content scripts into existing tabs
