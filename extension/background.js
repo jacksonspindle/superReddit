@@ -31,12 +31,11 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // Clear stale chatUrls on update (paths may have changed format)
-  // Keep conversations — they contain real message data we don't want to lose
+  // On update: keep all data (chatUrls, conversations) — clearing them
+  // creates a race condition where the drawer opens before the scan
+  // repopulates the URLs. The scan will update stale data naturally.
   if (details.reason === 'update') {
-    chrome.storage.local.remove(CHAT_URLS_KEY, () =>
-      console.log('[SR BG] Update — cleared stale chatUrls')
-    );
+    console.log('[SR BG] Extension updated — preserving chatUrls + conversations');
   }
 
   // After install/update, re-inject content scripts into existing tabs

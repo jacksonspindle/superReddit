@@ -820,31 +820,65 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     const messages = [];
     const me = getLoggedInUsername();
 
+    console.log('[SuperReddit] DOM scraper: starting on ' + location.pathname);
+
     // Find the message thread container — it's typically the wider panel (not the sidebar)
     const allScrollable = findAllScrollable().filter(function (el) {
       return el.clientWidth > 400; // wider than sidebar
     });
 
-    if (allScrollable.length === 0) return messages;
+    if (allScrollable.length === 0) {
+      console.log('[SuperReddit] DOM scraper: no wide scrollable containers found');
+      return messages;
+    }
 
     var threadContainer = allScrollable[0];
+    console.log('[SuperReddit] DOM scraper: container=' + threadContainer.tagName +
+      ' w=' + threadContainer.clientWidth + ' h=' + threadContainer.clientHeight +
+      ' children=' + threadContainer.children.length);
 
-    // Look for message-like elements within the thread
+    // Strategy 1: Reddit chat-specific selectors (broad — catches RS custom elements)
     var msgEls = threadContainer.querySelectorAll(
-      '[class*="message"], [class*="Message"], [data-testid*="message"]'
+      '[class*="message"], [class*="Message"], [data-testid*="message"], ' +
+      'rs-message, [class*="chat-message"], [class*="ChatMessage"], ' +
+      '[data-testid*="chat"], [class*="event-body"], [class*="EventBody"]'
     );
+    console.log('[SuperReddit] DOM scraper: strategy 1 (selectors) found ' + msgEls.length + ' elements');
 
-    // If no class-based matches, look for repeating child structures
+    // Strategy 2: Look deeper — check shadow DOM too
+    if (msgEls.length === 0) {
+      msgEls = deepQueryAll(
+        '[class*="message"], [class*="Message"], rs-message, [class*="chat-message"]',
+        threadContainer
+      );
+      console.log('[SuperReddit] DOM scraper: strategy 2 (deep query) found ' + msgEls.length + ' elements');
+    }
+
+    // Strategy 3: If no class-based matches, look for repeating child structures
     if (msgEls.length === 0) {
       var children = threadContainer.children;
+      var textChildren = 0;
       for (var i = 0; i < children.length; i++) {
         var child = children[i];
         var text = (child.textContent || '').trim();
-        if (text.length > 0 && text.length < 2000) {
-          msgEls = threadContainer.children;
-          break;
-        }
+        if (text.length > 0 && text.length < 2000) textChildren++;
       }
+      if (textChildren > 0) {
+        msgEls = threadContainer.children;
+        console.log('[SuperReddit] DOM scraper: strategy 3 (children) using ' + msgEls.length + ' children (' + textChildren + ' with text)');
+      }
+    }
+
+    // Garbage filter — reject page chrome / JS code
+    function isGarbage(text) {
+      if (/^(window\.|if\(|var |let |const |function |import |export |@font-face|@media|@keyframes)/i.test(text)) return true;
+      if (/\b(window\.__servedBy|document\.(hidden|get|query)|chrome-extension:\/\/|createElement|addEventListener|innerHTML)\b/.test(text)) return true;
+      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && (text.indexOf('function') !== -1 || text.indexOf('=>') !== -1)) return true;
+      if (/^(Skip to |Page not found|Explore Reddit|<!DOCTYPE|Loading\.\.\.|Reddit - |Log In|Sign Up)/i.test(text)) return true;
+      if (/^(\.|#|@)\{/.test(text) || /<(div|span|script|style|html|head|body)\b/i.test(text)) return true;
+      if (text.length > 200 && text.split(' ').length < 5) return true;
+      if (/^https?:\/\/[^\s]+$/.test(text) && text.length > 100) return true;
+      return false;
     }
 
     for (var j = 0; j < msgEls.length; j++) {
@@ -852,10 +886,8 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       var text = (el.textContent || '').trim();
       if (!text || text.length < 1 || text.length > 5000) continue;
 
-      // Filter out page chrome, JS code, and navigation text (not chat messages)
-      if (/^(window\.|if\(|@font-face|Skip to |Page not found|Explore Reddit|<!DOCTYPE)/i.test(text)) continue;
-      if (/\b(window\.__servedBy|document\.hidden|chrome-extension:\/\/)\b/.test(text)) continue;
-      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && text.indexOf('function') !== -1) continue;
+      // Apply garbage filter
+      if (isGarbage(text)) continue;
 
       // Try to determine sender from DOM hints
       var isFromYou = false;
@@ -896,29 +928,35 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     }
 
+    console.log('[SuperReddit] DOM scraper: extracted ' + messages.length + ' messages');
+    if (messages.length > 0) {
+      for (var m = 0; m < Math.min(5, messages.length); m++) {
+        console.log('[SuperReddit] DOM msg[' + m + ']: ' + messages[m].author + ': ' + messages[m].text.substring(0, 80));
+      }
+    }
+
     // ---- Deduplicate: collapse identical message text ----
     // Parent/child elements often produce the same text. Keep first, prefer real author.
     if (messages.length > 1) {
       var seen = {};
       var deduped = [];
-      for (var m = 0; m < messages.length; m++) {
-        var key = messages[m].text.substring(0, 100).toLowerCase().replace(/\s+/g, ' ');
+      for (var dm = 0; dm < messages.length; dm++) {
+        var key = messages[dm].text.substring(0, 100).toLowerCase().replace(/\s+/g, ' ');
         if (seen[key] !== undefined) {
-          // If this duplicate has a better author, update the kept entry
           var kept = deduped[seen[key]];
-          if (kept.author === 'them' && messages[m].author !== 'them') {
-            kept.author = messages[m].author;
-            kept.isFromYou = messages[m].isFromYou;
+          if (kept.author === 'them' && messages[dm].author !== 'them') {
+            kept.author = messages[dm].author;
+            kept.isFromYou = messages[dm].isFromYou;
           }
           continue;
         }
         seen[key] = deduped.length;
-        deduped.push(messages[m]);
+        deduped.push(messages[dm]);
       }
-      // Re-assign IDs
-      for (var r = 0; r < deduped.length; r++) {
-        deduped[r].id = 'dom_' + r;
+      for (var ri = 0; ri < deduped.length; ri++) {
+        deduped[ri].id = 'dom_' + ri;
       }
+      console.log('[SuperReddit] DOM scraper: ' + deduped.length + ' after dedup (was ' + messages.length + ')');
       return deduped;
     }
 
