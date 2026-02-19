@@ -84,7 +84,7 @@ function deduplicateMessages(
         ...msg,
         text: msg.text.replace(timestampPrefix, '').trim(),
         author,
-        isFromYou: isOtherUser ? false : true,
+        isFromYou: msg.isFromYou || !isOtherUser,
       };
     })
     // Step 3: Remove messages that became empty after timestamp strip
