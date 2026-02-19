@@ -65,19 +65,15 @@ chrome.runtime.onInstalled.addListener((details) => {
 
   // Start periodic scan — first one after 3 min (gives initial scan time to complete)
   chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 3, periodInMinutes: SCAN_INTERVAL_MINUTES });
-  // Start background message fetching — first one after 30s, then every 3 min
-  chrome.alarms.create(MSG_FETCH_ALARM, { delayInMinutes: 0.5, periodInMinutes: MSG_FETCH_INTERVAL_MINUTES });
 });
 
 // ---- On browser startup: ensure scanning is active ----
 chrome.runtime.onStartup.addListener(() => {
   console.log('[SR BG] Browser started — scheduling chat scan');
   chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 1, periodInMinutes: SCAN_INTERVAL_MINUTES });
-  chrome.alarms.create(MSG_FETCH_ALARM, { delayInMinutes: 0.5, periodInMinutes: MSG_FETCH_INTERVAL_MINUTES });
   // Open chat tab to start scanning
   setTimeout(() => ensureChatTab().catch(() => {}), 5000);
-  // Fetch messages from Reddit API immediately
-  setTimeout(() => fetchRedditMessages(), 3000);
+  // Legacy inbox API fetch disabled — chat pipeline is the sole data source
 });
 
 // ---- Periodic alarm: refresh chat data in background ----
@@ -86,9 +82,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     console.log('[SR BG] Periodic scan — ensuring chat tab is open');
     refreshChatTab();
   }
-  if (alarm.name === MSG_FETCH_ALARM) {
-    fetchRedditMessages();
-  }
+  // Legacy inbox API fetch disabled — chat pipeline is the sole data source
 });
 
 // Refresh the chat tab to trigger a fresh scan by the content script
@@ -478,7 +472,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'FETCH_ALL_CONVERSATIONS') {
-    fetchRedditMessages().then(sendResponse).catch(() => sendResponse({ fetched: false }));
+    // Legacy inbox API fetch disabled — chat pipeline is the sole data source
+    sendResponse({ fetched: false });
     return true;
   }
 
