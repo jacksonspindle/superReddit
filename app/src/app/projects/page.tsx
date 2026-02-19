@@ -25,8 +25,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { AvatarUpload } from '@/components/profile/AvatarUpload';
 import { FadeIn } from '@/components/motion';
 import { staggerContainerVariants, staggerItemVariants, cardHover, cardTap } from '@/lib/motion';
 import type { Project } from '@/types';
@@ -40,7 +40,6 @@ export default function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [email, setEmail] = useState('');
   const router = useRouter();
 
   // Edit form state
@@ -55,9 +54,6 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     loadProjects();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setEmail(data.user.email || '');
-    });
   }, []);
 
   async function loadProjects() {
@@ -153,11 +149,7 @@ export default function ProjectsPage() {
         </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs">
-              {email ? email[0].toUpperCase() : 'U'}
-            </AvatarFallback>
-          </Avatar>
+          <AvatarUpload />
           <button
             onClick={handleLogout}
             className="text-muted-foreground hover:text-foreground transition-colors"
