@@ -65,9 +65,17 @@ function deduplicateMessages(
   // Matches "9:36 AM " at the START of message text (timestamp prefix from parent element)
   const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
 
+  // Reddit chat UI strings the scraper picks up as messages
+  const uiChrome = new Set([
+    'send message', 'type a message', 'send', 'message',
+    'start a conversation', 'say something nice',
+  ]);
+
   const processed = messages
-    // Step 1: Remove pure timestamp messages ("9:36 AM", "4:30 PM")
+    // Step 1a: Remove pure timestamp messages ("9:36 AM", "4:30 PM")
     .filter((msg) => !timestampOnly.test(msg.text.trim()))
+    // Step 1b: Remove Reddit UI chrome text ("Send message", etc.)
+    .filter((msg) => !uiChrome.has(msg.text.trim().toLowerCase()))
     // Step 2: Normalize — strip leading timestamp prefix, fix "them" author
     .map((msg) => ({
       ...msg,
