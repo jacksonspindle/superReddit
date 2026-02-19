@@ -76,7 +76,8 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
       // Capture chat URL for direct navigation
       const href = link.getAttribute('href');
-      if (href && href.indexOf('/chat/') !== -1) {
+      if (href && href.length > 1 && href !== '#') {
+        // Accept any non-trivial href (Reddit uses /chat/room/..., /chat/channel/..., etc.)
         chatUrls[username] = href;
       }
 
@@ -165,9 +166,23 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       youSentTo.add(u);
     }
 
-    console.log('[SuperReddit] classify: ' + processed.size + ' users, ' + youSentTo.size + ' youSentTo, ' + theyReplied.size + ' theyReplied (via ' + chatLinks.length + ' aria-labels)');
+    console.log('[SuperReddit] classify: ' + processed.size + ' users, ' + youSentTo.size + ' youSentTo, ' + theyReplied.size + ' theyReplied (via ' + chatLinks.length + ' aria-labels), ' + Object.keys(chatUrls).length + ' chatUrls');
     if (youSentTo.size > 0) console.log('[SuperReddit]   youSentTo:', Array.from(youSentTo));
     if (theyReplied.size > 0) console.log('[SuperReddit]   theyReplied:', Array.from(theyReplied));
+    if (Object.keys(chatUrls).length > 0) console.log('[SuperReddit]   chatUrls:', chatUrls);
+    // Debug: log first few link hrefs to diagnose chatUrl capture
+    if (Object.keys(chatUrls).length === 0 && chatLinks.length > 0) {
+      var sampleHrefs = [];
+      for (var di = 0; di < Math.min(3, chatLinks.length); di++) {
+        var dLink = chatLinks[di];
+        sampleHrefs.push({
+          label: (dLink.getAttribute('aria-label') || '').substring(0, 50),
+          href: dLink.getAttribute('href'),
+          tagName: dLink.tagName,
+        });
+      }
+      console.log('[SuperReddit]   DEBUG: no chatUrls captured. Sample links:', sampleHrefs);
+    }
 
     return {
       youSentTo: Array.from(youSentTo),
@@ -1213,6 +1228,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       var tagged = tagMessages(wsMessages, conversationUser);
       console.log('[SuperReddit] WS: intercepted ' + tagged.length + ' messages for u/' + conversationUser);
 
+      // Capture chatUrl from current page URL (e.g. /chat/room/ROOM_ID)
+      captureChatUrlFromLocation(conversationUser);
+
       try {
         chrome.runtime.sendMessage({
           type: 'STORE_CONVERSATION_MESSAGES',
@@ -1247,6 +1265,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     var tagged = tagMessages(messages, conversationUser);
     console.log('[SuperReddit] Intercepted ' + tagged.length + ' messages for u/' + conversationUser);
 
+    // Capture chatUrl from current page URL
+    captureChatUrlFromLocation(conversationUser);
+
     try {
       chrome.runtime.sendMessage({
         type: 'STORE_CONVERSATION_MESSAGES',
@@ -1256,6 +1277,30 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }, function () { if (chrome.runtime.lastError) { /* ignore */ } });
     } catch (e) { /* orphaned context */ }
   });
+
+  // ---- Chat URL capture from page location ----
+  // When viewing a conversation, map the username to the current /chat/room/... URL
+  function captureChatUrlFromLocation(username) {
+    try {
+      var path = location.pathname;
+      if (path.indexOf('/chat/') !== -1 && username) {
+        var userLower = username.toLowerCase();
+        console.log('[SuperReddit] Mapping u/' + userLower + ' → ' + path);
+        chrome.storage.local.get(CHAT_URLS_KEY, function (result) {
+          if (chrome.runtime.lastError) return;
+          var existing = result[CHAT_URLS_KEY] || {};
+          if (existing[userLower] !== path) {
+            existing[userLower] = path;
+            chrome.storage.local.set({ [CHAT_URLS_KEY]: existing });
+            chrome.runtime.sendMessage(
+              { type: 'STORE_CHAT_URLS', chatUrls: existing },
+              function () { if (chrome.runtime.lastError) { /* ignore */ } }
+            );
+          }
+        });
+      }
+    } catch (e) { /* ignore */ }
+  }
 
   // ---- Routing ----
   if (isOnComposePage()) {

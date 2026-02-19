@@ -20,6 +20,9 @@
     'sendbird.reddit.com',
     '/api/v1/sendbird/',
     '/svc/shreddit/',
+    '/svc/matrix-web/',
+    '/api/chat/',
+    '/api/v1/chat/',
   ];
 
   function isChatRelated(url) {
@@ -87,67 +90,127 @@
     return xhrSend.apply(this, arguments);
   };
 
-  // --- Observe WebSocket messages (SendBird chat) ---
+  // --- Observe WebSocket messages ---
   var OriginalWebSocket = window.WebSocket;
 
-  function parseSendBirdFrame(raw) {
+  // Track WS frame types for diagnostics (only log first few of each type)
+  var wsFrameLog = {};
+  var wsFrameCount = 0;
+
+  function extractMessageFromObj(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    // Text — try many field names
+    var text = obj.message || obj.text || obj.body || '';
+    if (obj.content && typeof obj.content === 'object') {
+      text = text || obj.content.body || obj.content.text || obj.content.message || '';
+    }
+    if (typeof text !== 'string' || text.length === 0) return null;
+
+    // Author — try many patterns
+    var author = null;
+    if (obj.user && typeof obj.user === 'object') {
+      author = obj.user.nickname || obj.user.user_id || obj.user.name || obj.user.username || null;
+    }
+    if (!author && obj.sender && typeof obj.sender === 'object') {
+      author = obj.sender.nickname || obj.sender.user_id || obj.sender.name || obj.sender.username || null;
+    }
+    if (!author && obj.author && typeof obj.author === 'object') {
+      author = obj.author.name || obj.author.username || obj.author.nickname || null;
+    }
+    if (!author) author = obj.user_id || obj.sender_id || obj.authorId || obj.senderId || null;
+    // Matrix format: sender is a string like "@user:reddit.com"
+    if (!author && typeof obj.sender === 'string') {
+      author = obj.sender.replace(/^@/, '').replace(/:.*$/, '');
+    }
+    if (!author) return null;
+
+    var ts = obj.created_at || obj.createdAt || obj.timestamp || obj.ts ||
+             obj.origin_server_ts || obj.sentAt || 0;
+    var id = obj.message_id || obj.msg_id || obj.reqId || obj.event_id || obj.id || '';
+
+    return {
+      id: 'ws_' + (id || Date.now() + '_' + Math.random().toString(36).substr(2, 6)),
+      text: text,
+      author: String(author).toLowerCase(),
+      timestamp: typeof ts === 'number' ? ts : (new Date(ts).getTime() || Date.now()),
+      message_id: obj.message_id || obj.msg_id || obj.event_id || null,
+    };
+  }
+
+  function parseWSFrame(raw) {
     if (typeof raw !== 'string' || raw.length < 5) return null;
 
     var messages = [];
     var channelUrl = null;
 
-    function extractSBMessage(obj) {
-      if (!obj || typeof obj !== 'object') return null;
-      // Text
-      var text = obj.message || obj.text || obj.body || '';
-      if (typeof text !== 'string' || text.length === 0) return null;
-      // Author
-      var author = null;
-      if (obj.user) {
-        author = obj.user.nickname || obj.user.user_id || obj.user.name || null;
-      }
-      if (!author) author = obj.user_id || obj.sender_id || null;
-      if (!author) return null;
-      return {
-        id: 'ws_' + (obj.message_id || obj.msg_id || obj.reqId || Date.now() + '_' + Math.random().toString(36).substr(2, 6)),
-        text: text,
-        author: String(author).toLowerCase(),
-        timestamp: obj.created_at || obj.createdAt || obj.ts || Date.now(),
-        message_id: obj.message_id || obj.msg_id || null,
-      };
-    }
-
     try {
-      // Format A: "MESG{json}" — 4-char command prefix + JSON
+      // Format A: SendBird "MESG{json}" — 4-char command prefix + JSON
       if (raw.substring(0, 4) === 'MESG') {
         var jsonStart = raw.indexOf('{');
         if (jsonStart !== -1) {
           var parsed = JSON.parse(raw.substring(jsonStart));
           channelUrl = parsed.channel_url || null;
-          var msg = extractSBMessage(parsed);
+          var msg = extractMessageFromObj(parsed);
           if (msg) messages.push(msg);
         }
       }
-      // Format B/C: Pure JSON (might be MESG type or have command field)
-      else if (raw.charAt(0) === '{' || raw.charAt(0) === '[') {
-        var data = JSON.parse(raw);
-        // Single message object
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          var type = data.type || data.command || '';
-          if (typeof type === 'string' && type.indexOf('MESG') !== -1) {
-            channelUrl = data.channel_url || null;
-            var payload = data.payload || data;
-            var m = extractSBMessage(payload);
-            if (m) messages.push(m);
+      // Format B: Any other SendBird command with JSON (e.g., LOGI, READ, DLVR)
+      else if (/^[A-Z]{4}/.test(raw)) {
+        var jStart = raw.indexOf('{');
+        if (jStart !== -1) {
+          var pdata = JSON.parse(raw.substring(jStart));
+          channelUrl = pdata.channel_url || null;
+          // Only extract messages from MESG-like commands
+          if (raw.substring(0, 4) === 'MESG') {
+            var m2 = extractMessageFromObj(pdata);
+            if (m2) messages.push(m2);
           }
         }
+      }
+      // Format C: Pure JSON
+      else if (raw.charAt(0) === '{' || raw.charAt(0) === '[') {
+        var data = JSON.parse(raw);
+
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          var msgType = data.type || data.command || '';
+
+          // SendBird: type/command contains "MESG"
+          if (typeof msgType === 'string' && msgType.indexOf('MESG') !== -1) {
+            channelUrl = data.channel_url || null;
+            var payload = data.payload || data;
+            var m = extractMessageFromObj(payload);
+            if (m) messages.push(m);
+          }
+          // Matrix: type is "m.room.message"
+          else if (msgType === 'm.room.message') {
+            channelUrl = data.room_id || null;
+            var mm = extractMessageFromObj(data);
+            if (mm) messages.push(mm);
+          }
+          // Generic: has message-like content regardless of type
+          else {
+            var gm = extractMessageFromObj(data);
+            if (gm) messages.push(gm);
+          }
+
+          // Check for nested messages array (batch responses)
+          var msgsArr = data.messages || data.events || data.chunk || null;
+          if (Array.isArray(msgsArr)) {
+            for (var k = 0; k < msgsArr.length; k++) {
+              channelUrl = channelUrl || msgsArr[k].channel_url || msgsArr[k].room_id || null;
+              var bm = extractMessageFromObj(msgsArr[k]);
+              if (bm) messages.push(bm);
+            }
+          }
+        }
+
         // Array of messages (batch delivery)
         if (Array.isArray(data)) {
           for (var i = 0; i < data.length; i++) {
             var item = data[i];
-            if (item && item.type === 'MESG') {
-              channelUrl = channelUrl || item.channel_url || null;
-              var im = extractSBMessage(item);
+            if (item && typeof item === 'object') {
+              channelUrl = channelUrl || item.channel_url || item.room_id || null;
+              var im = extractMessageFromObj(item);
               if (im) messages.push(im);
             }
           }
@@ -166,10 +229,22 @@
       ? new OriginalWebSocket(url, protocols)
       : new OriginalWebSocket(url);
 
+    console.log('[SuperReddit] WebSocket opened: ' + (url || '').substring(0, 100));
+
     ws.addEventListener('message', function (event) {
       try {
-        var result = parseSendBirdFrame(event.data);
+        // Diagnostic: log first 5 frames per WS, then every 50th
+        wsFrameCount++;
+        if (wsFrameCount <= 5 || wsFrameCount % 50 === 0) {
+          var preview = typeof event.data === 'string'
+            ? event.data.substring(0, 200)
+            : '[binary ' + (event.data && event.data.byteLength ? event.data.byteLength + 'b' : 'data') + ']';
+          console.log('[SuperReddit] WS frame #' + wsFrameCount + ': ' + preview);
+        }
+
+        var result = parseWSFrame(event.data);
         if (result && result.messages.length > 0) {
+          console.log('[SuperReddit] WS parsed ' + result.messages.length + ' messages from frame');
           window.postMessage({
             type: MSG_TYPE,
             url: url || '',
