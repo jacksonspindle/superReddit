@@ -28,17 +28,27 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // After install/update, reload any existing reddit chat tabs so they get fresh content scripts
+  // After install/update, re-inject content scripts into existing tabs
   // (old content scripts are orphaned and can't communicate with the new background)
   setTimeout(async () => {
-    const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
-    for (const tab of tabs) {
+    // Reload reddit chat tabs
+    const redditTabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
+    for (const tab of redditTabs) {
       console.log('[SR BG] Reloading chat tab ' + tab.id + ' for fresh content script');
       chrome.tabs.reload(tab.id);
     }
-    // If no chat tabs exist, open one
-    if (tabs.length === 0) {
+    if (redditTabs.length === 0) {
       ensureChatTab().catch(() => {});
+    }
+
+    // Re-inject content.js into app tabs (localhost + vercel) so bridge reconnects
+    const appTabs = await chrome.tabs.query({ url: ['http://localhost/*', 'https://*.vercel.app/*'] });
+    for (const tab of appTabs) {
+      console.log('[SR BG] Re-injecting content.js into app tab ' + tab.id);
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js'],
+      }).catch(() => {});
     }
   }, 1000);
 
