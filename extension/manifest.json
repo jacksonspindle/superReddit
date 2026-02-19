@@ -3,7 +3,7 @@
   "name": "SuperReddit DM Bridge",
   "version": "1.6.0",
   "description": "Syncs Reddit chat with SuperReddit pipeline automatically",
-  "permissions": ["cookies", "storage", "sidePanel", "tabs", "alarms"],
+  "permissions": ["cookies", "storage", "sidePanel", "tabs", "alarms", "scripting"],
   "host_permissions": [
     "*://*.reddit.com/*",
     "http://localhost/*",

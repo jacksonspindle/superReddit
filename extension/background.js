@@ -653,74 +653,75 @@ async function pullDataFromChatTab() {
 }
 
 // ---- Background Reddit Message Fetching ----
-// Fetches inbox + sent messages from Reddit's JSON API using session cookies.
-// Runs on a periodic alarm so conversation data is always fresh — no user action needed.
+// Uses chrome.scripting.executeScript to fetch messages FROM a Reddit tab,
+// so the browser automatically includes session cookies. Runs on a periodic
+// alarm — no user action needed.
 
-async function getRedditCookieHeader() {
-  try {
-    const cookies = await chrome.cookies.getAll({ domain: '.reddit.com' });
-    if (cookies.length === 0) return null;
-    return cookies.map((c) => c.name + '=' + c.value).join('; ');
-  } catch {
-    return null;
+async function getRedditTabId() {
+  // Prefer the chat tab we already manage
+  if (chatTabId) {
+    try {
+      const tab = await chrome.tabs.get(chatTabId);
+      if (tab && tab.url && tab.url.includes('reddit.com')) return chatTabId;
+    } catch { /* tab gone */ }
   }
-}
-
-function parseRedditMessageListing(children, myUsername) {
-  const messages = [];
-  for (const child of children) {
-    const d = child && child.data;
-    if (!d || !d.body) continue;
-
-    const author = (d.author || '').toLowerCase();
-    const dest = (d.dest || '').toLowerCase();
-    const isFromYou = myUsername ? author === myUsername : false;
-
-    messages.push({
-      id: d.name || ('t4_' + d.id),
-      text: d.body,
-      author: author,
-      dest: dest,
-      subject: d.subject || '',
-      isFromYou: isFromYou,
-      timestamp: (d.created_utc || 0) * 1000,
-    });
-  }
-  return messages;
+  // Fall back to any open reddit tab
+  const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/*' });
+  if (tabs.length > 0) return tabs[0].id;
+  return null;
 }
 
 async function fetchRedditMessages() {
-  const cookieHeader = await getRedditCookieHeader();
-  if (!cookieHeader) {
-    console.log('[SR BG] No Reddit cookies — skipping message fetch');
-    return { fetched: false, reason: 'no_cookies' };
+  let tabId = await getRedditTabId();
+
+  if (!tabId) {
+    // No Reddit tab — open one in the background
+    try {
+      const tab = await chrome.tabs.create({ url: 'https://www.reddit.com/message/inbox', active: false });
+      tabId = tab.id;
+      // Wait for page to load
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    } catch (err) {
+      console.log('[SR BG] Could not create Reddit tab:', err.message);
+      return { fetched: false, reason: 'no_tab' };
+    }
   }
 
-  const headers = {
-    'Cookie': cookieHeader,
-    'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) SuperReddit/1.6',
-  };
-
   try {
-    const [inboxRes, sentRes] = await Promise.all([
-      fetch('https://www.reddit.com/message/inbox.json?limit=100&raw_json=1', { headers, credentials: 'omit' }),
-      fetch('https://www.reddit.com/message/sent.json?limit=100&raw_json=1', { headers, credentials: 'omit' }),
-    ]);
+    // Execute fetch inside the Reddit page context — cookies included automatically
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: async function () {
+        try {
+          var responses = await Promise.all([
+            fetch('/message/inbox.json?limit=100&raw_json=1'),
+            fetch('/message/sent.json?limit=100&raw_json=1'),
+          ]);
+          if (!responses[0].ok || !responses[1].ok) {
+            return { error: 'HTTP ' + responses[0].status + '/' + responses[1].status };
+          }
+          var inbox = await responses[0].json();
+          var sent = await responses[1].json();
+          return { inbox: inbox, sent: sent };
+        } catch (e) {
+          return { error: e.message };
+        }
+      },
+    });
 
-    if (!inboxRes.ok || !sentRes.ok) {
-      console.log('[SR BG] Reddit message fetch HTTP error: inbox=' + inboxRes.status + ' sent=' + sentRes.status);
-      return { fetched: false, reason: 'http_error' };
+    if (!results || !results[0] || !results[0].result) {
+      console.log('[SR BG] executeScript returned no result');
+      return { fetched: false, reason: 'no_result' };
     }
 
-    // Check we got JSON back (not an HTML login page)
-    const inboxType = inboxRes.headers.get('content-type') || '';
-    if (!inboxType.includes('json')) {
-      console.log('[SR BG] Reddit returned non-JSON — session may be expired');
-      return { fetched: false, reason: 'not_json' };
+    const data = results[0].result;
+    if (data.error) {
+      console.log('[SR BG] Message fetch page error:', data.error);
+      return { fetched: false, reason: data.error };
     }
 
-    const [inbox, sent] = await Promise.all([inboxRes.json(), sentRes.json()]);
+    const { inbox, sent } = data;
 
     // Determine who "me" is from sent messages
     const sentChildren = (sent && sent.data && sent.data.children) || [];
@@ -734,27 +735,47 @@ async function fetchRedditMessages() {
 
     // Parse messages
     const inboxChildren = (inbox && inbox.data && inbox.data.children) || [];
-    const inboxMessages = parseRedditMessageListing(inboxChildren, myUsername);
-    const sentMessages = parseRedditMessageListing(sentChildren, myUsername);
-    const allMessages = inboxMessages.concat(sentMessages);
+    const allRaw = [];
 
-    if (allMessages.length === 0) {
-      console.log('[SR BG] No messages found in inbox/sent');
+    for (const child of inboxChildren) {
+      const d = child && child.data;
+      if (!d || !d.body) continue;
+      allRaw.push({
+        id: d.name || ('t4_' + d.id),
+        text: d.body,
+        author: (d.author || '').toLowerCase(),
+        dest: (d.dest || '').toLowerCase(),
+        isFromYou: myUsername ? (d.author || '').toLowerCase() === myUsername : false,
+        timestamp: (d.created_utc || 0) * 1000,
+      });
+    }
+    for (const child of sentChildren) {
+      const d = child && child.data;
+      if (!d || !d.body) continue;
+      allRaw.push({
+        id: d.name || ('t4_' + d.id),
+        text: d.body,
+        author: (d.author || '').toLowerCase(),
+        dest: (d.dest || '').toLowerCase(),
+        isFromYou: true,
+        timestamp: (d.created_utc || 0) * 1000,
+      });
+    }
+
+    if (allRaw.length === 0) {
+      console.log('[SR BG] No messages found in inbox/sent (inbox=' + inboxChildren.length + ' sent=' + sentChildren.length + ')');
       return { fetched: true, count: 0, conversations: 0 };
     }
 
     // If we couldn't determine "me" from sent, try from inbox (dest is me)
-    if (!myUsername && inboxMessages.length > 0) {
-      myUsername = inboxMessages[0].dest;
-      // Re-tag sent messages now that we know who "me" is
-      for (const msg of sentMessages) {
-        msg.isFromYou = msg.author === myUsername;
-      }
+    if (!myUsername && inboxChildren.length > 0) {
+      const firstInbox = inboxChildren[0].data;
+      if (firstInbox) myUsername = (firstInbox.dest || '').toLowerCase();
     }
 
     // Group by conversation partner
     const grouped = {};
-    for (const msg of allMessages) {
+    for (const msg of allRaw) {
       const partner = msg.isFromYou ? msg.dest : msg.author;
       if (!partner || partner === myUsername) continue;
       if (!grouped[partner]) grouped[partner] = [];
@@ -768,8 +789,8 @@ async function fetchRedditMessages() {
     }
 
     // Merge into conversation storage
-    const result = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
-    const convos = result[CONVERSATIONS_KEY] || {};
+    const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+    const convos = stored[CONVERSATIONS_KEY] || {};
     let totalAdded = 0;
 
     for (const [partner, messages] of Object.entries(grouped)) {
@@ -788,7 +809,6 @@ async function fetchRedditMessages() {
         existing.messages = existing.messages.slice(-200);
       }
       existing.lastUpdated = Date.now();
-      // Don't overwrite 'api_intercept' source if we already have richer data
       if (!existing.source || existing.source === 'background_fetch') {
         existing.source = 'background_fetch';
       }
@@ -797,7 +817,7 @@ async function fetchRedditMessages() {
     }
 
     await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
-    console.log('[SR BG] Message fetch: ' + totalAdded + ' new messages across ' + Object.keys(grouped).length + ' conversations');
+    console.log('[SR BG] Message fetch: ' + totalAdded + ' new msgs across ' + Object.keys(grouped).length + ' conversations');
     return { fetched: true, count: totalAdded, conversations: Object.keys(grouped).length };
   } catch (err) {
     console.log('[SR BG] Message fetch error:', err.message);
