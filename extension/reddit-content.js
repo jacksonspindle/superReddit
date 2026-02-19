@@ -912,6 +912,28 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         }
       }
 
+      // Strategy: detect visual alignment (Reddit Chat puts your messages on the right)
+      if (!isFromYou) {
+        var target = el;
+        for (var p = 0; p < 4 && target; p++) {
+          var style = window.getComputedStyle(target);
+          var cls = (target.className || '').toString().toLowerCase();
+          // Check for right-alignment patterns in computed style
+          if (style.alignSelf === 'flex-end' || style.marginLeft === 'auto' ||
+              style.textAlign === 'right' || style.justifyContent === 'flex-end' ||
+              style.float === 'right') {
+            isFromYou = true;
+            break;
+          }
+          // Check for class-name hints
+          if (/\b(self|outgoing|sent|yours|own|right|me)\b/.test(cls)) {
+            isFromYou = true;
+            break;
+          }
+          target = target.parentElement;
+        }
+      }
+
       // If we know our username, check if author matches
       if (me && authorName === me) isFromYou = true;
       if (me && authorName && authorName !== me) isFromYou = false;
