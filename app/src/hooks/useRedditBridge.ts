@@ -289,7 +289,7 @@ export function useRedditBridge() {
         lastUpdated: number | null;
         source: string | null;
         error?: string;
-      }>('GET_FULL_CONVERSATION', 5_000, { username: username.toLowerCase() });
+      }>('GET_FULL_CONVERSATION', 15_000, { username: username.toLowerCase() });
 
       if (result.messages && result.messages.length > 0) {
         return result.messages;
@@ -302,7 +302,7 @@ export function useRedditBridge() {
         lastUpdated: number | null;
         source: string | null;
         error?: string;
-      }>('GET_FULL_CONVERSATION', 5_000, { username: username.toLowerCase() });
+      }>('GET_FULL_CONVERSATION', 15_000, { username: username.toLowerCase() });
 
       return retry.messages || [];
     } catch {

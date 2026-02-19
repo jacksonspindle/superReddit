@@ -18,13 +18,7 @@ let lastSendDmTime = 0;
 let pendingSendDm = null; // { resolve, tabId, timer }
 let composeTabId = null;
 
-// SendBird credential cache (in-memory, 30 min TTL)
-let sendBirdCreds = null;
-let sendBirdCredsExpiry = 0;
-let sendBirdRestDisabled = false;
-
-// Conversation fetch cache (5 min TTL per user)
-const conversationFetchCache = {};
+const CHAT_URLS_KEY = 'sr_chat_urls';
 const CONVERSATION_CACHE_TTL = 5 * 60 * 1000;
 
 // ---- On install/update: start periodic scanning ----
@@ -425,6 +419,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'STORE_CHAT_URLS') {
+    const chatUrls = message.chatUrls || {};
+    if (Object.keys(chatUrls).length > 0) {
+      chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+        const existing = result[CHAT_URLS_KEY] || {};
+        const merged = { ...existing, ...chatUrls };
+        chrome.storage.local.set({ [CHAT_URLS_KEY]: merged });
+      });
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
   // ---- Full conversation data (from chat-interceptor + content script parsing) ----
 
   if (message.type === 'STORE_CONVERSATION_MESSAGES') {
@@ -496,15 +503,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
-        // 2. Try SendBird REST API (primary approach)
-        let result = await fetchConversationForUser(username);
+        // 2. Try navigation (direct URL or sidebar click) — WebSocket captures messages
+        const result = await fetchConversationViaNavigation(username);
 
-        // 3. If SendBird failed, try navigation fallback
-        if (!result) {
-          result = await fetchConversationViaNavigation(username);
-        }
-
-        // 4. Return whatever we have (fresh fetch, or stale cache as last resort)
+        // 3. Return whatever we have (fresh fetch, or stale cache as last resort)
         if (result && result.messages && result.messages.length > 0) {
           sendResponse({
             messages: result.messages,
@@ -539,7 +541,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'CHAT_SCAN_RESULT') {
-    const { usernames = [], youSentTo = [], theyReplied = [], previews = {} } = message;
+    const { usernames = [], youSentTo = [], theyReplied = [], previews = {}, chatUrls = {} } = message;
     console.log(`[SR BG] Chat scan complete: ${usernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
     if (usernames.length > 0) {
       // Usernames — cumulative
@@ -577,6 +579,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             merged[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
           }
           chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
+        });
+      }
+      // Chat URLs — cumulative merge
+      if (Object.keys(chatUrls).length > 0) {
+        chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+          const existing = result[CHAT_URLS_KEY] || {};
+          const merged = { ...existing, ...chatUrls };
+          chrome.storage.local.set({ [CHAT_URLS_KEY]: merged });
         });
       }
     }
@@ -897,236 +907,76 @@ async function fetchRedditMessages() {
   }
 }
 
-// ---- SendBird Conversation Fetching ----
-// All API calls happen from the service worker (no CORS restrictions).
-// Extension host_permissions cover *.reddit.com and *.sendbird.com.
+// ---- Navigation-Based Conversation Fetching ----
+// Uses direct URL navigation when a chatUrl is known, falls back to sidebar click.
+// After navigation, waits for WebSocket interceptor to capture messages.
 
-async function getSendBirdCredentials() {
-  // Return cached if still valid (30 min TTL)
-  if (sendBirdCreds && Date.now() < sendBirdCredsExpiry) {
-    return sendBirdCreds;
-  }
-
-  // Get cookies for authenticated requests
-  const cookies = await chrome.cookies.getAll({ domain: '.reddit.com' });
-  const cookieStr = cookies.length > 0 ? cookies.map((c) => c.name + '=' + c.value).join('; ') : '';
-
-  // Try multiple known endpoints from the service worker
-  const endpoints = [
-    'https://s.reddit.com/api/v1/sendbird/me',
-    'https://sendbird.reddit.com/api/v1/sendbird/me',
-    'https://chat.reddit.com/api/v1/sendbird/me',
-    'https://www.reddit.com/svc/shreddit/auth/sendbird',
-  ];
-
-  for (const url of endpoints) {
-    try {
-      const resp = await fetch(url, {
-        headers: cookieStr ? { Cookie: cookieStr } : {},
-        credentials: 'include',
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.sb_access_token && data.sb_user_id && data.sb_app_id) {
-          sendBirdCreds = data;
-          sendBirdCredsExpiry = Date.now() + 30 * 60 * 1000;
-          console.log('[SR BG] SendBird creds from ' + url + ': userId=' + data.sb_user_id);
-          return data;
-        }
-        console.log('[SR BG] SendBird endpoint ' + url + ' returned OK but missing creds:', Object.keys(data));
-      } else {
-        console.log('[SR BG] SendBird endpoint ' + url + ': HTTP ' + resp.status);
-      }
-    } catch (err) {
-      console.log('[SR BG] SendBird endpoint ' + url + ': ' + err.message);
-    }
-  }
-
-  // Fallback: try executeScript on a Reddit tab to fetch from same-origin context
-  const tabId = await getRedditTabId();
-  if (tabId) {
-    try {
-      const results = await chrome.scripting.executeScript({
-        target: { tabId },
-        world: 'MAIN',
-        func: async function () {
-          // Try relative URLs (same-origin on the Reddit tab)
-          var urls = ['/api/v1/sendbird/me', '/svc/shreddit/auth/sendbird'];
-          for (var i = 0; i < urls.length; i++) {
-            try {
-              var resp = await fetch(urls[i], { credentials: 'include' });
-              if (resp.ok) {
-                var data = await resp.json();
-                if (data.sb_access_token) return { creds: data, url: urls[i] };
-              }
-            } catch (e) { /* try next */ }
-          }
-          return null;
-        },
-      });
-      if (results && results[0] && results[0].result) {
-        const { creds: data, url } = results[0].result;
-        if (data.sb_access_token && data.sb_user_id && data.sb_app_id) {
-          sendBirdCreds = data;
-          sendBirdCredsExpiry = Date.now() + 30 * 60 * 1000;
-          console.log('[SR BG] SendBird creds from page context (' + url + '): userId=' + data.sb_user_id);
-          return data;
-        }
-      }
-    } catch (err) {
-      console.log('[SR BG] SendBird creds executeScript error:', err.message);
-    }
-  }
-
-  console.log('[SR BG] Could not get SendBird credentials from any source');
-  return null;
+async function getStoredChatUrls() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+      resolve(result[CHAT_URLS_KEY] || {});
+    });
+  });
 }
-
-async function fetchConversationForUser(username) {
-  if (sendBirdRestDisabled) {
-    console.log('[SR BG] SendBird REST disabled — skipping for u/' + username);
-    return null;
-  }
-
-  try {
-    // Step 1: Get SendBird credentials (from service worker, cached 30 min)
-    const creds = await getSendBirdCredentials();
-    if (!creds) {
-      console.log('[SR BG] Could not get SendBird credentials');
-      return null;
-    }
-
-    const { sb_access_token: token, sb_user_id: userId, sb_app_id: appId } = creds;
-    const baseUrl = 'https://api-' + appId + '.sendbird.com/v3';
-    const headers = { 'Session-Key': token, 'Content-Type': 'application/json' };
-
-    // Step 2: Find the channel with this user
-    const channelsResp = await fetch(
-      baseUrl + '/users/' + encodeURIComponent(userId) + '/my_group_channels?limit=100&show_member=true&order=latest_last_message',
-      { headers }
-    );
-    if (!channelsResp.ok) {
-      const status = channelsResp.status;
-      console.log('[SR BG] SendBird channels fetch failed: HTTP ' + status);
-      if (status === 401 || status === 403) {
-        console.log('[SR BG] SendBird REST auth failed — disabling for this session');
-        sendBirdRestDisabled = true;
-        sendBirdCreds = null;
-        sendBirdCredsExpiry = 0;
-      }
-      return null;
-    }
-    const channelsData = await channelsResp.json();
-    const channels = channelsData.channels || [];
-
-    // Find the 1-on-1 channel matching the target username
-    const targetLower = username.toLowerCase();
-    let matchedChannel = null;
-    for (const ch of channels) {
-      const members = ch.members || [];
-      if (members.length !== 2) continue;
-      for (const member of members) {
-        const nickname = (member.nickname || '').toLowerCase();
-        const memberUserId = (member.user_id || '').toLowerCase();
-        if (nickname === targetLower || memberUserId === targetLower) {
-          matchedChannel = ch;
-          break;
-        }
-      }
-      if (matchedChannel) break;
-    }
-
-    if (!matchedChannel) {
-      console.log('[SR BG] SendBird: no channel found for u/' + username + ' (checked ' + channels.length + ' channels)');
-      return null;
-    }
-
-    // Step 3: Fetch messages from the channel
-    const channelUrl = encodeURIComponent(matchedChannel.channel_url);
-    const msgsResp = await fetch(
-      baseUrl + '/group_channels/' + channelUrl + '/messages?prev_limit=100&include=true&reverse=false',
-      { headers }
-    );
-    if (!msgsResp.ok) {
-      console.log('[SR BG] SendBird messages fetch failed: HTTP ' + msgsResp.status);
-      return null;
-    }
-    const msgsData = await msgsResp.json();
-    const rawMessages = msgsData.messages || [];
-
-    // Build member lookup: user_id → nickname
-    const memberMap = {};
-    for (const m of matchedChannel.members || []) {
-      memberMap[m.user_id] = (m.nickname || m.user_id || '').toLowerCase();
-    }
-
-    // Format messages
-    const formatted = [];
-    for (let i = 0; i < rawMessages.length; i++) {
-      const raw = rawMessages[i];
-      if (raw.type && raw.type !== 'MESG') continue;
-      const text = raw.message || '';
-      if (!text) continue;
-      const senderId = raw.user ? (raw.user.user_id || '') : '';
-      const senderName = raw.user ? (raw.user.nickname || senderId || '').toLowerCase() : '';
-      formatted.push({
-        id: 'sb_' + (raw.message_id || raw.msg_id || i),
-        text,
-        author: memberMap[senderId] || senderName,
-        isFromYou: senderId === userId,
-        timestamp: raw.created_at || 0,
-      });
-    }
-
-    if (formatted.length === 0) {
-      console.log('[SR BG] SendBird: no user messages in channel for u/' + username);
-      return null;
-    }
-
-    console.log('[SR BG] SendBird: fetched ' + formatted.length + ' messages for u/' + username);
-
-    // Store in conversation storage
-    const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
-    const convos = stored[CONVERSATIONS_KEY] || {};
-    const existing = convos[targetLower] || { messages: [], lastUpdated: 0 };
-    const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
-
-    let added = 0;
-    for (const msg of formatted) {
-      if (msg.id && existingIds.has(msg.id)) continue;
-      existing.messages.push(msg);
-      added++;
-    }
-    existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    if (existing.messages.length > 200) {
-      existing.messages = existing.messages.slice(-200);
-    }
-    existing.lastUpdated = Date.now();
-    existing.source = 'sendbird';
-    convos[targetLower] = existing;
-    await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
-
-    console.log('[SR BG] SendBird: stored ' + added + ' new messages for u/' + username + ' (total: ' + existing.messages.length + ')');
-    return existing;
-  } catch (err) {
-    console.log('[SR BG] SendBird fetch error for u/' + username + ':', err.message);
-    return null;
-  }
-}
-
-// ---- Navigation-Based Fallback ----
-// When SendBird REST fails, navigate the chat tab to the target conversation,
-// wait for render, then scrape messages from the DOM.
 
 async function fetchConversationViaNavigation(username) {
   const tabId = chatTabId || await ensureChatTab().catch(() => null);
   if (!tabId) {
-    console.log('[SR BG] No chat tab for navigation fallback');
+    console.log('[SR BG] No chat tab for navigation');
     return null;
   }
 
+  const userLower = username.toLowerCase();
+
   try {
-    // Ask the content script to click the conversation in the sidebar
+    // Step 1: Check if we have a direct chat URL for this user
+    const chatUrls = await getStoredChatUrls();
+    const chatPath = chatUrls[userLower];
+
+    if (chatPath) {
+      // Direct URL navigation — much more reliable than sidebar clicking
+      console.log('[SR BG] Navigating directly to ' + chatPath + ' for u/' + username);
+      await chrome.tabs.update(tabId, { url: 'https://www.reddit.com' + chatPath });
+
+      // Wait for page load + WebSocket interceptor to capture messages
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      // Check if the WebSocket interceptor captured messages
+      const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+      const convos = stored[CONVERSATIONS_KEY] || {};
+      const convo = convos[userLower] || null;
+
+      if (convo && convo.messages && convo.messages.length > 0) {
+        console.log('[SR BG] Direct nav: found ' + convo.messages.length + ' messages for u/' + username);
+        return convo;
+      }
+
+      // WebSocket didn't capture — try DOM scrape as last resort
+      console.log('[SR BG] Direct nav: no WS messages, trying DOM scrape...');
+      const scrapeResult = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), 5000);
+        chrome.tabs.sendMessage(tabId, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError) {
+            resolve(null);
+            return;
+          }
+          resolve(resp);
+        });
+      });
+
+      const scraped = scrapeResult && scrapeResult.messages ? scrapeResult.messages : [];
+      if (scraped.length > 0) {
+        console.log('[SR BG] Direct nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
+        return await storeScrapedMessages(userLower, scraped);
+      }
+
+      console.log('[SR BG] Direct nav: no messages found for u/' + username);
+      return null;
+    }
+
+    // Step 2: No chatUrl stored — fall back to sidebar click navigation
+    console.log('[SR BG] No chatUrl for u/' + username + ', falling back to sidebar click');
     const response = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve(null), 8000);
       chrome.tabs.sendMessage(tabId, { type: 'NAVIGATE_TO_CHAT', username }, (resp) => {
@@ -1141,33 +991,32 @@ async function fetchConversationViaNavigation(username) {
     });
 
     if (!response || !response.triggered) {
-      console.log('[SR BG] Navigation fallback: could not trigger conversation for u/' + username);
+      console.log('[SR BG] Sidebar nav: could not trigger conversation for u/' + username);
       return null;
     }
 
-    console.log('[SR BG] Navigation fallback: triggered conversation for u/' + username + ', waiting for render...');
+    console.log('[SR BG] Sidebar nav: triggered conversation for u/' + username + ', waiting for WS capture...');
 
-    // Wait for the conversation to load and render in the DOM
-    await new Promise((resolve) => setTimeout(resolve, 4000));
+    // Wait for WebSocket interceptor to capture messages
+    await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    // First check if the interceptor captured anything via storage
+    // Check storage for captured messages
     const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
     const convos = stored[CONVERSATIONS_KEY] || {};
-    const convo = convos[username.toLowerCase()] || null;
+    const convo = convos[userLower] || null;
 
     if (convo && convo.messages && convo.messages.length > 0) {
-      console.log('[SR BG] Navigation fallback: found ' + convo.messages.length + ' intercepted messages for u/' + username);
+      console.log('[SR BG] Sidebar nav: found ' + convo.messages.length + ' messages for u/' + username);
       return convo;
     }
 
-    // Interceptor didn't capture (messages likely came via WebSocket) — scrape the DOM
-    console.log('[SR BG] Navigation fallback: no intercepted messages, trying DOM scrape...');
+    // DOM scrape fallback
+    console.log('[SR BG] Sidebar nav: no WS messages, trying DOM scrape...');
     const scrapeResult = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve(null), 5000);
       chrome.tabs.sendMessage(tabId, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
         clearTimeout(timer);
         if (chrome.runtime.lastError) {
-          console.log('[SR BG] SCRAPE_OPEN_THREAD failed:', chrome.runtime.lastError.message);
           resolve(null);
           return;
         }
@@ -1176,39 +1025,41 @@ async function fetchConversationViaNavigation(username) {
     });
 
     const scraped = scrapeResult && scrapeResult.messages ? scrapeResult.messages : [];
-    if (scraped.length === 0) {
-      console.log('[SR BG] Navigation fallback: DOM scrape found no messages for u/' + username);
-      return null;
+    if (scraped.length > 0) {
+      console.log('[SR BG] Sidebar nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
+      return await storeScrapedMessages(userLower, scraped);
     }
 
-    console.log('[SR BG] Navigation fallback: scraped ' + scraped.length + ' messages from DOM for u/' + username);
-
-    // Tag and store the scraped messages
-    const userLower = username.toLowerCase();
-    const existing = convos[userLower] || { messages: [], lastUpdated: 0 };
-    const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
-
-    let added = 0;
-    for (const msg of scraped) {
-      if (msg.id && existingIds.has(msg.id)) continue;
-      existing.messages.push(msg);
-      added++;
-    }
-    existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    if (existing.messages.length > 200) {
-      existing.messages = existing.messages.slice(-200);
-    }
-    existing.lastUpdated = Date.now();
-    existing.source = 'dom_scrape';
-    convos[userLower] = existing;
-    await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
-
-    console.log('[SR BG] Navigation fallback: stored ' + added + ' scraped messages for u/' + username);
-    return existing;
+    console.log('[SR BG] Sidebar nav: no messages found for u/' + username);
+    return null;
   } catch (err) {
-    console.log('[SR BG] Navigation fallback error for u/' + username + ':', err.message);
+    console.log('[SR BG] Navigation error for u/' + username + ':', err.message);
     return null;
   }
+}
+
+// Helper: store scraped messages into conversation storage
+async function storeScrapedMessages(userLower, scraped) {
+  const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+  const convos = stored[CONVERSATIONS_KEY] || {};
+  const existing = convos[userLower] || { messages: [], lastUpdated: 0 };
+  const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+
+  let added = 0;
+  for (const msg of scraped) {
+    if (msg.id && existingIds.has(msg.id)) continue;
+    existing.messages.push(msg);
+    added++;
+  }
+  existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  if (existing.messages.length > 200) {
+    existing.messages = existing.messages.slice(-200);
+  }
+  existing.lastUpdated = Date.now();
+  existing.source = 'dom_scrape';
+  convos[userLower] = existing;
+  await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+  return existing;
 }
 
 // ---- Response Handlers ----

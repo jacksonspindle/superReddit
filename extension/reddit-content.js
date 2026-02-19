@@ -10,6 +10,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   const YOU_SENT_TO_KEY = 'sr_you_sent_to';
   const THEY_REPLIED_KEY = 'sr_they_replied';
   const PREVIEWS_KEY = 'sr_chat_previews';
+  const CHAT_URLS_KEY = 'sr_chat_urls';
 
   // ---- Shadow DOM Traversal ----
   function deepQueryAll(selector, root) {
@@ -59,6 +60,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     const youSentTo = new Set();
     const theyReplied = new Set();
     const previews = {};
+    const chatUrls = {};
     const processed = new Set();
 
     // Strategy A: Find conversation items via aria-label (most reliable)
@@ -71,6 +73,12 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       const username = match[1].trim().toLowerCase();
       if (processed.has(username) || isCommonWord(username)) continue;
       processed.add(username);
+
+      // Capture chat URL for direct navigation
+      const href = link.getAttribute('href');
+      if (href && href.indexOf('/chat/') !== -1) {
+        chatUrls[username] = href;
+      }
 
       // The full text of the <a> contains: "Username  Yesterday  Username: message preview"
       // or "Username  Yesterday  You: message preview"
@@ -165,6 +173,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       youSentTo: Array.from(youSentTo),
       theyReplied: Array.from(theyReplied),
       previews,
+      chatUrls,
     };
   }
 
@@ -278,7 +287,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
   }
 
-  function storeResults(allUsernames, youSentTo, theyReplied, previews) {
+  function storeResults(allUsernames, youSentTo, theyReplied, previews, chatUrls) {
     if (!chromeAvailable()) {
       console.warn('[SuperReddit] chrome.storage unavailable — extension context may be invalidated. Reload extension.');
       return;
@@ -383,6 +392,20 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         );
       });
     }
+
+    // Store chat URLs (cumulative — merge with existing)
+    if (chatUrls && Object.keys(chatUrls).length > 0) {
+      chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+        if (chrome.runtime.lastError) return;
+        const existing = result[CHAT_URLS_KEY] || {};
+        const merged = { ...existing, ...chatUrls };
+        chrome.storage.local.set({ [CHAT_URLS_KEY]: merged });
+        chrome.runtime.sendMessage(
+          { type: 'STORE_CHAT_URLS', chatUrls: merged },
+          () => { if (chrome.runtime.lastError) { /* ignore */ } }
+        );
+      });
+    }
   }
 
   // ---- Scanning Logic ----
@@ -407,7 +430,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     const allUsernames = scanChatUsernames();
 
     // Step 2: Per-conversation classification
-    const { youSentTo, theyReplied, previews } = classifyConversations();
+    const { youSentTo, theyReplied, previews, chatUrls } = classifyConversations();
 
     // Diagnostic logging (throttled)
     if (allUsernames.length !== lastLoggedCount) {
@@ -419,9 +442,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     if (allUsernames.length > 0) {
       // Cache for pull requests from background.js (GET_SCAN_DATA)
-      latestScanData = { usernames: allUsernames, youSentTo, theyReplied, previews };
+      latestScanData = { usernames: allUsernames, youSentTo, theyReplied, previews, chatUrls };
 
-      storeResults(allUsernames, youSentTo, theyReplied, previews);
+      storeResults(allUsernames, youSentTo, theyReplied, previews, chatUrls);
 
       // Trigger auto-scroll on first detection, then re-run periodically
       const now = Date.now();
@@ -535,15 +558,19 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     // Virtual scroll: Reddit only renders ~16 items at a time.
     // We must accumulate usernames across scroll positions.
-    const accumulated = { usernames: new Set(), youSentTo: new Set(), theyReplied: new Set(), previews: {} };
+    const accumulated = { usernames: new Set(), youSentTo: new Set(), theyReplied: new Set(), previews: {}, chatUrls: {} };
 
     // Capture what's visible now (before scrolling)
     function captureVisible() {
-      const { youSentTo, theyReplied, previews } = classifyConversations();
+      const { youSentTo, theyReplied, previews, chatUrls } = classifyConversations();
       const usernames = scanChatUsernames();
       for (const u of usernames) accumulated.usernames.add(u);
       for (const u of youSentTo) accumulated.youSentTo.add(u);
       for (const u of theyReplied) accumulated.theyReplied.add(u);
+      // Merge chatUrls
+      for (const [username, url] of Object.entries(chatUrls)) {
+        accumulated.chatUrls[username] = url;
+      }
       // Merge previews preserving theirText (their last reply to you)
       for (const [username, newP] of Object.entries(previews)) {
         const old = accumulated.previews[username];
@@ -616,15 +643,16 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           youSentTo: finalYouSentTo,
           theyReplied: finalTheyReplied,
           previews: accumulated.previews,
+          chatUrls: accumulated.chatUrls,
         };
 
         // Store accumulated results
-        storeResults(finalUsernames, finalYouSentTo, finalTheyReplied, accumulated.previews);
+        storeResults(finalUsernames, finalYouSentTo, finalTheyReplied, accumulated.previews, accumulated.chatUrls);
 
         // Also send to background immediately via message (in case storage writes fail)
         try {
           chrome.runtime.sendMessage(
-            { type: 'CHAT_SCAN_RESULT', usernames: finalUsernames, youSentTo: finalYouSentTo, theyReplied: finalTheyReplied, previews: accumulated.previews },
+            { type: 'CHAT_SCAN_RESULT', usernames: finalUsernames, youSentTo: finalYouSentTo, theyReplied: finalTheyReplied, previews: accumulated.previews, chatUrls: accumulated.chatUrls },
             () => { if (chrome.runtime.lastError) { /* ignore */ } }
           );
         } catch (e) { /* orphaned context */ }
@@ -642,14 +670,14 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
   function sendScanResult() {
     const allUsernames = scanChatUsernames();
-    const { youSentTo, theyReplied, previews } = classifyConversations();
+    const { youSentTo, theyReplied, previews, chatUrls } = classifyConversations();
 
     // Only send if we have new data
     if (allUsernames.length > 0 && allUsernames.length !== lastSentCount) {
       lastSentCount = allUsernames.length;
       console.log(`[SuperReddit] Sending CHAT_SCAN_RESULT: ${allUsernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
       chrome.runtime.sendMessage(
-        { type: 'CHAT_SCAN_RESULT', usernames: allUsernames, youSentTo, theyReplied, previews },
+        { type: 'CHAT_SCAN_RESULT', usernames: allUsernames, youSentTo, theyReplied, previews, chatUrls },
         () => { if (chrome.runtime.lastError) { /* ignore */ } }
       );
     }
@@ -675,7 +703,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   // ---- Pull API: background.js can request current scan data directly ----
   // This bypasses chrome.storage issues with orphaned content scripts.
   // The background service worker uses chrome.tabs.sendMessage() to pull data.
-  let latestScanData = { usernames: [], youSentTo: [], theyReplied: [], previews: {} };
+  let latestScanData = { usernames: [], youSentTo: [], theyReplied: [], previews: {}, chatUrls: {} };
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GET_SCAN_DATA') {
@@ -1171,6 +1199,32 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     if (event.source !== window) return;
     if (!event.data || event.data.type !== '__SR_CHAT_INTERCEPT__') return;
 
+    // WebSocket fast-path: messages already structured by chat-interceptor.js
+    if (event.data.websocket === true) {
+      var wsMessages = event.data.messages || [];
+      if (wsMessages.length === 0) return;
+
+      var conversationUser = identifyConversationUser(wsMessages);
+      if (!conversationUser) {
+        console.log('[SuperReddit] WS: intercepted ' + wsMessages.length + ' messages but could not identify conversation partner');
+        return;
+      }
+
+      var tagged = tagMessages(wsMessages, conversationUser);
+      console.log('[SuperReddit] WS: intercepted ' + tagged.length + ' messages for u/' + conversationUser);
+
+      try {
+        chrome.runtime.sendMessage({
+          type: 'STORE_CONVERSATION_MESSAGES',
+          username: conversationUser,
+          messages: tagged,
+          source: 'websocket',
+        }, function () { if (chrome.runtime.lastError) { /* ignore */ } });
+      } catch (e) { /* orphaned context */ }
+      return;
+    }
+
+    // Standard fetch/XHR intercept path
     var url = event.data.url || '';
     var data = event.data.data;
     var opName = event.data.operationName;
