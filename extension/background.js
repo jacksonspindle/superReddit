@@ -898,9 +898,59 @@ async function fetchRedditMessages() {
 }
 
 // ---- SendBird Conversation Fetching ----
-// Uses executeScript in MAIN world on a Reddit tab to call SendBird APIs
-// with the user's session. All fetches happen inside the page context so
-// CORS is satisfied (Reddit's own frontend makes these same calls).
+// All API calls happen from the service worker (no CORS restrictions).
+// Extension host_permissions cover *.reddit.com and *.sendbird.com.
+
+async function getSendBirdCredentials() {
+  // Return cached if still valid (30 min TTL)
+  if (sendBirdCreds && Date.now() < sendBirdCredsExpiry) {
+    return sendBirdCreds;
+  }
+
+  try {
+    // Service worker fetch to s.reddit.com — extension bypasses CORS for host_permissions URLs.
+    // Try with credentials: 'include' first (auto-attaches Reddit cookies).
+    let resp;
+    try {
+      resp = await fetch('https://s.reddit.com/api/v1/sendbird/me', { credentials: 'include' });
+    } catch (e) {
+      console.log('[SR BG] SendBird creds fetch threw (trying with cookies):', e.message);
+      resp = null;
+    }
+
+    // Fallback: manually attach cookies via header
+    if (!resp || !resp.ok) {
+      const cookies = await chrome.cookies.getAll({ domain: '.reddit.com' });
+      if (!cookies || cookies.length === 0) {
+        console.log('[SR BG] No Reddit cookies found');
+        return null;
+      }
+      const cookieStr = cookies.map((c) => c.name + '=' + c.value).join('; ');
+      resp = await fetch('https://s.reddit.com/api/v1/sendbird/me', {
+        headers: { Cookie: cookieStr },
+      });
+    }
+
+    if (!resp.ok) {
+      console.log('[SR BG] SendBird creds HTTP ' + resp.status);
+      return null;
+    }
+
+    const creds = await resp.json();
+    if (!creds.sb_access_token || !creds.sb_user_id || !creds.sb_app_id) {
+      console.log('[SR BG] SendBird creds incomplete:', Object.keys(creds));
+      return null;
+    }
+
+    sendBirdCreds = creds;
+    sendBirdCredsExpiry = Date.now() + 30 * 60 * 1000;
+    console.log('[SR BG] SendBird creds obtained: userId=' + creds.sb_user_id + ' appId=' + creds.sb_app_id);
+    return creds;
+  } catch (err) {
+    console.log('[SR BG] SendBird creds error:', err.message);
+    return null;
+  }
+}
 
 async function fetchConversationForUser(username) {
   if (sendBirdRestDisabled) {
@@ -908,161 +958,111 @@ async function fetchConversationForUser(username) {
     return null;
   }
 
-  const tabId = await getRedditTabId();
-  if (!tabId) {
-    console.log('[SR BG] No Reddit tab for SendBird fetch');
-    return null;
-  }
-
   try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      func: async function (targetUsername) {
-        try {
-          // Step 1: Get SendBird credentials
-          var credsResp = await fetch('https://s.reddit.com/api/v1/sendbird/me', {
-            credentials: 'include',
-          });
-          if (!credsResp.ok) {
-            return { error: 'sendbird_creds_' + credsResp.status, status: credsResp.status };
-          }
-          var creds = await credsResp.json();
-          var token = creds.sb_access_token;
-          var userId = creds.sb_user_id;
-          var appId = creds.sb_app_id;
-
-          if (!token || !userId || !appId) {
-            return { error: 'missing_creds', creds: Object.keys(creds) };
-          }
-
-          var baseUrl = 'https://api-' + appId + '.sendbird.com/v3';
-          var headers = {
-            'Api-Token': token,
-            'Session-Key': token,
-            'Content-Type': 'application/json',
-          };
-
-          // Step 2: Find the channel with this user
-          var channelsResp = await fetch(
-            baseUrl + '/users/' + encodeURIComponent(userId) + '/my_group_channels?limit=100&show_member=true&order=latest_last_message',
-            { headers: headers }
-          );
-          if (!channelsResp.ok) {
-            return { error: 'channels_' + channelsResp.status, status: channelsResp.status };
-          }
-          var channelsData = await channelsResp.json();
-          var channels = channelsData.channels || [];
-
-          // Find the 1-on-1 channel that includes targetUsername
-          var targetLower = targetUsername.toLowerCase();
-          var matchedChannel = null;
-
-          for (var i = 0; i < channels.length; i++) {
-            var ch = channels[i];
-            var members = ch.members || [];
-            // 1-on-1 DM channels typically have exactly 2 members
-            if (members.length !== 2) continue;
-            for (var j = 0; j < members.length; j++) {
-              var member = members[j];
-              var nickname = (member.nickname || '').toLowerCase();
-              var memberUserId = (member.user_id || '').toLowerCase();
-              // Match by nickname or by user_id (Reddit uses t2_xxx format)
-              if (nickname === targetLower || memberUserId === targetLower) {
-                matchedChannel = ch;
-                break;
-              }
-            }
-            if (matchedChannel) break;
-          }
-
-          if (!matchedChannel) {
-            return { error: 'no_channel', channelCount: channels.length, target: targetUsername };
-          }
-
-          // Step 3: Fetch messages from the channel
-          var channelUrl = encodeURIComponent(matchedChannel.channel_url);
-          var msgsResp = await fetch(
-            baseUrl + '/group_channels/' + channelUrl + '/messages?prev_limit=100&include=true&reverse=false',
-            { headers: headers }
-          );
-          if (!msgsResp.ok) {
-            return { error: 'messages_' + msgsResp.status, status: msgsResp.status };
-          }
-          var msgsData = await msgsResp.json();
-          var rawMessages = msgsData.messages || [];
-
-          // Build a member lookup: user_id → nickname
-          var memberMap = {};
-          var channelMembers = matchedChannel.members || [];
-          for (var k = 0; k < channelMembers.length; k++) {
-            var m = channelMembers[k];
-            memberMap[m.user_id] = (m.nickname || m.user_id || '').toLowerCase();
-          }
-
-          // Format messages
-          var formatted = [];
-          for (var n = 0; n < rawMessages.length; n++) {
-            var raw = rawMessages[n];
-            // Skip non-user messages (admin, system)
-            if (raw.type && raw.type !== 'MESG') continue;
-            var text = raw.message || '';
-            if (!text) continue;
-            var senderId = raw.user ? (raw.user.user_id || '') : '';
-            var senderName = raw.user ? (raw.user.nickname || senderId || '').toLowerCase() : '';
-            formatted.push({
-              id: 'sb_' + (raw.message_id || raw.msg_id || n),
-              text: text,
-              author: memberMap[senderId] || senderName,
-              isFromYou: senderId === userId,
-              timestamp: raw.created_at || 0,
-            });
-          }
-
-          return {
-            messages: formatted,
-            channelUrl: matchedChannel.channel_url,
-            myUserId: userId,
-          };
-        } catch (e) {
-          return { error: e.message };
-        }
-      },
-      args: [username],
-    });
-
-    if (!results || !results[0] || !results[0].result) {
-      console.log('[SR BG] SendBird executeScript returned no result');
+    // Step 1: Get SendBird credentials (from service worker, cached 30 min)
+    const creds = await getSendBirdCredentials();
+    if (!creds) {
+      console.log('[SR BG] Could not get SendBird credentials');
       return null;
     }
 
-    const data = results[0].result;
+    const { sb_access_token: token, sb_user_id: userId, sb_app_id: appId } = creds;
+    const baseUrl = 'https://api-' + appId + '.sendbird.com/v3';
+    const headers = { 'Session-Key': token, 'Content-Type': 'application/json' };
 
-    if (data.error) {
-      console.log('[SR BG] SendBird fetch error for u/' + username + ':', data.error);
-      // If auth failed (401/403), disable SendBird REST for this session
-      if (data.status === 401 || data.status === 403) {
+    // Step 2: Find the channel with this user
+    const channelsResp = await fetch(
+      baseUrl + '/users/' + encodeURIComponent(userId) + '/my_group_channels?limit=100&show_member=true&order=latest_last_message',
+      { headers }
+    );
+    if (!channelsResp.ok) {
+      const status = channelsResp.status;
+      console.log('[SR BG] SendBird channels fetch failed: HTTP ' + status);
+      if (status === 401 || status === 403) {
         console.log('[SR BG] SendBird REST auth failed — disabling for this session');
         sendBirdRestDisabled = true;
+        sendBirdCreds = null;
+        sendBirdCredsExpiry = 0;
       }
       return null;
     }
+    const channelsData = await channelsResp.json();
+    const channels = channelsData.channels || [];
 
-    if (!data.messages || data.messages.length === 0) {
-      console.log('[SR BG] SendBird: no messages found for u/' + username);
+    // Find the 1-on-1 channel matching the target username
+    const targetLower = username.toLowerCase();
+    let matchedChannel = null;
+    for (const ch of channels) {
+      const members = ch.members || [];
+      if (members.length !== 2) continue;
+      for (const member of members) {
+        const nickname = (member.nickname || '').toLowerCase();
+        const memberUserId = (member.user_id || '').toLowerCase();
+        if (nickname === targetLower || memberUserId === targetLower) {
+          matchedChannel = ch;
+          break;
+        }
+      }
+      if (matchedChannel) break;
+    }
+
+    if (!matchedChannel) {
+      console.log('[SR BG] SendBird: no channel found for u/' + username + ' (checked ' + channels.length + ' channels)');
       return null;
     }
 
-    console.log('[SR BG] SendBird: fetched ' + data.messages.length + ' messages for u/' + username);
+    // Step 3: Fetch messages from the channel
+    const channelUrl = encodeURIComponent(matchedChannel.channel_url);
+    const msgsResp = await fetch(
+      baseUrl + '/group_channels/' + channelUrl + '/messages?prev_limit=100&include=true&reverse=false',
+      { headers }
+    );
+    if (!msgsResp.ok) {
+      console.log('[SR BG] SendBird messages fetch failed: HTTP ' + msgsResp.status);
+      return null;
+    }
+    const msgsData = await msgsResp.json();
+    const rawMessages = msgsData.messages || [];
+
+    // Build member lookup: user_id → nickname
+    const memberMap = {};
+    for (const m of matchedChannel.members || []) {
+      memberMap[m.user_id] = (m.nickname || m.user_id || '').toLowerCase();
+    }
+
+    // Format messages
+    const formatted = [];
+    for (let i = 0; i < rawMessages.length; i++) {
+      const raw = rawMessages[i];
+      if (raw.type && raw.type !== 'MESG') continue;
+      const text = raw.message || '';
+      if (!text) continue;
+      const senderId = raw.user ? (raw.user.user_id || '') : '';
+      const senderName = raw.user ? (raw.user.nickname || senderId || '').toLowerCase() : '';
+      formatted.push({
+        id: 'sb_' + (raw.message_id || raw.msg_id || i),
+        text,
+        author: memberMap[senderId] || senderName,
+        isFromYou: senderId === userId,
+        timestamp: raw.created_at || 0,
+      });
+    }
+
+    if (formatted.length === 0) {
+      console.log('[SR BG] SendBird: no user messages in channel for u/' + username);
+      return null;
+    }
+
+    console.log('[SR BG] SendBird: fetched ' + formatted.length + ' messages for u/' + username);
 
     // Store in conversation storage
     const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
     const convos = stored[CONVERSATIONS_KEY] || {};
-    const existing = convos[username.toLowerCase()] || { messages: [], lastUpdated: 0 };
+    const existing = convos[targetLower] || { messages: [], lastUpdated: 0 };
     const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
 
     let added = 0;
-    for (const msg of data.messages) {
+    for (const msg of formatted) {
       if (msg.id && existingIds.has(msg.id)) continue;
       existing.messages.push(msg);
       added++;
@@ -1073,20 +1073,20 @@ async function fetchConversationForUser(username) {
     }
     existing.lastUpdated = Date.now();
     existing.source = 'sendbird';
-    convos[username.toLowerCase()] = existing;
+    convos[targetLower] = existing;
     await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
 
     console.log('[SR BG] SendBird: stored ' + added + ' new messages for u/' + username + ' (total: ' + existing.messages.length + ')');
     return existing;
   } catch (err) {
-    console.log('[SR BG] SendBird fetch exception for u/' + username + ':', err.message);
+    console.log('[SR BG] SendBird fetch error for u/' + username + ':', err.message);
     return null;
   }
 }
 
 // ---- Navigation-Based Fallback ----
-// When SendBird REST fails, navigate the chat tab to the target conversation
-// and let the existing interceptor capture the API responses.
+// When SendBird REST fails, navigate the chat tab to the target conversation,
+// wait for render, then scrape messages from the DOM.
 
 async function fetchConversationViaNavigation(username) {
   const tabId = chatTabId || await ensureChatTab().catch(() => null);
@@ -1115,23 +1115,66 @@ async function fetchConversationViaNavigation(username) {
       return null;
     }
 
-    console.log('[SR BG] Navigation fallback: triggered conversation for u/' + username + ', waiting for interceptor...');
+    console.log('[SR BG] Navigation fallback: triggered conversation for u/' + username + ', waiting for render...');
 
-    // Wait for the interceptor to capture API responses
+    // Wait for the conversation to load and render in the DOM
     await new Promise((resolve) => setTimeout(resolve, 4000));
 
-    // Read from conversation storage (interceptor should have stored messages)
+    // First check if the interceptor captured anything via storage
     const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
     const convos = stored[CONVERSATIONS_KEY] || {};
     const convo = convos[username.toLowerCase()] || null;
 
     if (convo && convo.messages && convo.messages.length > 0) {
-      console.log('[SR BG] Navigation fallback: found ' + convo.messages.length + ' messages for u/' + username);
+      console.log('[SR BG] Navigation fallback: found ' + convo.messages.length + ' intercepted messages for u/' + username);
       return convo;
     }
 
-    console.log('[SR BG] Navigation fallback: no messages captured for u/' + username);
-    return null;
+    // Interceptor didn't capture (messages likely came via WebSocket) — scrape the DOM
+    console.log('[SR BG] Navigation fallback: no intercepted messages, trying DOM scrape...');
+    const scrapeResult = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 5000);
+      chrome.tabs.sendMessage(tabId, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError) {
+          console.log('[SR BG] SCRAPE_OPEN_THREAD failed:', chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+        resolve(resp);
+      });
+    });
+
+    const scraped = scrapeResult && scrapeResult.messages ? scrapeResult.messages : [];
+    if (scraped.length === 0) {
+      console.log('[SR BG] Navigation fallback: DOM scrape found no messages for u/' + username);
+      return null;
+    }
+
+    console.log('[SR BG] Navigation fallback: scraped ' + scraped.length + ' messages from DOM for u/' + username);
+
+    // Tag and store the scraped messages
+    const userLower = username.toLowerCase();
+    const existing = convos[userLower] || { messages: [], lastUpdated: 0 };
+    const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+
+    let added = 0;
+    for (const msg of scraped) {
+      if (msg.id && existingIds.has(msg.id)) continue;
+      existing.messages.push(msg);
+      added++;
+    }
+    existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    if (existing.messages.length > 200) {
+      existing.messages = existing.messages.slice(-200);
+    }
+    existing.lastUpdated = Date.now();
+    existing.source = 'dom_scrape';
+    convos[userLower] = existing;
+    await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+
+    console.log('[SR BG] Navigation fallback: stored ' + added + ' scraped messages for u/' + username);
+    return existing;
   } catch (err) {
     console.log('[SR BG] Navigation fallback error for u/' + username + ':', err.message);
     return null;

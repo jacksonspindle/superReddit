@@ -6,6 +6,7 @@
   "permissions": ["cookies", "storage", "sidePanel", "tabs", "alarms", "scripting"],
   "host_permissions": [
     "*://*.reddit.com/*",
+    "*://*.sendbird.com/*",
     "http://localhost/*",
     "https://*.vercel.app/*"
   ],
