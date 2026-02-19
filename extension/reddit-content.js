@@ -816,118 +816,53 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   // Scrapes messages from the currently open chat conversation panel.
   // This complements the API interceptor — captures what's visible in the DOM.
 
-  // Strip timestamp patterns from the beginning of text
-  function stripLeadingTimestamp(text) {
-    return text
-      // "9:36 AM", "4:30 PM", "12:00", etc.
-      .replace(/^\d{1,2}:\d{2}\s*(AM|PM)?\s*/gi, '')
-      // "Yesterday", "Today"
-      .replace(/^(Yesterday|Today)\s*/i, '')
-      // Day names: "Monday", "Tue", etc.
-      .replace(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)(day|nesday|rsday|urday)?\s*/i, '')
-      // "Feb 18", "Jan 5, 2025", etc.
-      .replace(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}(,?\s*\d{4})?\s*/i, '')
-      // "2/18/2025", "12/25", etc.
-      .replace(/^\d{1,2}\/\d{1,2}(\/\d{2,4})?\s*/i, '')
-      .trim();
-  }
-
-  // Check if text is ONLY a timestamp (no actual message content)
-  function isTimestampOnly(text) {
-    var stripped = stripLeadingTimestamp(text);
-    return stripped.length === 0;
-  }
-
   function scrapeVisibleThread() {
-    var messages = [];
-    var me = getLoggedInUsername();
+    const messages = [];
+    const me = getLoggedInUsername();
 
-    console.log('[SuperReddit] DOM scraper: starting on ' + location.pathname);
-
-    // Find the message thread container — wider panel (not the sidebar)
-    var allScrollable = findAllScrollable().filter(function (el) {
-      return el.clientWidth > 400;
+    // Find the message thread container — it's typically the wider panel (not the sidebar)
+    const allScrollable = findAllScrollable().filter(function (el) {
+      return el.clientWidth > 400; // wider than sidebar
     });
 
-    if (allScrollable.length === 0) {
-      console.log('[SuperReddit] DOM scraper: no wide scrollable containers found');
-      return messages;
-    }
+    if (allScrollable.length === 0) return messages;
 
     var threadContainer = allScrollable[0];
-    console.log('[SuperReddit] DOM scraper: container=' + threadContainer.tagName +
-      ' w=' + threadContainer.clientWidth + ' h=' + threadContainer.clientHeight +
-      ' children=' + threadContainer.children.length);
 
-    // Log first 3 children's tagName + class for DOM structure diagnosis
-    for (var d = 0; d < Math.min(3, threadContainer.children.length); d++) {
-      var ch = threadContainer.children[d];
-      console.log('[SuperReddit] DOM child[' + d + ']: <' + ch.tagName.toLowerCase() +
-        ' class="' + (ch.className || '').toString().substring(0, 60) + '">' +
-        ' text="' + (ch.textContent || '').trim().substring(0, 80) + '"');
-    }
-
-    // Strategy 1: Reddit chat-specific selectors
+    // Look for message-like elements within the thread
     var msgEls = threadContainer.querySelectorAll(
-      '[class*="message"], [class*="Message"], [data-testid*="message"], ' +
-      'rs-message, [class*="chat-message"], [class*="ChatMessage"], ' +
-      '[data-testid*="chat"], [class*="event-body"], [class*="EventBody"]'
+      '[class*="message"], [class*="Message"], [data-testid*="message"]'
     );
-    console.log('[SuperReddit] DOM scraper: strategy 1 (selectors) found ' + msgEls.length + ' elements');
 
-    // Strategy 2: Deep query with shadow DOM
+    // If no class-based matches, look for repeating child structures
     if (msgEls.length === 0) {
-      msgEls = deepQueryAll(
-        '[class*="message"], [class*="Message"], rs-message, [class*="chat-message"]',
-        threadContainer
-      );
-      console.log('[SuperReddit] DOM scraper: strategy 2 (deep query) found ' + msgEls.length + ' elements');
-    }
-
-    // Strategy 3: Children fallback — but be smarter about which children to use
-    if (msgEls.length === 0) {
-      // Prefer children that look like message containers (not nav, header, etc.)
-      var candidates = [];
       var children = threadContainer.children;
       for (var i = 0; i < children.length; i++) {
         var child = children[i];
         var text = (child.textContent || '').trim();
-        var tag = child.tagName.toLowerCase();
-        // Skip navigation, header, footer elements
-        if (tag === 'nav' || tag === 'header' || tag === 'footer') continue;
         if (text.length > 0 && text.length < 2000) {
-          candidates.push(child);
+          msgEls = threadContainer.children;
+          break;
         }
       }
-      if (candidates.length > 0) {
-        msgEls = candidates;
-        console.log('[SuperReddit] DOM scraper: strategy 3 (children) using ' + msgEls.length + ' candidates');
-      }
-    }
-
-    // Garbage filter
-    function isGarbage(text) {
-      if (/^(window\.|if\(|var |let |const |function |import |export |@font-face|@media|@keyframes)/i.test(text)) return true;
-      if (/\b(window\.__servedBy|document\.(hidden|get|query)|chrome-extension:\/\/|createElement|addEventListener|innerHTML)\b/.test(text)) return true;
-      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && (text.indexOf('function') !== -1 || text.indexOf('=>') !== -1)) return true;
-      if (/^(Skip to |Page not found|Explore Reddit|<!DOCTYPE|Loading\.\.\.|Reddit - |Log In|Sign Up)/i.test(text)) return true;
-      if (/^(\.|#|@)\{/.test(text) || /<(div|span|script|style|html|head|body)\b/i.test(text)) return true;
-      if (text.length > 200 && text.split(' ').length < 5) return true;
-      if (/^https?:\/\/[^\s]+$/.test(text) && text.length > 100) return true;
-      return false;
     }
 
     for (var j = 0; j < msgEls.length; j++) {
       var el = msgEls[j];
-      var rawText = (el.textContent || '').trim();
-      if (!rawText || rawText.length < 1 || rawText.length > 5000) continue;
-      if (isGarbage(rawText)) continue;
+      var text = (el.textContent || '').trim();
+      if (!text || text.length < 1 || text.length > 5000) continue;
 
-      // Determine sender from DOM hints
+      // Filter out page chrome, JS code, and navigation text (not chat messages)
+      if (/^(window\.|if\(|@font-face|Skip to |Page not found|Explore Reddit|<!DOCTYPE)/i.test(text)) continue;
+      if (/\b(window\.__servedBy|document\.hidden|chrome-extension:\/\/)\b/.test(text)) continue;
+      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && text.indexOf('function') !== -1) continue;
+
+      // Try to determine sender from DOM hints
       var isFromYou = false;
       var authorName = '';
 
-      var spans = el.querySelectorAll('span, strong, b, h3, h4, [class*="author"], [class*="sender"], [class*="username"]');
+      // Check for "You" indicator or username mentions
+      var spans = el.querySelectorAll('span, strong, b');
       for (var k = 0; k < spans.length; k++) {
         var spanText = (spans[k].textContent || '').trim();
         if (spanText === 'You' || spanText === 'you') {
@@ -939,62 +874,52 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         }
       }
 
+      // If we know our username, check if author matches
       if (me && authorName === me) isFromYou = true;
       if (me && authorName && authorName !== me) isFromYou = false;
 
-      // Clean text: remove author prefix, then strip leading timestamp
-      var cleanText = rawText;
+      // Clean text — remove author name prefix if present
+      var cleanText = text;
       if (authorName) {
-        cleanText = cleanText.replace(new RegExp('^' + authorName.replace(/[-_]/g, '\\$&') + '[:\\s]+', 'i'), '').trim();
+        cleanText = cleanText.replace(new RegExp('^' + authorName + '[:\\s]+', 'i'), '').trim();
       }
       cleanText = cleanText.replace(/^You[:\s]+/i, '').trim();
-      cleanText = stripLeadingTimestamp(cleanText);
 
-      // Skip if text is empty after cleaning (was timestamp-only or author-only)
-      if (cleanText.length === 0) continue;
-      // Skip if remaining text is just a timestamp
-      if (isTimestampOnly(cleanText)) continue;
-
-      messages.push({
-        id: 'dom_' + j,
-        text: cleanText,
-        author: isFromYou ? (me || 'you') : (authorName || 'them'),
-        isFromYou: isFromYou,
-        timestamp: 0,
-      });
-    }
-
-    console.log('[SuperReddit] DOM scraper: raw extracted ' + messages.length + ' messages');
-
-    // ---- Post-processing: deduplicate ----
-    // Parent/child elements often produce duplicate text. Keep first with best author.
-    var seen = {};
-    var deduped = [];
-    for (var m = 0; m < messages.length; m++) {
-      var key = messages[m].text.substring(0, 100).toLowerCase().replace(/\s+/g, ' ');
-      if (seen[key] !== undefined) {
-        // Prefer the entry with a real author name over "them"
-        var existing = deduped[seen[key]];
-        if (existing.author === 'them' && messages[m].author !== 'them') {
-          existing.author = messages[m].author;
-          existing.isFromYou = messages[m].isFromYou;
-        }
-        continue;
+      if (cleanText.length > 0) {
+        messages.push({
+          id: 'dom_' + j,
+          text: cleanText,
+          author: isFromYou ? (me || 'you') : (authorName || 'them'),
+          isFromYou: isFromYou,
+          timestamp: 0, // DOM doesn't reliably give timestamps
+        });
       }
-      seen[key] = deduped.length;
-      deduped.push(messages[m]);
-    }
-    messages = deduped;
-
-    // Re-assign clean IDs after dedup
-    for (var r = 0; r < messages.length; r++) {
-      messages[r].id = 'dom_' + r;
     }
 
-    console.log('[SuperReddit] DOM scraper: ' + messages.length + ' messages after dedup');
-    // Log all messages for debugging (since count is usually small)
-    for (var p = 0; p < Math.min(10, messages.length); p++) {
-      console.log('[SuperReddit] DOM msg[' + p + ']: ' + messages[p].author + (messages[p].isFromYou ? ' (you)' : '') + ': "' + messages[p].text.substring(0, 100) + '"');
+    // ---- Deduplicate: collapse identical message text ----
+    // Parent/child elements often produce the same text. Keep first, prefer real author.
+    if (messages.length > 1) {
+      var seen = {};
+      var deduped = [];
+      for (var m = 0; m < messages.length; m++) {
+        var key = messages[m].text.substring(0, 100).toLowerCase().replace(/\s+/g, ' ');
+        if (seen[key] !== undefined) {
+          // If this duplicate has a better author, update the kept entry
+          var kept = deduped[seen[key]];
+          if (kept.author === 'them' && messages[m].author !== 'them') {
+            kept.author = messages[m].author;
+            kept.isFromYou = messages[m].isFromYou;
+          }
+          continue;
+        }
+        seen[key] = deduped.length;
+        deduped.push(messages[m]);
+      }
+      // Re-assign IDs
+      for (var r = 0; r < deduped.length; r++) {
+        deduped[r].id = 'dom_' + r;
+      }
+      return deduped;
     }
 
     return messages;

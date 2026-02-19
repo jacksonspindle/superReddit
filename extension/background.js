@@ -31,10 +31,11 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // Clear stale data on update (paths may have changed, cached messages may be garbage)
+  // Clear stale chatUrls on update (paths may have changed format)
+  // Keep conversations — they contain real message data we don't want to lose
   if (details.reason === 'update') {
-    chrome.storage.local.remove([CHAT_URLS_KEY, CONVERSATIONS_KEY], () =>
-      console.log('[SR BG] Update — cleared stale chatUrls + conversations')
+    chrome.storage.local.remove(CHAT_URLS_KEY, () =>
+      console.log('[SR BG] Update — cleared stale chatUrls')
     );
   }
 
