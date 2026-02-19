@@ -699,29 +699,69 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
       console.log('[SuperReddit] NAVIGATE_TO_CHAT: looking for u/' + targetUser);
 
-      // Find the conversation link in the sidebar using aria-label (same pattern as classifyConversations)
-      const chatLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
-      let matched = null;
-      for (const link of chatLinks) {
-        const label = link.getAttribute('aria-label') || '';
-        const m = label.match(/Direct chat with\s+(.+)/i);
-        if (m && m[1].trim().toLowerCase() === targetUser) {
-          matched = link;
-          break;
+      // Helper: search currently visible sidebar links for the target user
+      function tryClickUser() {
+        const chatLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
+        for (const link of chatLinks) {
+          const label = link.getAttribute('aria-label') || '';
+          const m = label.match(/Direct chat with\s+(.+)/i);
+          if (m && m[1].trim().toLowerCase() === targetUser) {
+            link.click();
+            return true;
+          }
         }
+        return false;
       }
 
-      if (!matched) {
-        console.log('[SuperReddit] NAVIGATE_TO_CHAT: no sidebar link for u/' + targetUser + ' (checked ' + chatLinks.length + ' links)');
-        sendResponse({ triggered: false, reason: 'not_found', checked: chatLinks.length });
+      // Try immediate click (user might be visible already)
+      if (tryClickUser()) {
+        console.log('[SuperReddit] NAVIGATE_TO_CHAT: found and clicked u/' + targetUser);
+        sendResponse({ triggered: true });
         return true;
       }
 
-      // Click the conversation link to load it
-      console.log('[SuperReddit] NAVIGATE_TO_CHAT: clicking conversation for u/' + targetUser);
-      matched.click();
-      sendResponse({ triggered: true });
-      return true;
+      // User not visible — scroll the sidebar to find them (virtual scroll hides most items)
+      console.log('[SuperReddit] NAVIGATE_TO_CHAT: user not in viewport, scrolling sidebar...');
+      const scrollables = findAllScrollable();
+      const sidebar = scrollables
+        .filter(function (sc) { return sc.clientWidth > 100 && sc.clientWidth < 500 && sc.scrollHeight > sc.clientHeight + 10; })
+        .sort(function (a, b) { return b.scrollHeight - a.scrollHeight; })[0];
+
+      if (!sidebar) {
+        console.log('[SuperReddit] NAVIGATE_TO_CHAT: no scrollable sidebar found');
+        sendResponse({ triggered: false, reason: 'no_scrollable_sidebar' });
+        return true;
+      }
+
+      // Scroll through the sidebar looking for the user
+      let scrollRound = 0;
+      const MAX_SCROLL = 40;
+      const startScrollTop = sidebar.scrollTop;
+
+      const scrollSearch = setInterval(function () {
+        scrollRound++;
+        const prevTop = sidebar.scrollTop;
+        sidebar.scrollTop += Math.max(sidebar.clientHeight * 0.7, 300);
+        sidebar.dispatchEvent(new Event('scroll', { bubbles: true }));
+
+        // Check if the user appeared after this scroll
+        if (tryClickUser()) {
+          clearInterval(scrollSearch);
+          console.log('[SuperReddit] NAVIGATE_TO_CHAT: found u/' + targetUser + ' after ' + scrollRound + ' scroll rounds');
+          sendResponse({ triggered: true });
+          return;
+        }
+
+        const didScroll = sidebar.scrollTop > prevTop + 5;
+        if (!didScroll || scrollRound >= MAX_SCROLL) {
+          clearInterval(scrollSearch);
+          sidebar.scrollTop = startScrollTop; // restore scroll position
+          console.log('[SuperReddit] NAVIGATE_TO_CHAT: u/' + targetUser + ' not found after ' + scrollRound + ' scroll rounds');
+          sendResponse({ triggered: false, reason: 'not_found_after_scroll', rounds: scrollRound });
+        }
+      }, 400);
+
+      return true; // keep message channel open for async response
     }
   });
 

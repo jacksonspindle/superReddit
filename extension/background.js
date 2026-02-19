@@ -907,49 +907,79 @@ async function getSendBirdCredentials() {
     return sendBirdCreds;
   }
 
-  try {
-    // Service worker fetch to s.reddit.com — extension bypasses CORS for host_permissions URLs.
-    // Try with credentials: 'include' first (auto-attaches Reddit cookies).
-    let resp;
+  // Get cookies for authenticated requests
+  const cookies = await chrome.cookies.getAll({ domain: '.reddit.com' });
+  const cookieStr = cookies.length > 0 ? cookies.map((c) => c.name + '=' + c.value).join('; ') : '';
+
+  // Try multiple known endpoints from the service worker
+  const endpoints = [
+    'https://s.reddit.com/api/v1/sendbird/me',
+    'https://sendbird.reddit.com/api/v1/sendbird/me',
+    'https://chat.reddit.com/api/v1/sendbird/me',
+    'https://www.reddit.com/svc/shreddit/auth/sendbird',
+  ];
+
+  for (const url of endpoints) {
     try {
-      resp = await fetch('https://s.reddit.com/api/v1/sendbird/me', { credentials: 'include' });
-    } catch (e) {
-      console.log('[SR BG] SendBird creds fetch threw (trying with cookies):', e.message);
-      resp = null;
-    }
-
-    // Fallback: manually attach cookies via header
-    if (!resp || !resp.ok) {
-      const cookies = await chrome.cookies.getAll({ domain: '.reddit.com' });
-      if (!cookies || cookies.length === 0) {
-        console.log('[SR BG] No Reddit cookies found');
-        return null;
-      }
-      const cookieStr = cookies.map((c) => c.name + '=' + c.value).join('; ');
-      resp = await fetch('https://s.reddit.com/api/v1/sendbird/me', {
-        headers: { Cookie: cookieStr },
+      const resp = await fetch(url, {
+        headers: cookieStr ? { Cookie: cookieStr } : {},
+        credentials: 'include',
       });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.sb_access_token && data.sb_user_id && data.sb_app_id) {
+          sendBirdCreds = data;
+          sendBirdCredsExpiry = Date.now() + 30 * 60 * 1000;
+          console.log('[SR BG] SendBird creds from ' + url + ': userId=' + data.sb_user_id);
+          return data;
+        }
+        console.log('[SR BG] SendBird endpoint ' + url + ' returned OK but missing creds:', Object.keys(data));
+      } else {
+        console.log('[SR BG] SendBird endpoint ' + url + ': HTTP ' + resp.status);
+      }
+    } catch (err) {
+      console.log('[SR BG] SendBird endpoint ' + url + ': ' + err.message);
     }
-
-    if (!resp.ok) {
-      console.log('[SR BG] SendBird creds HTTP ' + resp.status);
-      return null;
-    }
-
-    const creds = await resp.json();
-    if (!creds.sb_access_token || !creds.sb_user_id || !creds.sb_app_id) {
-      console.log('[SR BG] SendBird creds incomplete:', Object.keys(creds));
-      return null;
-    }
-
-    sendBirdCreds = creds;
-    sendBirdCredsExpiry = Date.now() + 30 * 60 * 1000;
-    console.log('[SR BG] SendBird creds obtained: userId=' + creds.sb_user_id + ' appId=' + creds.sb_app_id);
-    return creds;
-  } catch (err) {
-    console.log('[SR BG] SendBird creds error:', err.message);
-    return null;
   }
+
+  // Fallback: try executeScript on a Reddit tab to fetch from same-origin context
+  const tabId = await getRedditTabId();
+  if (tabId) {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: async function () {
+          // Try relative URLs (same-origin on the Reddit tab)
+          var urls = ['/api/v1/sendbird/me', '/svc/shreddit/auth/sendbird'];
+          for (var i = 0; i < urls.length; i++) {
+            try {
+              var resp = await fetch(urls[i], { credentials: 'include' });
+              if (resp.ok) {
+                var data = await resp.json();
+                if (data.sb_access_token) return { creds: data, url: urls[i] };
+              }
+            } catch (e) { /* try next */ }
+          }
+          return null;
+        },
+      });
+      if (results && results[0] && results[0].result) {
+        const { creds: data, url } = results[0].result;
+        if (data.sb_access_token && data.sb_user_id && data.sb_app_id) {
+          sendBirdCreds = data;
+          sendBirdCredsExpiry = Date.now() + 30 * 60 * 1000;
+          console.log('[SR BG] SendBird creds from page context (' + url + '): userId=' + data.sb_user_id);
+          return data;
+        }
+      }
+    } catch (err) {
+      console.log('[SR BG] SendBird creds executeScript error:', err.message);
+    }
+  }
+
+  console.log('[SR BG] Could not get SendBird credentials from any source');
+  return null;
 }
 
 async function fetchConversationForUser(username) {
