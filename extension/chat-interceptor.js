@@ -46,18 +46,25 @@
     return originalFetch.apply(this, args).then(function (response) {
       try {
         if (isChatRelated(url)) {
-          console.log('[SuperReddit] Fetch intercept: ' + url.substring(0, 120) + ' [' + response.status + ']');
+          var opName = (reqBody && reqBody.operationName) || null;
+          console.log('[SuperReddit] Fetch intercept: ' + url.substring(0, 120) + ' [' + response.status + ']' + (opName ? ' op=' + opName : ''));
           var clone = response.clone();
           clone.text().then(function (text) {
             // Try JSON parse
             try {
               var data = JSON.parse(text);
-              console.log('[SuperReddit] Fetch JSON: ' + url.substring(0, 80) + ' keys=' + Object.keys(data).join(','));
+              var keys = Object.keys(data).join(',');
+              // For GraphQL, also log the inner data keys + a preview
+              var extraInfo = '';
+              if (data.data && typeof data.data === 'object') {
+                extraInfo = ' dataKeys=' + Object.keys(data.data).join(',');
+              }
+              console.log('[SuperReddit] Fetch JSON: ' + url.substring(0, 80) + ' keys=' + keys + extraInfo + (opName ? ' op=' + opName : ''));
               window.postMessage({
                 type: MSG_TYPE,
                 url: url,
                 data: data,
-                operationName: (reqBody && reqBody.operationName) || null,
+                operationName: opName,
                 ts: Date.now(),
               }, '*');
             } catch (e) {

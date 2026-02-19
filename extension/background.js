@@ -31,10 +31,10 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // Clear stale chatUrls on update (paths may have changed format)
+  // Clear stale data on update (paths may have changed, cached messages may be garbage)
   if (details.reason === 'update') {
-    chrome.storage.local.remove(CHAT_URLS_KEY, () =>
-      console.log('[SR BG] Update — cleared stale chatUrls')
+    chrome.storage.local.remove([CHAT_URLS_KEY, CONVERSATIONS_KEY], () =>
+      console.log('[SR BG] Update — cleared stale chatUrls + conversations')
     );
   }
 
@@ -1012,11 +1012,14 @@ async function fetchConversationViaNavigation(username) {
         return convo;
       }
 
-      // Try DOM scrape as fallback
-      console.log('[SR BG] Direct nav: no intercepted messages, trying DOM scrape...');
+      // Try DOM scrape as fallback — wait a bit longer for page to fully render
+      console.log('[SR BG] Direct nav: no intercepted messages, waiting 3s then trying DOM scrape...');
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       const scraped = await tryScrape(tabId);
       if (scraped.length > 0) {
         console.log('[SR BG] Direct nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
+        // Log first message preview to verify quality
+        if (scraped[0]) console.log('[SR BG] First scraped msg: "' + (scraped[0].text || '').substring(0, 80) + '"');
         return await storeScrapedMessages(userLower, scraped);
       }
 

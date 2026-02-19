@@ -820,34 +820,71 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     const messages = [];
     const me = getLoggedInUsername();
 
+    console.log('[SuperReddit] DOM scraper: starting on ' + location.pathname);
+
     // Find the message thread container — it's typically the wider panel (not the sidebar)
     // Reddit renders messages as individual elements within a scrollable container
     const allScrollable = findAllScrollable().filter(function (el) {
       return el.clientWidth > 400; // wider than sidebar
     });
 
-    if (allScrollable.length === 0) return messages;
+    if (allScrollable.length === 0) {
+      console.log('[SuperReddit] DOM scraper: no wide scrollable containers found');
+      return messages;
+    }
 
     var threadContainer = allScrollable[0];
+    console.log('[SuperReddit] DOM scraper: container=' + threadContainer.tagName +
+      ' w=' + threadContainer.clientWidth + ' h=' + threadContainer.clientHeight +
+      ' children=' + threadContainer.children.length);
 
-    // Look for message-like elements within the thread
-    // Reddit uses various class patterns — try common ones
+    // Strategy 1: Reddit chat-specific selectors
     var msgEls = threadContainer.querySelectorAll(
-      '[class*="message"], [class*="Message"], [data-testid*="message"]'
+      '[class*="message"], [class*="Message"], [data-testid*="message"], ' +
+      'rs-message, [class*="chat-message"], [class*="ChatMessage"], ' +
+      '[data-testid*="chat"], [class*="event-body"], [class*="EventBody"]'
     );
+    console.log('[SuperReddit] DOM scraper: strategy 1 (selectors) found ' + msgEls.length + ' elements');
 
-    // If no class-based matches, look for repeating child structures
+    // Strategy 2: Look deeper — check shadow DOM too
     if (msgEls.length === 0) {
-      // Find children that look like message containers (have text + similar structure)
+      msgEls = deepQueryAll(
+        '[class*="message"], [class*="Message"], rs-message, [class*="chat-message"]',
+        threadContainer
+      );
+      console.log('[SuperReddit] DOM scraper: strategy 2 (deep query) found ' + msgEls.length + ' elements');
+    }
+
+    // Strategy 3: If no class-based matches, look for repeating child structures
+    if (msgEls.length === 0) {
       var children = threadContainer.children;
+      var textChildren = 0;
       for (var i = 0; i < children.length; i++) {
         var child = children[i];
         var text = (child.textContent || '').trim();
-        if (text.length > 0 && text.length < 2000) {
-          msgEls = threadContainer.children;
-          break;
-        }
+        if (text.length > 0 && text.length < 2000) textChildren++;
       }
+      if (textChildren > 0) {
+        msgEls = threadContainer.children;
+        console.log('[SuperReddit] DOM scraper: strategy 3 (children) using ' + msgEls.length + ' children (' + textChildren + ' with text)');
+      }
+    }
+
+    // Aggressive garbage filter — reject anything that looks like page chrome or JS
+    function isGarbage(text) {
+      // JS code patterns
+      if (/^(window\.|if\(|var |let |const |function |import |export |@font-face|@media|@keyframes)/i.test(text)) return true;
+      if (/\b(window\.__servedBy|document\.(hidden|get|query)|chrome-extension:\/\/|createElement|addEventListener|innerHTML)\b/.test(text)) return true;
+      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && (text.indexOf('function') !== -1 || text.indexOf('=>') !== -1)) return true;
+      // Page chrome / navigation text
+      if (/^(Skip to |Page not found|Explore Reddit|<!DOCTYPE|Loading\.\.\.|Reddit - |Log In|Sign Up)/i.test(text)) return true;
+      // CSS or HTML
+      if (/^(\.|#|@)\{/.test(text) || /<(div|span|script|style|html|head|body)\b/i.test(text)) return true;
+      // Very long strings with no spaces are likely encoded/minified content
+      if (text.length > 200 && text.split(' ').length < 5) return true;
+      // URLs that aren't message content
+      if (/^https?:\/\/[^\s]+$/.test(text) && text.length > 100) return true;
+      return false;
     }
 
     for (var j = 0; j < msgEls.length; j++) {
@@ -855,10 +892,8 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       var text = (el.textContent || '').trim();
       if (!text || text.length < 1 || text.length > 5000) continue;
 
-      // Filter out page chrome, JS code, and navigation text (not chat messages)
-      if (/^(window\.|if\(|@font-face|Skip to |Page not found|Explore Reddit|<!DOCTYPE)/i.test(text)) continue;
-      if (/\b(window\.__servedBy|document\.hidden|chrome-extension:\/\/)\b/.test(text)) continue;
-      if (text.indexOf('{') !== -1 && text.indexOf('}') !== -1 && text.indexOf('function') !== -1) continue;
+      // Apply garbage filter
+      if (isGarbage(text)) continue;
 
       // Try to determine sender from DOM hints
       var isFromYou = false;
@@ -896,6 +931,14 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           isFromYou: isFromYou,
           timestamp: 0, // DOM doesn't reliably give timestamps
         });
+      }
+    }
+
+    console.log('[SuperReddit] DOM scraper: extracted ' + messages.length + ' messages');
+    if (messages.length > 0 && messages.length <= 5) {
+      // Log first few messages for debugging
+      for (var m = 0; m < messages.length; m++) {
+        console.log('[SuperReddit] DOM msg[' + m + ']: ' + messages[m].author + ': ' + messages[m].text.substring(0, 80));
       }
     }
 
@@ -1119,11 +1162,29 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
                    (obj.content && (obj.content.text || obj.content.body)) ||
                    obj.richtext || obj.plainText || obj.messageBody;
       if (!text || typeof text !== 'string' || text.length === 0) return null;
-      // Must have author
-      const author = (obj.user && (obj.user.nickname || obj.user.name || obj.user.username)) ||
-                     (obj.author && (obj.author.name || obj.author.username)) ||
-                     (obj.sender && (obj.sender.name || obj.sender.username)) ||
-                     obj.user_id || obj.authorId || obj.senderId || obj.authorName;
+      // Must have author — handle both object and string patterns
+      var author = null;
+      // Object patterns (SendBird, generic APIs)
+      if (!author && obj.user && typeof obj.user === 'object') {
+        author = obj.user.nickname || obj.user.name || obj.user.username || obj.user.displayName || null;
+      }
+      if (!author && obj.author && typeof obj.author === 'object') {
+        author = obj.author.name || obj.author.username || obj.author.displayName || null;
+      }
+      if (!author && obj.sender && typeof obj.sender === 'object') {
+        author = obj.sender.name || obj.sender.username || obj.sender.displayName || null;
+      }
+      // String patterns — Matrix "@user:reddit.com" or plain username
+      if (!author && typeof obj.sender === 'string' && obj.sender.length > 0) {
+        author = obj.sender.replace(/^@/, '').replace(/:.*$/, '');
+      }
+      if (!author && typeof obj.author === 'string' && obj.author.length > 0 && obj.author.length < 50) {
+        author = obj.author;
+      }
+      // ID fallbacks
+      if (!author) {
+        author = obj.user_id || obj.authorId || obj.senderId || obj.authorName || null;
+      }
       if (!author) return null;
       const ts = obj.created_at || obj.createdAt || obj.timestamp || obj.ts || obj.sentAt || 0;
       const id = obj.message_id || obj.id || obj.messageId || '';
@@ -1256,13 +1317,27 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     var data = event.data.data;
     var opName = event.data.operationName;
 
-    // Log for debugging — helps us refine the parser for Reddit's specific API format
-    if (url.indexOf('gql.reddit.com') !== -1) {
-      var topKeys = data && data.data ? Object.keys(data.data) : Object.keys(data || {});
-      console.log('[SuperReddit] GQL intercept: op=' + (opName || '?') + ' keys=' + topKeys.join(','));
+    // Diagnostic logging for chat-related API responses
+    var isChatApi = url.indexOf('gql.reddit.com') !== -1 ||
+                    url.indexOf('/svc/shreddit/graphql') !== -1 ||
+                    url.indexOf('/svc/matrix-web/') !== -1 ||
+                    url.indexOf('/api/chat/') !== -1;
+    if (isChatApi && data) {
+      var topKeys = data.data ? Object.keys(data.data) : Object.keys(data);
+      console.log('[SuperReddit] API intercept: op=' + (opName || '?') + ' url=' + url.substring(0, 80) + ' topKeys=' + topKeys.join(','));
+      // Deep preview of the response to identify message format
+      try {
+        var preview = JSON.stringify(data).substring(0, 1200);
+        console.log('[SuperReddit] API data preview (' + (opName || '?') + '): ' + preview);
+      } catch (e) { /* circular ref or too large */ }
     }
 
     var messages = extractMessagesFromResponse(data);
+
+    // Log when a chat API yields 0 messages — helps diagnose extraction issues
+    if (messages.length === 0 && isChatApi) {
+      console.log('[SuperReddit] API intercept: 0 messages from op=' + (opName || '?') + ' url=' + url.substring(0, 80));
+    }
     if (messages.length === 0) return;
 
     var conversationUser = identifyConversationUser(messages);
