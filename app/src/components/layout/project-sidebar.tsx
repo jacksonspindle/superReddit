@@ -32,6 +32,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { AvatarUpload } from '@/components/profile/AvatarUpload';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { staggerContainerVariants, staggerItemVariants } from '@/lib/motion';
 import type { Project } from '@/types';
@@ -333,6 +334,16 @@ export function ProjectSidebar({ project }: { project: Project }) {
 
         {/* Bottom */}
         <div className={cn('border-t space-y-1', collapsed ? 'p-1.5' : 'p-3')}>
+          {/* Avatar */}
+          {collapsed ? (
+            <div className="flex justify-center py-1">
+              <AvatarUpload size="sm" />
+            </div>
+          ) : (
+            <div className="rounded-lg px-3 py-2">
+              <AvatarUpload showName />
+            </div>
+          )}
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>

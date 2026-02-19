@@ -7,8 +7,9 @@ import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, P
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { scaleFadeVariants, staggerContainerVariants, staggerItemVariants, fadeUpVariants } from '@/lib/motion';
+import { useProfileStore } from '@/stores/profile-store';
 import type { Project } from '@/types';
 import type { ReferencePost } from '@/stores/create-store';
 
@@ -158,6 +159,7 @@ export function ChatInterface({
   emptyTitle = 'SuperReddit AI',
   emptyDescription = 'Your Reddit marketing strategist. Ask about subreddit targeting, post writing, engagement strategies, and avoiding bans.',
 }: ChatInterfaceProps) {
+  const { avatarUrl: profileAvatarUrl, fetchProfile } = useProfileStore();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
   const [pendingImages, setPendingImages] = useState<ImageAttachment[]>([]);
@@ -165,6 +167,8 @@ export function ChatInterface({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
   useEffect(() => {
     scrollToBottom();
@@ -515,6 +519,7 @@ export function ChatInterface({
                   </div>
                   {message.role === 'user' && (
                     <Avatar className="h-6 w-6 shrink-0 mt-0.5">
+                      {profileAvatarUrl && <AvatarImage src={profileAvatarUrl} alt="You" />}
                       <AvatarFallback className="text-xs">
                         <User className="h-3 w-3" />
                       </AvatarFallback>
