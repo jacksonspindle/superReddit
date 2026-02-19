@@ -18,6 +18,15 @@ let lastSendDmTime = 0;
 let pendingSendDm = null; // { resolve, tabId, timer }
 let composeTabId = null;
 
+// SendBird credential cache (in-memory, 30 min TTL)
+let sendBirdCreds = null;
+let sendBirdCredsExpiry = 0;
+let sendBirdRestDisabled = false;
+
+// Conversation fetch cache (5 min TTL per user)
+const conversationFetchCache = {};
+const CONVERSATION_CACHE_TTL = 5 * 60 * 1000;
+
 // ---- On install/update: start periodic scanning ----
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
@@ -464,15 +473,68 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ messages: [], error: 'No username provided' });
       return false;
     }
-    chrome.storage.local.get(CONVERSATIONS_KEY, (result) => {
-      const convos = result[CONVERSATIONS_KEY] || {};
-      const convo = convos[username.toLowerCase()] || null;
-      sendResponse({
-        messages: convo ? convo.messages : [],
-        lastUpdated: convo ? convo.lastUpdated : null,
-        source: convo ? convo.source : null,
-      });
-    });
+    const userLower = username.toLowerCase();
+
+    (async () => {
+      try {
+        // 1. Check cache — if fresh (< 5 min), return immediately
+        const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+        const convos = stored[CONVERSATIONS_KEY] || {};
+        const cached = convos[userLower] || null;
+        const now = Date.now();
+
+        if (cached && cached.messages && cached.messages.length > 0) {
+          const age = now - (cached.lastUpdated || 0);
+          if (age < CONVERSATION_CACHE_TTL) {
+            console.log('[SR BG] GET_FULL_CONVERSATION: returning cached ' + cached.messages.length + ' msgs for u/' + username + ' (age: ' + Math.round(age / 1000) + 's)');
+            sendResponse({
+              messages: cached.messages,
+              lastUpdated: cached.lastUpdated,
+              source: cached.source,
+            });
+            return;
+          }
+        }
+
+        // 2. Try SendBird REST API (primary approach)
+        let result = await fetchConversationForUser(username);
+
+        // 3. If SendBird failed, try navigation fallback
+        if (!result) {
+          result = await fetchConversationViaNavigation(username);
+        }
+
+        // 4. Return whatever we have (fresh fetch, or stale cache as last resort)
+        if (result && result.messages && result.messages.length > 0) {
+          sendResponse({
+            messages: result.messages,
+            lastUpdated: result.lastUpdated,
+            source: result.source,
+          });
+        } else if (cached && cached.messages && cached.messages.length > 0) {
+          console.log('[SR BG] GET_FULL_CONVERSATION: returning stale cache for u/' + username);
+          sendResponse({
+            messages: cached.messages,
+            lastUpdated: cached.lastUpdated,
+            source: cached.source,
+          });
+        } else {
+          sendResponse({ messages: [], lastUpdated: null, source: null });
+        }
+      } catch (err) {
+        console.log('[SR BG] GET_FULL_CONVERSATION error for u/' + username + ':', err.message);
+        // Return stale cache on error
+        const fallbackStored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+        const fallbackConvos = fallbackStored[CONVERSATIONS_KEY] || {};
+        const fallback = fallbackConvos[userLower] || null;
+        sendResponse({
+          messages: fallback ? fallback.messages : [],
+          lastUpdated: fallback ? fallback.lastUpdated : null,
+          source: fallback ? fallback.source : null,
+          error: err.message,
+        });
+      }
+    })();
     return true;
   }
 
@@ -832,6 +894,247 @@ async function fetchRedditMessages() {
   } catch (err) {
     console.log('[SR BG] Message fetch error:', err.message);
     return { fetched: false, reason: err.message };
+  }
+}
+
+// ---- SendBird Conversation Fetching ----
+// Uses executeScript in MAIN world on a Reddit tab to call SendBird APIs
+// with the user's session. All fetches happen inside the page context so
+// CORS is satisfied (Reddit's own frontend makes these same calls).
+
+async function fetchConversationForUser(username) {
+  if (sendBirdRestDisabled) {
+    console.log('[SR BG] SendBird REST disabled — skipping for u/' + username);
+    return null;
+  }
+
+  const tabId = await getRedditTabId();
+  if (!tabId) {
+    console.log('[SR BG] No Reddit tab for SendBird fetch');
+    return null;
+  }
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: async function (targetUsername) {
+        try {
+          // Step 1: Get SendBird credentials
+          var credsResp = await fetch('https://s.reddit.com/api/v1/sendbird/me', {
+            credentials: 'include',
+          });
+          if (!credsResp.ok) {
+            return { error: 'sendbird_creds_' + credsResp.status, status: credsResp.status };
+          }
+          var creds = await credsResp.json();
+          var token = creds.sb_access_token;
+          var userId = creds.sb_user_id;
+          var appId = creds.sb_app_id;
+
+          if (!token || !userId || !appId) {
+            return { error: 'missing_creds', creds: Object.keys(creds) };
+          }
+
+          var baseUrl = 'https://api-' + appId + '.sendbird.com/v3';
+          var headers = {
+            'Api-Token': token,
+            'Session-Key': token,
+            'Content-Type': 'application/json',
+          };
+
+          // Step 2: Find the channel with this user
+          var channelsResp = await fetch(
+            baseUrl + '/users/' + encodeURIComponent(userId) + '/my_group_channels?limit=100&show_member=true&order=latest_last_message',
+            { headers: headers }
+          );
+          if (!channelsResp.ok) {
+            return { error: 'channels_' + channelsResp.status, status: channelsResp.status };
+          }
+          var channelsData = await channelsResp.json();
+          var channels = channelsData.channels || [];
+
+          // Find the 1-on-1 channel that includes targetUsername
+          var targetLower = targetUsername.toLowerCase();
+          var matchedChannel = null;
+
+          for (var i = 0; i < channels.length; i++) {
+            var ch = channels[i];
+            var members = ch.members || [];
+            // 1-on-1 DM channels typically have exactly 2 members
+            if (members.length !== 2) continue;
+            for (var j = 0; j < members.length; j++) {
+              var member = members[j];
+              var nickname = (member.nickname || '').toLowerCase();
+              var memberUserId = (member.user_id || '').toLowerCase();
+              // Match by nickname or by user_id (Reddit uses t2_xxx format)
+              if (nickname === targetLower || memberUserId === targetLower) {
+                matchedChannel = ch;
+                break;
+              }
+            }
+            if (matchedChannel) break;
+          }
+
+          if (!matchedChannel) {
+            return { error: 'no_channel', channelCount: channels.length, target: targetUsername };
+          }
+
+          // Step 3: Fetch messages from the channel
+          var channelUrl = encodeURIComponent(matchedChannel.channel_url);
+          var msgsResp = await fetch(
+            baseUrl + '/group_channels/' + channelUrl + '/messages?prev_limit=100&include=true&reverse=false',
+            { headers: headers }
+          );
+          if (!msgsResp.ok) {
+            return { error: 'messages_' + msgsResp.status, status: msgsResp.status };
+          }
+          var msgsData = await msgsResp.json();
+          var rawMessages = msgsData.messages || [];
+
+          // Build a member lookup: user_id → nickname
+          var memberMap = {};
+          var channelMembers = matchedChannel.members || [];
+          for (var k = 0; k < channelMembers.length; k++) {
+            var m = channelMembers[k];
+            memberMap[m.user_id] = (m.nickname || m.user_id || '').toLowerCase();
+          }
+
+          // Format messages
+          var formatted = [];
+          for (var n = 0; n < rawMessages.length; n++) {
+            var raw = rawMessages[n];
+            // Skip non-user messages (admin, system)
+            if (raw.type && raw.type !== 'MESG') continue;
+            var text = raw.message || '';
+            if (!text) continue;
+            var senderId = raw.user ? (raw.user.user_id || '') : '';
+            var senderName = raw.user ? (raw.user.nickname || senderId || '').toLowerCase() : '';
+            formatted.push({
+              id: 'sb_' + (raw.message_id || raw.msg_id || n),
+              text: text,
+              author: memberMap[senderId] || senderName,
+              isFromYou: senderId === userId,
+              timestamp: raw.created_at || 0,
+            });
+          }
+
+          return {
+            messages: formatted,
+            channelUrl: matchedChannel.channel_url,
+            myUserId: userId,
+          };
+        } catch (e) {
+          return { error: e.message };
+        }
+      },
+      args: [username],
+    });
+
+    if (!results || !results[0] || !results[0].result) {
+      console.log('[SR BG] SendBird executeScript returned no result');
+      return null;
+    }
+
+    const data = results[0].result;
+
+    if (data.error) {
+      console.log('[SR BG] SendBird fetch error for u/' + username + ':', data.error);
+      // If auth failed (401/403), disable SendBird REST for this session
+      if (data.status === 401 || data.status === 403) {
+        console.log('[SR BG] SendBird REST auth failed — disabling for this session');
+        sendBirdRestDisabled = true;
+      }
+      return null;
+    }
+
+    if (!data.messages || data.messages.length === 0) {
+      console.log('[SR BG] SendBird: no messages found for u/' + username);
+      return null;
+    }
+
+    console.log('[SR BG] SendBird: fetched ' + data.messages.length + ' messages for u/' + username);
+
+    // Store in conversation storage
+    const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+    const convos = stored[CONVERSATIONS_KEY] || {};
+    const existing = convos[username.toLowerCase()] || { messages: [], lastUpdated: 0 };
+    const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+
+    let added = 0;
+    for (const msg of data.messages) {
+      if (msg.id && existingIds.has(msg.id)) continue;
+      existing.messages.push(msg);
+      added++;
+    }
+    existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    if (existing.messages.length > 200) {
+      existing.messages = existing.messages.slice(-200);
+    }
+    existing.lastUpdated = Date.now();
+    existing.source = 'sendbird';
+    convos[username.toLowerCase()] = existing;
+    await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+
+    console.log('[SR BG] SendBird: stored ' + added + ' new messages for u/' + username + ' (total: ' + existing.messages.length + ')');
+    return existing;
+  } catch (err) {
+    console.log('[SR BG] SendBird fetch exception for u/' + username + ':', err.message);
+    return null;
+  }
+}
+
+// ---- Navigation-Based Fallback ----
+// When SendBird REST fails, navigate the chat tab to the target conversation
+// and let the existing interceptor capture the API responses.
+
+async function fetchConversationViaNavigation(username) {
+  const tabId = chatTabId || await ensureChatTab().catch(() => null);
+  if (!tabId) {
+    console.log('[SR BG] No chat tab for navigation fallback');
+    return null;
+  }
+
+  try {
+    // Ask the content script to click the conversation in the sidebar
+    const response = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 8000);
+      chrome.tabs.sendMessage(tabId, { type: 'NAVIGATE_TO_CHAT', username }, (resp) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError) {
+          console.log('[SR BG] NAVIGATE_TO_CHAT failed:', chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+        resolve(resp);
+      });
+    });
+
+    if (!response || !response.triggered) {
+      console.log('[SR BG] Navigation fallback: could not trigger conversation for u/' + username);
+      return null;
+    }
+
+    console.log('[SR BG] Navigation fallback: triggered conversation for u/' + username + ', waiting for interceptor...');
+
+    // Wait for the interceptor to capture API responses
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+
+    // Read from conversation storage (interceptor should have stored messages)
+    const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+    const convos = stored[CONVERSATIONS_KEY] || {};
+    const convo = convos[username.toLowerCase()] || null;
+
+    if (convo && convo.messages && convo.messages.length > 0) {
+      console.log('[SR BG] Navigation fallback: found ' + convo.messages.length + ' messages for u/' + username);
+      return convo;
+    }
+
+    console.log('[SR BG] Navigation fallback: no messages captured for u/' + username);
+    return null;
+  } catch (err) {
+    console.log('[SR BG] Navigation fallback error for u/' + username + ':', err.message);
+    return null;
   }
 }
 

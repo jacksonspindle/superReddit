@@ -689,6 +689,40 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       sendResponse({ messages: threadMessages });
       return true;
     }
+    if (message.type === 'NAVIGATE_TO_CHAT') {
+      // Background is asking us to click a specific conversation in the sidebar
+      const targetUser = (message.username || '').toLowerCase();
+      if (!targetUser) {
+        sendResponse({ triggered: false, reason: 'no_username' });
+        return true;
+      }
+
+      console.log('[SuperReddit] NAVIGATE_TO_CHAT: looking for u/' + targetUser);
+
+      // Find the conversation link in the sidebar using aria-label (same pattern as classifyConversations)
+      const chatLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
+      let matched = null;
+      for (const link of chatLinks) {
+        const label = link.getAttribute('aria-label') || '';
+        const m = label.match(/Direct chat with\s+(.+)/i);
+        if (m && m[1].trim().toLowerCase() === targetUser) {
+          matched = link;
+          break;
+        }
+      }
+
+      if (!matched) {
+        console.log('[SuperReddit] NAVIGATE_TO_CHAT: no sidebar link for u/' + targetUser + ' (checked ' + chatLinks.length + ' links)');
+        sendResponse({ triggered: false, reason: 'not_found', checked: chatLinks.length });
+        return true;
+      }
+
+      // Click the conversation link to load it
+      console.log('[SuperReddit] NAVIGATE_TO_CHAT: clicking conversation for u/' + targetUser);
+      matched.click();
+      sendResponse({ triggered: true });
+      return true;
+    }
   });
 
   // ---- DOM Thread Scraper ----
