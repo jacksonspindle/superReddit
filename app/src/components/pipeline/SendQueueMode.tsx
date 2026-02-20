@@ -14,7 +14,8 @@ import {
   Send,
   MessageCircle,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useMotionValue, useTransform, animate } from 'motion/react';
+import type { PanInfo } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -84,6 +85,12 @@ export function SendQueueMode({
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Swipe gesture state
+  const swipeX = useMotionValue(0);
+  const leftOverlayOpacity = useTransform(swipeX, [-150, 0], [1, 0]);
+  const rightOverlayOpacity = useTransform(swipeX, [0, 150], [0, 1]);
+  const swipeDisabled = sending || sentFlash || cooldownRemaining > 0 || !!pauseReason;
 
   // Active queue (excluding dismissed leads)
   const queue = useMemo(
@@ -342,6 +349,22 @@ export function SendQueueMode({
     setSending(false);
   }
 
+  function onSwipeDragEnd(_: any, info: PanInfo) {
+    if (swipeDisabled) return;
+    if (info.offset.x < -150) {
+      // Swipe left → dismiss
+      animate(swipeX, -1000, { duration: 0.3 });
+      setTimeout(() => { handleDismissLead(); swipeX.set(0); }, 300);
+    } else if (info.offset.x > 150 && hasDraftContent) {
+      // Swipe right → send
+      animate(swipeX, 1000, { duration: 0.3 });
+      handleSend();
+      // handleSend already advances via markSentAndAdvance; reset position after flash
+      setTimeout(() => { swipeX.set(0); }, 300);
+    }
+    // Otherwise springs back via dragConstraints
+  }
+
   const progressPct = queue.length > 0 ? (currentIndex / queue.length) * 100 : 0;
   const permInfo = currentDm
     ? permissionLabels[currentDm.permission_type] || permissionLabels.passive_commenter
@@ -556,8 +579,35 @@ export function SendQueueMode({
               </div>
             </div>
 
-            {/* Main content */}
-            <div className="flex-1 min-h-0 flex overflow-hidden">
+            {/* Main content — swipeable container */}
+            <motion.div
+              className="flex-1 min-h-0 flex overflow-hidden relative"
+              style={{ x: swipeX }}
+              drag={swipeDisabled ? false : 'x'}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.7}
+              onDragEnd={onSwipeDragEnd}
+            >
+              {/* Swipe left overlay — dismiss (red) */}
+              <motion.div
+                className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-red-500/20"
+                style={{ opacity: leftOverlayOpacity }}
+              >
+                <div className="h-20 w-20 rounded-full bg-red-500/80 flex items-center justify-center">
+                  <X className="h-10 w-10 text-white" />
+                </div>
+              </motion.div>
+
+              {/* Swipe right overlay — send (green) */}
+              <motion.div
+                className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-green-500/20"
+                style={{ opacity: rightOverlayOpacity }}
+              >
+                <div className="h-20 w-20 rounded-full bg-green-500/80 flex items-center justify-center">
+                  <Send className="h-10 w-10 text-white" />
+                </div>
+              </motion.div>
+
               {/* Left: Post + singled-out comment */}
               <div className="w-[420px] shrink-0 border-r bg-muted/20 p-5 overflow-y-auto">
                 <div className="rounded-xl border bg-card overflow-hidden">
@@ -598,49 +648,28 @@ export function SendQueueMode({
                     </a>
                   </div>
 
-                  {/* ── Comment ── */}
-                  <div className="border-t bg-muted/30">
-                    <div className="flex gap-3 p-4">
-                      {/* Vote line */}
-                      <div className="flex flex-col items-center gap-1 pt-0.5">
-                        <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          <span className="text-[9px] font-bold text-muted-foreground">
-                            {currentDm.reddit_username.slice(0, 2).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="w-px flex-1 bg-border" />
-                      </div>
-
-                      {/* Comment body */}
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <a
-                            href={`https://reddit.com/u/${currentDm.reddit_username}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-semibold text-foreground hover:underline"
-                          >
-                            u/{currentDm.reddit_username}
-                          </a>
-                          <span className="text-muted-foreground">&middot;</span>
-                          <span className="text-muted-foreground">{timeAgo(currentDm.created_at)}</span>
-                          {permInfo && (
-                            <>
-                              <span className="text-muted-foreground">&middot;</span>
-                              <span className={`font-medium ${permInfo.color}`}>{permInfo.label}</span>
-                            </>
-                          )}
-                        </div>
-
-                        {commentDisplay ? (
-                          <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words leading-relaxed">
-                            {commentDisplay}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">
-                            No comment text available
-                          </p>
+                  {/* ── Lead info ── */}
+                  <div className="border-t px-4 py-3 flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-muted-foreground">
+                        {currentDm.reddit_username.slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={`https://reddit.com/u/${currentDm.reddit_username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold hover:underline"
+                      >
+                        u/{currentDm.reddit_username}
+                      </a>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        {permInfo && (
+                          <span className={`font-medium ${permInfo.color}`}>{permInfo.label}</span>
                         )}
+                        <span>&middot;</span>
+                        <span>{timeAgo(currentDm.created_at)}</span>
                       </div>
                     </div>
                   </div>
@@ -674,7 +703,23 @@ export function SendQueueMode({
                 </div>
 
                 {/* Message area */}
-                <div className="flex-1 min-h-0 p-5 overflow-y-auto flex flex-col justify-end">
+                <div className="flex-1 min-h-0 p-5 overflow-y-auto flex flex-col">
+                  {/* Their comment as incoming message */}
+                  {commentDisplay && (
+                    <div className="flex justify-start mb-4">
+                      <div className="max-w-[85%]">
+                        <p className="text-[11px] text-muted-foreground mb-1 ml-1">
+                          u/{currentDm.reddit_username}
+                        </p>
+                        <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-3">
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{commentDisplay}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex-1" />
+
                   {currentDraft && currentDraft.body ? (
                     /* Show draft as a message bubble */
                     <div className="flex justify-end">
@@ -798,7 +843,7 @@ export function SendQueueMode({
                 </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           </>
         )}
       </motion.div>
