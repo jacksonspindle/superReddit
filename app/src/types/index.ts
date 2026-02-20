@@ -245,9 +245,38 @@ export interface OutreachConfig {
   subreddit_limit: number;
   polling_enabled: boolean;
   setup_completed: boolean;
+  // Discord integration
+  discord_guild_id: string | null;
+  discord_guild_name: string | null;
+  discord_channel_id: string | null;
+  discord_webhook_url: string | null;
+  discord_connected: boolean;
+  poll_interval_minutes: number;
+  // Scan preferences
+  time_filter: 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
+  max_results: number;
+  include_comments: boolean;
+  pain_points: string[];
+  customer_goals: string[];
+  scan_wizard_completed: boolean;
   created_at: string;
   updated_at: string;
 }
+
+export type SignalType =
+  | 'tool_switch'
+  | 'budget_constraint'
+  | 'repeated_pain'
+  | 'high_signal_comment'
+  | 'mod_safe'
+  | 'trend_cluster'
+  | 'convertible_thread';
+
+export type PainSeverity = 'low' | 'medium' | 'high';
+
+export type ScoreBin = 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
+
+export type DiscordAlertStatus = 'pending' | 'sent' | 'failed';
 
 export interface OutreachSignal {
   id: string;
@@ -268,6 +297,39 @@ export interface OutreachSignal {
   competitor_mentioned: boolean;
   status: 'new' | 'replied' | 'dismissed' | 'converted';
   fetched_at: string;
+  // Enhanced classification
+  signal_types: SignalType[];
+  pain_severity: PainSeverity | null;
+  decision_maker: boolean;
+  is_comment: boolean;
+  parent_post_id: string | null;
+  // Discord alert tracking
+  discord_alert_status: DiscordAlertStatus | null;
+  discord_alert_sent_at: string | null;
+  // V2 scoring
+  fit_score: number | null;
+  lead_score: number | null;
+  engage_score: number | null;
+  lead_tier: 'hot' | 'warm' | 'cold' | null;
+  is_unseen: boolean;
+  is_favorited: boolean;
+}
+
+export type LeadTier = 'hot' | 'warm' | 'cold';
+
+export interface OutreachProductContext {
+  id: string;
+  project_id: string;
+  problems_solved: string[];
+  solution_features: string[];
+  audience_behaviors: string[];
+  competitor_weaknesses: string[];
+  vocabulary: string[];
+  audience_patterns: string[];
+  problem_embeddings: number[][];
+  audience_embeddings: number[][];
+  generated_at: string | null;
+  generated_from_hash: string | null;
 }
 
 export interface OutreachReply {
@@ -357,6 +419,7 @@ export interface OutreachDM {
   dm_body: string | null;
   dm_template_id: string | null;
   dm_sent_at: string | null;
+  first_touch_sent_at: string | null;
   follow_up_due: string | null;
   touch_number: number;
   outcome: string | null;
@@ -392,6 +455,56 @@ export interface ThreadComment {
 }
 
 // ---- GitHub types ----
+
+// ---- Outreach Keywords & Monitoring ----
+
+export interface OutreachKeyword {
+  id: string;
+  project_id: string;
+  phrases: string[];
+  exclusions: string[];
+  is_active: boolean;
+  source: string;
+  silenced_until: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutreachMonitoredSub {
+  id: string;
+  project_id: string;
+  name: string;
+  is_active: boolean;
+  safety_level: 'safe' | 'caution' | 'strict';
+  last_polled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CompetitorSentiment = 'positive' | 'neutral' | 'negative';
+
+export interface CompetitorMention {
+  id: string;
+  project_id: string;
+  signal_id: string | null;
+  competitor_name: string;
+  mention_context: string | null;
+  sentiment: CompetitorSentiment;
+  switching_intent: boolean;
+  created_at: string;
+}
+
+// ---- GitHub types ----
+
+export interface DmRateLimit {
+  canSend: boolean;
+  dailyCount: number;
+  weeklyCount: number;
+  dailyLimit: number;
+  weeklyLimit: number;
+  nextSendAt: string | null;
+  cooldownSeconds: number;
+}
 
 export interface GitHubCommit {
   sha: string;

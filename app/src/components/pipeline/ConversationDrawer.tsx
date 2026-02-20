@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConversationTimeline } from './ConversationTimeline';
 import { toast } from 'sonner';
-import type { OutreachDM } from '@/types';
+import type { OutreachDM, DmRateLimit } from '@/types';
 import type { ChatPreview, ConversationMessage } from '@/hooks/useRedditBridge';
 
 interface ConversationDrawerProps {
@@ -117,6 +117,7 @@ export function ConversationDrawer({
   const [sending, setSending] = useState(false);
   const [sentFlash, setSentFlash] = useState(false);
   const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [rateLimit, setRateLimit] = useState<DmRateLimit | null>(null);
   const lastSentBodyRef = useRef('');
 
   // Fetch full conversation from extension when drawer opens
@@ -136,12 +137,27 @@ export function ConversationDrawer({
     return () => { cancelled = true; };
   }, [open, dm?.reddit_username, fetchConversation]);
 
+  // Fetch rate limit status when drawer opens on a first-touch DM
+  const fetchRateLimit = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/outreach/dms/rate-limit?project_id=${projectId}`);
+      if (res.ok) setRateLimit(await res.json());
+    } catch { /* silent */ }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!open || !dm) { setRateLimit(null); return; }
+    if (dm.touch_number === 0) fetchRateLimit();
+  }, [open, dm?.id, dm?.touch_number, fetchRateLimit]);
+
   // Reset state when drawer closes
   useEffect(() => {
     if (!open) {
       setSending(false);
       setSentFlash(false);
       setGeneratingDraft(false);
+      setRateLimit(null);
     }
   }, [open]);
 
@@ -177,12 +193,43 @@ export function ConversationDrawer({
   async function handleSend() {
     if (!dm || !replyBody.trim()) return;
 
+    // Rate limit check for first-touch DMs
+    const isFirstTouch = dm.touch_number === 0;
+    if (isFirstTouch) {
+      try {
+        const rlRes = await fetch(`/api/outreach/dms/rate-limit?project_id=${projectId}`);
+        if (rlRes.ok) {
+          const rl: DmRateLimit = await rlRes.json();
+          setRateLimit(rl);
+          if (!rl.canSend) {
+            const reason = rl.dailyCount >= rl.dailyLimit
+              ? `Daily limit reached (${rl.dailyCount}/${rl.dailyLimit})`
+              : rl.weeklyCount >= rl.weeklyLimit
+                ? `Weekly limit reached (${rl.weeklyCount}/${rl.weeklyLimit})`
+                : `Please wait ${Math.ceil(rl.cooldownSeconds / 60)} min between first-touch DMs`;
+            toast.error(reason);
+            return;
+          }
+        }
+      } catch { /* proceed if check fails */ }
+    }
+
     setSending(true);
     const subject = draftSubject.trim() || dm.dm_subject?.trim() || replyBody.slice(0, 60).split('\n')[0];
     const body = replyBody;
     lastSentBodyRef.current = body;
 
     const result = await sendDm(dm.reddit_username, subject, body);
+
+    // Handle Reddit's own rate limit response
+    if (result.rateLimited) {
+      setSending(false);
+      const retryMin = result.retryAfterMs
+        ? Math.ceil(result.retryAfterMs / 1000 / 60)
+        : 5;
+      toast.error(`Reddit rate limited — retry in ${retryMin} minute${retryMin !== 1 ? 's' : ''}`);
+      return;
+    }
 
     if (result.success) {
       // Persist DM content + advance stage to dm_sent in the DB.
@@ -226,6 +273,8 @@ export function ConversationDrawer({
       setReplyBody('');
       setDraftSubject('');
       onSent?.();
+      // Refresh rate limit after send
+      if (isFirstTouch) fetchRateLimit();
       setTimeout(() => setSentFlash(false), 2000);
     } else {
       setSending(false);
@@ -344,6 +393,16 @@ export function ConversationDrawer({
               {'\u2318'}+Enter to send
             </span>
           </div>
+          {rateLimit && dm.touch_number === 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              {rateLimit.dailyCount}/{rateLimit.dailyLimit} new DMs today
+              {!rateLimit.canSend && rateLimit.cooldownSeconds > 0 && (
+                <span className="text-destructive ml-1">
+                  &middot; Next send in {Math.ceil(rateLimit.cooldownSeconds / 60)}m
+                </span>
+              )}
+            </p>
+          )}
         </div>
       </SheetContent>
     </Sheet>

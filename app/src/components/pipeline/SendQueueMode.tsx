@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { timeAgo } from '@/lib/time';
-import type { OutreachDM, PermissionType } from '@/types';
+import type { OutreachDM, PermissionType, DmRateLimit } from '@/types';
 
 interface SendQueueModeProps {
   dms: OutreachDM[];
@@ -77,8 +77,12 @@ export function SendQueueMode({
   const [sentCount, setSentCount] = useState(0);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [rateLimit, setRateLimit] = useState<DmRateLimit | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [pauseReason, setPauseReason] = useState<string | null>(null);
 
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Active queue (excluding dismissed leads)
@@ -101,12 +105,50 @@ export function SendQueueMode({
     setDrafts(initial);
   }, [dms]);
 
+  // Fetch rate limit status
+  const fetchRateLimit = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/outreach/dms/rate-limit?project_id=${projectId}`);
+      if (res.ok) {
+        const rl: DmRateLimit = await res.json();
+        setRateLimit(rl);
+        return rl;
+      }
+    } catch { /* silent */ }
+    return null;
+  }, [projectId]);
+
+  // Fetch on mount
+  useEffect(() => { fetchRateLimit(); }, [fetchRateLimit]);
+
+  // Start cooldown timer between sends
+  const startCooldown = useCallback((seconds: number) => {
+    setCooldownRemaining(seconds);
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    cooldownTimerRef.current = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+          cooldownTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  const skipCooldown = useCallback(() => {
+    if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+    cooldownTimerRef.current = null;
+    setCooldownRemaining(0);
+  }, []);
+
   // Focus textarea when lead changes
   useEffect(() => {
-    if (started && currentDm && textareaRef.current) {
+    if (started && currentDm && textareaRef.current && cooldownRemaining === 0) {
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
-  }, [started, currentIndex, currentDm]);
+  }, [started, currentIndex, currentDm, cooldownRemaining]);
 
   // Count leads that need generation
   const needsGeneration = useMemo(
@@ -188,7 +230,7 @@ export function SendQueueMode({
     setBatchGenerating(false);
   }, [queue, drafts, generateDraft]);
 
-  // Mark current DM as sent + show flash + advance
+  // Mark current DM as sent + show flash + start cooldown + advance
   const markSentAndAdvance = useCallback(
     (dmId: string, bodyText: string) => {
       const days = followUpDays === 'none' ? null : parseInt(followUpDays);
@@ -197,17 +239,37 @@ export function SendQueueMode({
       setSending(false);
       setSentFlash(true);
 
+      // Optimistically update local rate limit counts
+      setRateLimit((prev) => prev ? {
+        ...prev,
+        dailyCount: prev.dailyCount + 1,
+        weeklyCount: prev.weeklyCount + 1,
+        canSend: prev.dailyCount + 1 < prev.dailyLimit && prev.weeklyCount + 1 < prev.weeklyLimit,
+      } : prev);
+
       sentFlashTimeoutRef.current = setTimeout(() => {
         setSentFlash(false);
         setCurrentIndex((i) => i + 1);
+
+        // Start 2-minute cooldown before next lead
+        startCooldown(120);
+        // Refresh rate limit from server periodically
+        fetchRateLimit().then((rl) => {
+          if (rl && !rl.canSend) {
+            const reason = rl.dailyCount >= rl.dailyLimit
+              ? `Daily limit reached (${rl.dailyCount}/${rl.dailyLimit}). Resume tomorrow.`
+              : `Weekly limit reached (${rl.weeklyCount}/${rl.weeklyLimit}).`;
+            setPauseReason(reason);
+          }
+        });
       }, 1500);
     },
-    [followUpDays, onDmSent]
+    [followUpDays, onDmSent, startCooldown, fetchRateLimit]
   );
 
   // Send DM directly via extension
   const handleSend = useCallback(async () => {
-    if (!currentDm) return;
+    if (!currentDm || cooldownRemaining > 0 || pauseReason) return;
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
@@ -216,18 +278,32 @@ export function SendQueueMode({
 
     const result = await sendDm(currentDm.reddit_username, subject, draft.body);
 
+    if (result.rateLimited) {
+      setSending(false);
+      const retryMs = result.retryAfterMs || 5 * 60 * 1000;
+      const retryMin = Math.ceil(retryMs / 1000 / 60);
+      setPauseReason(`Reddit rate limited — retry in ${retryMin} minute${retryMin !== 1 ? 's' : ''}`);
+      // Auto-resume after the cooldown
+      setTimeout(() => {
+        setPauseReason(null);
+        fetchRateLimit();
+      }, retryMs);
+      return;
+    }
+
     if (result.success) {
       markSentAndAdvance(currentDm.id, draft.body);
     } else {
       setSending(false);
       toast.error(result.error || 'Failed to send DM');
     }
-  }, [currentDm, drafts, sendDm, markSentAndAdvance]);
+  }, [currentDm, drafts, sendDm, markSentAndAdvance, cooldownRemaining, pauseReason, fetchRateLimit]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (sentFlashTimeoutRef.current) clearTimeout(sentFlashTimeoutRef.current);
+      if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
     };
   }, []);
 
@@ -243,14 +319,14 @@ export function SendQueueMode({
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (started && currentDm && !sentFlash && !sending && hasDraftContent) {
+        if (started && currentDm && !sentFlash && !sending && hasDraftContent && cooldownRemaining === 0 && !pauseReason) {
           handleSend();
         }
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [started, isFinished, currentDm, sentFlash, sending, hasDraftContent, onClose, handleSend]);
+  }, [started, isFinished, currentDm, sentFlash, sending, hasDraftContent, onClose, handleSend, cooldownRemaining, pauseReason]);
 
   function handleSkip() {
     if (!currentDm) return;
@@ -310,7 +386,18 @@ export function SendQueueMode({
                 <p className="text-muted-foreground">
                   {queue.length} lead{queue.length !== 1 ? 's' : ''} ready to message
                 </p>
+                {rateLimit && (
+                  <p className="text-xs text-muted-foreground">
+                    Daily: {rateLimit.dailyCount}/{rateLimit.dailyLimit} &middot; Weekly: {rateLimit.weeklyCount}/{rateLimit.weeklyLimit}
+                  </p>
+                )}
               </div>
+
+              {rateLimit && (rateLimit.dailyLimit - rateLimit.dailyCount) < queue.length && (rateLimit.dailyLimit - rateLimit.dailyCount) > 0 && (
+                <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 text-xs text-yellow-700 dark:text-yellow-300">
+                  You have {rateLimit.dailyLimit - rateLimit.dailyCount} sends remaining today. {queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount)} lead{queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount) !== 1 ? 's' : ''} will need to wait.
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Follow-up reminder</label>
@@ -355,10 +442,23 @@ export function SendQueueMode({
                 className="w-full"
                 size="lg"
                 onClick={() => setStarted(true)}
-                disabled={queue.length === 0}
+                disabled={queue.length === 0 || (rateLimit !== null && !rateLimit.canSend)}
               >
-                Start Sending
-                <ChevronRight className="ml-2 h-4 w-4" />
+                {rateLimit && !rateLimit.canSend ? (
+                  <>
+                    <Clock className="mr-2 h-4 w-4" />
+                    {rateLimit.dailyCount >= rateLimit.dailyLimit
+                      ? 'Daily limit reached'
+                      : rateLimit.weeklyCount >= rateLimit.weeklyLimit
+                        ? 'Weekly limit reached'
+                        : `Wait ${Math.ceil(rateLimit.cooldownSeconds / 60)}m`}
+                  </>
+                ) : (
+                  <>
+                    Start Sending
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             </div>
           </motion.div>
@@ -587,7 +687,38 @@ export function SendQueueMode({
                   )}
                 </div>
 
+                {/* Pause overlay */}
+                {pauseReason && (
+                  <div className="border-t p-5 flex flex-col items-center justify-center gap-3 text-center">
+                    <Clock className="h-6 w-6 text-muted-foreground" />
+                    <p className="text-sm font-medium">{pauseReason}</p>
+                    <Button variant="outline" size="sm" onClick={() => { setPauseReason(null); fetchRateLimit(); }}>
+                      Check Again
+                    </Button>
+                  </div>
+                )}
+
+                {/* Cooldown timer between sends */}
+                {!pauseReason && cooldownRemaining > 0 && (
+                  <div className="border-t p-5 flex flex-col items-center justify-center gap-3 text-center">
+                    <div className="text-2xl font-mono font-bold tabular-nums">
+                      {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Next lead in {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}...</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-muted-foreground"
+                      onClick={skipCooldown}
+                    >
+                      <SkipForward className="mr-1 h-3 w-3" />
+                      Skip timer (increases rate limit risk)
+                    </Button>
+                  </div>
+                )}
+
                 {/* Compose bar — always at bottom */}
+                {!pauseReason && cooldownRemaining === 0 && (
                 <div className="border-t p-3 space-y-2">
                   {/* Regenerate button row */}
                   {currentDraft && currentDraft.body && (
@@ -635,8 +766,12 @@ export function SendQueueMode({
                   </div>
                   <p className="text-[10px] text-muted-foreground px-1">
                     {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to send
+                    {rateLimit && (
+                      <span className="ml-2">&middot; {rateLimit.dailyCount}/{rateLimit.dailyLimit} today</span>
+                    )}
                   </p>
                 </div>
+                )}
               </div>
             </div>
           </>
