@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ExternalLink, Send, Sparkles, Loader2, Check } from 'lucide-react';
+import { ExternalLink, Send, Sparkles, Loader2, Check, X } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -112,7 +112,9 @@ export function ConversationDrawer({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [awaitingSend, setAwaitingSend] = useState(false);
   const [sentFlash, setSentFlash] = useState(false);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSentBodyRef = useRef('');
 
   // Fetch full conversation from extension when drawer opens
   useEffect(() => {
@@ -137,15 +139,64 @@ export function ConversationDrawer({
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       setAwaitingSend(false);
       setSentFlash(false);
+      setShowSendConfirm(false);
     }
     return () => {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
   }, [open]);
 
+  // When user returns from Reddit tab while awaiting send, show manual confirmation
+  useEffect(() => {
+    function onVisibility() {
+      if (document.visibilityState === 'visible' && awaitingSend) {
+        // Give the auto-detect poll a few more seconds before showing manual confirm
+        setTimeout(() => {
+          // Only show if still awaiting (polling hasn't detected the send yet)
+          setAwaitingSend((current) => {
+            if (current) {
+              // Stop polling and show manual confirmation
+              if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+              setShowSendConfirm(true);
+            }
+            return false;
+          });
+        }, 3000);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [awaitingSend]);
+
+  const handleConfirmManualSend = useCallback(() => {
+    const messageText = lastSentBodyRef.current;
+    setShowSendConfirm(false);
+    setSentFlash(true);
+    toast.success('DM marked as sent');
+
+    // Optimistically add sent message to timeline
+    if (messageText) {
+      setFullMessages((prev) => [
+        ...prev,
+        {
+          id: `optimistic_${Date.now()}`,
+          text: messageText,
+          author: 'you',
+          isFromYou: true,
+          timestamp: Date.now(),
+        },
+      ]);
+    }
+
+    setReplyBody('');
+    onSent?.();
+    setTimeout(() => setSentFlash(false), 2000);
+  }, [onSent]);
+
   const startSendPolling = useCallback((targetUsername: string, messageText: string) => {
     if (!checkLastSend) return;
     if (pollRef.current) clearInterval(pollRef.current);
+    lastSentBodyRef.current = messageText;
 
     let polls = 0;
     const MAX_POLLS = 40; // 40 × 1.5s = 60s
@@ -155,6 +206,8 @@ export function ConversationDrawer({
       if (polls > MAX_POLLS) {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         setAwaitingSend(false);
+        // Show manual confirmation instead of silently giving up
+        setShowSendConfirm(true);
         return;
       }
       const result = await checkLastSend();
@@ -288,6 +341,32 @@ export function ConversationDrawer({
             }}
           />
 
+          {showSendConfirm ? (
+            <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 p-2">
+              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                Did you send the DM?
+              </span>
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  size="sm"
+                  className="h-6 text-[10px] px-2"
+                  onClick={handleConfirmManualSend}
+                >
+                  <Check className="mr-1 h-3 w-3" />
+                  Yes, sent
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] px-2"
+                  onClick={() => setShowSendConfirm(false)}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Not yet
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="flex items-center gap-2">
             {sentFlash ? (
               <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-600 text-white" disabled>
@@ -314,6 +393,7 @@ export function ConversationDrawer({
               {'\u2318'}+Enter to send
             </span>
           </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

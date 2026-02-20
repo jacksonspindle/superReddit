@@ -260,27 +260,56 @@ export default function DmPipelinePage() {
   async function handleScan() {
     setScanning(true);
     try {
-      // Sync posts first (picks up any new Reddit posts)
-      await syncPosts();
-
-      const res = await fetch('/api/outreach/dms/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id, force: true }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else if (json.scanned) {
-        toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
-        await fetchDms();
-      } else if (json.message) {
-        toast.info(json.message);
-      } else {
-        toast.info('Data is fresh — no scan needed');
+      // Sync posts first (picks up any new Reddit posts) — with 30s timeout
+      const syncController = new AbortController();
+      const syncTimeout = setTimeout(() => syncController.abort(), 30_000);
+      try {
+        await fetch('/api/outreach/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id }),
+          signal: syncController.signal,
+        });
+        await fetchMonitoredPosts();
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          console.warn('Post sync timed out after 30s — continuing with scan');
+        }
+        // Don't block scan if post sync fails
+      } finally {
+        clearTimeout(syncTimeout);
       }
-    } catch {
-      toast.error('Failed to scan threads');
+
+      // Scan threads — with 60s timeout
+      const scanController = new AbortController();
+      const scanTimeout = setTimeout(() => scanController.abort(), 60_000);
+      try {
+        const res = await fetch('/api/outreach/dms/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id, force: true }),
+          signal: scanController.signal,
+        });
+        const json = await res.json();
+        if (json.error) {
+          toast.error(json.error);
+        } else if (json.scanned) {
+          toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
+          await fetchDms();
+        } else if (json.message) {
+          toast.info(json.message);
+        } else {
+          toast.info('Data is fresh — no scan needed');
+        }
+      } finally {
+        clearTimeout(scanTimeout);
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        toast.error('Scan timed out — try again');
+      } else {
+        toast.error('Failed to scan threads');
+      }
     }
     setScanning(false);
   }

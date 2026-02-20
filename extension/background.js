@@ -264,10 +264,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         manual: true,
         timestamp: Date.now(),
       },
+    }, () => {
+      console.log('[SR BG] PREPARE_DM_DRAFT: stored manual compose flag');
+      sendResponse({ success: true });
     });
-    console.log('[SR BG] PREPARE_DM_DRAFT: stored manual compose flag');
-    sendResponse({ success: true });
-    return;
+    return true; // async response — wait for storage.set callback
   }
 
   // ---- CHECK_LAST_SEND: Web app polls for manual compose result ----
