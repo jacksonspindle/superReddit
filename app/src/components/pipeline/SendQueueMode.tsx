@@ -558,82 +558,107 @@ export function SendQueueMode({
 
             {/* Main content */}
             <div className="flex-1 min-h-0 flex overflow-hidden">
-              {/* Left: Post/Thread context */}
+              {/* Left: Post + singled-out comment */}
               <div className="w-[420px] shrink-0 border-r bg-muted/20 p-5 overflow-y-auto">
-                <div className="space-y-4">
-                  {/* Thread card */}
-                  {currentDm.signal && (
-                    <div className="rounded-xl border bg-card p-4 space-y-3">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-medium">r/{currentDm.signal.subreddit}</span>
-                        <span>&middot;</span>
-                        <span>{currentDm.signal.score} pts</span>
-                        <span>&middot;</span>
-                        <span>{currentDm.signal.num_comments} comments</span>
+                <div className="rounded-xl border bg-card overflow-hidden">
+                  {/* ── Post ── */}
+                  <div className="p-4 pb-3 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="font-medium">
+                        {currentDm.signal
+                          ? `r/${currentDm.signal.subreddit}`
+                          : (() => {
+                              const match = currentDm.source_thread_permalink?.match(/\/r\/([^/]+)/);
+                              return match ? `r/${match[1]}` : '';
+                            })()}
+                      </span>
+                      {currentDm.signal && (
+                        <>
+                          <span>&middot;</span>
+                          <span>{currentDm.signal.score} pts</span>
+                          <span>&middot;</span>
+                          <span>{currentDm.signal.num_comments} comments</span>
+                        </>
+                      )}
+                    </div>
+                    <a
+                      href={`https://reddit.com${currentDm.signal?.permalink || currentDm.source_thread_permalink || ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block font-semibold leading-snug hover:underline"
+                    >
+                      {currentDm.signal
+                        ? currentDm.signal.title
+                        : (() => {
+                            const match = currentDm.source_thread_permalink?.match(/\/comments\/[^/]+\/([^/]+)/);
+                            return match
+                              ? match[1].replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+                              : 'View post';
+                          })()}
+                    </a>
+                  </div>
+
+                  {/* ── Comment ── */}
+                  <div className="border-t bg-muted/30">
+                    <div className="flex gap-3 p-4">
+                      {/* Vote line */}
+                      <div className="flex flex-col items-center gap-1 pt-0.5">
+                        <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                          <span className="text-[9px] font-bold text-muted-foreground">
+                            {currentDm.reddit_username.slice(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="w-px flex-1 bg-border" />
                       </div>
+
+                      {/* Comment body */}
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <a
+                            href={`https://reddit.com/u/${currentDm.reddit_username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-foreground hover:underline"
+                          >
+                            u/{currentDm.reddit_username}
+                          </a>
+                          <span className="text-muted-foreground">&middot;</span>
+                          <span className="text-muted-foreground">{timeAgo(currentDm.created_at)}</span>
+                          {permInfo && (
+                            <>
+                              <span className="text-muted-foreground">&middot;</span>
+                              <span className={`font-medium ${permInfo.color}`}>{permInfo.label}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {commentDisplay ? (
+                          <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words leading-relaxed">
+                            {commentDisplay}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">
+                            No comment text available
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Footer ── */}
+                  {(currentDm.signal || currentDm.source_thread_permalink) && (
+                    <div className="border-t px-4 py-2">
                       <a
-                        href={`https://reddit.com${currentDm.signal.permalink}`}
+                        href={`https://reddit.com${currentDm.signal?.permalink || currentDm.source_thread_permalink}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block font-semibold text-sm leading-snug hover:underline"
-                      >
-                        {currentDm.signal.title}
-                      </a>
-                      <a
-                        href={`https://reddit.com${currentDm.signal.permalink}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" />
-                        View thread
+                        View on Reddit
                       </a>
                     </div>
                   )}
-
-                  {/* User's comment */}
-                  <div className="rounded-xl border bg-card p-4 space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {currentDm.reddit_username.slice(0, 2).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <a
-                          href={`https://reddit.com/u/${currentDm.reddit_username}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-semibold text-sm hover:underline"
-                        >
-                          u/{currentDm.reddit_username}
-                        </a>
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          {permInfo && (
-                            <span className={`font-medium ${permInfo.color}`}>
-                              {permInfo.label}
-                            </span>
-                          )}
-                          <span>
-                            <Clock className="inline h-2.5 w-2.5 mr-0.5" />
-                            {timeAgo(currentDm.created_at)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {commentDisplay && (
-                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                        &ldquo;{commentDisplay}&rdquo;
-                      </p>
-                    )}
-
-                    {!commentDisplay && !currentDm.signal && (
-                      <p className="text-sm text-muted-foreground italic">
-                        No comment text available
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
 
