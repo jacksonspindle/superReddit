@@ -633,14 +633,12 @@ export function SendQueueMode({
                       >
                         <X className="h-6 w-6" />
                       </motion.div>
-                      {hasDraftContent && (
-                        <motion.div
-                          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/90 text-white shadow-lg"
-                          style={{ opacity: rightOverlayOpacityRaw }}
-                        >
-                          <Check className="h-6 w-6" />
-                        </motion.div>
-                      )}
+                      <motion.div
+                        className={`absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full shadow-lg ${hasDraftContent ? 'bg-green-500/90 text-white' : 'bg-muted text-muted-foreground/50'}`}
+                        style={{ opacity: rightOverlayOpacityRaw }}
+                      >
+                        <Check className="h-6 w-6" />
+                      </motion.div>
 
                       {/* The card itself */}
                       <div className="h-full rounded-2xl border bg-card shadow-xl overflow-hidden flex flex-col">
@@ -772,6 +770,13 @@ export function SendQueueMode({
                     <span className="text-xs text-green-500 font-medium">Send</span>
                   </button>
                 </div>
+
+                {/* "Write a message" notice */}
+                {!hasDraftContent && (
+                  <p className="text-center text-xs text-yellow-600 dark:text-yellow-400 font-medium pt-1">
+                    Write or generate a message before sending
+                  </p>
+                )}
 
                 {/* Hint text */}
                 <p className="text-center text-[10px] text-muted-foreground">
