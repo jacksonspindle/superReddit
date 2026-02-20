@@ -279,6 +279,25 @@ export function useRedditBridge() {
     }
   }, []);
 
+  // Poll extension for the result of a manual compose (user clicked Send on Reddit)
+  const checkLastSend = useCallback(async (): Promise<{
+    success: boolean;
+    username: string | null;
+    error: string | null;
+  } | null> => {
+    try {
+      const result = await sendToExtension<{
+        success: boolean;
+        username: string | null;
+        error: string | null;
+        timestamp: number;
+      } | null>('CHECK_LAST_SEND', 3_000);
+      return result;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const refreshConversations = useCallback(async (): Promise<boolean> => {
     try {
       const result = await sendToExtension<{
@@ -398,6 +417,7 @@ export function useRedditBridge() {
     theyRepliedList,
     sendDm,
     prepareDraft,
+    checkLastSend,
     fetchConversation,
     checkYouSentTo,
     checkTheyReplied,

@@ -38,6 +38,7 @@ interface SendQueueModeProps {
   onDmSent: (dmId: string, dmContent: string, followUpDays: number | null) => void;
   onDismiss: (dmId: string) => void;
   prepareDraft: () => Promise<boolean>;
+  checkLastSend: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
 }
 
 const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
@@ -60,6 +61,7 @@ export function SendQueueMode({
   onDmSent,
   onDismiss,
   prepareDraft,
+  checkLastSend,
 }: SendQueueModeProps) {
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -75,6 +77,7 @@ export function SendQueueMode({
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Active queue (excluding dismissed leads)
@@ -201,6 +204,30 @@ export function SendQueueMode({
     [followUpDays, onDmSent]
   );
 
+  // Start polling for send detection after opening compose
+  const startSendPolling = useCallback((targetUsername: string, dmId: string, bodyText: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    let polls = 0;
+    const MAX_POLLS = 40; // 40 × 1.5s = 60s
+
+    pollRef.current = setInterval(async () => {
+      polls++;
+      if (polls > MAX_POLLS) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        // Timed out — leave in "confirm" state for manual confirmation
+        return;
+      }
+      const result = await checkLastSend();
+      if (result && result.success && result.username === targetUsername.toLowerCase()) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        // Auto-detected send! Focus back + advance
+        window.focus();
+        markSentAndAdvance(dmId, bodyText);
+      }
+    }, 1500);
+  }, [checkLastSend, markSentAndAdvance]);
+
   // Tell extension to not auto-send, then open Reddit compose with pre-filled fields
   const handleCopyAndOpen = useCallback(async () => {
     if (!currentDm) return;
@@ -222,12 +249,14 @@ export function SendQueueMode({
     window.open(composeUrl, '_blank');
 
     setAwaitingConfirm(true);
-  }, [currentDm, drafts, prepareDraft]);
+    startSendPolling(currentDm.reddit_username, currentDm.id, draft.body);
+  }, [currentDm, drafts, prepareDraft, startSendPolling]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (sentFlashTimeoutRef.current) clearTimeout(sentFlashTimeoutRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
 

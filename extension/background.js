@@ -270,6 +270,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
+  // ---- CHECK_LAST_SEND: Web app polls for manual compose result ----
+
+  if (message.type === 'CHECK_LAST_SEND') {
+    chrome.storage.local.get('sr_last_compose_result', (result) => {
+      const data = result.sr_last_compose_result || null;
+      if (data) {
+        // Clear after reading so it's one-shot
+        chrome.storage.local.remove('sr_last_compose_result');
+      }
+      sendResponse(data);
+    });
+    return true; // async response
+  }
+
   // ---- SEND_DM: Auto-send a DM via compose page ----
 
   if (message.type === 'SEND_DM') {
@@ -367,10 +381,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       resolve({ success, error });
     } else {
-      // No pending send — just close the tab if it's a compose tab
-      if (sender.tab && sender.tab.id) {
-        try { chrome.tabs.remove(sender.tab.id); } catch {}
+      // Manual mode — no pending send. Store result so web app can poll for it.
+      console.log('[SR BG] COMPOSE_RESULT (manual mode): success=' + success + ' user=' + username);
+      if (success && username) {
+        // Add to youSentTo storage
+        chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
+          const existing = new Set(result[YOU_SENT_TO_KEY] || []);
+          existing.add(username.toLowerCase());
+          chrome.storage.local.set({ [YOU_SENT_TO_KEY]: Array.from(existing) });
+          console.log('[SR BG] Manual mode: added ' + username + ' to youSentTo');
+        });
       }
+      // Store for web app polling via CHECK_LAST_SEND
+      chrome.storage.local.set({
+        sr_last_compose_result: { success, error: error || null, username: (username || '').toLowerCase(), timestamp: Date.now() },
+      });
     }
     sendResponse({ ok: true });
     return false;

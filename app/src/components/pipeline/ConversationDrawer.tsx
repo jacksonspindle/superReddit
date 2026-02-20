@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ExternalLink, Send, Sparkles, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ExternalLink, Send, Sparkles, Loader2, Check } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -25,6 +25,7 @@ interface ConversationDrawerProps {
   onOpenChange: (open: boolean) => void;
   onDraft?: (dm: OutreachDM) => void;
   prepareDraft?: () => Promise<boolean>;
+  checkLastSend?: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
   onSent?: () => void;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
 }
@@ -102,12 +103,16 @@ export function ConversationDrawer({
   onOpenChange,
   onDraft,
   prepareDraft,
+  checkLastSend,
   onSent,
   fetchConversation,
 }: ConversationDrawerProps) {
   const [replyBody, setReplyBody] = useState('');
   const [fullMessages, setFullMessages] = useState<ConversationMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [awaitingSend, setAwaitingSend] = useState(false);
+  const [sentFlash, setSentFlash] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch full conversation from extension when drawer opens
   useEffect(() => {
@@ -130,6 +135,47 @@ export function ConversationDrawer({
 
   const stage = stageConfig[dm.pipeline_stage] || stageConfig.detected;
 
+  // Clean up poll on unmount or drawer close
+  useEffect(() => {
+    if (!open) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      setAwaitingSend(false);
+      setSentFlash(false);
+    }
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [open]);
+
+  const startSendPolling = useCallback((targetUsername: string) => {
+    if (!checkLastSend) return;
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    let polls = 0;
+    const MAX_POLLS = 40; // 40 × 1.5s = 60s
+
+    pollRef.current = setInterval(async () => {
+      polls++;
+      if (polls > MAX_POLLS) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        setAwaitingSend(false);
+        return;
+      }
+      const result = await checkLastSend();
+      if (result && result.success && result.username === targetUsername.toLowerCase()) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        // Success! Focus back + flash + notify
+        window.focus();
+        setAwaitingSend(false);
+        setSentFlash(true);
+        toast.success(`DM sent to u/${targetUsername}`);
+        setReplyBody('');
+        onSent?.();
+        setTimeout(() => setSentFlash(false), 2000);
+      }
+    }, 1500);
+  }, [checkLastSend, onSent]);
+
   async function handleSendOnReddit() {
     if (!dm || !replyBody.trim()) return;
 
@@ -143,6 +189,9 @@ export function ConversationDrawer({
     const subject = dm.dm_subject?.trim() || replyBody.slice(0, 60).split('\n')[0];
     const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(replyBody)}`;
     window.open(url, '_blank');
+
+    setAwaitingSend(true);
+    startSendPolling(dm.reddit_username);
   }
 
   return (
@@ -227,15 +276,27 @@ export function ConversationDrawer({
           />
 
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              className="h-8 text-xs"
-              onClick={handleSendOnReddit}
-              disabled={!replyBody.trim()}
-            >
-              <Send className="mr-1 h-3 w-3" />
-              Send on Reddit
-            </Button>
+            {sentFlash ? (
+              <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-600 text-white" disabled>
+                <Check className="mr-1 h-3 w-3" />
+                Sent!
+              </Button>
+            ) : awaitingSend ? (
+              <Button size="sm" className="h-8 text-xs" disabled>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Waiting for send...
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={handleSendOnReddit}
+                disabled={!replyBody.trim()}
+              >
+                <Send className="mr-1 h-3 w-3" />
+                Send on Reddit
+              </Button>
+            )}
             <span className="text-[10px] text-muted-foreground ml-auto">
               {'\u2318'}+Enter to send
             </span>
