@@ -90,7 +90,7 @@ export function SendQueueMode({
   const swipeX = useMotionValue(0);
   const swipeRotate = useTransform(swipeX, [-200, 200], [-12, 12]);
   const leftOverlayOpacity = useTransform(swipeX, [-200, -50], [1, 0]);
-  const rightOverlayOpacity = useTransform(swipeX, [50, 200], [0, 1]);
+  const rightOverlayOpacityRaw = useTransform(swipeX, [50, 200], [0, 1]);
   const swipeDisabled = sending || sentFlash || cooldownRemaining > 0 || !!pauseReason;
 
   // Active queue (excluding dismissed leads)
@@ -633,12 +633,14 @@ export function SendQueueMode({
                       >
                         <X className="h-6 w-6" />
                       </motion.div>
-                      <motion.div
-                        className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/90 text-white shadow-lg"
-                        style={{ opacity: rightOverlayOpacity }}
-                      >
-                        <Check className="h-6 w-6" />
-                      </motion.div>
+                      {hasDraftContent && (
+                        <motion.div
+                          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/90 text-white shadow-lg"
+                          style={{ opacity: rightOverlayOpacityRaw }}
+                        >
+                          <Check className="h-6 w-6" />
+                        </motion.div>
+                      )}
 
                       {/* The card itself */}
                       <div className="h-full rounded-2xl border bg-card shadow-xl overflow-hidden flex flex-col">
