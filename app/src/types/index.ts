@@ -258,6 +258,7 @@ export interface OutreachConfig {
   include_comments: boolean;
   pain_points: string[];
   customer_goals: string[];
+  target_activities: string[];
   scan_wizard_completed: boolean;
   created_at: string;
   updated_at: string;
@@ -433,6 +434,7 @@ export interface OutreachDM {
     permalink: string;
     score: number;
     num_comments: number;
+    lead_tier: 'hot' | 'warm' | 'cold' | null;
   } | null;
 }
 

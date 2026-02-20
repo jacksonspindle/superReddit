@@ -13,6 +13,8 @@ import {
   Clock,
   Send,
   MessageCircle,
+  Flame,
+  TrendingUp,
 } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from 'motion/react';
 import type { PanInfo } from 'motion/react';
@@ -646,8 +648,22 @@ export function SendQueueMode({
                                 {currentDm.reddit_username.slice(0, 2).toUpperCase()}
                               </span>
                             </div>
-                            <div>
-                              <span className="text-sm font-semibold">u/{currentDm.reddit_username}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold">u/{currentDm.reddit_username}</span>
+                                {currentDm.signal?.lead_tier === 'hot' && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 text-[10px] font-semibold text-orange-500">
+                                    <Flame className="h-3 w-3" />
+                                    Hot
+                                  </span>
+                                )}
+                                {currentDm.signal?.lead_tier === 'warm' && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 text-[10px] font-semibold text-yellow-600 dark:text-yellow-400">
+                                    <TrendingUp className="h-3 w-3" />
+                                    Warm
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                 {permInfo && (
                                   <span className={`font-medium ${permInfo.color}`}>{permInfo.label}</span>
