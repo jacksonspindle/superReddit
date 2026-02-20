@@ -1,6 +1,18 @@
+---
+tags:
+  - content-strategy
+  - outreach
+aliases:
+  - Writing DNA
+  - Reddit Post Archetypes
+date: 2026-02-14
+category: content-strategy
+status: implementation-ready
+---
+
 # Reddit Post Styles: A Comprehensive Guide to Writing DNA
 
-> Research document for SuperReddit's "Writing DNA" feature. Identifies 12 distinct Reddit post styles commonly used for organic product marketing and engagement. Each style is defined by its structure, tone, language patterns, and psychological triggers.
+> Research document for SuperReddit's "Writing DNA" feature (see [[SUPERREDDIT-PRODUCT-CONCEPT]] for the AI Content Studio design). Identifies 12 distinct Reddit post styles commonly used for organic product marketing and engagement. Each style is defined by its structure, tone, language patterns, and psychological triggers.
 
 ---
 
@@ -262,7 +274,7 @@ The author provides a detailed, actionable guide that solves a specific problem.
 
 ### Why It Works
 
-Tutorial posts are the highest-saved content type on Reddit because they provide lasting reference value. Users bookmark them, share them, and return to them -- creating sustained visibility. The format works for marketing because the product mention feels like a tool recommendation within genuinely helpful content, rather than the point of the post. Reddit rewards expertise, and a well-written tutorial establishes the author (and by extension, their product) as an authority. Tutorial posts also perform exceptionally well in search engines, creating long-tail organic traffic that compounds over time.
+Tutorial posts are the highest-saved content type on Reddit because they provide lasting reference value. This format is also the foundation for [[subreddit-signals-blog-extraction|SubredditSignals' own content marketing]] (Section 9). Users bookmark them, share them, and return to them -- creating sustained visibility. The format works for marketing because the product mention feels like a tool recommendation within genuinely helpful content, rather than the point of the post. Reddit rewards expertise, and a well-written tutorial establishes the author (and by extension, their product) as an authority. Tutorial posts also perform exceptionally well in search engines, creating long-tail organic traffic that compounds over time.
 
 ### Example Post
 
@@ -389,6 +401,8 @@ We went fully remote in 2022 and the biggest issue isn't productivity -- it's th
 - Supplementary strategy used alongside more visible post styles
 - Brands building long-term presence on Reddit (the 90/10 rule)
 
+The Casual Drop is the safest style for use with [[create-post-flow]], where posts are published via mobile notification to preserve native posting signals.
+
 ---
 
 ## 11. The Confessional AMA
@@ -493,12 +507,14 @@ I see so many posts here from people beating themselves up for not shipping fast
 | Community building | The Open Floor, The Empathy Hook, The Confessional AMA |
 | Direct conversion | The Experiment Log, The PSA Drop, The Struggle & Discovery |
 
+These goal-to-style mappings feed directly into SuperReddit's [[growth-strategy]] and the content templates in [[outreach-implementation-plan]] Part 8.
+
 ### Risk Levels Explained
 
 - **Very Low:** Post feels entirely organic. No product pitch. Extremely hard to detect as marketing.
 - **Low:** Product is mentioned but not the focus. Passes the authenticity sniff test for most Redditors.
 - **Medium:** Product is clearly visible. Works well in maker/startup communities but may trigger suspicion in general subs.
-- **High:** Post is overtly opinionated or product-focused. High engagement potential but also high risk of backlash if perceived as inauthentic.
+- **High:** Post is overtly opinionated or product-focused. High engagement potential but also high risk of backlash if perceived as inauthentic. The ban safety engine in [[outreach-implementation-plan]] validates drafts against these risk levels before posting.
 
 ---
 
@@ -508,7 +524,7 @@ I see so many posts here from people beating themselves up for not shipping fast
 - [5 Effective Reddit Marketing Strategies for Brands in 2026](https://www.mentionlytics.com/blog/reddit-marketing-the-ultimate-guide/)
 - [Reddit Marketing: The 2026 Playbook for Brands](https://outorigin.com/resources/reddit-marketing-playbook/)
 - [Reddit Post Templates That Actually Go Viral (With Real Examples)](https://growthexe.substack.com/p/55-reddit-post-templates-to-get-clients)
-- [9 Proven Reddit SaaS Plays to Avoid Backlash](https://www.subredditsignals.com/blog/stop-value-post-backlash-saas-reddit-marketing-that-actually-drives-leads-without-getting-banned)
+- [9 Proven Reddit SaaS Plays to Avoid Backlash](https://www.subredditsignals.com/blog/stop-value-post-backlash-saas-reddit-marketing-that-actually-drives-leads-without-getting-banned) (extracted in [[subreddit-signals-blog-extraction]])
 - [Reddit Marketing: 9 Safe Steps (2026 Guide)](https://www.subredditsignals.com/blog/what-is-reddit-marketing-the-2026-definition-real-examples-and-a-safe-starter-checklist-without-getting-banned)
 - [Creating Viral Reddit Posts](https://www.neapowers.com/marketing/creating-viral-reddit-posts/)
 - [The Magic Formula Behind Going Viral on Reddit for Product Launches](https://medium.com/design-bootcamp/the-magic-formula-behind-going-viral-on-reddit-for-your-product-launch-6f945666eff5)

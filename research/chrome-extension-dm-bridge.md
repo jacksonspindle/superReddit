@@ -1,8 +1,21 @@
+---
+tags:
+  - chrome-extension
+  - dm-workflow
+  - technical
+aliases:
+  - DM Bridge Extension
+  - Chrome Extension DM
+date: 2026-02-14
+category: technical
+status: implementation-ready
+---
+
 # Chrome Extension DM Bridge
 
 ## Overview
 
-A Chrome extension that enables seamless Reddit DM sending directly from the SuperReddit app — no tab switching, no OAuth, no manual copy-paste. The extension runs as a background service worker that uses the user's existing Reddit session cookies to send messages via Reddit's internal API.
+A Chrome extension that enables seamless Reddit DM sending directly from the SuperReddit app -- no tab switching, no OAuth, no manual copy-paste. This is the technical implementation of the DM workflow designed in [[dm-feature-research]]. The extension runs as a background service worker that uses the user's existing Reddit session cookies to send messages via Reddit's internal API.
 
 ## User Experience
 
@@ -31,6 +44,8 @@ Reddit (no OAuth, no tabs, no redirects)
 - `background.service_worker`: handles DM sending
 - `content_scripts`: injected on the SuperReddit app domain to relay messages
 
+This Manifest V3 architecture follows the extension approach detailed in Section 1 and Section 8 of [[reddit-without-api-approaches]].
+
 ### 2. Background Service Worker (background.js)
 - Listens for messages from the content script
 - Sends Reddit DMs via `fetch` using session cookies
@@ -38,7 +53,7 @@ Reddit (no OAuth, no tabs, no redirects)
   - Body: `to=USERNAME&subject=SUBJECT&text=BODY&api_type=json`
   - Uses existing Reddit session (cookies auto-attached for reddit.com origin)
 - Handles rate limiting (queue with 30-90s delays between sends)
-- Polls Reddit inbox for reply detection
+- Polls Reddit inbox for reply detection (feeds into the DM pipeline from [[dm-feature-research]])
 
 ### 3. Content Script (content.js)
 - Injected on the SuperReddit app pages
@@ -122,7 +137,7 @@ Reddit (no OAuth, no tabs, no redirects)
 1. **`RedditBridge`** — singleton hook/context that manages extension communication
    - `useRedditBridge()` returns `{ connected, redditUsername, sendDm, sendBulkDms, checkInbox }`
    - Shows connection banner if extension not installed
-   - Falls back to current copy-and-open behavior if extension unavailable
+   - Falls back to current copy-and-open behavior if extension unavailable (the [[create-post-flow]] uses a similar browser-based fallback pattern)
 
 2. **Updated `KanbanLeadCard`** — "Send DM" button uses bridge when available
    - Connected: click → send via extension → auto-advance card
@@ -155,7 +170,7 @@ Reddit (no OAuth, no tabs, no redirects)
 ### Phase 3: Inbox Monitoring
 - [ ] Periodic inbox polling (every 5 min)
 - [ ] Auto-detect replies to sent DMs
-- [ ] Auto-advance cards from "DM Sent" → "Follow Up"
+- [ ] Auto-advance cards from "DM Sent" to "Follow Up"
 - [ ] Desktop notifications for replies
 
 ### Phase 4: Polish
@@ -170,8 +185,8 @@ Reddit (no OAuth, no tabs, no redirects)
 |------|--------|------------|
 | Reddit rate limiting | DMs fail silently | Queue with 30-90s random delays, max 20/hour |
 | Reddit DOM/API changes | Extension breaks | Version pin, monitor for changes, quick-patch pipeline |
-| Reddit detects automation | Account suspension | Human-like delays, randomized timing, limit volume |
-| Chrome Web Store rejection | Can't distribute | Distribute as unpacked extension or via direct download |
+| Reddit detects automation | Account suspension | Human-like delays, randomized timing, limit volume (see [[tech-analysis]] for how SuperX handles similar detection risks) |
+| Chrome Web Store rejection | Can't distribute | Distribute as unpacked extension or via direct download (see [[tech-analysis]] for how SuperX distributes their extension) |
 | User not logged into Reddit | DMs fail | Check session before sending, show "log in to Reddit" prompt |
 
 ## Reddit Internal API Reference
@@ -195,5 +210,7 @@ Returns: JSON array of inbox messages with author, subject, body, timestamp
 
 1. **Branch**: `feature/chrome-extension-dm-bridge`
 2. **Directory**: `/extension/` at repo root
-3. **App changes**: minimal — add bridge hook + update send buttons
+3. **App changes**: minimal -- add bridge hook + update send buttons
 4. **Testing**: manual with unpacked extension in Chrome dev mode
+
+This extension is a key component of the [[SUPERREDDIT-PRODUCT-CONCEPT]], bridging the gap between the web app and Reddit's native messaging.

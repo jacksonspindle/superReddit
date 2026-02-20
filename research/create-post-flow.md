@@ -1,4 +1,17 @@
-# Create Post Flow — Research & Implementation Plan
+---
+tags:
+  - ban-safety
+  - technical
+  - chrome-extension
+aliases:
+  - Safe Posting
+  - Copy-Paste Post Flow
+date: 2026-02-17
+category: technical
+status: implementation-ready
+---
+
+# Create Post Flow -- Research & Implementation Plan
 
 ## Context
 
@@ -10,7 +23,7 @@ Okara (@askOkara), an agentic Reddit tool, publicly removed their agent-based co
 ## What Gets You Shadow Banned
 
 - Calling Reddit's API to create posts/comments programmatically
-- Browser automation (Puppeteer, Selenium) submitting forms
+- Browser automation (Puppeteer, Selenium) submitting forms -- the approach [[crowdreply-deep-dive]] documents in detail
 - Any programmatic submission on behalf of a user
 - Reddit detects these via API tokens, user-agent strings, request patterns, and `isTrusted` event flags
 
@@ -21,9 +34,11 @@ Okara (@askOkara), an agentic Reddit tool, publicly removed their agent-based co
 - User manually pasting content (`Cmd+V` / `Ctrl+V`)
 - User manually clicking Submit/Post in Reddit's native UI
 
-This is identical to someone writing a post in Google Docs, copying it, opening Reddit, and pasting it. Reddit cannot distinguish between these two scenarios.
+This is identical to someone writing a post in Google Docs, copying it, opening Reddit, and pasting it. Reddit cannot distinguish between these two scenarios. This follows the notification-based posting model documented in Section 3 of [[reddit-without-api-approaches]].
 
 ## SuperReddit "Create Post" Flow
+
+This flow is a core part of the [[SUPERREDDIT-PRODUCT-CONCEPT]] posting feature.
 
 ```
 1. User writes/generates their post in SuperReddit
@@ -54,20 +69,20 @@ This is identical to someone writing a post in Google Docs, copying it, opening 
 
 ## What To Avoid
 
-- **DO NOT** auto-fill Reddit's form fields via extension/script (detectable via `isTrusted: false` on events)
+- **DO NOT** auto-fill Reddit's form fields via extension/script (detectable via `isTrusted: false` on events) -- contrast with the [[crowdreply-deep-dive]] approach which does exactly this
 - **DO NOT** programmatically click the Submit/Post button
-- **DO NOT** use Reddit's API to create posts on behalf of users
+- **DO NOT** use Reddit's API to create posts on behalf of users (see [[reddit-without-api-approaches]] Section 8 for what authenticated API access still allows)
 - **DO NOT** use URL query params to pre-fill the form (`?title=...&selftext=...`) — while probably safe, it creates a fingerprintable pattern across users
 
 ## Competitive Advantage
 
-Okara had to **remove** their posting feature entirely. SuperReddit's copy-paste + open-URL approach is shadow-ban-safe by design because the tool never touches Reddit for submission. We are a content preparation tool, not a posting automation tool. The user always has final control.
+Okara had to **remove** their posting feature entirely. SuperReddit's copy-paste + open-URL approach is shadow-ban-safe by design because the tool never touches Reddit for submission. We are a content preparation tool, not a posting automation tool. The user always has final control. The [[dm-feature-research]] applies this same safe-by-design philosophy to DM outreach.
 
 ## Risks (Content/Behavior, Not Tool-Related)
 
 The only shadow ban risks are user-behavior-driven, not caused by our tool:
 - Posting too frequently (user behavior)
-- Content that looks AI-generated or spammy (content quality)
+- Content that looks AI-generated or spammy (content quality -- see [[subreddit-signals-blog-extraction]] for ban avoidance rules)
 - Sudden changes in posting patterns (account behavior)
 
-These are the same risks any Reddit user faces regardless of what tool they use to draft content.
+These are the same risks any Reddit user faces regardless of what tool they use to draft content. The [[outreach-implementation-plan]] includes a ban safety engine that helps users stay within safe posting thresholds.

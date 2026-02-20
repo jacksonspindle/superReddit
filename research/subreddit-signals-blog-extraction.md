@@ -1,6 +1,20 @@
+---
+tags:
+  - competitor/subreddit-signals
+  - outreach
+  - ban-safety
+  - content-strategy
+aliases:
+  - Subreddit Signals Intel
+  - 55-Post Extraction
+date: 2026-02-14
+category: competitor-analysis
+status: reference
+---
+
 # Subreddit Signals Blog Extraction — 55 Posts Fully Ingested
 
-> Research conducted 2026-02-14. All 55 blog posts from subredditsignals.com read and extracted by a 4-agent research team.
+> Research conducted 2026-02-14. All 55 blog posts from subredditsignals.com read and extracted by a 4-agent research team. See [[outreach-implementation-plan]] for the companion doc that turns these findings into actionable steps.
 
 ---
 
@@ -261,6 +275,8 @@ Define 20-50 phrases users actually use in problem discussions. Focus on pain-fi
 - Touch 2 (24 hours): Permission-based DM template
 - Touch 3 (72 hours): Binary choice. Stop after no response.
 
+The DM permission and cadence rules here align closely with the findings in [[dm-feature-research]].
+
 ### J. Non-Salesy Product Mention Templates
 
 1. "If you want example: [solution]. (Also built tool -- happy to share if relevant.)"
@@ -366,6 +382,8 @@ Define 20-50 phrases users actually use in problem discussions. Focus on pain-fi
 ---
 
 ## 5. Ban Avoidance Rules
+
+The rules below form the safety foundation for our [[create-post-flow]] — every guideline here is something SuperReddit should enforce or surface in the UI.
 
 ### Universal Rules (Confirmed Across 40+ Posts)
 
@@ -483,6 +501,8 @@ Lead ID, Reddit username, Subreddit, Thread URL, Comment/reply URL, Lead source,
 - Migrate to CRM: Miss follow-ups >1x/week, 2+ people, need stage tracking, multiple sources
 
 ### DM Policy (strict permission-based)
+
+These rules echo and reinforce the DM cadence research in [[dm-feature-research]]:
 
 1. Only DM after explicit consent in-thread
 2. Single-purpose DM (send requested resource only)
@@ -627,6 +647,8 @@ Reddit threads now appear in **97.5% of product review Google searches**. Reddit
 
 ## 9. Content & Post Formats
 
+The post types and formatting guidance below overlap with and extend [[reddit-post-styles]] — cross-reference for tone and structure details.
+
 ### 5 Anti-Marketer Post Types
 
 1. **[Playbook]** "How I fixed ___ in 7 days (with screenshots + numbers)"
@@ -711,6 +733,8 @@ Monitor 90/10 compliance (value vs. promotion ratio).
 ## 11. Platform Stats & Benchmarks
 
 ### Reddit Platform Stats (2025-2026)
+
+These stats underpin the market sizing in [[reddit-market]]:
 
 - 108M+ daily active users (50.1M US, 58M intl)
 - 500M+ monthly visitors
@@ -827,6 +851,8 @@ Monitor 90/10 compliance (value vs. promotion ratio).
 - Account management at scale
 - Upvoting/voting coordination
 - Cross-posting identical replies
+
+These guardrails directly inform what [[SUPERREDDIT-PRODUCT-CONCEPT]] can and cannot automate — the safe-to-automate list maps to features we should build, while the risky list defines where we keep humans in the loop.
 
 ---
 

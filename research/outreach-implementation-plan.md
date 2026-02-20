@@ -1,13 +1,27 @@
+---
+tags:
+  - outreach
+  - product-strategy
+  - ban-safety
+  - content-strategy
+aliases:
+  - Outreach Features
+  - Signals Implementation
+date: 2026-02-14
+category: product-strategy
+status: implementation-ready
+---
+
 # Outreach Implementation Plan — SuperReddit
 
 > How to implement findings from 55 Subreddit Signals blog posts + competitive research into SuperReddit.
-> Research date: 2026-02-14. Companion doc: `subreddit-signals-blog-extraction.md`
+> Research date: 2026-02-14. Companion doc: [[subreddit-signals-blog-extraction]]
 
 ---
 
 ## Executive Summary
 
-Subreddit Signals teaches 7 scoring systems, 20+ reply frameworks, 4 keyword architectures, and 18 automatable features in their blog content — but only builds basic keyword monitoring into their actual product. We can build the product they describe but never built. Every feature below maps directly to extracted blog knowledge.
+Subreddit Signals teaches 7 scoring systems, 20+ reply frameworks, 4 keyword architectures, and 18 automatable features in their blog content — but only builds basic keyword monitoring into their actual product. We can build the product they describe but never built. Every feature below maps directly to extracted blog knowledge and aligns with the [[SUPERREDDIT-PRODUCT-CONCEPT]].
 
 ---
 
@@ -116,11 +130,12 @@ Validate every draft before showing to user:
 | Subreddit rules | Cross-check against parsed rules | Warning |
 | CTA risk level | Flag anything above Level 3 | Warning |
 | Account warmth | Warn if <30 non-promo comments in sub | Warning |
+| Posting method | Validate native posting via [[create-post-flow]] | Warning |
 
 **New file:** `lib/outreach/ban-safety.ts`
 
 ### Reply Cadence System
-Support the 3-Touch follow-up:
+Support the 3-Touch follow-up (Touch 2 leverages the DM workflow from [[dm-feature-research]]):
 - Touch 1 (0-2 hours): Solution + qualifying question
 - Touch 2 (24 hours): Permission-based DM template
 - Touch 3 (72 hours): Binary close
@@ -270,6 +285,8 @@ Total /60, normalize to 0-1 for compatibility.
 
 ### Add Proven Post Formats to AI Writer / Splicer
 
+These templates are derived from the 12 post archetypes catalogued in [[reddit-post-styles]]:
+
 1. **Playbook** — "How I fixed ___ in 7 days (with screenshots + numbers)"
 2. **Checklist** — "My 12-point audit for ___ (copy/paste)"
 3. **Lessons Learned** — "I wasted $2,000 on ___ so you don't have to"
@@ -283,7 +300,7 @@ These formats consistently get engagement in r/SaaS, r/startups, r/Entrepreneur.
 
 ## PART 9: REDDIT SEO FEATURES (UNIQUE DIFFERENTIATOR)
 
-No competitor does this. Reddit appears in 97.5% of product review Google searches.
+No competitor does this. Reddit appears in 97.5% of product review Google searches (see [[reddit-market]] for the full Google visibility data).
 
 ### SERP Opportunity Detection
 - For each signal thread, check if it ranks on Google for relevant keywords
@@ -352,4 +369,4 @@ Start collecting data now (track unique commenters per sub). Build visualization
 
 ## KEY COMPETITIVE INSIGHT
 
-Subreddit Signals publishes all of this knowledge as SEO content marketing. Their actual product only does basic keyword monitoring at $20-50/mo. Every feature in this plan is something they describe in blogs but never built. We build the product they market.
+Subreddit Signals publishes all of this knowledge as SEO content marketing (fully extracted in [[subreddit-signals-blog-extraction]]). Their actual product only does basic keyword monitoring at $20-50/mo. Every feature in this plan is something they describe in blogs but never built. We build the product they market.

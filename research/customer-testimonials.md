@@ -1,8 +1,20 @@
+---
+tags:
+  - competitor/superx
+  - user-research
+aliases:
+  - SuperX Reviews
+  - SuperX User Feedback
+date: 2026-02-07
+category: competitor-analysis
+status: reference
+---
+
 # SuperX Customer Testimonials & User Research
 
 ## Overview
 
-SuperX (https://superx.so/) is a Chrome extension and web app for X/Twitter analytics, AI-powered content creation, and audience growth. Founded by Rob Hallam (@robj3d3), based in Chiang Mai. The product has grown to ~$25k/month MRR (as of early 2026), with ~10,000 Chrome extension users and 102.8K monthly website visitors. Chrome Web Store rating: 5.0/5 stars.
+SuperX (https://superx.so/) is a Chrome extension and web app for X/Twitter analytics, AI-powered content creation, and audience growth. Founded by Rob Hallam (@robj3d3), based in Chiang Mai. The product has grown to ~$25k/month MRR (as of early 2026), with ~10,000 Chrome extension users and 102.8K monthly website visitors. Chrome Web Store rating: 5.0/5 stars. For a complete breakdown of the features users reference below, see [[product-analysis]].
 
 ---
 
@@ -222,6 +234,8 @@ SuperX (https://superx.so/) is a Chrome extension and web app for X/Twitter anal
 
 ## 7. Sentiment Summary
 
+This sentiment data serves as a key signal for the [[growth-strategy]], particularly around word-of-mouth dynamics and conversion triggers.
+
 | Category | Sentiment |
 |----------|-----------|
 | Overall satisfaction | Very positive (5.0/5 Chrome Store) |
@@ -249,13 +263,19 @@ SuperX (https://superx.so/) is a Chrome extension and web app for X/Twitter anal
 
 ## 9. Reddit Presence
 
-No significant Reddit discussions found about SuperX. Searches across Reddit returned no results for "superx.so" or SuperX Twitter analytics tool. This represents a gap and potential opportunity - the product has zero Reddit presence despite strong word-of-mouth on X itself.
+No significant Reddit discussions found about SuperX. Searches across Reddit returned no results for "superx.so" or SuperX Twitter analytics tool. This represents a gap and potential opportunity -- the product has zero Reddit presence despite strong word-of-mouth on X itself. This gap is relevant context for SuperReddit's positioning in the [[reddit-market]].
 
 ---
 
 ## 10. Product Hunt Presence
 
 No specific Product Hunt launch found for SuperX. The product does not appear to have done a formal Product Hunt launch, which is notable given the product's growth. This could be a future growth lever.
+
+---
+
+## 11. Key Lessons for SuperReddit
+
+The user sentiment captured here directly informs the [[SUPERREDDIT-PRODUCT-CONCEPT]], particularly around which features to prioritize and which pain points to avoid. Users' frustrations with pricing opacity, credit limits, and platform lock-in represent concrete opportunities for differentiation.
 
 ---
 

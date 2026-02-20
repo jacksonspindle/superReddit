@@ -1,3 +1,17 @@
+---
+tags:
+  - dm-workflow
+  - reddit-api
+  - ban-safety
+  - outreach
+aliases:
+  - DM Workflow
+  - Reddit DM Feature
+date: 2026-02-14
+category: technical
+status: implementation-ready
+---
+
 # DM Feature Research — SuperReddit
 
 > Research conducted 2026-02-14. Covers DM workflow design, Reddit API constraints, and implementation strategy.
@@ -23,7 +37,7 @@
 
 ## 1. Core Insight
 
-Permission-based DMs convert **3-10x higher** than cold outreach (from Subreddit Signals blog research). DMs are the highest-value conversion channel for Reddit lead generation. SuperReddit should be a **DM workflow manager**, not a DM sender — the user always sends manually, we make the flow 10x faster and smarter.
+Permission-based DMs convert **3-10x higher** than cold outreach (from [[subreddit-signals-blog-extraction]] research). DMs are the highest-value conversion channel for Reddit lead generation. SuperReddit should be a **DM workflow manager**, not a DM sender -- the user always sends manually, we make the flow 10x faster and smarter. This is a core feature of the [[SUPERREDDIT-PRODUCT-CONCEPT]].
 
 ---
 
@@ -47,13 +61,15 @@ Reddit actively detects and bans accounts that send unsolicited DMs. Their API T
 - Tracking DM activity that the user manually logs
 - User manually sending 5-10 DMs/day to people who commented on their posts
 
+This safe/unsafe distinction follows the same [[subreddit-signals-blog-extraction]] DM policy findings and mirrors the ban avoidance strategy in [[create-post-flow]].
+
 ---
 
 ## 3. Reddit API Landscape (Nov 2025 Changes)
 
 ### Major Change: Self-Service API Access Ended
 
-In November 2025, Reddit published the "Responsible Builder Policy" and ended self-service API key creation. All new OAuth applications require manual approval.
+In November 2025, Reddit published the "Responsible Builder Policy" and ended self-service API key creation. All new OAuth applications require manual approval. See [[reddit-market]] for the broader impact of these API landscape changes on the competitive field.
 
 ### New Process
 
@@ -73,7 +89,7 @@ Rejections come with minimal feedback. Enterprise commercial access starts at **
 
 ### What Still Works Without Approval
 
-- **Public JSON endpoints**: Append `.json` to any Reddit URL for read-only access
+- **Public JSON endpoints**: Append `.json` to any Reddit URL for read-only access (detailed in [[reddit-without-api-approaches]])
 - ~10 requests/minute, no credentials needed
 - This is how SuperReddit's fetcher (`lib/reddit/fetcher.ts`) already works
 - Covers all read-only needs: posts, comments, subreddit info, thread monitoring
@@ -387,14 +403,14 @@ Either way, the {resource} I shared earlier is yours to keep. Good luck with {th
 
 ## 11. Browser Extension Option (Future)
 
-A lightweight Chrome extension could make the entire flow fully automated:
+A lightweight Chrome extension could make the entire flow fully automated (see [[chrome-extension-dm-bridge]] for the full technical spec):
 
 - Detects when user is on `reddit.com/message/compose` or `reddit.com/message/messages`
 - Auto-confirms DM was sent when it sees the success state
 - Reads incoming DM notifications and syncs to SuperReddit
 - All via DOM observation — no Reddit API needed
 
-This would eliminate the "Did you send it?" confirmation step and auto-detect responses, making the pipeline 100% automated. Worth considering as a v2 after the core DM workflow is proven.
+This would eliminate the "Did you send it?" confirmation step and auto-detect responses, making the pipeline 100% automated. Worth considering as a v2 after the core DM workflow is proven. The same safe-by-design philosophy applies to the [[create-post-flow]].
 
 ---
 
@@ -444,7 +460,7 @@ No competitor has Reddit OAuth DM access either. Everyone uses copy-paste workfl
 - **GummySearch**: No DM features
 - **ReplyAgent**: Posts comments only, no DM management
 
-A well-built DM workflow manager with automated permission detection, draft generation, and pipeline tracking would be a significant differentiator — even without OAuth.
+A well-built DM workflow manager with automated permission detection, draft generation, and pipeline tracking would be a significant differentiator -- even without OAuth. The [[outreach-implementation-plan]] details how DM tracking integrates into the broader lead pipeline.
 
 ---
 
@@ -452,7 +468,7 @@ A well-built DM workflow manager with automated permission detection, draft gene
 
 The pre-filled Reddit DM URL (`/message/compose/?to=...&subject=...&message=...`) is the unlock. Combined with automated thread monitoring for new commenters and AI-generated drafts, we can build a DM pipeline that's:
 
-- **Zero API risk** (no OAuth needed)
+- **Zero API risk** (no OAuth needed -- see [[reddit-without-api-approaches]] for why this matters)
 - **Nearly fully automated** (3 clicks per lead)
 - **Better than competitors** (none have this level of DM workflow)
 - **Compliant with Reddit ToS** (user sends manually via Reddit's own UI)

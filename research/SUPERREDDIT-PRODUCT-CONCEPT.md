@@ -1,3 +1,18 @@
+---
+tags:
+  - product-strategy
+  - pricing
+  - growth
+  - technical
+aliases:
+  - Product Concept
+  - SuperReddit Vision
+  - Product Bible
+date: 2026-02-07
+category: product-strategy
+status: active-research
+---
+
 # SuperReddit: The All-in-One Reddit Growth Platform
 
 ## Product Concept Document
@@ -11,11 +26,11 @@
 
 **Why now:**
 - GummySearch (the leading Reddit audience research tool, $29-199/mo) **shut down December 2025**, leaving paying customers stranded
-- Reddit has **116M+ DAUs**, **$1.8B+ ad revenue**, and **1,348% Google visibility growth** -- but the mid-market tooling ecosystem is fragmented and immature
+- Reddit has **116M+ DAUs**, **$1.8B+ ad revenue**, and **1,348% Google visibility growth** (see [[reddit-market]]) -- but the mid-market tooling ecosystem is fragmented and immature
 - Users currently need **3-5 separate tools** to manage Reddit presence. No all-in-one solution exists between free Reddit Pro and $500+/mo enterprise tools
 - The estimated mid-market opportunity is **$80-180M/year**
 
-**The model:** Replicate SuperX's winning playbook (Chrome extension + free analytics lead magnets + build-in-public marketing + AI-powered features) but redesigned entirely for Reddit's fundamentally different dynamics.
+**The model:** Replicate SuperX's winning playbook (Chrome extension + free analytics lead magnets + build-in-public marketing + AI-powered features) but redesigned entirely for Reddit's fundamentally different dynamics. See [[product-analysis]] for a detailed breakdown of the SuperX model being adapted here.
 
 ---
 
@@ -113,14 +128,14 @@ Lives as a sidebar on reddit.com -- just like SuperX lives on twitter.com.
 - Competitor tracking: monitor what competitors post on Reddit
 
 **Content Calendar & Scheduling**
-- **Notification-based posting** (NOT API posting -- API posts get 2x less engagement and 8x more removals)
+- **Notification-based posting** (NOT API posting -- API posts get 2x less engagement and 8x more removals; see [[create-post-flow]] for the implementation approach)
 - Optimal time suggestions per subreddit
 - Content calendar with drag-and-drop
 - Recurring post scheduling (weekly threads, AMAs)
 - Cross-post scheduling across subreddits with timing offsets
 
 **AI Content Studio**
-- AI that learns your Reddit writing voice from post/comment history
+- AI that learns your Reddit writing voice from post/comment history -- powered by the 12 archetypes defined in [[reddit-post-styles]]
 - Reddit-native content templates (discussion starters, "help me decide" posts, story format, listicles)
 - Viral post library: searchable database of top-performing Reddit content by topic
 - Content repurposing: turn long Reddit posts into Twitter threads, LinkedIn posts, blog drafts
@@ -176,7 +191,7 @@ Learned from SuperX: transparent pricing (no login required to see), undercut co
 
 ## 6. TECH STACK (Recommended)
 
-Replicate SuperX's proven architecture with Reddit-specific adaptations.
+Replicate SuperX's proven architecture with Reddit-specific adaptations. Full stack analysis in [[tech-analysis]].
 
 ### Core Stack
 - **Chrome Extension**: TypeScript + React (Manifest V3) -- sidebar on reddit.com
@@ -197,7 +212,7 @@ Replicate SuperX's proven architecture with Reddit-specific adaptations.
 
 ### APIs & Data Sources
 - **Reddit API** (OAuth2): User data, post/comment retrieval, subreddit metadata
-- **DOM Scraping** (Chrome extension): Read visible Reddit data to reduce API dependency (SuperX's proven hybrid approach)
+- **DOM Scraping** (Chrome extension): Read visible Reddit data to reduce API dependency (SuperX's proven hybrid approach -- see [[reddit-without-api-approaches]] for full analysis)
 - **Pushshift/Arctic Shift**: Historical Reddit data for analytics and training (if available)
 
 ### Infrastructure
@@ -221,6 +236,8 @@ Replicate SuperX's proven architecture with Reddit-specific adaptations.
 
 ## 7. GO-TO-MARKET STRATEGY
 
+Detailed go-to-market playbook in [[growth-strategy]]. Key highlights below.
+
 ### Phase 1: Pre-Launch (Weeks 1-8)
 
 **Build in Public on Reddit**
@@ -243,7 +260,7 @@ Replicate SuperX's proven architecture with Reddit-specific adaptations.
 **Private Beta**
 - 6-month closed beta (mirrors SuperX's approach)
 - Recruit from: r/marketing, r/socialmedia, r/Entrepreneur, r/SaaS, r/startups
-- Directly target GummySearch's orphaned users
+- Directly target GummySearch's orphaned users (competitors like [[crowdreply-deep-dive|CrowdReply]] and [[mediafast-analysis|MediaFast]] only cover narrow slices of this market)
 - Build 100-200 power users who provide feedback and become evangelists
 
 ### Phase 2: Launch (Week 8-12)
@@ -283,6 +300,8 @@ Replicate SuperX's proven architecture with Reddit-specific adaptations.
 ---
 
 ## 8. MVP SCOPE (What to Build First)
+
+Feature-level implementation details are expanded in [[outreach-implementation-plan]] and [[dm-feature-research]].
 
 ### MVP v0.1 (4-6 weeks) -- Chrome Extension Only
 1. Subreddit analytics sidebar (subscriber growth, engagement rates, top posts)
@@ -325,7 +344,7 @@ Replicate SuperX's proven architecture with Reddit-specific adaptations.
 
 | Risk | Mitigation |
 |---|---|
-| Reddit API restrictions tighten | DOM scraping hybrid approach reduces API dependency |
+| Reddit API restrictions tighten | DOM scraping hybrid approach reduces API dependency (see [[reddit-without-api-approaches]]) |
 | Reddit Pro expands features | Focus on intelligence/AI layer Reddit won't build |
 | Community backlash ("marketing tool on Reddit") | Position as "growth tool for authentic engagement," never automate inauthentic behavior |
 | Single-platform dependency | Plan cross-platform expansion (Twitter, LinkedIn) after Reddit dominance |
@@ -351,6 +370,8 @@ Based on SuperX's trajectory ($0 → $25K MRR in ~8 months) and the Reddit marke
 ---
 
 ## 11. LESSONS FROM SUPERX (Applied)
+
+Drawn from [[product-analysis]] and validated by [[customer-testimonials]].
 
 | SuperX Lesson | SuperReddit Application |
 |---|---|

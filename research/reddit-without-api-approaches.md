@@ -1,3 +1,17 @@
+---
+tags:
+  - technical
+  - reddit-api
+  - chrome-extension
+  - ban-safety
+aliases:
+  - Reddit API Alternatives
+  - No-API Approaches
+date: 2026-02-07
+category: technical
+status: reference
+---
+
 # Building Reddit Tools Without the Official API: Complete Technical Research
 
 **Research Date: February 7, 2026**
@@ -6,7 +20,7 @@
 
 ## Context: The Post-API-Pricing Era
 
-In April 2023, Reddit announced it would charge for API access (previously free since 2008), pricing at $0.24 per 1,000 API calls. This killed major third-party apps (Apollo, Reddit is Fun, Sync, Boost, BaconReader) and disrupted thousands of developer tools.
+In April 2023, Reddit announced it would charge for API access (previously free since 2008), pricing at $0.24 per 1,000 API calls. This killed major third-party apps (Apollo, Reddit is Fun, Sync, Boost, BaconReader) and disrupted thousands of developer tools. See [[reddit-market]] for the full competitive landscape shaped by these API pricing changes.
 
 In **November 2025**, Reddit escalated further: new developers can **no longer self-serve API credentials**. The "Create App" button is now a submission form for a manual, ticket-based approval process called the "Responsible Builder Policy." If you didn't have an established app before this shift, building new Reddit-based tools has become an uphill battle of waiting for approvals that may never come.
 
@@ -46,7 +60,7 @@ Reddit's User Agreement (effective September 24, 2024) prohibits:
 - Scraping Reddit content for commercial purposes without explicit permission
 - Bypassing rate limits or other technical restrictions
 
-A Chrome extension that reads data from pages a user is **already browsing** does not send additional requests to Reddit's servers -- it just reads the DOM that's already loaded. This is fundamentally different from server-side scraping. The user is authenticated with their own account and browsing normally.
+A Chrome extension that reads data from pages a user is **already browsing** does not send additional requests to Reddit's servers -- it just reads the DOM that's already loaded. This is fundamentally different from server-side scraping. The user is authenticated with their own account and browsing normally. This same principle underpins the [[tech-analysis]] of SuperX's DOM scraping hybrid model.
 
 However, if the extension automates navigation or sends extracted data to a commercial service without Reddit's permission, it could run afoul of the ToS.
 
@@ -57,7 +71,7 @@ However, if the extension automates navigation or sends extracted data to a comm
 - **Reddit Enhancement Suite (RES)** -- The most prominent example. Over 3 million users. Reads and modifies Reddit's DOM to add features like inline image viewing, user tagging, and comment navigation. It works specifically on old.reddit.com and reads/modifies the DOM extensively. RES does NOT send data to external servers.
 - **reddit-scrape-chrome-extension** (GitHub: christinabranson) -- Chrome extension that scrapes stories from Reddit pages and sends them to a web service for storage
 - **AI Web Scraper** -- Chrome extension that can scrape data from Reddit using AI-powered extraction
-- **DM Dad** -- Chrome extension that automates direct message outreach across Reddit from the browser
+- **DM Dad** -- Chrome extension that automates direct message outreach across Reddit from the browser (see [[dm-feature-research]] for our safer DM approach)
 
 ### Limitations and Risks
 
@@ -65,7 +79,7 @@ However, if the extension automates navigation or sends extracted data to a comm
 - **Reddit's DOM structure changes frequently** -- especially between old.reddit.com, new Reddit (sh.reddit.com), and the mobile web. Extensions break when Reddit ships UI updates
 - **Limited to what's on the page** -- you only get posts/comments that are rendered. No access to historical data or bulk data
 - **Chrome Web Store review** -- Google reviews extensions and may reject or remove those with overly broad permissions or that appear to scrape data
-- **Cannot write/post** -- DOM reading is passive; you cannot submit posts or vote via DOM manipulation alone (Reddit uses CSRF tokens and API calls for mutations)
+- **Cannot write/post** -- DOM reading is passive; you cannot submit posts or vote via DOM manipulation alone (Reddit uses CSRF tokens and API calls for mutations). However, a [[chrome-extension-dm-bridge]] can use session cookies to send DMs via Reddit's internal API
 
 ### Scalability
 
@@ -118,7 +132,7 @@ Reddit deploys anti-bot protections. Key detection vectors:
 
 ### Real Examples
 
-- **Apify Reddit Scraper** -- Cloud-based actor that uses browser automation to extract Reddit data
+- **Apify Reddit Scraper** -- Cloud-based actor that uses browser automation to extract Reddit data (similar to the approach analyzed in [[crowdreply-deep-dive]])
 - **BrowserAct** -- No-code web scraping template using browser automation for Reddit
 - **Reddit Toolbox (Wappkit)** -- Desktop app that uses local browser automation, deliberately running from home IPs to avoid datacenter detection
 
@@ -140,7 +154,7 @@ Reddit deploys anti-bot protections. Key detection vectors:
 
 ### How It Works Technically
 
-This is the most creative approach to the API posting problem. Instead of using the Reddit API to post content (which Reddit increasingly penalizes), Postpone uses a **human-in-the-loop** workflow:
+This is the most creative approach to the API posting problem, and the model adopted by [[create-post-flow]]. Instead of using the Reddit API to post content (which Reddit increasingly penalizes), Postpone uses a **human-in-the-loop** workflow:
 
 1. User creates and schedules posts in Postpone's web dashboard
 2. At the scheduled time, Postpone sends a **push notification** to the user's mobile device via their iOS/Android app
@@ -186,7 +200,7 @@ According to Postpone's data:
 
 ### Scalability
 
-**Scales with users, not with automation.** Each user handles their own posts. This is ideal for a SaaS product serving many individual creators/marketers, but not for mass-automation use cases.
+**Scales with users, not with automation.** Each user handles their own posts. This is ideal for a SaaS product serving many individual creators/marketers, but not for mass-automation use cases. SuperReddit's [[create-post-flow]] builds on this exact philosophy.
 
 ---
 
@@ -210,6 +224,8 @@ Domain:        https://www.reddit.com/domain/github.com/new.json
 - `?sort=top&t=week` -- sorting and time filters
 
 **Critical requirement: Custom User-Agent.** Without a custom User-Agent, Reddit returns `429 Too Many Requests`. A simple descriptive User-Agent (e.g., `myapp/1.0`) resolves this.
+
+These .json endpoints are also central to the [[dm-feature-research]] workflow for thread monitoring.
 
 Example (as documented by Simon Willison):
 ```bash
@@ -487,7 +503,7 @@ This is analogous to a screen reader or accessibility tool -- it processes what 
 
 ## 9. Hybrid Approaches
 
-The most practical real-world tools combine multiple approaches. Here are the most viable combinations:
+The most practical real-world tools combine multiple approaches. The [[SUPERREDDIT-PRODUCT-CONCEPT]] is built around Hybrid A below. Here are the most viable combinations:
 
 ### Hybrid A: Chrome Extension + .json Endpoints + User Auth
 
@@ -571,11 +587,11 @@ Architecture:
 
 ### "I want to build a Reddit analytics Chrome extension"
 **Use: Chrome Extension DOM scraping + .json endpoints for enrichment**
-Lowest risk, most practical. Read data from pages users already visit. Supplement with .json calls for additional context. No API registration needed for DOM reading.
+Lowest risk, most practical. Read data from pages users already visit. Supplement with .json calls for additional context. No API registration needed for DOM reading. The [[chrome-extension-dm-bridge]] extends this pattern for DM sending.
 
 ### "I want to build a Reddit scheduling/posting tool"
 **Use: Notification-based posting (Postpone model)**
-The only approach that avoids CQS penalties and shadowban risk. Combine with RSS monitoring for analytics.
+The only approach that avoids CQS penalties and shadowban risk. Combine with RSS monitoring for analytics. See [[create-post-flow]] for SuperReddit's implementation of this pattern.
 
 ### "I want to monitor Reddit for brand mentions"
 **Use: RSS feeds + .json endpoint enrichment (small scale) or Brandwatch (enterprise)**

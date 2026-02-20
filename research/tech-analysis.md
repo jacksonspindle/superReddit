@@ -1,4 +1,19 @@
+---
+tags:
+  - competitor/superx
+  - technical
+  - chrome-extension
+aliases:
+  - SuperX Tech Stack
+  - SuperX Architecture
+date: 2026-02-07
+category: competitor-analysis
+status: reference
+---
+
 # SuperX (superx.so) - Technical Analysis
+
+This document covers the technical architecture behind the features described in [[product-analysis]].
 
 ## 1. Tech Stack
 
@@ -24,6 +39,8 @@
 - **Likely built with**: TypeScript/React (Rob Hallam has TypeScript Chrome extension experience -- see his `pentestlist-chrome` repo on GitHub)
 - **Permissions**: Minimal -- reads data visible on twitter.com, uses official OAuth flow
 - **Key permissions likely include**: `tabs`, `storage`, `https://api.twitter.com/*`
+
+This extension architecture influenced the approach explored in [[chrome-extension-dm-bridge]] for SuperReddit's own extension design.
 
 ### Development Tools
 - **AI-Assisted Development**: Rob Hallam initially used **Cursor AI** for development, then switched to **Claude Code** (Anthropic), citing it as "way better at following instructions" with "$1000s of API credits for just $100-200/month"
@@ -187,7 +204,7 @@ SuperX operates as a **Chrome Extension + Web Application** combination:
 
 ### Building Style
 - Solo founder, no co-founder or team mentioned
-- Ships rapidly, builds in public on X
+- Ships rapidly, builds in public on X -- a strategy analyzed in detail in [[growth-strategy]]
 - Uses AI tools extensively for development acceleration
 - Product-led growth approach (no marketing spend initially)
 
@@ -251,6 +268,8 @@ SuperX operates as a **Chrome Extension + Web Application** combination:
 
 ## 9. Key Technical Takeaways for SuperReddit
 
+These technical learnings feed directly into the [[SUPERREDDIT-PRODUCT-CONCEPT]] architecture decisions.
+
 ### What We Can Learn from SuperX's Architecture
 
 1. **Chrome Extension + Web App Combo**: The extension is the primary interface (embedded in X.com), while the web app serves deeper analytics. This same pattern could work for Reddit (extension on reddit.com + web dashboard).
@@ -259,7 +278,7 @@ SuperX operates as a **Chrome Extension + Web Application** combination:
 
 3. **AI-Assisted Development**: Rob built this largely with AI coding tools (Cursor, Claude Code). This enables a solo developer to build and maintain a complex SaaS product.
 
-4. **DOM Scraping + API Hybrid**: Reading visible data from the page reduces API costs and rate limit pressure. Essential for staying within Reddit API limits.
+4. **DOM Scraping + API Hybrid**: Reading visible data from the page reduces API costs and rate limit pressure. Essential for staying within Reddit API limits -- a challenge explored extensively in [[reddit-without-api-approaches]].
 
 5. **Framer for Marketing**: Separating the marketing site (Framer) from the app (Next.js) allows rapid marketing iteration without touching the codebase.
 
