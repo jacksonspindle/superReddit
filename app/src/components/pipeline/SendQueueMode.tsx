@@ -668,6 +668,14 @@ export function SendQueueMode({
                           </div>
                         </div>
 
+                        {/* Their comment — context for the DM */}
+                        {commentDisplay && (
+                          <div className="px-5 py-3 border-b bg-muted/30">
+                            <p className="text-[11px] font-medium text-muted-foreground mb-1">Their comment</p>
+                            <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words leading-relaxed">{commentDisplay}</p>
+                          </div>
+                        )}
+
                         {/* Card body — draft message */}
                         <div className="flex-1 p-5 overflow-y-auto">
                           {currentDraft && currentDraft.body ? (
