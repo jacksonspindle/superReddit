@@ -147,7 +147,7 @@ export function ConversationDrawer({
     };
   }, [open]);
 
-  const startSendPolling = useCallback((targetUsername: string) => {
+  const startSendPolling = useCallback((targetUsername: string, messageText: string) => {
     if (!checkLastSend) return;
     if (pollRef.current) clearInterval(pollRef.current);
 
@@ -169,6 +169,19 @@ export function ConversationDrawer({
         setAwaitingSend(false);
         setSentFlash(true);
         toast.success(`DM sent to u/${targetUsername}`);
+
+        // Optimistically add sent message to timeline
+        setFullMessages((prev) => [
+          ...prev,
+          {
+            id: `optimistic_${Date.now()}`,
+            text: messageText,
+            author: 'you',
+            isFromYou: true,
+            timestamp: Date.now(),
+          },
+        ]);
+
         setReplyBody('');
         onSent?.();
         setTimeout(() => setSentFlash(false), 2000);
@@ -191,7 +204,7 @@ export function ConversationDrawer({
     window.open(url, '_blank');
 
     setAwaitingSend(true);
-    startSendPolling(dm.reddit_username);
+    startSendPolling(dm.reddit_username, replyBody);
   }
 
   return (
