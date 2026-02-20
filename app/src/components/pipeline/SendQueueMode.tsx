@@ -348,20 +348,24 @@ export function SendQueueMode({
     onDismiss(currentDm.id);
     setDismissedIds((prev) => new Set(prev).add(currentDm.id));
     setSending(false);
+    // Reset swipe position for the next card
+    swipeX.set(0);
   }
 
   function onSwipeDragEnd(_: any, info: PanInfo) {
     if (swipeDisabled) return;
     if (info.offset.x < -150) {
-      // Swipe left → dismiss
-      animate(swipeX, -1000, { duration: 0.3 });
-      setTimeout(() => { handleDismissLead(); swipeX.set(0); }, 300);
+      // Swipe left → dismiss: animate off, then reset and advance
+      animate(swipeX, -1000, { duration: 0.3 }).then(() => {
+        swipeX.set(0);
+        handleDismissLead();
+      });
     } else if (info.offset.x > 150 && hasDraftContent) {
-      // Swipe right → send
-      animate(swipeX, 1000, { duration: 0.3 });
-      handleSend();
-      // handleSend already advances via markSentAndAdvance; reset position after flash
-      setTimeout(() => { swipeX.set(0); }, 300);
+      // Swipe right → send: animate off, then reset and send
+      animate(swipeX, 1000, { duration: 0.3 }).then(() => {
+        swipeX.set(0);
+        handleSend();
+      });
     }
     // Otherwise springs back via dragConstraints
   }
