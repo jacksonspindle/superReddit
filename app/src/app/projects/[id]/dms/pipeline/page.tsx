@@ -71,7 +71,7 @@ export default function DmPipelinePage() {
   }, []);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, prepareDraft, fetchConversation } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, prepareDraft, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
   // Fetch all DMs
@@ -708,8 +708,7 @@ export default function DmPipelinePage() {
         open={!!conversationDm}
         onOpenChange={(open) => { if (!open) setConversationDmId(null); }}
         onDraft={setDraftingDm}
-        sendDm={sendDm}
-        extensionReady={bridgeStatus.extensionInstalled && bridgeStatus.redditLoggedIn}
+        prepareDraft={prepareDraft}
         onSent={() => {
           fetchDms();
           fetchAndPersistPreviews();

@@ -12,11 +12,12 @@ import {
   RefreshCw,
   Clock,
   Copy,
+  Send,
+  MessageCircle,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -39,20 +40,17 @@ interface SendQueueModeProps {
   prepareDraft: () => Promise<boolean>;
 }
 
-const permissionLabels: Record<PermissionType, { label: string; className: string }> = {
-  explicit_dm_request: {
-    label: 'DM Requested',
-    className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  },
-  positive_reply: {
-    label: 'Positive Reply',
-    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  },
-  passive_commenter: {
-    label: 'Commenter',
-    className: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
-  },
+const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
+  explicit_dm_request: { label: 'DM Requested', color: 'text-green-600 dark:text-green-400' },
+  positive_reply: { label: 'Positive Reply', color: 'text-blue-600 dark:text-blue-400' },
+  passive_commenter: { label: 'Commenter', color: 'text-muted-foreground' },
 };
+
+// Check if text looks like a raw URL (not useful as a comment)
+function isRawUrl(text: string): boolean {
+  const trimmed = text.trim();
+  return /^https?:\/\/\S+$/i.test(trimmed);
+}
 
 export function SendQueueMode({
   dms,
@@ -77,6 +75,7 @@ export function SendQueueMode({
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Active queue (excluding dismissed leads)
   const queue = useMemo(
@@ -98,6 +97,13 @@ export function SendQueueMode({
     setDrafts(initial);
   }, [dms]);
 
+  // Focus textarea when lead changes
+  useEffect(() => {
+    if (started && currentDm && textareaRef.current) {
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    }
+  }, [started, currentIndex, currentDm]);
+
   // Count leads that need generation
   const needsGeneration = useMemo(
     () => queue.filter((d) => !drafts.has(d.id)).length,
@@ -106,6 +112,7 @@ export function SendQueueMode({
 
   // Get current draft
   const currentDraft = currentDm ? drafts.get(currentDm.id) : undefined;
+  const hasDraftContent = !!(currentDraft && (currentDraft.subject || currentDraft.body));
 
   // Update draft fields
   const updateDraft = useCallback(
@@ -200,37 +207,22 @@ export function SendQueueMode({
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
-    // Tell extension: don't auto-send on this compose page (suppresses auto-click)
     await prepareDraft();
 
-    // Copy body to clipboard as fallback
     try {
       await navigator.clipboard.writeText(draft.body);
-    } catch {
-      // Clipboard may not be available
-    }
+    } catch { /* silent */ }
 
-    // Open Reddit compose in a new tab with pre-filled fields
+    // Use subject from draft, or generate a short one from body
+    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+
     const composeUrl = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(
       currentDm.reddit_username
-    )}&subject=${encodeURIComponent(draft.subject)}&message=${encodeURIComponent(draft.body)}`;
+    )}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
     window.open(composeUrl, '_blank');
 
-    // Show confirmation buttons
     setAwaitingConfirm(true);
   }, [currentDm, drafts, prepareDraft]);
-
-  // Auto-show confirm when user returns to tab (in case they missed the buttons)
-  useEffect(() => {
-    if (!awaitingConfirm) return;
-    function handleVisibility() {
-      if (document.visibilityState === 'visible' && awaitingConfirm) {
-        // User returned to our tab — buttons are already showing
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [awaitingConfirm]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -244,28 +236,22 @@ export function SendQueueMode({
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         if (started && !isFinished) {
-          if (confirm('Exit send queue? Your progress will be saved.')) {
-            onClose();
-          }
+          if (confirm('Exit send queue? Your progress will be saved.')) onClose();
         } else {
           onClose();
         }
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (started && currentDm && !sentFlash && !awaitingConfirm) {
-          const draft = drafts.get(currentDm.id);
-          if (draft && (draft.subject || draft.body)) {
-            handleCopyAndOpen();
-          }
+        if (started && currentDm && !sentFlash && !awaitingConfirm && hasDraftContent) {
+          handleCopyAndOpen();
         }
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [started, isFinished, currentDm, sentFlash, awaitingConfirm, drafts, onClose, handleCopyAndOpen]);
+  }, [started, isFinished, currentDm, sentFlash, awaitingConfirm, hasDraftContent, onClose, handleCopyAndOpen]);
 
-  // Skip handler
   function handleSkip() {
     if (!currentDm) return;
     setSkippedIds((prev) => new Set(prev).add(currentDm.id));
@@ -273,7 +259,6 @@ export function SendQueueMode({
     setCurrentIndex((i) => i + 1);
   }
 
-  // Dismiss handler
   function handleDismissLead() {
     if (!currentDm) return;
     onDismiss(currentDm.id);
@@ -281,12 +266,14 @@ export function SendQueueMode({
     setAwaitingConfirm(false);
   }
 
-  // Progress percentage
-  const progressPct = queue.length > 0 ? ((currentIndex) / queue.length) * 100 : 0;
-
-  // Permission label
+  const progressPct = queue.length > 0 ? (currentIndex / queue.length) * 100 : 0;
   const permInfo = currentDm
     ? permissionLabels[currentDm.permission_type] || permissionLabels.passive_commenter
+    : null;
+
+  // Derive useful display text for the comment
+  const commentDisplay = currentDm?.comment_text && !isRawUrl(currentDm.comment_text)
+    ? currentDm.comment_text
     : null;
 
   return (
@@ -306,7 +293,6 @@ export function SendQueueMode({
             className="flex-1 flex items-center justify-center"
           >
             <div className="w-full max-w-md mx-auto p-8 space-y-6">
-              {/* Close button */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -317,13 +303,15 @@ export function SendQueueMode({
               </Button>
 
               <div className="text-center space-y-2">
+                <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                  <Send className="h-5 w-5 text-primary" />
+                </div>
                 <h1 className="text-2xl font-bold">Send Queue</h1>
                 <p className="text-muted-foreground">
-                  {queue.length} lead{queue.length !== 1 ? 's' : ''} ready to go
+                  {queue.length} lead{queue.length !== 1 ? 's' : ''} ready to message
                 </p>
               </div>
 
-              {/* Follow-up days */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Follow-up reminder</label>
                 <Select value={followUpDays} onValueChange={setFollowUpDays}>
@@ -342,7 +330,6 @@ export function SendQueueMode({
                 </p>
               </div>
 
-              {/* Generate all button */}
               {needsGeneration > 0 && (
                 <Button
                   variant="outline"
@@ -364,7 +351,6 @@ export function SendQueueMode({
                 </Button>
               )}
 
-              {/* Start button */}
               <Button
                 className="w-full"
                 size="lg"
@@ -393,8 +379,8 @@ export function SendQueueMode({
                 <h2 className="text-xl font-bold mb-2">All done!</h2>
                 <p className="text-muted-foreground">
                   Sent {sentCount} of {queue.length} lead{queue.length !== 1 ? 's' : ''}
-                  {skippedIds.size > 0 && ` · ${skippedIds.size} skipped`}
-                  {dismissedIds.size > 0 && ` · ${dismissedIds.size} dismissed`}
+                  {skippedIds.size > 0 && ` \u00b7 ${skippedIds.size} skipped`}
+                  {dismissedIds.size > 0 && ` \u00b7 ${dismissedIds.size} dismissed`}
                 </p>
               </div>
               <Button onClick={onClose} size="lg">
@@ -407,7 +393,7 @@ export function SendQueueMode({
         {/* ── Active lead view ── */}
         {started && !isFinished && currentDm && (
           <>
-            {/* Sent flash overlay */}
+            {/* Sent flash */}
             <AnimatePresence>
               {sentFlash && (
                 <motion.div
@@ -430,28 +416,37 @@ export function SendQueueMode({
               )}
             </AnimatePresence>
 
-            {/* Header */}
+            {/* Header bar */}
             <div className="border-b px-6 py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    if (confirm('Exit send queue? Your progress will be saved.')) onClose();
-                  }} className="h-8 w-8 p-0">
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <span className="font-semibold">Send Queue</span>
-                  <span className="text-sm text-muted-foreground">
-                    Lead {currentIndex + 1} of {queue.length}
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={() => {
+                  if (confirm('Exit send queue? Your progress will be saved.')) onClose();
+                }} className="h-8 w-8 p-0">
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <span className="font-semibold text-sm">Send Queue</span>
+                  <span className="text-xs text-muted-foreground">
+                    {currentIndex + 1} / {queue.length}
                   </span>
                   {sentCount > 0 && (
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                    <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
                       {sentCount} sent
                     </Badge>
                   )}
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={handleSkip} disabled={sentFlash} className="text-xs h-7">
+                    <SkipForward className="mr-1 h-3 w-3" />
+                    Skip
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={handleDismissLead} disabled={sentFlash}>
+                    <X className="mr-1 h-3 w-3" />
+                    Dismiss
+                  </Button>
+                </div>
               </div>
-              {/* Progress bar */}
-              <div className="mt-2 h-1 w-full bg-muted rounded-full overflow-hidden">
+              <div className="mt-2 h-0.5 w-full bg-muted rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-primary rounded-full"
                   initial={{ width: 0 }}
@@ -461,83 +456,146 @@ export function SendQueueMode({
               </div>
             </div>
 
-            {/* Main content — split layout */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-0 overflow-hidden">
-              {/* Left: Lead context */}
-              <div className="border-r p-6 overflow-y-auto">
-                <div className="max-w-lg mx-auto space-y-4">
-                  {/* Username + avatar */}
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <span className="text-sm font-semibold text-muted-foreground">
-                        {currentDm.reddit_username.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
+            {/* Main content */}
+            <div className="flex-1 min-h-0 flex overflow-hidden">
+              {/* Left: Post/Thread context */}
+              <div className="w-[420px] shrink-0 border-r bg-muted/20 p-5 overflow-y-auto">
+                <div className="space-y-4">
+                  {/* Thread card */}
+                  {currentDm.signal && (
+                    <div className="rounded-xl border bg-card p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="font-medium">r/{currentDm.signal.subreddit}</span>
+                        <span>&middot;</span>
+                        <span>{currentDm.signal.score} pts</span>
+                        <span>&middot;</span>
+                        <span>{currentDm.signal.num_comments} comments</span>
+                      </div>
                       <a
-                        href={`https://reddit.com/u/${currentDm.reddit_username}`}
+                        href={`https://reddit.com${currentDm.signal.permalink}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-semibold text-base hover:underline"
+                        className="block font-semibold text-sm leading-snug hover:underline"
                       >
-                        u/{currentDm.reddit_username}
+                        {currentDm.signal.title}
                       </a>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {currentDm.signal?.subreddit && (
-                          <span>r/{currentDm.signal.subreddit}</span>
-                        )}
-                        <span>
-                          <Clock className="inline h-3 w-3 mr-0.5" />
-                          {timeAgo(currentDm.created_at)}
+                      <a
+                        href={`https://reddit.com${currentDm.signal.permalink}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View thread
+                      </a>
+                    </div>
+                  )}
+
+                  {/* User's comment */}
+                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {currentDm.reddit_username.slice(0, 2).toUpperCase()}
                         </span>
                       </div>
+                      <div className="min-w-0">
+                        <a
+                          href={`https://reddit.com/u/${currentDm.reddit_username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-sm hover:underline"
+                        >
+                          u/{currentDm.reddit_username}
+                        </a>
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          {permInfo && (
+                            <span className={`font-medium ${permInfo.color}`}>
+                              {permInfo.label}
+                            </span>
+                          )}
+                          <span>
+                            <Clock className="inline h-2.5 w-2.5 mr-0.5" />
+                            {timeAgo(currentDm.created_at)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Permission badge */}
-                  {permInfo && (
-                    <Badge
-                      variant="secondary"
-                      className={`text-xs ${permInfo.className}`}
-                    >
-                      {permInfo.label}
-                    </Badge>
-                  )}
-
-                  {/* Thread link */}
-                  {currentDm.signal && (
-                    <a
-                      href={`https://reddit.com${currentDm.signal.permalink}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 hover:bg-muted transition-colors"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{currentDm.signal.title || 'View thread'}</span>
-                    </a>
-                  )}
-
-                  {/* Original comment */}
-                  {currentDm.comment_text && (
-                    <blockquote className="border-l-2 border-muted-foreground/30 pl-4 py-2">
-                      <p className="text-sm text-muted-foreground italic whitespace-pre-wrap">
-                        {currentDm.comment_text}
+                    {commentDisplay && (
+                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                        &ldquo;{commentDisplay}&rdquo;
                       </p>
-                    </blockquote>
-                  )}
+                    )}
+
+                    {!commentDisplay && !currentDm.signal && (
+                      <p className="text-sm text-muted-foreground italic">
+                        No comment text available
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Right: Draft editor */}
-              <div className="p-6 overflow-y-auto">
-                <div className="max-w-lg mx-auto space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-sm">Message Draft</h3>
-                    {currentDraft ? (
+              {/* Right: DM composer — chat-like layout */}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* DM header — who you're messaging */}
+                <div className="px-5 py-3 border-b flex items-center gap-3">
+                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    New message to{' '}
+                    <span className="font-semibold">u/{currentDm.reddit_username}</span>
+                  </span>
+                </div>
+
+                {/* Message area */}
+                <div className="flex-1 min-h-0 p-5 overflow-y-auto flex flex-col justify-end">
+                  {currentDraft && currentDraft.body ? (
+                    /* Show draft as a message bubble */
+                    <div className="flex justify-end">
+                      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3">
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{currentDraft.body}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Empty state */
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center space-y-3">
+                        <MessageCircle className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                        <p className="text-sm text-muted-foreground">
+                          Write a message or generate a draft
+                        </p>
+                        <Button
+                          variant="outline"
+                          onClick={() => generateDraft(currentDm.id)}
+                          disabled={generating.has(currentDm.id)}
+                        >
+                          {generating.has(currentDm.id) ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              Generate Draft
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Compose bar — always at bottom */}
+                <div className="border-t p-3 space-y-2">
+                  {/* Regenerate button row */}
+                  {currentDraft && currentDraft.body && (
+                    <div className="flex items-center gap-2 px-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs"
+                        className="h-6 text-[11px] text-muted-foreground"
                         onClick={() => generateDraft(currentDm.id)}
                         disabled={generating.has(currentDm.id)}
                       >
@@ -548,135 +606,72 @@ export function SendQueueMode({
                         )}
                         Regenerate
                       </Button>
-                    ) : null}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* Subject */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Subject</label>
-                    <Input
-                      value={currentDraft?.subject || ''}
-                      onChange={(e) => updateDraft(currentDm.id, 'subject', e.target.value)}
-                      placeholder="Subject line..."
-                      className="text-sm"
-                    />
-                  </div>
-
-                  {/* Body */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Message</label>
+                  {/* Input + send */}
+                  <div className="flex items-end gap-2">
                     <Textarea
+                      ref={textareaRef}
                       value={currentDraft?.body || ''}
                       onChange={(e) => updateDraft(currentDm.id, 'body', e.target.value)}
-                      placeholder="Write your message or click Generate Draft..."
-                      className="min-h-[200px] text-sm"
+                      placeholder={`Message u/${currentDm.reddit_username}...`}
+                      className="min-h-[44px] max-h-[160px] text-sm resize-none rounded-xl"
+                      rows={2}
                     />
+                    {awaitingConfirm ? (
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            const draft = drafts.get(currentDm.id);
+                            markSentAndAdvance(currentDm.id, draft?.body || '');
+                          }}
+                        >
+                          <Check className="mr-1 h-3 w-3" />
+                          Sent
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[10px]"
+                          onClick={() => setAwaitingConfirm(false)}
+                        >
+                          Not yet
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="icon"
+                        className="h-[44px] w-[44px] shrink-0 rounded-xl"
+                        onClick={handleCopyAndOpen}
+                        disabled={!hasDraftContent || sentFlash}
+                        title={`Open in Reddit (${typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter)`}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-
-                  {/* Generate button (if no draft yet) */}
-                  {!currentDraft && (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => generateDraft(currentDm.id)}
-                      disabled={generating.has(currentDm.id)}
+                  {!awaitingConfirm && (
+                    <p className="text-[10px] text-muted-foreground px-1">
+                      Opens Reddit with your message pre-filled &middot;{' '}
+                      {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter
+                    </p>
+                  )}
+                  {awaitingConfirm && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-[10px] text-muted-foreground px-1"
                     >
-                      {generating.has(currentDm.id) ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Generate Draft
-                        </>
-                      )}
-                    </Button>
+                      Confirm you sent it on Reddit &middot;{' '}
+                      <button className="underline hover:text-foreground" onClick={handleCopyAndOpen}>
+                        Re-open Reddit
+                      </button>
+                    </motion.p>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t px-6 py-3">
-              <div className="flex items-center justify-between max-w-5xl mx-auto">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSkip}
-                    disabled={sentFlash}
-                  >
-                    <SkipForward className="mr-1 h-3.5 w-3.5" />
-                    Skip
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={handleDismissLead}
-                    disabled={sentFlash}
-                  >
-                    <X className="mr-1 h-3.5 w-3.5" />
-                    Dismiss
-                  </Button>
-                </div>
-
-                {awaitingConfirm ? (
-                  /* User opened Reddit — confirm they sent it */
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-3"
-                  >
-                    <span className="text-sm text-muted-foreground">
-                      Did you send it on Reddit?
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (currentDm) {
-                          const draft = drafts.get(currentDm.id);
-                          markSentAndAdvance(currentDm.id, draft?.body || '');
-                        }
-                      }}
-                    >
-                      <Check className="mr-1 h-3.5 w-3.5" />
-                      Yes, sent
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setAwaitingConfirm(false)}
-                    >
-                      Not yet
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyAndOpen}
-                    >
-                      <Copy className="mr-1 h-3.5 w-3.5" />
-                      Re-open
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <Button
-                    onClick={handleCopyAndOpen}
-                    disabled={
-                      !currentDraft ||
-                      (!currentDraft.subject && !currentDraft.body) ||
-                      sentFlash
-                    }
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy & Open in Reddit
-                    <span className="ml-2 text-xs opacity-70">
-                      {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter
-                    </span>
-                  </Button>
-                )}
               </div>
             </div>
           </>

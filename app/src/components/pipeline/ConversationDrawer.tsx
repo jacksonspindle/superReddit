@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ExternalLink, Send, Copy, Sparkles, Loader2 } from 'lucide-react';
+import { ExternalLink, Send, Sparkles, Loader2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -24,17 +24,7 @@ interface ConversationDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDraft?: (dm: OutreachDM) => void;
-  sendDm?: (
-    username: string,
-    subject: string,
-    body: string
-  ) => Promise<{
-    success: boolean;
-    error?: string;
-    rateLimited?: boolean;
-    retryAfterMs?: number;
-  }>;
-  extensionReady?: boolean;
+  prepareDraft?: () => Promise<boolean>;
   onSent?: () => void;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
 }
@@ -111,13 +101,11 @@ export function ConversationDrawer({
   open,
   onOpenChange,
   onDraft,
-  sendDm,
-  extensionReady,
+  prepareDraft,
   onSent,
   fetchConversation,
 }: ConversationDrawerProps) {
   const [replyBody, setReplyBody] = useState('');
-  const [sending, setSending] = useState(false);
   const [fullMessages, setFullMessages] = useState<ConversationMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -142,40 +130,17 @@ export function ConversationDrawer({
 
   const stage = stageConfig[dm.pipeline_stage] || stageConfig.detected;
 
-  async function handleSendReply() {
-    if (!dm || !replyBody.trim() || !sendDm) return;
-    setSending(true);
-    try {
-      const subject = dm.dm_subject?.trim() || `Hey ${dm.reddit_username}`;
-      const result = await sendDm(dm.reddit_username, subject, replyBody);
-      if (result.success) {
-        await fetch('/api/outreach/dms/sent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dm_id: dm.id, dm_content: replyBody }),
-        });
-        toast.success(`Reply sent to u/${dm.reddit_username}`);
-        setReplyBody('');
-        onSent?.();
-      } else if (result.rateLimited) {
-        const secs = result.retryAfterMs ? Math.ceil(result.retryAfterMs / 1000) : 8;
-        toast.error(`Rate limited — wait ${secs}s`);
-      } else {
-        toast.error(result.error || 'Failed to send');
-      }
-    } catch {
-      toast.error('Failed to send reply');
-    }
-    setSending(false);
-  }
+  async function handleSendOnReddit() {
+    if (!dm || !replyBody.trim()) return;
 
-  function handleCopyAndOpen() {
-    if (!dm) return;
-    navigator.clipboard
-      .writeText(replyBody)
-      .then(() => toast.success('Copied to clipboard'))
-      .catch(() => {});
-    const subject = dm.dm_subject?.trim() || `Hey ${dm.reddit_username}`;
+    // Tell extension not to auto-send on the compose page
+    if (prepareDraft) await prepareDraft();
+
+    try {
+      await navigator.clipboard.writeText(replyBody);
+    } catch { /* silent */ }
+
+    const subject = dm.dm_subject?.trim() || replyBody.slice(0, 60).split('\n')[0];
     const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(replyBody)}`;
     window.open(url, '_blank');
   }
@@ -256,36 +221,23 @@ export function ConversationDrawer({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && replyBody.trim()) {
                 e.preventDefault();
-                if (extensionReady && sendDm) handleSendReply();
-                else handleCopyAndOpen();
+                handleSendOnReddit();
               }
             }}
           />
 
           <div className="flex items-center gap-2">
-            {extensionReady && sendDm ? (
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                onClick={handleSendReply}
-                disabled={sending || !replyBody.trim()}
-              >
-                <Send className="mr-1 h-3 w-3" />
-                {sending ? 'Sending...' : 'Send Reply'}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                onClick={handleCopyAndOpen}
-                disabled={!replyBody.trim()}
-              >
-                <Copy className="mr-1 h-3 w-3" />
-                Copy & Open Reddit
-              </Button>
-            )}
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={handleSendOnReddit}
+              disabled={!replyBody.trim()}
+            >
+              <Send className="mr-1 h-3 w-3" />
+              Send on Reddit
+            </Button>
             <span className="text-[10px] text-muted-foreground ml-auto">
-              {extensionReady ? '\u2318+Enter to send' : '\u2318+Enter to copy & open'}
+              {'\u2318'}+Enter to send
             </span>
           </div>
         </div>
