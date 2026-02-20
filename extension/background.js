@@ -6,14 +6,20 @@ const STORAGE_KEY = 'sr_chat_usernames';
 const YOU_SENT_TO_KEY = 'sr_you_sent_to';
 const THEY_REPLIED_KEY = 'sr_they_replied';
 const PREVIEWS_KEY = 'sr_chat_previews';
+const CONVERSATIONS_KEY = 'sr_conversations';
 const SCAN_READY_KEY = 'sr_scan_ready';
 
 const SCAN_ALARM = 'sr_periodic_scan';
+const MSG_FETCH_ALARM = 'sr_message_fetch';
 const SCAN_INTERVAL_MINUTES = 5;
+const MSG_FETCH_INTERVAL_MINUTES = 3;
 let lastTabOpenTime = 0;
 let lastSendDmTime = 0;
 let pendingSendDm = null; // { resolve, tabId, timer }
 let composeTabId = null;
+
+const CHAT_URLS_KEY = 'sr_chat_urls';
+const CONVERSATION_CACHE_TTL = 5 * 60 * 1000;
 
 // ---- On install/update: start periodic scanning ----
 chrome.runtime.onInstalled.addListener((details) => {
@@ -25,17 +31,35 @@ chrome.runtime.onInstalled.addListener((details) => {
     );
   }
 
-  // After install/update, reload any existing reddit chat tabs so they get fresh content scripts
+  // On update: clear conversations (forces fresh scrape) but keep chatUrls
+  // (so direct navigation still works immediately)
+  if (details.reason === 'update') {
+    chrome.storage.local.remove(CONVERSATIONS_KEY, () =>
+      console.log('[SR BG] Update — cleared stale conversations, keeping chatUrls')
+    );
+  }
+
+  // After install/update, re-inject content scripts into existing tabs
   // (old content scripts are orphaned and can't communicate with the new background)
   setTimeout(async () => {
-    const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
-    for (const tab of tabs) {
+    // Reload reddit chat tabs
+    const redditTabs = await chrome.tabs.query({ url: '*://*.reddit.com/chat*' });
+    for (const tab of redditTabs) {
       console.log('[SR BG] Reloading chat tab ' + tab.id + ' for fresh content script');
       chrome.tabs.reload(tab.id);
     }
-    // If no chat tabs exist, open one
-    if (tabs.length === 0) {
+    if (redditTabs.length === 0) {
       ensureChatTab().catch(() => {});
+    }
+
+    // Re-inject content.js into app tabs (localhost + vercel) so bridge reconnects
+    const appTabs = await chrome.tabs.query({ url: ['http://localhost/*', 'https://*.vercel.app/*'] });
+    for (const tab of appTabs) {
+      console.log('[SR BG] Re-injecting content.js into app tab ' + tab.id);
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js'],
+      }).catch(() => {});
     }
   }, 1000);
 
@@ -49,6 +73,7 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create(SCAN_ALARM, { delayInMinutes: 1, periodInMinutes: SCAN_INTERVAL_MINUTES });
   // Open chat tab to start scanning
   setTimeout(() => ensureChatTab().catch(() => {}), 5000);
+  // Legacy inbox API fetch disabled — chat pipeline is the sole data source
 });
 
 // ---- Periodic alarm: refresh chat data in background ----
@@ -57,6 +82,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     console.log('[SR BG] Periodic scan — ensuring chat tab is open');
     refreshChatTab();
   }
+  // Legacy inbox API fetch disabled — chat pipeline is the sole data source
 });
 
 // Refresh the chat tab to trigger a fresh scan by the content script
@@ -395,8 +421,130 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'STORE_CHAT_URLS') {
+    const chatUrls = message.chatUrls || {};
+    if (Object.keys(chatUrls).length > 0) {
+      chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+        const existing = result[CHAT_URLS_KEY] || {};
+        const merged = { ...existing, ...chatUrls };
+        chrome.storage.local.set({ [CHAT_URLS_KEY]: merged });
+      });
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  // ---- Full conversation data (from chat-interceptor + content script parsing) ----
+
+  if (message.type === 'STORE_CONVERSATION_MESSAGES') {
+    const { username, messages, source } = message;
+    if (!username || !messages || messages.length === 0) {
+      sendResponse({ ok: false });
+      return false;
+    }
+    chrome.storage.local.get(CONVERSATIONS_KEY, (result) => {
+      const convos = result[CONVERSATIONS_KEY] || {};
+      const existing = convos[username] || { messages: [], lastUpdated: 0 };
+      // Merge: add new messages by ID, avoiding duplicates
+      const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+      let added = 0;
+      for (const msg of messages) {
+        if (msg.id && existingIds.has(msg.id)) continue;
+        existing.messages.push(msg);
+        added++;
+      }
+      // Sort by timestamp
+      existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      // Cap at 200 messages per conversation
+      if (existing.messages.length > 200) {
+        existing.messages = existing.messages.slice(-200);
+      }
+      existing.lastUpdated = Date.now();
+      existing.source = source || 'unknown';
+      convos[username] = existing;
+      chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos });
+      if (added > 0) {
+        console.log('[SR BG] Stored ' + added + ' new messages for u/' + username + ' (total: ' + existing.messages.length + ')');
+      }
+      sendResponse({ ok: true, added });
+    });
+    return true;
+  }
+
+  if (message.type === 'FETCH_ALL_CONVERSATIONS') {
+    // Legacy inbox API fetch disabled — chat pipeline is the sole data source
+    sendResponse({ fetched: false });
+    return true;
+  }
+
+  if (message.type === 'GET_FULL_CONVERSATION') {
+    const { username } = message.data || message;
+    if (!username) {
+      sendResponse({ messages: [], error: 'No username provided' });
+      return false;
+    }
+    const userLower = username.toLowerCase();
+
+    (async () => {
+      try {
+        // 1. Check cache — if fresh (< 5 min), return immediately
+        const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+        const convos = stored[CONVERSATIONS_KEY] || {};
+        const cached = convos[userLower] || null;
+        const now = Date.now();
+
+        if (cached && cached.messages && cached.messages.length > 0) {
+          const age = now - (cached.lastUpdated || 0);
+          if (age < CONVERSATION_CACHE_TTL) {
+            console.log('[SR BG] GET_FULL_CONVERSATION: returning cached ' + cached.messages.length + ' msgs for u/' + username + ' (age: ' + Math.round(age / 1000) + 's)');
+            sendResponse({
+              messages: cached.messages,
+              lastUpdated: cached.lastUpdated,
+              source: cached.source,
+            });
+            return;
+          }
+        }
+
+        // 2. Try navigation (direct URL or sidebar click) — WebSocket captures messages
+        const result = await fetchConversationViaNavigation(username);
+
+        // 3. Return whatever we have (fresh fetch, or stale cache as last resort)
+        if (result && result.messages && result.messages.length > 0) {
+          sendResponse({
+            messages: result.messages,
+            lastUpdated: result.lastUpdated,
+            source: result.source,
+          });
+        } else if (cached && cached.messages && cached.messages.length > 0) {
+          console.log('[SR BG] GET_FULL_CONVERSATION: returning stale cache for u/' + username);
+          sendResponse({
+            messages: cached.messages,
+            lastUpdated: cached.lastUpdated,
+            source: cached.source,
+          });
+        } else {
+          sendResponse({ messages: [], lastUpdated: null, source: null });
+        }
+      } catch (err) {
+        console.log('[SR BG] GET_FULL_CONVERSATION error for u/' + username + ':', err.message);
+        // Return stale cache on error
+        const fallbackStored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+        const fallbackConvos = fallbackStored[CONVERSATIONS_KEY] || {};
+        const fallback = fallbackConvos[userLower] || null;
+        sendResponse({
+          messages: fallback ? fallback.messages : [],
+          lastUpdated: fallback ? fallback.lastUpdated : null,
+          source: fallback ? fallback.source : null,
+          error: err.message,
+        });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'CHAT_SCAN_RESULT') {
-    const { usernames = [], youSentTo = [], theyReplied = [], previews = {} } = message;
+    const { usernames = [], youSentTo = [], theyReplied = [], previews = {}, chatUrls = {} } = message;
     console.log(`[SR BG] Chat scan complete: ${usernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
     if (usernames.length > 0) {
       // Usernames — cumulative
@@ -434,6 +582,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             merged[username] = { text: newP.text, fromYou: newP.fromYou, theirText };
           }
           chrome.storage.local.set({ [PREVIEWS_KEY]: merged });
+        });
+      }
+      // Chat URLs — cumulative merge
+      if (Object.keys(chatUrls).length > 0) {
+        chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+          const existing = result[CHAT_URLS_KEY] || {};
+          const merged = { ...existing, ...chatUrls };
+          chrome.storage.local.set({ [CHAT_URLS_KEY]: merged });
         });
       }
     }
@@ -579,6 +735,362 @@ async function pullDataFromChatTab() {
       resolve(null);
     }
   });
+}
+
+// ---- Background Reddit Message Fetching ----
+// Uses chrome.scripting.executeScript to fetch messages FROM a Reddit tab,
+// so the browser automatically includes session cookies. Runs on a periodic
+// alarm — no user action needed.
+
+async function getRedditTabId() {
+  // Prefer the chat tab we already manage
+  if (chatTabId) {
+    try {
+      const tab = await chrome.tabs.get(chatTabId);
+      if (tab && tab.url && tab.url.includes('reddit.com')) return chatTabId;
+    } catch { /* tab gone */ }
+  }
+  // Fall back to any open reddit tab
+  const tabs = await chrome.tabs.query({ url: '*://*.reddit.com/*' });
+  if (tabs.length > 0) return tabs[0].id;
+  return null;
+}
+
+async function fetchRedditMessages() {
+  let tabId = await getRedditTabId();
+
+  if (!tabId) {
+    // No Reddit tab — open one in the background
+    try {
+      const tab = await chrome.tabs.create({ url: 'https://www.reddit.com/message/inbox', active: false });
+      tabId = tab.id;
+      // Wait for page to load
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    } catch (err) {
+      console.log('[SR BG] Could not create Reddit tab:', err.message);
+      return { fetched: false, reason: 'no_tab' };
+    }
+  }
+
+  try {
+    // Execute fetch inside the Reddit page context — cookies included automatically
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: async function () {
+        try {
+          var responses = await Promise.all([
+            fetch('/message/inbox.json?limit=100&raw_json=1'),
+            fetch('/message/sent.json?limit=100&raw_json=1'),
+          ]);
+          if (!responses[0].ok || !responses[1].ok) {
+            return { error: 'HTTP ' + responses[0].status + '/' + responses[1].status };
+          }
+          var inbox = await responses[0].json();
+          var sent = await responses[1].json();
+          return { inbox: inbox, sent: sent };
+        } catch (e) {
+          return { error: e.message };
+        }
+      },
+    });
+
+    if (!results || !results[0] || !results[0].result) {
+      console.log('[SR BG] executeScript returned no result');
+      return { fetched: false, reason: 'no_result' };
+    }
+
+    const data = results[0].result;
+    if (data.error) {
+      console.log('[SR BG] Message fetch page error:', data.error);
+      return { fetched: false, reason: data.error };
+    }
+
+    const { inbox, sent } = data;
+
+    // Determine who "me" is from sent messages
+    const sentChildren = (sent && sent.data && sent.data.children) || [];
+    let myUsername = null;
+    for (const child of sentChildren) {
+      if (child.data && child.data.author) {
+        myUsername = child.data.author.toLowerCase();
+        break;
+      }
+    }
+
+    // Parse messages
+    const inboxChildren = (inbox && inbox.data && inbox.data.children) || [];
+    const allRaw = [];
+
+    for (const child of inboxChildren) {
+      if (child.kind !== 't4') continue; // Only DMs, skip comment replies (t1) and post replies (t3)
+      const d = child && child.data;
+      if (!d || !d.body) continue;
+      allRaw.push({
+        id: d.name || ('t4_' + d.id),
+        text: d.body,
+        author: (d.author || '').toLowerCase(),
+        dest: (d.dest || '').toLowerCase(),
+        isFromYou: myUsername ? (d.author || '').toLowerCase() === myUsername : false,
+        timestamp: (d.created_utc || 0) * 1000,
+      });
+    }
+    for (const child of sentChildren) {
+      const d = child && child.data;
+      if (!d || !d.body) continue;
+      allRaw.push({
+        id: d.name || ('t4_' + d.id),
+        text: d.body,
+        author: (d.author || '').toLowerCase(),
+        dest: (d.dest || '').toLowerCase(),
+        isFromYou: true,
+        timestamp: (d.created_utc || 0) * 1000,
+      });
+    }
+
+    if (allRaw.length === 0) {
+      console.log('[SR BG] No messages found in inbox/sent (inbox=' + inboxChildren.length + ' sent=' + sentChildren.length + ')');
+      return { fetched: true, count: 0, conversations: 0 };
+    }
+
+    // If we couldn't determine "me" from sent, try from inbox (dest is me)
+    if (!myUsername && inboxChildren.length > 0) {
+      const firstInbox = inboxChildren[0].data;
+      if (firstInbox) myUsername = (firstInbox.dest || '').toLowerCase();
+    }
+
+    // Group by conversation partner
+    const grouped = {};
+    for (const msg of allRaw) {
+      const partner = msg.isFromYou ? msg.dest : msg.author;
+      if (!partner || partner === myUsername) continue;
+      if (!grouped[partner]) grouped[partner] = [];
+      grouped[partner].push({
+        id: msg.id,
+        text: msg.text,
+        author: msg.isFromYou ? (myUsername || 'you') : partner,
+        isFromYou: msg.isFromYou,
+        timestamp: msg.timestamp,
+      });
+    }
+
+    // Merge into conversation storage
+    const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+    const convos = stored[CONVERSATIONS_KEY] || {};
+    let totalAdded = 0;
+
+    for (const [partner, messages] of Object.entries(grouped)) {
+      const existing = convos[partner] || { messages: [], lastUpdated: 0 };
+      const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+
+      let added = 0;
+      for (const msg of messages) {
+        if (msg.id && existingIds.has(msg.id)) continue;
+        existing.messages.push(msg);
+        added++;
+      }
+
+      existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      if (existing.messages.length > 200) {
+        existing.messages = existing.messages.slice(-200);
+      }
+      existing.lastUpdated = Date.now();
+      if (!existing.source || existing.source === 'background_fetch') {
+        existing.source = 'background_fetch';
+      }
+      convos[partner] = existing;
+      totalAdded += added;
+    }
+
+    await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+    console.log('[SR BG] Message fetch: ' + totalAdded + ' new msgs across ' + Object.keys(grouped).length + ' conversations');
+    return { fetched: true, count: totalAdded, conversations: Object.keys(grouped).length };
+  } catch (err) {
+    console.log('[SR BG] Message fetch error:', err.message);
+    return { fetched: false, reason: err.message };
+  }
+}
+
+// ---- Navigation-Based Conversation Fetching ----
+// Uses direct URL navigation when a chatUrl is known, falls back to sidebar click.
+// After navigation, waits for WebSocket interceptor to capture messages.
+
+async function getStoredChatUrls() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+      resolve(result[CHAT_URLS_KEY] || {});
+    });
+  });
+}
+
+async function fetchConversationViaNavigation(username) {
+  const tabId = chatTabId || await ensureChatTab().catch(() => null);
+  if (!tabId) {
+    console.log('[SR BG] No chat tab for navigation');
+    return null;
+  }
+
+  const userLower = username.toLowerCase();
+
+  // Helper: wait for tab to finish loading after navigation
+  function waitForTabLoad(tid, maxWaitMs) {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }, maxWaitMs);
+      function listener(updatedTabId, changeInfo) {
+        if (updatedTabId === tid && changeInfo.status === 'complete') {
+          clearTimeout(timeout);
+          chrome.tabs.onUpdated.removeListener(listener);
+          // Give extra time for JS to execute and WS to connect
+          setTimeout(resolve, 2000);
+        }
+      }
+      chrome.tabs.onUpdated.addListener(listener);
+    });
+  }
+
+  // Helper: check storage for conversation messages, with retry
+  async function checkStoredMessages(user, retries, delayMs) {
+    for (let i = 0; i < retries; i++) {
+      const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+      const convos = stored[CONVERSATIONS_KEY] || {};
+      const convo = convos[user] || null;
+      if (convo && convo.messages && convo.messages.length > 0) {
+        return convo;
+      }
+      if (i < retries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return null;
+  }
+
+  // Helper: DOM scrape attempt
+  async function tryScrape(tid) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve([]), 5000);
+      chrome.tabs.sendMessage(tid, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError || !resp) {
+          resolve([]);
+          return;
+        }
+        resolve(resp.messages || []);
+      });
+    });
+  }
+
+  try {
+    // Step 1: Check if we have a direct chat URL for this user
+    const chatUrls = await getStoredChatUrls();
+    const chatPath = chatUrls[userLower];
+    console.log('[SR BG] chatUrls stored: ' + Object.keys(chatUrls).length + ' entries. Path for u/' + username + ': ' + (chatPath || 'none'));
+
+    if (chatPath) {
+      // Direct URL navigation — much more reliable than sidebar clicking
+      // Fix path: Reddit link hrefs are /room/!... but actual URL needs /chat/room/!...
+      let adjustedPath = chatPath;
+      if (adjustedPath.startsWith('/room/') && !adjustedPath.startsWith('/chat/')) {
+        adjustedPath = '/chat' + adjustedPath;
+      }
+      const fullUrl = adjustedPath.startsWith('http') ? adjustedPath : 'https://www.reddit.com' + adjustedPath;
+      console.log('[SR BG] Navigating directly to ' + fullUrl + ' for u/' + username);
+      await chrome.tabs.update(tabId, { url: fullUrl });
+
+      // Wait for page load + interceptor to capture messages
+      await waitForTabLoad(tabId, 8000);
+
+      // Check storage with retries (interceptor might need a moment)
+      const convo = await checkStoredMessages(userLower, 3, 1500);
+      if (convo) {
+        console.log('[SR BG] Direct nav: found ' + convo.messages.length + ' messages for u/' + username);
+        return convo;
+      }
+
+      // Try DOM scrape as fallback — wait a bit longer for page to fully render
+      console.log('[SR BG] Direct nav: no intercepted messages, waiting 3s then trying DOM scrape...');
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const scraped = await tryScrape(tabId);
+      if (scraped.length > 0) {
+        console.log('[SR BG] Direct nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
+        // Log first message preview to verify quality
+        if (scraped[0]) console.log('[SR BG] First scraped msg: "' + (scraped[0].text || '').substring(0, 80) + '"');
+        return await storeScrapedMessages(userLower, scraped);
+      }
+
+      console.log('[SR BG] Direct nav: no messages found for u/' + username);
+      return null;
+    }
+
+    // Step 2: No chatUrl stored — fall back to sidebar click navigation
+    console.log('[SR BG] No chatUrl for u/' + username + ', falling back to sidebar click');
+    const response = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(null), 10000);
+      chrome.tabs.sendMessage(tabId, { type: 'NAVIGATE_TO_CHAT', username }, (resp) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError) {
+          console.log('[SR BG] NAVIGATE_TO_CHAT failed:', chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+        resolve(resp);
+      });
+    });
+
+    if (!response || !response.triggered) {
+      console.log('[SR BG] Sidebar nav: could not trigger conversation for u/' + username);
+      return null;
+    }
+
+    console.log('[SR BG] Sidebar nav: triggered conversation for u/' + username + ', waiting for capture...');
+
+    // Check storage with retries (wait for interceptor/WebSocket)
+    const convo = await checkStoredMessages(userLower, 4, 1500);
+    if (convo) {
+      console.log('[SR BG] Sidebar nav: found ' + convo.messages.length + ' messages for u/' + username);
+      return convo;
+    }
+
+    // DOM scrape fallback
+    console.log('[SR BG] Sidebar nav: no intercepted messages, trying DOM scrape...');
+    const scraped = await tryScrape(tabId);
+    if (scraped.length > 0) {
+      console.log('[SR BG] Sidebar nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
+      return await storeScrapedMessages(userLower, scraped);
+    }
+
+    console.log('[SR BG] Sidebar nav: no messages found for u/' + username);
+    return null;
+  } catch (err) {
+    console.log('[SR BG] Navigation error for u/' + username + ':', err.message);
+    return null;
+  }
+}
+
+// Helper: store scraped messages into conversation storage
+async function storeScrapedMessages(userLower, scraped) {
+  const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+  const convos = stored[CONVERSATIONS_KEY] || {};
+  const existing = convos[userLower] || { messages: [], lastUpdated: 0 };
+  const existingIds = new Set(existing.messages.map((m) => m.id).filter(Boolean));
+
+  let added = 0;
+  for (const msg of scraped) {
+    if (msg.id && existingIds.has(msg.id)) continue;
+    existing.messages.push(msg);
+    added++;
+  }
+  existing.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  if (existing.messages.length > 200) {
+    existing.messages = existing.messages.slice(-200);
+  }
+  existing.lastUpdated = Date.now();
+  existing.source = 'dom_scrape';
+  convos[userLower] = existing;
+  await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+  return existing;
 }
 
 // ---- Response Handlers ----

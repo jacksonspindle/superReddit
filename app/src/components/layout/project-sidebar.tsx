@@ -235,7 +235,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
           >
             <div className="space-y-1">
               {children.map((item) => {
-                const isActive = pathname.startsWith(item.href);
+                const isActive = pathname === item.href || pathname === item.href + '/';
                 const link = (
                   <Link
                     href={item.href}

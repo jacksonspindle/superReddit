@@ -19,6 +19,7 @@ interface KanbanLeadCardProps {
   onDraft?: (dm: OutreachDM) => void;
   onStageChange: (dmId: string, stage: string, outcome?: string) => void;
   onDismiss?: (dmId: string) => void;
+  onOpenConversation?: (dm: OutreachDM) => void;
 }
 
 const permissionConfig: Record<PermissionType, { label: string; className: string }> = {
@@ -49,6 +50,7 @@ export function KanbanLeadCard({
   onDraft,
   onStageChange,
   onDismiss,
+  onOpenConversation,
 }: KanbanLeadCardProps) {
   const permission = permissionConfig[dm.permission_type] || permissionConfig.passive_commenter;
   const subreddit = dm.signal?.subreddit || '';
@@ -57,7 +59,14 @@ export function KanbanLeadCard({
 
   return (
     <motion.div whileHover={cardHover} whileTap={cardTap} className="w-full min-w-0">
-      <div className="w-full rounded-lg border border-border bg-card/80 p-3 transition-shadow hover:shadow-md">
+      <div
+        className="w-full rounded-lg border border-border bg-card/80 p-3 transition-shadow hover:shadow-md cursor-pointer"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('button, a, input, [role="button"]')) return;
+          onOpenConversation?.(dm);
+        }}
+      >
         {/* Header: checkbox + avatar + name + actions */}
         <div className="flex items-center gap-2 mb-2">
           {stage === 'ready' && onSelect && (

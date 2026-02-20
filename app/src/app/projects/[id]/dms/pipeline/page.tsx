@@ -14,6 +14,7 @@ import type { SortOption } from '@/components/pipeline/PipelineToolbar';
 import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
+import { ConversationDrawer } from '@/components/pipeline/ConversationDrawer';
 import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
@@ -55,9 +56,19 @@ export default function DmPipelinePage() {
 
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
+  const [conversationDmId, setConversationDmId] = useState<string | null>(null);
+
+  // Conversation drawer — derived from allDms so it auto-refreshes
+  const conversationDm = conversationDmId
+    ? allDms.find((d) => d.id === conversationDmId) ?? null
+    : null;
+
+  const handleOpenConversation = useCallback((dm: OutreachDM) => {
+    setConversationDmId(dm.id);
+  }, []);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
   // Fetch all DMs
@@ -513,6 +524,7 @@ export default function DmPipelinePage() {
                     onDraft={setDraftingDm}
                     onStageChange={handleStageChange}
                     onDismiss={handleDismiss}
+                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -540,6 +552,7 @@ export default function DmPipelinePage() {
                     stage="sent"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
+                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -568,6 +581,7 @@ export default function DmPipelinePage() {
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onDraft={setDraftingDm}
                     onStageChange={handleStageChange}
+                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -594,6 +608,7 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="converted"
                     onStageChange={handleStageChange}
+                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -613,6 +628,7 @@ export default function DmPipelinePage() {
         onDraft={setDraftingDm}
         onStageChange={handleStageChange}
         onDismiss={handleDismiss}
+        onOpenConversation={handleOpenConversation}
       />
 
       {/* Draft DM dialog */}
@@ -636,6 +652,26 @@ export default function DmPipelinePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Conversation drawer */}
+      <ConversationDrawer
+        dm={conversationDm}
+        chatPreview={
+          conversationDm
+            ? chatPreviews[conversationDm.reddit_username.toLowerCase()]
+            : undefined
+        }
+        open={!!conversationDm}
+        onOpenChange={(open) => { if (!open) setConversationDmId(null); }}
+        onDraft={setDraftingDm}
+        sendDm={sendDm}
+        extensionReady={bridgeStatus.extensionInstalled && bridgeStatus.redditLoggedIn}
+        onSent={() => {
+          fetchDms();
+          fetchAndPersistPreviews();
+        }}
+        fetchConversation={fetchConversation}
+      />
     </PageTransition>
   );
 }
