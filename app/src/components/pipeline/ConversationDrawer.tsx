@@ -131,10 +131,6 @@ export function ConversationDrawer({
     return () => { cancelled = true; };
   }, [open, dm?.reddit_username, fetchConversation]);
 
-  if (!dm) return null;
-
-  const stage = stageConfig[dm.pipeline_stage] || stageConfig.detected;
-
   // Clean up poll on unmount or drawer close
   useEffect(() => {
     if (!open) {
@@ -188,6 +184,10 @@ export function ConversationDrawer({
       }
     }, 1500);
   }, [checkLastSend, onSent]);
+
+  if (!dm) return null;
+
+  const stage = stageConfig[dm.pipeline_stage] || stageConfig.detected;
 
   async function handleSendOnReddit() {
     if (!dm || !replyBody.trim()) return;
