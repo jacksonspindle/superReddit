@@ -563,10 +563,6 @@ export function SendQueueMode({
                     </Badge>
                   )}
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleSkip} disabled={sentFlash || swipeDisabled} className="text-xs h-7">
-                  <SkipForward className="mr-1 h-3 w-3" />
-                  Skip
-                </Button>
               </div>
               <div className="mt-2 h-0.5 w-full bg-muted rounded-full overflow-hidden">
                 <motion.div
@@ -744,7 +740,7 @@ export function SendQueueMode({
                 </div>
 
                 {/* Tinder-style action buttons */}
-                <div className="flex items-center justify-center gap-8 pt-5 pb-2">
+                <div className="flex items-center justify-center gap-6 pt-5 pb-2">
                   <button
                     onClick={handleDismissLead}
                     disabled={sentFlash || swipeDisabled}
@@ -754,6 +750,16 @@ export function SendQueueMode({
                       <X className="h-6 w-6" />
                     </div>
                     <span className="text-xs text-muted-foreground group-hover:text-red-500 transition-colors">Dismiss</span>
+                  </button>
+                  <button
+                    onClick={handleSkip}
+                    disabled={sentFlash || swipeDisabled}
+                    className="flex flex-col items-center gap-1.5 group disabled:opacity-40"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-muted-foreground/20 text-muted-foreground transition-colors group-hover:border-blue-500/50 group-hover:text-blue-500">
+                      <SkipForward className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs text-muted-foreground group-hover:text-blue-500 transition-colors">Skip</span>
                   </button>
                   <button
                     onClick={handleSend}
