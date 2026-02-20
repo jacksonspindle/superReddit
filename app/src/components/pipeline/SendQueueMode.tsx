@@ -88,8 +88,9 @@ export function SendQueueMode({
 
   // Swipe gesture state
   const swipeX = useMotionValue(0);
-  const leftOverlayOpacity = useTransform(swipeX, [-150, 0], [1, 0]);
-  const rightOverlayOpacity = useTransform(swipeX, [0, 150], [0, 1]);
+  const swipeRotate = useTransform(swipeX, [-200, 200], [-12, 12]);
+  const leftOverlayOpacity = useTransform(swipeX, [-200, -50], [1, 0]);
+  const rightOverlayOpacity = useTransform(swipeX, [50, 200], [0, 1]);
   const swipeDisabled = sending || sentFlash || cooldownRemaining > 0 || !!pauseReason;
 
   // Active queue (excluding dismissed leads)
@@ -418,7 +419,7 @@ export function SendQueueMode({
 
               {rateLimit && (rateLimit.dailyLimit - rateLimit.dailyCount) < queue.length && (rateLimit.dailyLimit - rateLimit.dailyCount) > 0 && (
                 <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 text-xs text-yellow-700 dark:text-yellow-300">
-                  You have {rateLimit.dailyLimit - rateLimit.dailyCount} sends remaining today. {queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount)} lead{queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount) !== 1 ? 's' : ''} will need to wait.
+                  Reddit&apos;s messaging guidelines limit daily sends. You have {rateLimit.dailyLimit - rateLimit.dailyCount} sends remaining today — {queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount)} lead{queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount) !== 1 ? 's' : ''} will need to wait until tomorrow.
                 </div>
               )}
 
@@ -513,9 +514,9 @@ export function SendQueueMode({
           </motion.div>
         )}
 
-        {/* ── Active lead view ── */}
+        {/* ── Active lead view — Tinder-style ── */}
         {started && !isFinished && currentDm && (
-          <>
+          <div className="flex-1 flex flex-col items-center">
             {/* Sent flash */}
             <AnimatePresence>
               {sentFlash && (
@@ -539,8 +540,8 @@ export function SendQueueMode({
               )}
             </AnimatePresence>
 
-            {/* Header bar */}
-            <div className="border-b px-6 py-3">
+            {/* Minimal header */}
+            <div className="w-full px-6 py-3 border-b">
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="sm" onClick={() => {
                   if (confirm('Exit send queue? Your progress will be saved.')) onClose();
@@ -558,16 +559,10 @@ export function SendQueueMode({
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={handleSkip} disabled={sentFlash} className="text-xs h-7">
-                    <SkipForward className="mr-1 h-3 w-3" />
-                    Skip
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={handleDismissLead} disabled={sentFlash}>
-                    <X className="mr-1 h-3 w-3" />
-                    Dismiss
-                  </Button>
-                </div>
+                <Button variant="ghost" size="sm" onClick={handleSkip} disabled={sentFlash || swipeDisabled} className="text-xs h-7">
+                  <SkipForward className="mr-1 h-3 w-3" />
+                  Skip
+                </Button>
               </div>
               <div className="mt-2 h-0.5 w-full bg-muted rounded-full overflow-hidden">
                 <motion.div
@@ -579,272 +574,201 @@ export function SendQueueMode({
               </div>
             </div>
 
-            {/* Main content — swipeable container */}
-            <motion.div
-              className="flex-1 min-h-0 flex overflow-hidden relative"
-              style={{ x: swipeX }}
-              drag={swipeDisabled ? false : 'x'}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.7}
-              onDragEnd={onSwipeDragEnd}
-            >
-              {/* Swipe left overlay — dismiss (red) */}
-              <motion.div
-                className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-red-500/20"
-                style={{ opacity: leftOverlayOpacity }}
-              >
-                <div className="h-20 w-20 rounded-full bg-red-500/80 flex items-center justify-center">
-                  <X className="h-10 w-10 text-white" />
-                </div>
-              </motion.div>
-
-              {/* Swipe right overlay — send (green) */}
-              <motion.div
-                className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center bg-green-500/20"
-                style={{ opacity: rightOverlayOpacity }}
-              >
-                <div className="h-20 w-20 rounded-full bg-green-500/80 flex items-center justify-center">
-                  <Send className="h-10 w-10 text-white" />
-                </div>
-              </motion.div>
-
-              {/* Left: Post + singled-out comment */}
-              <div className="w-[420px] shrink-0 border-r bg-muted/20 p-5 overflow-y-auto">
-                <div className="rounded-xl border bg-card overflow-hidden">
-                  {/* ── Post ── */}
-                  <div className="p-4 pb-3 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="font-medium">
-                        {currentDm.signal
-                          ? `r/${currentDm.signal.subreddit}`
-                          : (() => {
-                              const match = currentDm.source_thread_permalink?.match(/\/r\/([^/]+)/);
-                              return match ? `r/${match[1]}` : '';
-                            })()}
-                      </span>
-                      {currentDm.signal && (
-                        <>
-                          <span>&middot;</span>
-                          <span>{currentDm.signal.score} pts</span>
-                          <span>&middot;</span>
-                          <span>{currentDm.signal.num_comments} comments</span>
-                        </>
-                      )}
-                    </div>
-                    <a
-                      href={`https://reddit.com${currentDm.signal?.permalink || currentDm.source_thread_permalink || ''}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block font-semibold leading-snug hover:underline"
-                    >
-                      {currentDm.signal
-                        ? currentDm.signal.title
-                        : (() => {
-                            const match = currentDm.source_thread_permalink?.match(/\/comments\/[^/]+\/([^/]+)/);
-                            return match
-                              ? match[1].replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
-                              : 'View post';
-                          })()}
-                    </a>
-                  </div>
-
-                  {/* ── Lead info ── */}
-                  <div className="border-t px-4 py-3 flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-bold text-muted-foreground">
-                        {currentDm.reddit_username.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <a
-                        href={`https://reddit.com/u/${currentDm.reddit_username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold hover:underline"
-                      >
-                        u/{currentDm.reddit_username}
-                      </a>
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        {permInfo && (
-                          <span className={`font-medium ${permInfo.color}`}>{permInfo.label}</span>
-                        )}
-                        <span>&middot;</span>
-                        <span>{timeAgo(currentDm.created_at)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── Footer ── */}
-                  {(currentDm.signal || currentDm.source_thread_permalink) && (
-                    <div className="border-t px-4 py-2">
-                      <a
-                        href={`https://reddit.com${currentDm.signal?.permalink || currentDm.source_thread_permalink}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        View on Reddit
-                      </a>
-                    </div>
-                  )}
-                </div>
+            {/* Pause / Cooldown states */}
+            {pauseReason && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
+                <Clock className="h-6 w-6 text-muted-foreground" />
+                <p className="text-sm font-medium">{pauseReason}</p>
+                <Button variant="outline" size="sm" onClick={() => { setPauseReason(null); fetchRateLimit(); }}>
+                  Check Again
+                </Button>
               </div>
+            )}
 
-              {/* Right: DM composer — chat-like layout */}
-              <div className="flex-1 flex flex-col min-w-0">
-                {/* DM header — who you're messaging */}
-                <div className="px-5 py-3 border-b flex items-center gap-3">
-                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    New message to{' '}
-                    <span className="font-semibold">u/{currentDm.reddit_username}</span>
-                  </span>
+            {!pauseReason && cooldownRemaining > 0 && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
+                <div className="text-2xl font-mono font-bold tabular-nums">
+                  {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}
                 </div>
+                <p className="text-xs text-muted-foreground">Next lead in {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}...</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground"
+                  onClick={skipCooldown}
+                >
+                  <SkipForward className="mr-1 h-3 w-3" />
+                  Skip timer (increases rate limit risk)
+                </Button>
+              </div>
+            )}
 
-                {/* Message area */}
-                <div className="flex-1 min-h-0 p-5 overflow-y-auto flex flex-col">
-                  {/* Their comment as incoming message */}
-                  {commentDisplay && (
-                    <div className="flex justify-start mb-4">
-                      <div className="max-w-[85%]">
-                        <p className="text-[11px] text-muted-foreground mb-1 ml-1">
-                          u/{currentDm.reddit_username}
-                        </p>
-                        <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-3">
-                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{commentDisplay}</p>
+            {/* Swipeable card area */}
+            {!pauseReason && cooldownRemaining === 0 && (
+              <div className="flex-1 w-full max-w-2xl mx-auto flex flex-col px-6 py-6">
+                {/* Card container */}
+                <div className="relative flex-1 min-h-0">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentDm.id}
+                      className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                      style={{ x: swipeX, rotate: swipeRotate }}
+                      drag={swipeDisabled ? false : 'x'}
+                      dragConstraints={{ left: 0, right: 0 }}
+                      dragElastic={0.8}
+                      onDragEnd={onSwipeDragEnd}
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                    >
+                      {/* Swipe indicators on card edges */}
+                      <motion.div
+                        className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/90 text-white shadow-lg"
+                        style={{ opacity: leftOverlayOpacity }}
+                      >
+                        <X className="h-6 w-6" />
+                      </motion.div>
+                      <motion.div
+                        className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/90 text-white shadow-lg"
+                        style={{ opacity: rightOverlayOpacity }}
+                      >
+                        <Check className="h-6 w-6" />
+                      </motion.div>
+
+                      {/* The card itself */}
+                      <div className="h-full rounded-2xl border bg-card shadow-xl overflow-hidden flex flex-col">
+                        {/* Card header — who + context */}
+                        <div className="px-5 pt-5 pb-3 border-b">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                              <span className="text-[10px] font-bold text-muted-foreground">
+                                {currentDm.reddit_username.slice(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-sm font-semibold">u/{currentDm.reddit_username}</span>
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                {permInfo && (
+                                  <span className={`font-medium ${permInfo.color}`}>{permInfo.label}</span>
+                                )}
+                                <span>&middot;</span>
+                                <span>
+                                  {currentDm.signal
+                                    ? `r/${currentDm.signal.subreddit}`
+                                    : (() => {
+                                        const match = currentDm.source_thread_permalink?.match(/\/r\/([^/]+)/);
+                                        return match ? `r/${match[1]}` : '';
+                                      })()}
+                                </span>
+                                <span>&middot;</span>
+                                <span>{timeAgo(currentDm.created_at)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card body — draft message */}
+                        <div className="flex-1 p-5 overflow-y-auto">
+                          {currentDraft && currentDraft.body ? (
+                            <div className="space-y-3">
+                              <p className="text-sm whitespace-pre-wrap leading-relaxed">{currentDraft.body}</p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[11px] text-muted-foreground"
+                                onClick={() => generateDraft(currentDm.id)}
+                                disabled={generating.has(currentDm.id)}
+                              >
+                                {generating.has(currentDm.id) ? (
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="mr-1 h-3 w-3" />
+                                )}
+                                Regenerate
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                              <MessageCircle className="h-8 w-8 text-muted-foreground/30" />
+                              <p className="text-sm text-muted-foreground">No draft yet</p>
+                              <Button
+                                variant="outline"
+                                onClick={() => generateDraft(currentDm.id)}
+                                disabled={generating.has(currentDm.id)}
+                              >
+                                {generating.has(currentDm.id) ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="mr-2 h-4 w-4" />
+                                    Generate Draft
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card footer — edit area */}
+                        <div className="border-t p-3">
+                          <div className="flex items-end gap-2">
+                            <Textarea
+                              ref={textareaRef}
+                              value={currentDraft?.body || ''}
+                              onChange={(e) => updateDraft(currentDm.id, 'body', e.target.value)}
+                              placeholder={`Edit message to u/${currentDm.reddit_username}...`}
+                              className="min-h-[44px] max-h-[120px] text-sm resize-none rounded-xl"
+                              rows={2}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  <div className="flex-1" />
-
-                  {currentDraft && currentDraft.body ? (
-                    /* Show draft as a message bubble */
-                    <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary text-primary-foreground px-4 py-3">
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{currentDraft.body}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Empty state */
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="text-center space-y-3">
-                        <MessageCircle className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                        <p className="text-sm text-muted-foreground">
-                          Write a message or generate a draft
-                        </p>
-                        <Button
-                          variant="outline"
-                          onClick={() => generateDraft(currentDm.id)}
-                          disabled={generating.has(currentDm.id)}
-                        >
-                          {generating.has(currentDm.id) ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Generate Draft
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
 
-                {/* Pause overlay */}
-                {pauseReason && (
-                  <div className="border-t p-5 flex flex-col items-center justify-center gap-3 text-center">
-                    <Clock className="h-6 w-6 text-muted-foreground" />
-                    <p className="text-sm font-medium">{pauseReason}</p>
-                    <Button variant="outline" size="sm" onClick={() => { setPauseReason(null); fetchRateLimit(); }}>
-                      Check Again
-                    </Button>
-                  </div>
-                )}
-
-                {/* Cooldown timer between sends */}
-                {!pauseReason && cooldownRemaining > 0 && (
-                  <div className="border-t p-5 flex flex-col items-center justify-center gap-3 text-center">
-                    <div className="text-2xl font-mono font-bold tabular-nums">
-                      {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}
+                {/* Tinder-style action buttons */}
+                <div className="flex items-center justify-center gap-8 pt-5 pb-2">
+                  <button
+                    onClick={handleDismissLead}
+                    disabled={sentFlash || swipeDisabled}
+                    className="flex flex-col items-center gap-1.5 group disabled:opacity-40"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-muted-foreground/20 text-muted-foreground transition-colors group-hover:border-red-500/50 group-hover:text-red-500">
+                      <X className="h-6 w-6" />
                     </div>
-                    <p className="text-xs text-muted-foreground">Next lead in {Math.floor(cooldownRemaining / 60)}:{String(cooldownRemaining % 60).padStart(2, '0')}...</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-muted-foreground"
-                      onClick={skipCooldown}
-                    >
-                      <SkipForward className="mr-1 h-3 w-3" />
-                      Skip timer (increases rate limit risk)
-                    </Button>
-                  </div>
-                )}
-
-                {/* Compose bar — always at bottom */}
-                {!pauseReason && cooldownRemaining === 0 && (
-                <div className="border-t p-3 space-y-2">
-                  {/* Regenerate button row */}
-                  {currentDraft && currentDraft.body && (
-                    <div className="flex items-center gap-2 px-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[11px] text-muted-foreground"
-                        onClick={() => generateDraft(currentDm.id)}
-                        disabled={generating.has(currentDm.id)}
-                      >
-                        {generating.has(currentDm.id) ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="mr-1 h-3 w-3" />
-                        )}
-                        Regenerate
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Input + send */}
-                  <div className="flex items-end gap-2">
-                    <Textarea
-                      ref={textareaRef}
-                      value={currentDraft?.body || ''}
-                      onChange={(e) => updateDraft(currentDm.id, 'body', e.target.value)}
-                      placeholder={`Message u/${currentDm.reddit_username}...`}
-                      className="min-h-[44px] max-h-[160px] text-sm resize-none rounded-xl"
-                      rows={2}
-                    />
-                    <Button
-                      size="icon"
-                      className="h-[44px] w-[44px] shrink-0 rounded-xl"
-                      onClick={handleSend}
-                      disabled={!hasDraftContent || sentFlash || sending}
-                      title={`Send (${typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter)`}
-                    >
+                    <span className="text-xs text-muted-foreground group-hover:text-red-500 transition-colors">Dismiss</span>
+                  </button>
+                  <button
+                    onClick={handleSend}
+                    disabled={!hasDraftContent || sentFlash || sending || swipeDisabled}
+                    className="flex flex-col items-center gap-1.5 group disabled:opacity-40"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white transition-transform group-hover:scale-105 group-disabled:bg-green-500/50">
                       {sending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-6 w-6 animate-spin" />
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <Check className="h-6 w-6" />
                       )}
-                    </Button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground px-1">
-                    {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to send
-                    {rateLimit && (
-                      <span className="ml-2">&middot; {rateLimit.dailyCount}/{rateLimit.dailyLimit} today</span>
-                    )}
-                  </p>
+                    </div>
+                    <span className="text-xs text-green-500 font-medium">Send</span>
+                  </button>
                 </div>
-                )}
+
+                {/* Hint text */}
+                <p className="text-center text-[10px] text-muted-foreground">
+                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to send
+                  {rateLimit && (
+                    <span className="ml-1">&middot; {rateLimit.dailyCount}/{rateLimit.dailyLimit} today</span>
+                  )}
+                </p>
               </div>
-            </motion.div>
-          </>
+            )}
+          </div>
         )}
       </motion.div>
     </AnimatePresence>
