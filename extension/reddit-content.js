@@ -1406,8 +1406,18 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
   // ---- Routing ----
   if (isOnComposePage()) {
-    // Auto-send on compose page (opened by SEND_DM)
-    handleComposePage();
+    // Check if this compose page was opened for manual send (queue mode)
+    chrome.storage.local.get('sr_pending_compose', function (result) {
+      var pending = result.sr_pending_compose;
+      if (pending && pending.manual && (Date.now() - pending.timestamp) < 300000) {
+        // Queue mode: user will click Send themselves — don't auto-send
+        chrome.storage.local.remove('sr_pending_compose');
+        console.log('[SuperReddit] Compose: manual mode — form pre-filled via URL, user will send');
+      } else {
+        // Existing SEND_DM flow: auto-send on compose page
+        handleComposePage();
+      }
+    });
   } else if (isOnChatPage()) {
     startScanning();
   } else {

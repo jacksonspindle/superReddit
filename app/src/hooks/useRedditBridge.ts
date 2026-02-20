@@ -269,6 +269,16 @@ export function useRedditBridge() {
     }
   }, []);
 
+  // Store a "manual compose" flag so the extension doesn't auto-send on the compose page
+  const prepareDraft = useCallback(async (): Promise<boolean> => {
+    try {
+      await sendToExtension<{ success: boolean }>('PREPARE_DM_DRAFT', 3_000);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const refreshConversations = useCallback(async (): Promise<boolean> => {
     try {
       const result = await sendToExtension<{
@@ -387,6 +397,7 @@ export function useRedditBridge() {
     youSentToList,
     theyRepliedList,
     sendDm,
+    prepareDraft,
     fetchConversation,
     checkYouSentTo,
     checkTheyReplied,

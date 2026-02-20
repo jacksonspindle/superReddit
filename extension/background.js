@@ -256,6 +256,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ---- PREPARE_DM_DRAFT: Store draft for manual compose (no auto-send) ----
+
+  if (message.type === 'PREPARE_DM_DRAFT') {
+    chrome.storage.local.set({
+      sr_pending_compose: {
+        manual: true,
+        timestamp: Date.now(),
+      },
+    });
+    console.log('[SR BG] PREPARE_DM_DRAFT: stored manual compose flag');
+    sendResponse({ success: true });
+    return;
+  }
+
   // ---- SEND_DM: Auto-send a DM via compose page ----
 
   if (message.type === 'SEND_DM') {

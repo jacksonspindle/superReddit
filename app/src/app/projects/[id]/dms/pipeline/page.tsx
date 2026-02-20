@@ -5,6 +5,7 @@ import { MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DmDraftBuilder } from '@/components/outreach/DmDraftBuilder';
@@ -14,6 +15,7 @@ import type { SortOption } from '@/components/pipeline/PipelineToolbar';
 import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
+import { SendQueueMode } from '@/components/pipeline/SendQueueMode';
 import { ConversationDrawer } from '@/components/pipeline/ConversationDrawer';
 import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
@@ -57,6 +59,7 @@ export default function DmPipelinePage() {
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
   const [conversationDmId, setConversationDmId] = useState<string | null>(null);
+  const [sendQueueActive, setSendQueueActive] = useState(false);
 
   // Conversation drawer — derived from allDms so it auto-refreshes
   const conversationDm = conversationDmId
@@ -68,7 +71,7 @@ export default function DmPipelinePage() {
   }, []);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, prepareDraft, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
   // Fetch all DMs
@@ -316,6 +319,20 @@ export default function DmPipelinePage() {
     handleStageChange(dmId, 'closed', 'dismissed');
   }
 
+  // Send queue: mark DM as sent via API
+  async function handleDmSent(dmId: string, dmContent: string, followUpDays: number | null) {
+    try {
+      await fetch('/api/outreach/dms/sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dm_id: dmId, dm_content: dmContent, follow_up_days: followUpDays }),
+      });
+      handleStageChange(dmId, 'dm_sent', undefined, true);
+    } catch {
+      toast.error('Failed to mark DM as sent');
+    }
+  }
+
   // Helper: normalize permalink for comparison
   const normalizePermalink = (p: string) => p.replace(/\/$/, '');
 
@@ -493,14 +510,28 @@ export default function DmPipelinePage() {
             />
 
             {/* Toolbar */}
-            <PipelineToolbar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              scanning={scanning}
-              onScan={handleScan}
-            />
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <PipelineToolbar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  scanning={scanning}
+                  onScan={handleScan}
+                />
+              </div>
+              {columns.ready.length > 0 && (
+                <Button
+                  size="lg"
+                  className="h-10 px-5 text-sm font-semibold shrink-0"
+                  onClick={() => setSendQueueActive(true)}
+                >
+                  <MoveRight className="mr-2 h-4 w-4" />
+                  Start Sending ({columns.ready.length})
+                </Button>
+              )}
+            </div>
 
             {/* Kanban board */}
             <div className="overflow-x-auto -mx-6 px-6">
@@ -652,6 +683,19 @@ export default function DmPipelinePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Send queue mode */}
+      {sendQueueActive && (
+        <SendQueueMode
+          dms={columns.ready}
+          projectId={project.id}
+          onClose={() => { setSendQueueActive(false); fetchDms(); }}
+          onStageChange={handleStageChange}
+          onDmSent={handleDmSent}
+          onDismiss={handleDismiss}
+          prepareDraft={prepareDraft}
+        />
+      )}
 
       {/* Conversation drawer */}
       <ConversationDrawer
