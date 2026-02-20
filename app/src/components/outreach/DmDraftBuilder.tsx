@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, ExternalLink, Sparkles, Check, X, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
@@ -26,8 +26,10 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
   const [body, setBody] = useState('');
   const [generating, setGenerating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [awaitingSend, setAwaitingSend] = useState(false);
   const [followUpDays, setFollowUpDays] = useState<string>('3');
-  const { prepareDraft } = useRedditBridge();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { prepareDraft, checkLastSend } = useRedditBridge();
 
   // Fetch templates
   useEffect(() => {
@@ -78,6 +80,38 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
     setGenerating(false);
   }
 
+  // Clean up poll on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, []);
+
+  // Poll extension for send detection after opening compose
+  function startSendPolling() {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    let polls = 0;
+    const MAX_POLLS = 40; // 40 × 1.5s = 60s
+
+    pollRef.current = setInterval(async () => {
+      polls++;
+      if (polls > MAX_POLLS) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        setAwaitingSend(false);
+        return;
+      }
+      const result = await checkLastSend();
+      if (result && result.success && result.username === username.toLowerCase()) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        window.focus();
+        setAwaitingSend(false);
+        // Auto-confirm sent
+        await handleConfirmSent();
+      }
+    }, 1500);
+  }
+
   async function handleCopyAndOpen() {
     // Tell extension not to auto-send on the compose page
     await prepareDraft();
@@ -89,6 +123,9 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
     const sub = subject || body.slice(0, 60).split('\n')[0];
     const composeUrl = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(username)}&subject=${encodeURIComponent(sub)}&message=${encodeURIComponent(body)}`;
     window.open(composeUrl, '_blank');
+
+    setAwaitingSend(true);
+    startSendPolling();
   }
 
   async function handleConfirmSent() {
@@ -169,14 +206,21 @@ export function DmDraftBuilder({ dmId, projectId, username, onSent }: DmDraftBui
       {/* Actions */}
       {(subject || body) && !showConfirm && (
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="h-8 text-xs"
-            onClick={handleCopyAndOpen}
-          >
-            <Send className="mr-1 h-3 w-3" />
-            Send on Reddit
-          </Button>
+          {awaitingSend ? (
+            <Button size="sm" className="h-8 text-xs" disabled>
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              Waiting for send...
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={handleCopyAndOpen}
+            >
+              <Send className="mr-1 h-3 w-3" />
+              Send on Reddit
+            </Button>
+          )}
           <a
             href={`https://www.reddit.com/user/${username}`}
             target="_blank"

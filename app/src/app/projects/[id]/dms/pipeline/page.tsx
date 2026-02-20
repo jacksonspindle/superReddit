@@ -712,6 +712,9 @@ export default function DmPipelinePage() {
         prepareDraft={prepareDraft}
         checkLastSend={checkLastSend}
         onSent={() => {
+          if (conversationDm) {
+            handleStageChange(conversationDm.id, 'dm_sent', undefined, true);
+          }
           fetchDms();
           fetchAndPersistPreviews();
         }}
