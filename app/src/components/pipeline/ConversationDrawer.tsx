@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ExternalLink, Send, Sparkles, Loader2, Check, X } from 'lucide-react';
+import { ExternalLink, Send, Sparkles, Loader2, Check } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -23,9 +23,13 @@ interface ConversationDrawerProps {
   chatPreview?: ChatPreview;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDraft?: (dm: OutreachDM) => void;
-  prepareDraft?: () => Promise<boolean>;
-  checkLastSend?: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
+  sendDm: (username: string, subject: string, body: string) => Promise<{
+    success: boolean;
+    error?: string;
+    rateLimited?: boolean;
+    retryAfterMs?: number;
+  }>;
+  projectId: string;
   onSent?: () => void;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
 }
@@ -101,19 +105,18 @@ export function ConversationDrawer({
   chatPreview,
   open,
   onOpenChange,
-  onDraft,
-  prepareDraft,
-  checkLastSend,
+  sendDm,
+  projectId,
   onSent,
   fetchConversation,
 }: ConversationDrawerProps) {
   const [replyBody, setReplyBody] = useState('');
+  const [draftSubject, setDraftSubject] = useState('');
   const [fullMessages, setFullMessages] = useState<ConversationMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [awaitingSend, setAwaitingSend] = useState(false);
+  const [sending, setSending] = useState(false);
   const [sentFlash, setSentFlash] = useState(false);
-  const [showSendConfirm, setShowSendConfirm] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const lastSentBodyRef = useRef('');
 
   // Fetch full conversation from extension when drawer opens
@@ -133,131 +136,101 @@ export function ConversationDrawer({
     return () => { cancelled = true; };
   }, [open, dm?.reddit_username, fetchConversation]);
 
-  // Clean up poll on unmount or drawer close
+  // Reset state when drawer closes
   useEffect(() => {
     if (!open) {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-      setAwaitingSend(false);
+      setSending(false);
       setSentFlash(false);
-      setShowSendConfirm(false);
+      setGeneratingDraft(false);
     }
-    return () => {
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-    };
   }, [open]);
 
-  // When user returns from Reddit tab while awaiting send, show manual confirmation
-  useEffect(() => {
-    function onVisibility() {
-      if (document.visibilityState === 'visible' && awaitingSend) {
-        // Give the auto-detect poll a few more seconds before showing manual confirm
-        setTimeout(() => {
-          // Only show if still awaiting (polling hasn't detected the send yet)
-          setAwaitingSend((current) => {
-            if (current) {
-              // Stop polling and show manual confirmation
-              if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-              setShowSendConfirm(true);
-            }
-            return false;
-          });
-        }, 3000);
+  // Generate AI draft
+  const handleGenerateDraft = useCallback(async () => {
+    if (!dm) return;
+    setGeneratingDraft(true);
+    try {
+      const res = await fetch('/api/ai/dm-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dm_id: dm.id, project_id: projectId }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        toast.error(json.error);
+      } else {
+        setReplyBody(json.body || '');
+        setDraftSubject(json.subject || '');
       }
+    } catch {
+      toast.error('Failed to generate draft');
     }
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [awaitingSend]);
+    setGeneratingDraft(false);
+  }, [dm, projectId]);
 
-  const handleConfirmManualSend = useCallback(() => {
-    const messageText = lastSentBodyRef.current;
-    setShowSendConfirm(false);
-    setSentFlash(true);
-    toast.success('DM marked as sent');
+  if (!dm) return null;
 
-    // Optimistically add sent message to timeline
-    if (messageText) {
+  const stage = stageConfig[dm.pipeline_stage] || stageConfig.detected;
+  const isReadyOrDraft = ['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage);
+  const showGenerateButton = isReadyOrDraft && !replyBody.trim();
+
+  async function handleSend() {
+    if (!dm || !replyBody.trim()) return;
+
+    setSending(true);
+    const subject = draftSubject.trim() || dm.dm_subject?.trim() || replyBody.slice(0, 60).split('\n')[0];
+    const body = replyBody;
+    lastSentBodyRef.current = body;
+
+    const result = await sendDm(dm.reddit_username, subject, body);
+
+    if (result.success) {
+      // Persist DM content + advance stage to dm_sent in the DB.
+      // This is the source of truth — must succeed before we celebrate.
+      let dbUpdated = false;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch('/api/outreach/dms/sent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dm_id: dm.id, dm_content: body }),
+          });
+          if (res.ok) {
+            dbUpdated = true;
+            break;
+          }
+        } catch { /* retry */ }
+      }
+
+      setSending(false);
+      setSentFlash(true);
+
+      if (dbUpdated) {
+        toast.success(`DM sent to u/${dm.reddit_username}`);
+      } else {
+        toast.warning('DM sent but failed to update pipeline — refresh to retry');
+      }
+
+      // Optimistically add sent message to timeline
       setFullMessages((prev) => [
         ...prev,
         {
           id: `optimistic_${Date.now()}`,
-          text: messageText,
+          text: body,
           author: 'you',
           isFromYou: true,
           timestamp: Date.now(),
         },
       ]);
+
+      setReplyBody('');
+      setDraftSubject('');
+      onSent?.();
+      setTimeout(() => setSentFlash(false), 2000);
+    } else {
+      setSending(false);
+      toast.error(result.error || 'Failed to send DM');
     }
-
-    setReplyBody('');
-    onSent?.();
-    setTimeout(() => setSentFlash(false), 2000);
-  }, [onSent]);
-
-  const startSendPolling = useCallback((targetUsername: string, messageText: string) => {
-    if (!checkLastSend) return;
-    if (pollRef.current) clearInterval(pollRef.current);
-    lastSentBodyRef.current = messageText;
-
-    let polls = 0;
-    const MAX_POLLS = 40; // 40 × 1.5s = 60s
-
-    pollRef.current = setInterval(async () => {
-      polls++;
-      if (polls > MAX_POLLS) {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-        setAwaitingSend(false);
-        // Show manual confirmation instead of silently giving up
-        setShowSendConfirm(true);
-        return;
-      }
-      const result = await checkLastSend();
-      if (result && result.success && result.username === targetUsername.toLowerCase()) {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-        // Success! Focus back + flash + notify
-        window.focus();
-        setAwaitingSend(false);
-        setSentFlash(true);
-        toast.success(`DM sent to u/${targetUsername}`);
-
-        // Optimistically add sent message to timeline
-        setFullMessages((prev) => [
-          ...prev,
-          {
-            id: `optimistic_${Date.now()}`,
-            text: messageText,
-            author: 'you',
-            isFromYou: true,
-            timestamp: Date.now(),
-          },
-        ]);
-
-        setReplyBody('');
-        onSent?.();
-        setTimeout(() => setSentFlash(false), 2000);
-      }
-    }, 1500);
-  }, [checkLastSend, onSent]);
-
-  if (!dm) return null;
-
-  const stage = stageConfig[dm.pipeline_stage] || stageConfig.detected;
-
-  async function handleSendOnReddit() {
-    if (!dm || !replyBody.trim()) return;
-
-    // Tell extension not to auto-send on the compose page
-    if (prepareDraft) await prepareDraft();
-
-    try {
-      await navigator.clipboard.writeText(replyBody);
-    } catch { /* silent */ }
-
-    const subject = dm.dm_subject?.trim() || replyBody.slice(0, 60).split('\n')[0];
-    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(replyBody)}`;
-    window.open(url, '_blank');
-
-    setAwaitingSend(true);
-    startSendPolling(dm.reddit_username, replyBody);
   }
 
   return (
@@ -317,14 +290,19 @@ export function ConversationDrawer({
 
         {/* Footer — reply area */}
         <div className="border-t px-5 py-4 space-y-3">
-          {onDraft && (
+          {showGenerateButton && (
             <button
               type="button"
-              className="flex items-center gap-1.5 text-xs text-primary hover:underline cursor-pointer"
-              onClick={() => onDraft(dm)}
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleGenerateDraft}
+              disabled={generatingDraft}
             >
-              <Sparkles className="h-3 w-3" />
-              Draft with AI
+              {generatingDraft ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {generatingDraft ? 'Generating draft...' : 'Generate Draft'}
             </button>
           )}
 
@@ -336,64 +314,36 @@ export function ConversationDrawer({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && replyBody.trim()) {
                 e.preventDefault();
-                handleSendOnReddit();
+                handleSend();
               }
             }}
           />
 
-          {showSendConfirm ? (
-            <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 p-2">
-              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                Did you send the DM?
-              </span>
-              <div className="ml-auto flex items-center gap-1">
-                <Button
-                  size="sm"
-                  className="h-6 text-[10px] px-2"
-                  onClick={handleConfirmManualSend}
-                >
-                  <Check className="mr-1 h-3 w-3" />
-                  Yes, sent
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-[10px] px-2"
-                  onClick={() => setShowSendConfirm(false)}
-                >
-                  <X className="mr-1 h-3 w-3" />
-                  Not yet
-                </Button>
-              </div>
-            </div>
-          ) : (
           <div className="flex items-center gap-2">
             {sentFlash ? (
               <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-600 text-white" disabled>
                 <Check className="mr-1 h-3 w-3" />
                 Sent!
               </Button>
-            ) : awaitingSend ? (
-              <Button size="sm" className="h-8 text-xs" disabled>
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                Waiting for send...
-              </Button>
             ) : (
               <Button
                 size="sm"
                 className="h-8 text-xs"
-                onClick={handleSendOnReddit}
-                disabled={!replyBody.trim()}
+                onClick={handleSend}
+                disabled={!replyBody.trim() || sending}
               >
-                <Send className="mr-1 h-3 w-3" />
-                Send on Reddit
+                {sending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="mr-1 h-3 w-3" />
+                )}
+                {sending ? 'Sending...' : 'Send'}
               </Button>
             )}
             <span className="text-[10px] text-muted-foreground ml-auto">
               {'\u2318'}+Enter to send
             </span>
           </div>
-          )}
         </div>
       </SheetContent>
     </Sheet>

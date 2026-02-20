@@ -99,7 +99,7 @@ export function KanbanLeadCard({
                     : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
               }`}
             >
-              #{dm.touch_number}
+              {dm.touch_number === 1 ? '1st' : dm.touch_number === 2 ? '2nd' : dm.touch_number === 3 ? '3rd' : `${dm.touch_number}th`} DM
             </Badge>
           )}
           {stage === 'ready' && onDismiss && (

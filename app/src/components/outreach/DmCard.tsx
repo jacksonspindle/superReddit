@@ -1,14 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { MessageSquare, Clock, Mail, ExternalLink, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { MessageSquare, Clock, Mail, ExternalLink, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cardHover, cardTap } from '@/lib/motion';
 import { DmPipelineBadge } from '@/components/outreach/DmPipelineBadge';
-import { DmDraftBuilder } from '@/components/outreach/DmDraftBuilder';
 import type { OutreachDM, PermissionType } from '@/types';
 
 interface DmCardProps {
@@ -48,7 +46,6 @@ function isFollowUpDue(dateStr: string | null): boolean {
 }
 
 export function DmCard({ dm, projectId, onStageChange }: DmCardProps) {
-  const [expanded, setExpanded] = useState(false);
   const permission = permissionConfig[dm.permission_type] || permissionConfig.passive_commenter;
   const subreddit = dm.signal?.subreddit || '';
   const threadTitle = dm.signal?.title || 'Thread';
@@ -139,17 +136,16 @@ export function DmCard({ dm, projectId, onStageChange }: DmCardProps) {
 
           {/* Action buttons */}
           <div className="flex items-center gap-1 pt-0.5 flex-wrap">
-            {/* Generate/Expand DM Builder */}
+            {/* DM action */}
             {dm.pipeline_stage !== 'dm_sent' && dm.pipeline_stage !== 'responded' && dm.pipeline_stage !== 'converted' && dm.pipeline_stage !== 'closed' && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-6 text-[11px] px-2"
-                onClick={() => setExpanded(!expanded)}
+                onClick={() => onStageChange(dm.id, 'dm_ready')}
               >
                 <MessageSquare className="mr-1 h-3 w-3" />
-                {expanded ? 'Hide' : 'DM'}
-                {expanded ? <ChevronUp className="ml-0.5 h-3 w-3" /> : <ChevronDown className="ml-0.5 h-3 w-3" />}
+                DM
               </Button>
             )}
 
@@ -208,15 +204,6 @@ export function DmCard({ dm, projectId, onStageChange }: DmCardProps) {
             </a>
           </div>
 
-          {/* Inline DM Draft Builder */}
-          {expanded && (
-            <DmDraftBuilder
-              dmId={dm.id}
-              projectId={projectId}
-              username={dm.reddit_username}
-              onSent={() => onStageChange(dm.id, 'dm_sent')}
-            />
-          )}
         </CardContent>
       </Card>
     </motion.div>

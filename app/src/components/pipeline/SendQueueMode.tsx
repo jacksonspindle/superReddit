@@ -11,7 +11,6 @@ import {
   ChevronRight,
   RefreshCw,
   Clock,
-  Copy,
   Send,
   MessageCircle,
 } from 'lucide-react';
@@ -37,8 +36,12 @@ interface SendQueueModeProps {
   onStageChange: (dmId: string, stage: string, outcome?: string) => void;
   onDmSent: (dmId: string, dmContent: string, followUpDays: number | null) => void;
   onDismiss: (dmId: string) => void;
-  prepareDraft: () => Promise<boolean>;
-  checkLastSend: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
+  sendDm: (username: string, subject: string, body: string) => Promise<{
+    success: boolean;
+    error?: string;
+    rateLimited?: boolean;
+    retryAfterMs?: number;
+  }>;
 }
 
 const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
@@ -60,8 +63,7 @@ export function SendQueueMode({
   onStageChange,
   onDmSent,
   onDismiss,
-  prepareDraft,
-  checkLastSend,
+  sendDm,
 }: SendQueueModeProps) {
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -71,13 +73,12 @@ export function SendQueueMode({
   const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 });
   const [followUpDays, setFollowUpDays] = useState<string>('3');
   const [sentFlash, setSentFlash] = useState(false);
-  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState(0);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Active queue (excluding dismissed leads)
@@ -193,7 +194,7 @@ export function SendQueueMode({
       const days = followUpDays === 'none' ? null : parseInt(followUpDays);
       onDmSent(dmId, bodyText, days);
       setSentCount((c) => c + 1);
-      setAwaitingConfirm(false);
+      setSending(false);
       setSentFlash(true);
 
       sentFlashTimeoutRef.current = setTimeout(() => {
@@ -204,59 +205,29 @@ export function SendQueueMode({
     [followUpDays, onDmSent]
   );
 
-  // Start polling for send detection after opening compose
-  const startSendPolling = useCallback((targetUsername: string, dmId: string, bodyText: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    let polls = 0;
-    const MAX_POLLS = 40; // 40 × 1.5s = 60s
-
-    pollRef.current = setInterval(async () => {
-      polls++;
-      if (polls > MAX_POLLS) {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-        // Timed out — leave in "confirm" state for manual confirmation
-        return;
-      }
-      const result = await checkLastSend();
-      if (result && result.success && result.username === targetUsername.toLowerCase()) {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-        // Auto-detected send! Focus back + advance
-        window.focus();
-        markSentAndAdvance(dmId, bodyText);
-      }
-    }, 1500);
-  }, [checkLastSend, markSentAndAdvance]);
-
-  // Tell extension to not auto-send, then open Reddit compose with pre-filled fields
-  const handleCopyAndOpen = useCallback(async () => {
+  // Send DM directly via extension
+  const handleSend = useCallback(async () => {
     if (!currentDm) return;
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
-    await prepareDraft();
-
-    try {
-      await navigator.clipboard.writeText(draft.body);
-    } catch { /* silent */ }
-
-    // Use subject from draft, or generate a short one from body
+    setSending(true);
     const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
 
-    const composeUrl = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(
-      currentDm.reddit_username
-    )}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
-    window.open(composeUrl, '_blank');
+    const result = await sendDm(currentDm.reddit_username, subject, draft.body);
 
-    setAwaitingConfirm(true);
-    startSendPolling(currentDm.reddit_username, currentDm.id, draft.body);
-  }, [currentDm, drafts, prepareDraft, startSendPolling]);
+    if (result.success) {
+      markSentAndAdvance(currentDm.id, draft.body);
+    } else {
+      setSending(false);
+      toast.error(result.error || 'Failed to send DM');
+    }
+  }, [currentDm, drafts, sendDm, markSentAndAdvance]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (sentFlashTimeoutRef.current) clearTimeout(sentFlashTimeoutRef.current);
-      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
 
@@ -272,19 +243,19 @@ export function SendQueueMode({
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (started && currentDm && !sentFlash && !awaitingConfirm && hasDraftContent) {
-          handleCopyAndOpen();
+        if (started && currentDm && !sentFlash && !sending && hasDraftContent) {
+          handleSend();
         }
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [started, isFinished, currentDm, sentFlash, awaitingConfirm, hasDraftContent, onClose, handleCopyAndOpen]);
+  }, [started, isFinished, currentDm, sentFlash, sending, hasDraftContent, onClose, handleSend]);
 
   function handleSkip() {
     if (!currentDm) return;
     setSkippedIds((prev) => new Set(prev).add(currentDm.id));
-    setAwaitingConfirm(false);
+    setSending(false);
     setCurrentIndex((i) => i + 1);
   }
 
@@ -292,7 +263,7 @@ export function SendQueueMode({
     if (!currentDm) return;
     onDismiss(currentDm.id);
     setDismissedIds((prev) => new Set(prev).add(currentDm.id));
-    setAwaitingConfirm(false);
+    setSending(false);
   }
 
   const progressPct = queue.length > 0 ? (currentIndex / queue.length) * 100 : 0;
@@ -648,58 +619,23 @@ export function SendQueueMode({
                       className="min-h-[44px] max-h-[160px] text-sm resize-none rounded-xl"
                       rows={2}
                     />
-                    {awaitingConfirm ? (
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() => {
-                            const draft = drafts.get(currentDm.id);
-                            markSentAndAdvance(currentDm.id, draft?.body || '');
-                          }}
-                        >
-                          <Check className="mr-1 h-3 w-3" />
-                          Sent
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-[10px]"
-                          onClick={() => setAwaitingConfirm(false)}
-                        >
-                          Not yet
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        size="icon"
-                        className="h-[44px] w-[44px] shrink-0 rounded-xl"
-                        onClick={handleCopyAndOpen}
-                        disabled={!hasDraftContent || sentFlash}
-                        title={`Open in Reddit (${typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter)`}
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  {!awaitingConfirm && (
-                    <p className="text-[10px] text-muted-foreground px-1">
-                      Opens Reddit with your message pre-filled &middot;{' '}
-                      {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter
-                    </p>
-                  )}
-                  {awaitingConfirm && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-[10px] text-muted-foreground px-1"
+                    <Button
+                      size="icon"
+                      className="h-[44px] w-[44px] shrink-0 rounded-xl"
+                      onClick={handleSend}
+                      disabled={!hasDraftContent || sentFlash || sending}
+                      title={`Send (${typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter)`}
                     >
-                      Confirm you sent it on Reddit &middot;{' '}
-                      <button className="underline hover:text-foreground" onClick={handleCopyAndOpen}>
-                        Re-open Reddit
-                      </button>
-                    </motion.p>
-                  )}
+                      {sending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground px-1">
+                    {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to send
+                  </p>
                 </div>
               </div>
             </div>

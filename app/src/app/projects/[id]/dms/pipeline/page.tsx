@@ -7,8 +7,6 @@ import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DmDraftBuilder } from '@/components/outreach/DmDraftBuilder';
 import { PostFilterRow } from '@/components/pipeline/PostFilterRow';
 import { PipelineToolbar } from '@/components/pipeline/PipelineToolbar';
 import type { SortOption } from '@/components/pipeline/PipelineToolbar';
@@ -57,7 +55,6 @@ export default function DmPipelinePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
-  const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
   const [conversationDmId, setConversationDmId] = useState<string | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
 
@@ -71,7 +68,7 @@ export default function DmPipelinePage() {
   }, []);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, prepareDraft, checkLastSend, fetchConversation } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
   // Fetch all DMs
@@ -471,9 +468,9 @@ export default function DmPipelinePage() {
   }
 
   function handleDmSelected() {
-    // Draft the first selected DM
+    // Open drawer for the first selected DM
     const firstSelected = columns.ready.find((d) => selectedIds.has(d.id));
-    if (firstSelected) setDraftingDm(firstSelected);
+    if (firstSelected) handleOpenConversation(firstSelected);
   }
 
   function handleMarkSentSelected() {
@@ -581,7 +578,7 @@ export default function DmPipelinePage() {
                     stage="ready"
                     selected={selectedIds.has(dm.id)}
                     onSelect={handleSelect}
-                    onDraft={setDraftingDm}
+                    onDraft={handleOpenConversation}
                     onStageChange={handleStageChange}
                     onDismiss={handleDismiss}
                     onOpenConversation={handleOpenConversation}
@@ -639,7 +636,7 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="followup"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
-                    onDraft={setDraftingDm}
+                    onDraft={handleOpenConversation}
                     onStageChange={handleStageChange}
                     onOpenConversation={handleOpenConversation}
                   />
@@ -685,33 +682,11 @@ export default function DmPipelinePage() {
         colorClass={expandedColor}
         dms={expandedDms}
         onClose={() => setExpandedColumn(null)}
-        onDraft={setDraftingDm}
+        onDraft={handleOpenConversation}
         onStageChange={handleStageChange}
         onDismiss={handleDismiss}
         onOpenConversation={handleOpenConversation}
       />
-
-      {/* Draft DM dialog */}
-      <Dialog open={!!draftingDm} onOpenChange={(open) => !open && setDraftingDm(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              Draft DM to u/{draftingDm?.reddit_username}
-            </DialogTitle>
-          </DialogHeader>
-          {draftingDm && (
-            <DmDraftBuilder
-              dmId={draftingDm.id}
-              projectId={project.id}
-              username={draftingDm.reddit_username}
-              onSent={() => {
-                handleStageChange(draftingDm.id, 'dm_sent');
-                setDraftingDm(null);
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Send queue mode */}
       {sendQueueActive && (
@@ -722,8 +697,7 @@ export default function DmPipelinePage() {
           onStageChange={handleStageChange}
           onDmSent={handleDmSent}
           onDismiss={handleDismiss}
-          prepareDraft={prepareDraft}
-          checkLastSend={checkLastSend}
+          sendDm={sendDm}
         />
       )}
 
@@ -737,14 +711,13 @@ export default function DmPipelinePage() {
         }
         open={!!conversationDm}
         onOpenChange={(open) => { if (!open) setConversationDmId(null); }}
-        onDraft={setDraftingDm}
-        prepareDraft={prepareDraft}
-        checkLastSend={checkLastSend}
-        onSent={() => {
+        sendDm={sendDm}
+        projectId={project.id}
+        onSent={async () => {
           if (conversationDm) {
-            handleStageChange(conversationDm.id, 'dm_sent', undefined, true);
+            await handleStageChange(conversationDm.id, 'dm_sent', undefined, true);
           }
-          fetchDms();
+          await fetchDms();
           fetchAndPersistPreviews();
         }}
         fetchConversation={fetchConversation}
