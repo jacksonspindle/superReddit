@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import type { SearchAction } from '@/stores/create-store';
 import { GripHorizontal, GripVertical, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
@@ -106,6 +107,16 @@ export default function CreatePage() {
     };
   }, [sidebarOpen]);
 
+  // Handle AI-triggered search action
+  const handleSearchAction = useCallback((search: SearchAction) => {
+    // Open sidebar if closed
+    if (!sidebarOpen) setSidebarOpen(true);
+    // Switch to search tab
+    useCreateStore.getState().setActiveTab('search');
+    // Set the pending search for InspirationPanel to pick up
+    useCreateStore.getState().setPendingSearch(search);
+  }, [sidebarOpen]);
+
   // Apply draft from chat to editor
   function handleApplyDraft(draft: { title: string; body: string }) {
     setTitle(draft.title);
@@ -143,10 +154,10 @@ export default function CreatePage() {
     }
 
     return [
-      'Help me write a Reddit post for my product',
-      'What makes a Reddit post go viral?',
-      'Write me a post draft to get started',
-      'What subreddits should I target?',
+      'Write me 3 post drafts for my product',
+      'Find the top posts about my niche this week',
+      'Search Reddit for posts similar to what I want to write',
+      'Help me write a post based on what\'s trending',
     ];
   }, [title, body, targetSubreddit, referencePosts.length]);
 
@@ -177,6 +188,7 @@ export default function CreatePage() {
             <ChatInterface
               project={project}
               onApplyDraft={handleApplyDraft}
+              onSearchAction={handleSearchAction}
               editorContent={title || body ? { title, body } : null}
               suggestedPrompts={suggestedPrompts}
               attachments={referencePosts}
@@ -184,7 +196,7 @@ export default function CreatePage() {
               onClearAttachments={clearReferences}
               placeholder="Describe what you want to post, or ask for help..."
               emptyTitle="Writing Assistant"
-              emptyDescription="Tell me what you want to post about. I'll help you draft, refine, and perfect your Reddit post."
+              emptyDescription="I can write post drafts, search Reddit for inspiration, and help you refine your content."
             />
           </div>
         </div>

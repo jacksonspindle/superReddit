@@ -211,10 +211,36 @@ Rules:
 - When the user shares reference posts, match their style and tone in your drafts
 - Vary the LENGTH and FORMAT of drafts — mix short punchy posts with longer narratives`;
 
-  if (!project) return CHAT_SYSTEM_PROMPT + draftInstructions;
+  const searchInstructions = `
+
+## Reddit Search Format
+When the user asks you to find, search for, or look up Reddit posts, you can trigger a search. Wrap the search in a special code block:
+
+\`\`\`search
+{
+  "query": "search terms here",
+  "subreddit": "subredditname",
+  "sort": "hot",
+  "timeFilter": "week"
+}
+\`\`\`
+
+Rules:
+- Use this when the user asks to find posts, look for examples, search for inspiration, etc.
+- "query" is required — the search terms
+- "subreddit" is optional — include it to search within a specific subreddit, omit for global search
+- "sort" defaults to "hot" — use "top" for highest-rated, "new" for most recent, "rising" for trending
+- "timeFilter" defaults to "week" — use "day" for very recent, "month" or "year" for broader results
+- After the search block, add a brief message like "Let me search for that..." or "Searching Reddit..."
+- You can combine search with other actions — search first, then offer to write drafts based on what's found
+- When the user says "hottest" or "most popular", use sort: "top". When they say "most recent" or "latest", use sort: "new"
+- If the user mentions a specific subreddit (e.g., "in r/onepiece"), include it. Otherwise omit for global search`;
+
+  if (!project) return CHAT_SYSTEM_PROMPT + draftInstructions + searchInstructions;
 
   return `${CHAT_SYSTEM_PROMPT}
 ${draftInstructions}
+${searchInstructions}
 
 ## Product Context
 - **Product:** ${project.productName}

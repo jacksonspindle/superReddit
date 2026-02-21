@@ -18,6 +18,13 @@ export interface PostImage {
   name: string;
 }
 
+export interface SearchAction {
+  query: string;
+  subreddit?: string;
+  sort?: 'hot' | 'top' | 'rising' | 'new';
+  timeFilter?: 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
+}
+
 type SidebarTab = 'search' | 'feed' | 'bookmarks';
 
 interface CreateStore {
@@ -32,12 +39,14 @@ interface CreateStore {
   linkUrl: string;
   generating: boolean;
   activeTab: SidebarTab;
+  pendingSearch: SearchAction | null;
 
   setTitle: (title: string) => void;
   setBody: (body: string) => void;
   setTargetSubreddit: (sub: string) => void;
   setTone: (tone: string) => void;
   setActiveTab: (tab: SidebarTab) => void;
+  setPendingSearch: (search: SearchAction | null) => void;
   setGenerating: (generating: boolean) => void;
   setDraftId: (id: string | null) => void;
   setLinkUrl: (url: string) => void;
@@ -62,6 +71,7 @@ const initialState = {
   linkUrl: '',
   generating: false,
   activeTab: 'feed' as SidebarTab,
+  pendingSearch: null as SearchAction | null,
 };
 
 export const useCreateStore = create<CreateStore>((set, get) => ({
@@ -72,6 +82,7 @@ export const useCreateStore = create<CreateStore>((set, get) => ({
   setTargetSubreddit: (targetSubreddit) => set({ targetSubreddit }),
   setTone: (tone) => set({ tone }),
   setActiveTab: (activeTab) => set({ activeTab }),
+  setPendingSearch: (pendingSearch) => set({ pendingSearch }),
   setGenerating: (generating) => set({ generating }),
   setDraftId: (draftId) => set({ draftId }),
   setLinkUrl: (linkUrl) => set({ linkUrl }),

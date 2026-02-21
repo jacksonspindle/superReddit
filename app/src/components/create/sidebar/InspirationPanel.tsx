@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Loader2, Users, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Loader2, Users, ArrowLeft, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,8 +36,88 @@ export function InspirationPanel() {
   const [posts, setPosts] = useState<RedditPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
 
-  const { usePost, referencePosts } = useCreateStore();
+  // Global search state (AI-triggered)
+  const [isGlobalSearch, setIsGlobalSearch] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+
+  const { usePost, referencePosts, pendingSearch, setPendingSearch } = useCreateStore();
   const usedIds = new Set(referencePosts.map((r) => r.id));
+
+  // Watch for pending search actions from the AI chat
+  useEffect(() => {
+    if (!pendingSearch) return;
+
+    const search = pendingSearch;
+    setPendingSearch(null);
+
+    if (search.subreddit) {
+      // Search within a specific subreddit
+      setQuery(search.query);
+      setIsGlobalSearch(false);
+      const sub: SubredditResult = { name: search.subreddit, subscribers: 0, description: '' };
+      setSelectedSub(sub);
+      executeSubredditSearch(sub, search.query, search.sort || 'hot', search.timeFilter || 'week');
+    } else {
+      // Global search
+      setQuery(search.query);
+      setSelectedSub(null);
+      executeGlobalSearch(search.query, search.sort || 'hot', search.timeFilter || 'week');
+    }
+  }, [pendingSearch]);
+
+  async function executeGlobalSearch(q: string, sortParam?: string, timeFilter?: string) {
+    setLoadingPosts(true);
+    setIsGlobalSearch(true);
+    setGlobalSearchQuery(q);
+    setSelectedSub(null);
+    setSubreddits([]);
+    setHasSearched(true);
+
+    const params = new URLSearchParams({ q, limit: '20' });
+    if (sortParam) params.set('sort', sortParam);
+    if (timeFilter) params.set('t', timeFilter);
+
+    try {
+      const res = await fetch(`/api/reddit/search?${params}`);
+      const json = await res.json();
+      if (json.error) {
+        toast.error(json.error);
+        setPosts([]);
+      } else {
+        setPosts(json.posts || []);
+        if ((json.posts || []).length === 0) {
+          toast.info('No posts found for that search');
+        }
+      }
+    } catch {
+      toast.error('Search failed');
+      setPosts([]);
+    }
+
+    setLoadingPosts(false);
+  }
+
+  async function executeSubredditSearch(sub: SubredditResult, q: string, sortParam: string, timeFilter: string) {
+    setLoadingPosts(true);
+
+    try {
+      const res = await fetch(
+        `/api/reddit?subreddit=${sub.name}&q=${encodeURIComponent(q)}&sort=${sortParam}&t=${timeFilter}&limit=20`
+      );
+      const json = await res.json();
+      if (json.error) {
+        toast.error(json.error);
+        setPosts([]);
+      } else {
+        setPosts(json.posts || []);
+      }
+    } catch {
+      toast.error('Failed to load posts');
+      setPosts([]);
+    }
+
+    setLoadingPosts(false);
+  }
 
   async function handleSearch() {
     const q = query.trim();
@@ -46,6 +126,7 @@ export function InspirationPanel() {
     setSearchingSubreddits(true);
     setHasSearched(true);
     setSelectedSub(null);
+    setIsGlobalSearch(false);
     setPosts([]);
 
     try {
@@ -65,6 +146,7 @@ export function InspirationPanel() {
 
   async function selectSubreddit(sub: SubredditResult, sortOverride?: SortOption) {
     setSelectedSub(sub);
+    setIsGlobalSearch(false);
     setLoadingPosts(true);
 
     const useSort = sortOverride ?? sort;
@@ -93,9 +175,17 @@ export function InspirationPanel() {
   }
 
   function handleBack() {
-    setSelectedSub(null);
-    setPosts([]);
+    if (isGlobalSearch) {
+      setIsGlobalSearch(false);
+      setPosts([]);
+    } else {
+      setSelectedSub(null);
+      setPosts([]);
+    }
   }
+
+  // Show posts view when we have a selected subreddit OR global search results
+  const showPostsView = selectedSub || isGlobalSearch;
 
   return (
     <div className="flex flex-col h-full">
@@ -124,8 +214,8 @@ export function InspirationPanel() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        {/* State: selected subreddit — show posts */}
-        {selectedSub ? (
+        {/* State: showing posts (subreddit or global search) */}
+        {showPostsView ? (
           <div className="flex flex-col h-full">
             <div className="p-2 space-y-2 border-b">
               <div className="flex items-center gap-2">
@@ -138,21 +228,32 @@ export function InspirationPanel() {
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </Button>
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-semibold">r/{selectedSub.name}</span>
-                  <span className="text-[10px] text-muted-foreground ml-1.5">
-                    {formatSubs(selectedSub.subscribers)} members
-                  </span>
+                  {isGlobalSearch ? (
+                    <div className="flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="text-xs font-semibold">Search: &quot;{globalSearchQuery}&quot;</span>
+                    </div>
+                  ) : selectedSub && (
+                    <>
+                      <span className="text-xs font-semibold">r/{selectedSub.name}</span>
+                      <span className="text-[10px] text-muted-foreground ml-1.5">
+                        {selectedSub.subscribers > 0 ? `${formatSubs(selectedSub.subscribers)} members` : ''}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <Tabs value={sort} onValueChange={(v) => handleSortChange(v as SortOption)}>
-                <TabsList className="h-7 w-full">
-                  <TabsTrigger value="hot" className="text-[10px] px-2 h-5 flex-1">Hot</TabsTrigger>
-                  <TabsTrigger value="top" className="text-[10px] px-2 h-5 flex-1">Top</TabsTrigger>
-                  <TabsTrigger value="rising" className="text-[10px] px-2 h-5 flex-1">Rising</TabsTrigger>
-                  <TabsTrigger value="new" className="text-[10px] px-2 h-5 flex-1">New</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {!isGlobalSearch && (
+                <Tabs value={sort} onValueChange={(v) => handleSortChange(v as SortOption)}>
+                  <TabsList className="h-7 w-full">
+                    <TabsTrigger value="hot" className="text-[10px] px-2 h-5 flex-1">Hot</TabsTrigger>
+                    <TabsTrigger value="top" className="text-[10px] px-2 h-5 flex-1">Top</TabsTrigger>
+                    <TabsTrigger value="rising" className="text-[10px] px-2 h-5 flex-1">Rising</TabsTrigger>
+                    <TabsTrigger value="new" className="text-[10px] px-2 h-5 flex-1">New</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
             </div>
 
             <div className="flex-1 overflow-auto p-2 space-y-2">
