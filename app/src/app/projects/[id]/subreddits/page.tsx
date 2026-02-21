@@ -64,7 +64,7 @@ export default function SubredditsPage() {
   const [aiError, setAiError] = useState(false);
   const [aiFetched, setAiFetched] = useState(false);
 
-  // Load tracked subreddits
+  // Load tracked subreddits + refetch on window focus
   useEffect(() => {
     async function load() {
       const supabase = createClient();
@@ -82,6 +82,10 @@ export default function SubredditsPage() {
       setLoading(false);
     }
     load();
+
+    function handleFocus() { load(); }
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [project.id]);
 
   // Close dropdown on outside click
@@ -335,7 +339,7 @@ export default function SubredditsPage() {
                     className="cursor-pointer transition-shadow hover:shadow-md"
                     onClick={() => handleAddAiSuggestion(suggestion)}
                   >
-                    <CardContent className="p-3">
+                    <CardContent className="px-3 py-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -377,7 +381,7 @@ export default function SubredditsPage() {
                 {trackedSubs.map((sub) => (
                   <StaggerItem key={sub.id}>
                     <Card>
-                      <CardContent className="p-3">
+                      <CardContent className="px-3 py-2">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
