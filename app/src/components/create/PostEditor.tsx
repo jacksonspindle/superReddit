@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Copy, Save, X, ImagePlus, Link2, Video } from 'lucide-react';
+import { Copy, Save, X, ImagePlus, Link2, Video, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -144,6 +144,73 @@ export function PostEditor() {
       }
       if (data) setDraftId(data.id);
       toast.success('Draft saved');
+    }
+  }
+
+  function sendToExtension<T = unknown>(type: string, data?: Record<string, unknown>, timeoutMs = 5000): Promise<T | null> {
+    return new Promise((resolve) => {
+      const requestId = `sr_post_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const timer = setTimeout(() => {
+        window.removeEventListener('message', handler);
+        resolve(null);
+      }, timeoutMs);
+
+      function handler(event: MessageEvent) {
+        if (event.source !== window) return;
+        if (!event.data || event.data.source !== 'superreddit-extension') return;
+        if (event.data.requestId !== requestId) return;
+
+        window.removeEventListener('message', handler);
+        clearTimeout(timer);
+
+        if (event.data.error) {
+          resolve(null);
+        } else {
+          resolve(event.data.data as T);
+        }
+      }
+
+      window.addEventListener('message', handler);
+
+      const msg: Record<string, unknown> = { target: 'superreddit-extension', type, requestId };
+      if (data) msg.data = data;
+      window.postMessage(msg, '*');
+    });
+  }
+
+  async function handlePostToReddit() {
+    const sub = targetSubreddit.replace(/^r\//, '').trim();
+    if (!sub) {
+      toast.error('Enter a target subreddit first');
+      return;
+    }
+
+    let postBody = body;
+    if (linkUrl) postBody += `\n\n${linkUrl}`;
+
+    // Try extension-powered post (auto-fills title, body, AND images on new Reddit)
+    const result = await sendToExtension<{ success: boolean }>('PREPARE_POST', {
+      subreddit: sub,
+      title,
+      body: postBody,
+      images: images.map((img) => ({ dataUrl: img.dataUrl, name: img.name })),
+    });
+
+    if (result?.success) {
+      toast.success('Opening Reddit — fields will be auto-filled', { duration: 3000 });
+      return;
+    }
+
+    // Fallback: old.reddit.com URL params (title + body only, no images)
+    const params = new URLSearchParams({
+      selftext: 'true',
+      title,
+      text: postBody,
+    });
+    window.open(`https://old.reddit.com/r/${encodeURIComponent(sub)}/submit?${params.toString()}`, '_blank');
+
+    if (images.length > 0) {
+      toast.info('Install the SuperReddit extension to auto-fill images', { duration: 5000 });
     }
   }
 
@@ -316,6 +383,15 @@ export function PostEditor() {
           <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={!title && !body} className="h-7 text-xs">
             <Save className="mr-1.5 h-3 w-3" />
             Save Draft
+          </Button>
+          <Button
+            size="sm"
+            onClick={handlePostToReddit}
+            disabled={!title && !body}
+            className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+          >
+            <ExternalLink className="mr-1.5 h-3 w-3" />
+            Post to Reddit
           </Button>
         </div>
       </div>
