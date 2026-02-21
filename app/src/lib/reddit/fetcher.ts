@@ -315,6 +315,30 @@ export async function fetchAllUserPosts(
   return allPosts;
 }
 
+export async function searchRedditGlobal(
+  query: string,
+  sort: string = 'relevance',
+  timeFilter: string = 'week',
+  limit: number = 20
+): Promise<RedditApiResponse> {
+  const cacheKey = `globalsearch:${query}:${sort}:${timeFilter}:${limit}`;
+  const cached = getFromMemoryCache(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const url = `${REDDIT_BASE}/search.json?q=${encodeURIComponent(query)}&sort=${sort}&t=${timeFilter}&limit=${limit}&raw_json=1`;
+    const json = await fetchFromReddit(url) as { data: { children: Record<string, unknown>[] } };
+
+    const posts = json.data.children.map(parseRedditPost);
+    const result: RedditApiResponse = { posts };
+
+    setMemoryCache(cacheKey, result);
+    return result;
+  } catch (error) {
+    return { posts: [], error: (error as Error).message };
+  }
+}
+
 export async function searchSubredditPosts(
   subreddit: string,
   query: string,

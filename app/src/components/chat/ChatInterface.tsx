@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus } from 'lucide-react';
+import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { scaleFadeVariants, staggerContainerVariants, staggerItemVariants, fadeUpVariants } from '@/lib/motion';
 import { useProfileStore } from '@/stores/profile-store';
 import type { Project } from '@/types';
-import type { ReferencePost } from '@/stores/create-store';
+import type { ReferencePost, SearchAction } from '@/stores/create-store';
 
 interface ImageAttachment {
   id: string;
@@ -32,18 +32,24 @@ interface PostDraft {
   body: string;
 }
 
+export interface SuggestedPrompt {
+  text: string;
+  icon: 'write' | 'search';
+}
+
 interface ChatInterfaceProps {
   project?: Project | null;
   initialMessages?: Message[];
   onMessagesChange?: (messages: Message[]) => void;
   onApplyDraft?: (draft: PostDraft) => void;
+  onSearchAction?: (search: SearchAction) => void;
   editorContent?: { title: string; body: string } | null;
   attachments?: ReferencePost[];
   onRemoveAttachment?: (id: string) => void;
   onClearAttachments?: () => void;
   apiEndpoint?: string;
   placeholder?: string;
-  suggestedPrompts?: string[];
+  suggestedPrompts?: SuggestedPrompt[];
   emptyTitle?: string;
   emptyDescription?: string;
 }
@@ -84,6 +90,36 @@ function stripPostBlock(content: string, stripIncomplete = false): string {
   // Strip in-progress block that hasn't closed yet
   if (stripIncomplete) {
     result = result.replace(/```post[\s\S]*$/g, '').trim();
+  }
+  return result;
+}
+
+/** Extract all ```search JSON blocks from a message */
+function extractSearchActions(content: string): SearchAction[] {
+  const actions: SearchAction[] = [];
+  const regex = /```search\s*\n([\s\S]*?)\n```/g;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (parsed.query) {
+        actions.push({
+          query: parsed.query,
+          subreddit: parsed.subreddit || undefined,
+          sort: parsed.sort || 'hot',
+          timeFilter: parsed.timeFilter || 'week',
+        });
+      }
+    } catch { /* skip */ }
+  }
+  return actions;
+}
+
+/** Strip ```search blocks from content for display purposes */
+function stripSearchBlock(content: string, stripIncomplete = false): string {
+  let result = content.replace(/```search\s*\n[\s\S]*?\n```/g, '').trim();
+  if (stripIncomplete) {
+    result = result.replace(/```search[\s\S]*$/g, '').trim();
   }
   return result;
 }
@@ -149,6 +185,7 @@ export function ChatInterface({
   initialMessages = [],
   onMessagesChange,
   onApplyDraft,
+  onSearchAction,
   editorContent,
   attachments = [],
   onRemoveAttachment,
@@ -303,6 +340,14 @@ export function ChatInterface({
         }
       }
 
+      // After stream completes, check for search actions
+      const searchActions = extractSearchActions(accumulated);
+      if (searchActions.length > 0 && onSearchAction) {
+        for (const action of searchActions) {
+          onSearchAction(action);
+        }
+      }
+
       const finalMessages = [...displayMessages, { role: 'assistant' as const, content: accumulated }];
       setMessages(finalMessages);
       onMessagesChange?.(finalMessages);
@@ -331,11 +376,11 @@ export function ChatInterface({
     }
   }
 
-  const defaultPrompts = [
-    'Help me write a Reddit post for my product',
-    'How do I write a post that doesn\'t get flagged as spam?',
-    'Write me a post draft based on my reference posts',
-    'Help me write an engaging title for my post',
+  const defaultPrompts: SuggestedPrompt[] = [
+    { text: 'Help me write a Reddit post for my product', icon: 'write' },
+    { text: 'Write me a post draft based on my reference posts', icon: 'write' },
+    { text: 'Find top posts about my niche this week', icon: 'search' },
+    { text: 'Search Reddit for post inspiration', icon: 'search' },
   ];
   const suggestedPrompts = suggestedPromptsProp ?? defaultPrompts;
 
@@ -365,12 +410,17 @@ export function ChatInterface({
               >
                 {suggestedPrompts.map((prompt) => (
                   <motion.button
-                    key={prompt}
+                    key={prompt.text}
                     variants={staggerItemVariants}
-                    onClick={() => setInput(prompt)}
-                    className="rounded-lg border p-2 text-left text-[11px] text-muted-foreground hover:bg-muted transition-colors"
+                    onClick={() => setInput(prompt.text)}
+                    className="rounded-lg border p-2 text-left text-[11px] text-muted-foreground hover:bg-muted transition-colors flex items-start gap-2"
                   >
-                    {prompt}
+                    {prompt.icon === 'search' ? (
+                      <Search className="h-3.5 w-3.5 shrink-0 mt-0.5 text-blue-500" />
+                    ) : (
+                      <PenLine className="h-3.5 w-3.5 shrink-0 mt-0.5 text-orange-500" />
+                    )}
+                    <span>{prompt.text}</span>
                   </motion.button>
                 ))}
               </motion.div>
@@ -381,8 +431,11 @@ export function ChatInterface({
               const drafts = message.role === 'assistant' && !isLastAssistant
                 ? extractPostDrafts(message.content)
                 : [];
+              const searchActions = message.role === 'assistant' && !isLastAssistant
+                ? extractSearchActions(message.content)
+                : [];
               const displayContent = message.role === 'assistant'
-                ? stripPostBlock(message.content, isLastAssistant)
+                ? stripSearchBlock(stripPostBlock(message.content, isLastAssistant), isLastAssistant)
                 : message.content;
 
               return (
@@ -473,6 +526,12 @@ export function ChatInterface({
                                 </div>
                               )}
                             </div>
+                          </div>
+                        )}
+                        {searchActions.length > 0 && (
+                          <div className="mt-2 flex items-center gap-1.5 text-[11px] text-blue-500">
+                            <Search className="h-3 w-3" />
+                            <span>Searched Reddit for &quot;{searchActions[0].query}&quot;</span>
                           </div>
                         )}
                       </>
