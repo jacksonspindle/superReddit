@@ -293,6 +293,7 @@ export function ChatInterface({
           })),
           project: project
             ? {
+                id: project.id,
                 name: project.name,
                 productName: project.product_name,
                 productDescription: project.product_description,
