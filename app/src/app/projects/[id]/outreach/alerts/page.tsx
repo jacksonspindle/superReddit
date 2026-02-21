@@ -113,6 +113,14 @@ export default function OutreachAlertsPage() {
         <Header title="Alert Channels" />
         <div className="flex-1 overflow-auto">
           <div className="mx-auto max-w-3xl p-6 flex flex-col gap-3 min-h-full justify-center">
+            {/* Header text */}
+            <div className="text-center space-y-1">
+              <h2 className="text-lg font-semibold">Connect a channel to receive keyword alerts</h2>
+              <p className="text-sm text-muted-foreground">
+                Choose where you want to be notified when Reddit posts match your keywords.
+              </p>
+            </div>
+
             {/* Channel cards — 2x2 grid filling available space */}
             <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-3 max-h-[65vh]">
             {channels.map((ch) => {
