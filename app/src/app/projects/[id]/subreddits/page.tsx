@@ -611,9 +611,12 @@ export default function SubredditsPage() {
                     <StaggerItem key={sub.id}>
                       <Card className="overflow-hidden">
                         <CardContent className="p-0">
-                          <button
-                            className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => setExpandedSub(isExpanded ? null : sub.name)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedSub(isExpanded ? null : sub.name); } }}
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 min-w-0">
@@ -638,7 +641,7 @@ export default function SubredditsPage() {
                             {sub.description && !isExpanded && (
                               <p className="text-xs text-muted-foreground mt-0.5 ml-5.5 line-clamp-1">{sub.description}</p>
                             )}
-                          </button>
+                          </div>
                           {isExpanded && (
                             <SubredditFeed subName={sub.name} projectId={project.id} />
                           )}
