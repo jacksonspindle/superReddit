@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import crypto from 'crypto';
 import { supabase } from '../db/supabase.js';
 import { findMatches } from './matcher.js';
-import { dispatchPendingAlerts } from './dispatcher.js';
+import { dispatchPendingAlerts, dispatchMultiChannelAlerts } from './dispatcher.js';
 
 const POLL_INTERVAL = process.env.POLL_INTERVAL_MINUTES || '5';
 const ENRICHMENT_API_URL = process.env.ENRICHMENT_API_URL || '';
@@ -46,8 +46,8 @@ async function pollAllProjects() {
     const { data: configs, error } = await supabase
       .from('outreach_configs')
       .select('*')
-      .eq('discord_connected', true)
-      .eq('polling_enabled', true);
+      .eq('polling_enabled', true)
+      .or('discord_connected.eq.true,slack_connected.eq.true,email_connected.eq.true,telegram_connected.eq.true');
 
     if (error || !configs?.length) return;
 
@@ -69,6 +69,13 @@ async function pollAllProjects() {
 async function pollProject(config: {
   project_id: string;
   discord_webhook_url: string;
+  discord_connected: boolean;
+  slack_connected: boolean;
+  slack_webhook_url: string | null;
+  email_connected: boolean;
+  email_address: string | null;
+  telegram_connected: boolean;
+  telegram_chat_id: string | null;
 }) {
   // Get active subreddits from outreach_monitored_subs
   const { data: subreddits } = await supabase
@@ -144,6 +151,35 @@ async function pollProject(config: {
           { onConflict: 'project_id,reddit_id' }
         );
 
+        // Query for the signal ID after upsert to create alert_deliveries
+        const { data: signalData } = await supabase
+          .from('outreach_signals')
+          .select('id')
+          .eq('project_id', config.project_id)
+          .eq('reddit_id', post.id)
+          .single();
+
+        if (signalData) {
+          // Create alert_deliveries for each connected channel
+          const channels: string[] = [];
+          if (config.discord_connected && config.discord_webhook_url) channels.push('discord');
+          if (config.slack_connected && config.slack_webhook_url) channels.push('slack');
+          if (config.email_connected && config.email_address) channels.push('email');
+          if (config.telegram_connected && config.telegram_chat_id) channels.push('telegram');
+
+          for (const channel of channels) {
+            await supabase.from('alert_deliveries').upsert(
+              {
+                signal_id: signalData.id,
+                project_id: config.project_id,
+                channel,
+                status: 'pending',
+              },
+              { onConflict: 'signal_id,channel' }
+            );
+          }
+        }
+
         // Trigger AI enrichment if endpoint configured
         if (ENRICHMENT_API_URL) {
           triggerEnrichment(config.project_id, post.id).catch((err) =>
@@ -162,7 +198,10 @@ async function pollProject(config: {
     }
   }
 
-  // Dispatch any pending Discord alerts
+  // Dispatch multi-channel alerts
+  await dispatchMultiChannelAlerts(config.project_id, config);
+
+  // Also keep legacy Discord dispatch for backward compat
   if (config.discord_webhook_url) {
     await dispatchPendingAlerts(config.project_id, config.discord_webhook_url);
   }

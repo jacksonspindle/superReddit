@@ -252,6 +252,26 @@ export interface OutreachConfig {
   discord_webhook_url: string | null;
   discord_connected: boolean;
   poll_interval_minutes: number;
+  // Slack integration
+  slack_team_id: string | null;
+  slack_team_name: string | null;
+  slack_channel_id: string | null;
+  slack_channel_name: string | null;
+  slack_webhook_url: string | null;
+  slack_access_token: string | null;
+  slack_connected: boolean;
+  // Email integration
+  email_address: string | null;
+  email_verified: boolean;
+  email_connected: boolean;
+  email_realtime_enabled: boolean;
+  email_digest_enabled: boolean;
+  email_digest_frequency: 'daily' | 'weekly' | null;
+  email_last_digest_at: string | null;
+  // Telegram integration
+  telegram_chat_id: string | null;
+  telegram_username: string | null;
+  telegram_connected: boolean;
   // Scan preferences
   time_filter: 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
   max_results: number;
@@ -317,6 +337,26 @@ export interface OutreachSignal {
 }
 
 export type LeadTier = 'hot' | 'warm' | 'cold';
+
+export type AlertChannel = 'discord' | 'slack' | 'email' | 'telegram';
+
+export interface AlertDelivery {
+  id: string;
+  signal_id: string;
+  project_id: string;
+  channel: AlertChannel;
+  status: 'pending' | 'sent' | 'failed';
+  error_message: string | null;
+  sent_at: string | null;
+  created_at: string;
+  signal?: {
+    title: string;
+    subreddit: string;
+    permalink: string;
+    matched_keywords: string[];
+    fetched_at: string;
+  };
+}
 
 export interface OutreachProductContext {
   id: string;
