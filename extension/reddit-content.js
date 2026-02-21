@@ -1404,6 +1404,491 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
     } catch (e) { /* ignore */ }
   }
 
+  // ---- Submit Page Auto-Fill ----
+
+  function isOnSubmitPage() {
+    return location.pathname.includes('/submit');
+  }
+
+  function handleSubmitPage() {
+    chrome.storage.local.get('sr_pending_post', function (result) {
+      var pending = result.sr_pending_post;
+      if (!pending || (Date.now() - pending.timestamp) > 300000) return; // 5 min expiry
+
+      // Clear immediately to prevent re-processing on page reload
+      chrome.storage.local.remove('sr_pending_post');
+      console.log('[SuperReddit] Submit page: filling post — title:', pending.title.substring(0, 40), '| body length:', pending.body.length, '| images:', (pending.images || []).length);
+
+      fillSubmitForm(pending);
+    });
+  }
+
+  function fillSubmitForm(postData) {
+    var attempts = 0;
+    var MAX_ATTEMPTS = 40; // 40 × 500ms = 20s
+
+    var formFiller = setInterval(function () {
+      attempts++;
+
+      // Find the title input — try multiple strategies
+      var titleInput = findTitleInput();
+
+      if (!titleInput) {
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(formFiller);
+          console.log('[SuperReddit] Submit: could not find title input after ' + MAX_ATTEMPTS + ' attempts');
+        }
+        return;
+      }
+
+      clearInterval(formFiller);
+      console.log('[SuperReddit] Submit: found title input, filling form');
+
+      // Fill title
+      setNativeValue(titleInput, postData.title);
+
+      var hasImages = postData.images && postData.images.length > 0;
+
+      if (hasImages) {
+        // Upload images FIRST in rich text mode, then fill body in rich text mode
+        // (can't switch to markdown — it would delete the uploaded images)
+        setTimeout(function () {
+          uploadPostImages(postData.images, function () {
+            setTimeout(function () {
+              fillBodyRichText(postData.body);
+            }, 500);
+          });
+        }, 800);
+      } else {
+        // No images — switch to markdown for perfect formatting
+        setTimeout(function () {
+          switchToMarkdownAndFill(postData);
+        }, 800);
+      }
+    }, 500);
+  }
+
+  function findTitleInput() {
+    // Strategy 1: Shreddit post composer (newest Reddit)
+    var shredditPost = document.querySelector('shreddit-post-composer, shreddit-composer');
+    if (shredditPost) {
+      // Try inside shadow DOM
+      var sr = shredditPost.shadowRoot;
+      if (sr) {
+        var titleArea = sr.querySelector('textarea[name="title"], textarea[placeholder*="title" i], input[name="title"]');
+        if (titleArea) return titleArea;
+      }
+    }
+
+    // Strategy 2: Direct selectors for various Reddit versions
+    var selectors = [
+      'textarea[name="title"]',
+      'input[name="title"]',
+      'textarea[placeholder*="title" i]',
+      'input[placeholder*="title" i]',
+      '#title-field textarea',
+      '#title-field input',
+      '[data-testid="post-title"] textarea',
+      '[data-testid="post-title"] input',
+    ];
+
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (el) return el;
+    }
+
+    // Strategy 3: Deep query through shadow DOMs
+    var deepTextareas = deepQueryAll('textarea[name="title"], textarea[placeholder*="title" i]');
+    if (deepTextareas.length > 0) return deepTextareas[0];
+
+    return null;
+  }
+
+  function setNativeValue(el, value) {
+    // Use native setter to bypass React's controlled input
+    var proto = el.tagName === 'TEXTAREA'
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    var nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value');
+
+    if (nativeSetter && nativeSetter.set) {
+      nativeSetter.set.call(el, value);
+    } else {
+      el.value = value;
+    }
+
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function fillBodyRichText(bodyText) {
+    if (!bodyText) return;
+
+    // Find the rich text editor
+    var editorSelectors = [
+      '[role="textbox"][contenteditable="true"]',
+      'div[contenteditable="true"][data-lexical-editor]',
+      '.ql-editor',
+      'div[contenteditable="true"]',
+    ];
+
+    var editor = null;
+    for (var i = 0; i < editorSelectors.length; i++) {
+      var el = document.querySelector(editorSelectors[i]);
+      if (el && el.offsetHeight > 30) {
+        editor = el;
+        break;
+      }
+    }
+
+    if (!editor) {
+      var deep = deepQueryAll('div[contenteditable="true"], [role="textbox"]');
+      for (var d = 0; d < deep.length; d++) {
+        if (deep[d].offsetHeight > 30) {
+          editor = deep[d];
+          break;
+        }
+      }
+    }
+
+    if (!editor) {
+      console.log('[SuperReddit] Submit: could not find rich text editor for body');
+      return;
+    }
+
+    console.log('[SuperReddit] Submit: filling body in rich text mode with paragraph simulation');
+    editor.focus();
+
+    // Clear any existing content
+    document.execCommand('selectAll', false, null);
+    document.execCommand('delete', false, null);
+
+    // Split into paragraphs on double newlines and insert with Enter key presses
+    var paragraphs = bodyText.split(/\n\n+/);
+    for (var p = 0; p < paragraphs.length; p++) {
+      var para = paragraphs[p];
+      // Handle single newlines within a paragraph as line breaks
+      var lines = para.split('\n');
+      for (var l = 0; l < lines.length; l++) {
+        document.execCommand('insertText', false, lines[l]);
+        if (l < lines.length - 1) {
+          // Shift+Enter for line break within paragraph
+          editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, shiftKey: true, bubbles: true }));
+          document.execCommand('insertLineBreak', false, null);
+        }
+      }
+      if (p < paragraphs.length - 1) {
+        // Enter for new paragraph — dispatch keydown then use insertParagraph
+        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        document.execCommand('insertParagraph', false, null);
+      }
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    console.log('[SuperReddit] Submit: rich text body filled with ' + paragraphs.length + ' paragraphs');
+  }
+
+  function switchToMarkdownAndFill(postData) {
+    // Find the "Switch to Markdown" button
+    var allClickables = document.querySelectorAll('button, a, [role="button"], span[class*="markdown" i]');
+    var mdButton = null;
+    for (var i = 0; i < allClickables.length; i++) {
+      var text = (allClickables[i].textContent || '').trim().toLowerCase();
+      if (text === 'switch to markdown' || text === 'markdown' || text === 'markdown mode') {
+        mdButton = allClickables[i];
+        break;
+      }
+    }
+
+    if (!mdButton) {
+      var deep = deepQueryAll('button, [role="button"]');
+      for (var j = 0; j < deep.length; j++) {
+        var dt = (deep[j].textContent || '').trim().toLowerCase();
+        if (dt === 'switch to markdown' || dt === 'markdown' || dt === 'markdown mode') {
+          mdButton = deep[j];
+          break;
+        }
+      }
+    }
+
+    if (mdButton) {
+      console.log('[SuperReddit] Submit: clicking "Switch to Markdown"');
+      mdButton.click();
+    }
+
+    // Poll for the markdown body textarea to appear (whether we clicked or not)
+    var bodyAttempts = 0;
+    var bodyPoller = setInterval(function () {
+      bodyAttempts++;
+
+      // Accept any confirmation dialog that may appear
+      if (bodyAttempts <= 3) {
+        var confirmBtns = document.querySelectorAll('button');
+        for (var k = 0; k < confirmBtns.length; k++) {
+          var ct = (confirmBtns[k].textContent || '').trim().toLowerCase();
+          if (ct === 'continue' || ct === 'yes' || ct === 'ok' || ct === 'switch') {
+            console.log('[SuperReddit] Submit: confirming markdown switch');
+            confirmBtns[k].click();
+            break;
+          }
+        }
+      }
+
+      // Look for a body textarea (not the title one)
+      var textareas = document.querySelectorAll('textarea');
+      var bodyTextarea = null;
+      for (var t = 0; t < textareas.length; t++) {
+        var ta = textareas[t];
+        var name = (ta.name || '').toLowerCase();
+        var placeholder = (ta.placeholder || '').toLowerCase();
+        if (name === 'title' || placeholder.includes('title')) continue;
+        if (ta.offsetHeight > 0) {
+          bodyTextarea = ta;
+          break;
+        }
+      }
+
+      if (!bodyTextarea) {
+        // Also try deep query
+        var deepTas = deepQueryAll('textarea');
+        for (var d = 0; d < deepTas.length; d++) {
+          var dta = deepTas[d];
+          var dn = (dta.name || '').toLowerCase();
+          var dp = (dta.placeholder || '').toLowerCase();
+          if (dn === 'title' || dp.includes('title')) continue;
+          if (dta.offsetHeight > 0) {
+            bodyTextarea = dta;
+            break;
+          }
+        }
+      }
+
+      if (bodyTextarea) {
+        clearInterval(bodyPoller);
+        console.log('[SuperReddit] Submit: found body textarea, filling text');
+        setNativeValue(bodyTextarea, postData.body);
+        return;
+      }
+
+      if (bodyAttempts >= 30) { // 30 × 300ms = 9s
+        clearInterval(bodyPoller);
+        console.log('[SuperReddit] Submit: could not find body textarea after markdown switch');
+        // Last resort — try the rich text editor approach
+        fillPostBody(postData.body);
+      }
+    }, 300);
+  }
+
+  function insertParagraphs(editor, text) {
+    // Split on double newlines (paragraph breaks) — preserves the same paragraph
+    // structure as in our app's textarea
+    var paragraphs = text.split(/\n\n+/);
+    for (var i = 0; i < paragraphs.length; i++) {
+      var para = paragraphs[i];
+      // Within a paragraph, handle single newlines as line breaks
+      var lines = para.split('\n');
+      for (var l = 0; l < lines.length; l++) {
+        document.execCommand('insertText', false, lines[l]);
+        if (l < lines.length - 1) {
+          // Single newline → Shift+Enter (line break within paragraph)
+          document.execCommand('insertLineBreak', false, null);
+        }
+      }
+      if (i < paragraphs.length - 1) {
+        // Double newline → Enter twice (new paragraph)
+        document.execCommand('insertParagraph', false, null);
+        document.execCommand('insertParagraph', false, null);
+      }
+    }
+  }
+
+  function fillPostBody(bodyText) {
+    if (!bodyText) return;
+
+    // Strategy 1: Markdown mode textarea (look for non-title textareas)
+    var textareas = document.querySelectorAll('textarea');
+    var bodyTextarea = null;
+    for (var i = 0; i < textareas.length; i++) {
+      var ta = textareas[i];
+      var name = (ta.name || '').toLowerCase();
+      var placeholder = (ta.placeholder || '').toLowerCase();
+      // Skip title fields
+      if (name === 'title' || placeholder.includes('title')) continue;
+      // Body is typically taller
+      if (ta.offsetHeight > 40 || name === 'body' || name === 'text' || placeholder.includes('text') || placeholder.includes('body') || placeholder.includes('optional')) {
+        bodyTextarea = ta;
+        break;
+      }
+    }
+
+    if (bodyTextarea) {
+      console.log('[SuperReddit] Submit: filling body via textarea');
+      setNativeValue(bodyTextarea, bodyText);
+      return;
+    }
+
+    // Strategy 2: Contenteditable rich text editor
+    var editableSelectors = [
+      '.ql-editor',
+      '[role="textbox"][contenteditable="true"]',
+      'div[contenteditable="true"][data-lexical-editor]',
+      'div[contenteditable="true"]',
+    ];
+
+    for (var j = 0; j < editableSelectors.length; j++) {
+      var editor = document.querySelector(editableSelectors[j]);
+      if (editor && editor.offsetHeight > 30) {
+        console.log('[SuperReddit] Submit: filling body via contenteditable (' + editableSelectors[j] + ')');
+        editor.focus();
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+        // Insert paragraph by paragraph to preserve line breaks
+        insertParagraphs(editor, bodyText);
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+    }
+
+    // Strategy 3: Deep query through shadow DOMs
+    var deepEditables = deepQueryAll('textarea, div[contenteditable="true"]');
+    for (var k = 0; k < deepEditables.length; k++) {
+      var el = deepEditables[k];
+      var elName = (el.name || '').toLowerCase();
+      if (elName === 'title' || (el.placeholder || '').toLowerCase().includes('title')) continue;
+      if (el.tagName === 'TEXTAREA') {
+        console.log('[SuperReddit] Submit: filling body via deep textarea');
+        setNativeValue(el, bodyText);
+        return;
+      }
+      if (el.contentEditable === 'true' && el.offsetHeight > 30) {
+        console.log('[SuperReddit] Submit: filling body via deep contenteditable');
+        el.focus();
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+        insertParagraphs(el, bodyText);
+        return;
+      }
+    }
+
+    console.log('[SuperReddit] Submit: could not find body field');
+  }
+
+  function uploadPostImages(images, callback) {
+    // First, try to switch to image/video tab if available
+    var tabButtons = document.querySelectorAll('button, [role="tab"]');
+    var clickedTab = false;
+    for (var t = 0; t < tabButtons.length; t++) {
+      var text = (tabButtons[t].textContent || '').toLowerCase().trim();
+      if (text === 'images & video' || text === 'image' || text === 'image & video' || text === 'images' || text === 'media') {
+        console.log('[SuperReddit] Submit: clicking image tab "' + text + '"');
+        tabButtons[t].click();
+        clickedTab = true;
+        break;
+      }
+    }
+
+    // Poll for the file input to appear (it may take a moment after tab switch)
+    var fileAttempts = 0;
+    var filePoller = setInterval(function () {
+      fileAttempts++;
+
+      var fileInput = document.querySelector('input[type="file"][accept*="image"], input[type="file"][accept*="video"], input[type="file"]');
+      if (!fileInput) {
+        var deepInputs = deepQueryAll('input[type="file"]');
+        if (deepInputs.length > 0) fileInput = deepInputs[0];
+      }
+
+      if (fileInput) {
+        clearInterval(filePoller);
+        injectFiles(images);
+        if (callback) setTimeout(callback, 500);
+        return;
+      }
+
+      if (fileAttempts >= 20) { // 20 × 300ms = 6s
+        clearInterval(filePoller);
+        console.log('[SuperReddit] Submit: could not find file input for images');
+        // Try drag-and-drop as fallback
+        tryDropImages(images);
+        if (callback) setTimeout(callback, 500);
+      }
+    }, 300);
+  }
+
+  function injectFiles(images) {
+    // Find file input
+    var fileInput = document.querySelector('input[type="file"][accept*="image"], input[type="file"][accept*="video"], input[type="file"]');
+
+    // Deep query if not found
+    if (!fileInput) {
+      var deepInputs = deepQueryAll('input[type="file"]');
+      if (deepInputs.length > 0) fileInput = deepInputs[0];
+    }
+
+    if (!fileInput) {
+      console.log('[SuperReddit] Submit: could not find file input — trying drag-and-drop area');
+      // Try to find a drop zone and trigger a drop event
+      tryDropImages(images);
+      return;
+    }
+
+    console.log('[SuperReddit] Submit: injecting ' + images.length + ' file(s) into file input');
+
+    // Convert base64 dataUrls to File objects
+    var dt = new DataTransfer();
+    for (var i = 0; i < images.length; i++) {
+      try {
+        var img = images[i];
+        var parts = img.dataUrl.split(',');
+        var mimeMatch = parts[0].match(/:(.*?);/);
+        var mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        var bstr = atob(parts[1]);
+        var n = bstr.length;
+        var u8arr = new Uint8Array(n);
+        for (var j = 0; j < n; j++) u8arr[j] = bstr.charCodeAt(j);
+        var file = new File([u8arr], img.name || ('image_' + i + '.png'), { type: mime });
+        dt.items.add(file);
+      } catch (e) {
+        console.log('[SuperReddit] Submit: failed to convert image ' + i + ':', e.message);
+      }
+    }
+
+    fileInput.files = dt.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+    console.log('[SuperReddit] Submit: dispatched file change event');
+  }
+
+  function tryDropImages(images) {
+    // Find a drop zone element
+    var dropZone = document.querySelector('[class*="drop"], [class*="upload"], [data-testid*="upload"], [data-testid*="drop"]');
+    if (!dropZone) {
+      console.log('[SuperReddit] Submit: no drop zone found for images');
+      return;
+    }
+
+    var dt = new DataTransfer();
+    for (var i = 0; i < images.length; i++) {
+      try {
+        var img = images[i];
+        var parts = img.dataUrl.split(',');
+        var mimeMatch = parts[0].match(/:(.*?);/);
+        var mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        var bstr = atob(parts[1]);
+        var n = bstr.length;
+        var u8arr = new Uint8Array(n);
+        for (var j = 0; j < n; j++) u8arr[j] = bstr.charCodeAt(j);
+        dt.items.add(new File([u8arr], img.name || ('image_' + i + '.png'), { type: mime }));
+      } catch (e) { /* skip */ }
+    }
+
+    var dropEvent = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt });
+    dropZone.dispatchEvent(new DragEvent('dragenter', { bubbles: true }));
+    dropZone.dispatchEvent(new DragEvent('dragover', { bubbles: true }));
+    dropZone.dispatchEvent(dropEvent);
+    console.log('[SuperReddit] Submit: dispatched drop event on zone');
+  }
+
   // ---- Routing ----
   if (isOnComposePage()) {
     // Check if this compose page was opened for manual send (queue mode)
@@ -1450,6 +1935,8 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         handleComposePage();
       }
     });
+  } else if (isOnSubmitPage()) {
+    handleSubmitPage();
   } else if (isOnChatPage()) {
     startScanning();
   } else {

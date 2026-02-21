@@ -256,6 +256,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ---- PREPARE_POST: Store post data and open Reddit submit page ----
+
+  if (message.type === 'PREPARE_POST') {
+    const { subreddit, title, body, images } = message.data || {};
+    if (!subreddit || !title) {
+      sendResponse({ success: false, error: 'Missing subreddit or title' });
+      return;
+    }
+
+    chrome.storage.local.set({
+      sr_pending_post: {
+        subreddit,
+        title,
+        body: body || '',
+        images: images || [],
+        timestamp: Date.now(),
+      },
+    }, () => {
+      const url = 'https://www.reddit.com/r/' + encodeURIComponent(subreddit) + '/submit';
+      chrome.tabs.create({ url, active: true });
+      console.log('[SR BG] PREPARE_POST: stored post data, opening ' + url);
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
   // ---- PREPARE_DM_DRAFT: Store draft for manual compose (no auto-send) ----
 
   if (message.type === 'PREPARE_DM_DRAFT') {
