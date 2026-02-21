@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getAnthropicClient, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
 import { buildChatSystemPrompt } from '@/lib/ai/prompts';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,21 @@ export async function POST(request: NextRequest) {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    const projectId = project?.id;
+
+    // Persist the latest user message to chat_messages
+    if (projectId) {
+      const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user');
+      if (lastUserMsg) {
+        const supabase = await createClient();
+        await supabase.from('chat_messages').insert({
+          project_id: projectId,
+          role: 'user',
+          content: lastUserMsg.content,
+        });
+      }
     }
 
     const client = getAnthropicClient();
@@ -55,6 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Return streaming response
     const encoder = new TextEncoder();
+    let accumulated = '';
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
@@ -63,6 +80,7 @@ export async function POST(request: NextRequest) {
               event.type === 'content_block_delta' &&
               event.delta.type === 'text_delta'
             ) {
+              accumulated += event.delta.text;
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
               );
@@ -70,6 +88,16 @@ export async function POST(request: NextRequest) {
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
+
+          // Persist the assistant response after stream completes
+          if (projectId && accumulated) {
+            const supabase = await createClient();
+            await supabase.from('chat_messages').insert({
+              project_id: projectId,
+              role: 'assistant',
+              content: accumulated,
+            });
+          }
         } catch (error) {
           controller.enqueue(
             encoder.encode(
