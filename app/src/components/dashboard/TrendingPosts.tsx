@@ -156,8 +156,8 @@ export function TrendingPosts({ projectId }: TrendingPostsProps) {
         <CardContent>
           <p className="text-sm text-muted-foreground">
             No subreddits tracked yet.{' '}
-            <Link href={`/projects/${projectId}/canvas`} className="text-primary underline">
-              Open Canvas
+            <Link href={`/projects/${projectId}/create`} className="text-primary underline">
+              Go to Create
             </Link>{' '}
             to add subreddits and see trending posts here.
           </p>

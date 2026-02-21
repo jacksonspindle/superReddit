@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Save, Plus, X, Sparkles } from 'lucide-react';
+import {
+  Loader2, Save, Plus, X, Sparkles,
+  Github, ExternalLink, RefreshCw, Star, GitCommit, Lock, Globe, CheckCircle2, Search,
+  Server, Terminal, ClipboardPaste,
+} from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -19,7 +23,8 @@ import {
 import { POST_STYLES } from '@/lib/data/writing-styles';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { OutreachConfig } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import type { OutreachConfig, GitHubConnection } from '@/types';
 
 const TONE_OPTIONS = ['Adaptive', 'Engaging', 'Humorous', 'Creative', 'Sarcastic', 'Inspirational', 'Concise'];
 
@@ -46,12 +51,31 @@ export default function ProfilePage() {
   // AI generation
   const [generatingKeywords, setGeneratingKeywords] = useState(false);
 
+  // GitHub state
+  const [ghConnection, setGhConnection] = useState<GitHubConnection | null>(null);
+  const [ghLoading, setGhLoading] = useState(true);
+  const [ghRefreshing, setGhRefreshing] = useState(false);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [ghConnecting, setGhConnecting] = useState(false);
+
   // Saving states
   const [savingProduct, setSavingProduct] = useState(false);
   const [savingAudience, setSavingAudience] = useState(false);
   const [savingStyles, setSavingStyles] = useState(false);
   const [savingKeywords, setSavingKeywords] = useState(false);
   const [savingOutreach, setSavingOutreach] = useState(false);
+
+  useEffect(() => {
+    async function loadGitHub() {
+      try {
+        const res = await fetch(`/api/context/github/activity?projectId=${project.id}`);
+        const json = await res.json();
+        if (json.connection?.repo_name) setGhConnection(json.connection);
+      } catch { /* no connection */ }
+      finally { setGhLoading(false); }
+    }
+    loadGitHub();
+  }, [project.id]);
 
   useEffect(() => {
     async function loadOutreach() {
@@ -106,6 +130,38 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleConnectRepo() {
+    if (!repoUrl.trim()) { toast.error('Enter a repository URL'); return; }
+    setGhConnecting(true);
+    try {
+      const res = await fetch('/api/context/github/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, repoUrl }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error || 'Failed to connect'); return; }
+      setGhConnection(json.connection);
+      toast.success('Repository connected');
+    } catch { toast.error('Failed to connect'); }
+    finally { setGhConnecting(false); }
+  }
+
+  async function handleRefreshRepo() {
+    if (!ghConnection) return;
+    setGhRefreshing(true);
+    try {
+      const res = await fetch('/api/context/github/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, repoUrl: ghConnection.repo_url }),
+      });
+      const json = await res.json();
+      if (res.ok) { setGhConnection(json.connection); toast.success('Refreshed'); }
+    } catch { toast.error('Failed to refresh'); }
+    finally { setGhRefreshing(false); }
   }
 
   async function handleGenerateKeywords() {
@@ -470,6 +526,147 @@ export default function ProfilePage() {
               </Button>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* GitHub Connection */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Github className="h-5 w-5" />
+              <div>
+                <CardTitle className="text-base">GitHub</CardTitle>
+                <CardDescription>
+                  {ghConnection
+                    ? `Tracking ${ghConnection.owner}/${ghConnection.repo_name}`
+                    : 'Connect a repository to track build activity.'}
+                </CardDescription>
+              </div>
+            </div>
+            {ghConnection && (
+              <Button variant="outline" size="sm" onClick={handleRefreshRepo} disabled={ghRefreshing}>
+                <RefreshCw className={cn('mr-2 h-3.5 w-3.5', ghRefreshing && 'animate-spin')} />
+                Refresh
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {ghLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+            </div>
+          ) : ghConnection ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={ghConnection.repo_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium hover:underline inline-flex items-center gap-1"
+                >
+                  {ghConnection.owner}/{ghConnection.repo_name}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+                {ghConnection.language && <Badge variant="secondary">{ghConnection.language}</Badge>}
+                {ghConnection.stars > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Star className="h-3 w-3" /> {ghConnection.stars.toLocaleString()}
+                  </Badge>
+                )}
+              </div>
+              {ghConnection.description && (
+                <p className="text-xs text-muted-foreground">{ghConnection.description}</p>
+              )}
+              {((ghConnection.recent_commits || []) as GitHubConnection['recent_commits']).length > 0 && (
+                <div className="space-y-1 pt-2 border-t">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Recent Commits</p>
+                  {((ghConnection.recent_commits || []) as GitHubConnection['recent_commits']).slice(0, 5).map((commit) => (
+                    <div key={commit.sha} className="flex items-start gap-2 py-1">
+                      <GitCommit className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <a
+                          href={commit.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs hover:underline truncate block"
+                        >
+                          {commit.message}
+                        </a>
+                        <p className="text-[10px] text-muted-foreground">
+                          <span className="font-mono">{commit.sha}</span> by {commit.author}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => { window.location.href = `/api/auth/github?projectId=${project.id}`; }}
+              >
+                <Github className="mr-2 h-4 w-4" />
+                Connect with GitHub
+              </Button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or paste a public repo URL</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={repoUrl}
+                  onChange={(e) => setRepoUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleConnectRepo()}
+                  placeholder="https://github.com/owner/repo"
+                  className="flex-1"
+                />
+                <Button variant="outline" onClick={handleConnectRepo} disabled={ghConnecting}>
+                  {ghConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Claude Integration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            Claude Integration
+          </CardTitle>
+          <CardDescription>
+            Connect your Claude workflow to keep product context in sync.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[
+            { icon: Server, title: 'MCP Server', badge: 'Lowest friction', description: 'Add SuperReddit as an MCP server in your Claude Code config.' },
+            { icon: Terminal, title: 'CLI Sync', badge: 'Automatic', description: 'Run `npx superreddit connect` to sync build context automatically.' },
+            { icon: ClipboardPaste, title: 'Manual Paste', badge: 'No setup', description: 'Paste Claude conversation summaries or CLAUDE.md content directly.' },
+          ].map((item) => (
+            <div key={item.title} className="flex items-start gap-3 rounded-lg border p-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 shrink-0">
+                <item.icon className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">{item.title}</p>
+                  <Badge variant="secondary" className="text-[10px]">{item.badge}</Badge>
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">Coming Soon</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>
