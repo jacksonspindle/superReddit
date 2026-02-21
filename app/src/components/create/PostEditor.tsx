@@ -5,7 +5,6 @@ import { Copy, Save, X, ImagePlus, Link2, Video, ExternalLink } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useCreateStore } from '@/stores/create-store';
 import type { PostImage } from '@/stores/create-store';
@@ -13,14 +12,12 @@ import { useProject } from '@/contexts/project-context';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
-const TONES = ['Adaptive', 'Engaging', 'Humorous', 'Creative', 'Sarcastic', 'Inspirational', 'Concise'];
-
 export function PostEditor() {
   const { project } = useProject();
   const {
     title, body, targetSubreddit, tone, referencePosts, draftId,
     images, linkUrl,
-    setTitle, setBody, setTargetSubreddit, setTone, setDraftId,
+    setTitle, setBody, setTargetSubreddit, setDraftId,
     setLinkUrl, addImages, removeImage,
     removeReference,
   } = useCreateStore();
@@ -28,8 +25,10 @@ export function PostEditor() {
   const [trackedSubs, setTrackedSubs] = useState<string[]>([]);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [subDropdownOpen, setSubDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const subInputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -41,6 +40,20 @@ export function PostEditor() {
         if (data) setTrackedSubs(data.map((s) => s.name));
       });
   }, [project.id]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (subInputRef.current && !subInputRef.current.contains(e.target as Node)) {
+        setSubDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredSubs = trackedSubs.filter((s) =>
+    s.toLowerCase().includes(targetSubreddit.toLowerCase().replace(/^r\//, ''))
+  );
 
   const processFiles = useCallback((files: FileList | File[]) => {
     const newImages: PostImage[] = [];
@@ -239,31 +252,27 @@ export function PostEditor() {
         className="text-base font-semibold h-10"
       />
 
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Input
-            value={targetSubreddit}
-            onChange={(e) => setTargetSubreddit(e.target.value)}
-            placeholder="Target subreddit..."
-            list="tracked-subreddits"
-            className="h-8 text-xs"
-          />
-          <datalist id="tracked-subreddits">
-            {trackedSubs.map((s) => (
-              <option key={s} value={s} />
+      <div ref={subInputRef} className="relative">
+        <Input
+          value={targetSubreddit}
+          onChange={(e) => { setTargetSubreddit(e.target.value); setSubDropdownOpen(true); }}
+          onFocus={() => setSubDropdownOpen(true)}
+          placeholder="Target subreddit..."
+          className="h-8 text-xs"
+        />
+        {subDropdownOpen && filteredSubs.length > 0 && (
+          <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+            {filteredSubs.map((s) => (
+              <button
+                key={s}
+                onClick={() => { setTargetSubreddit(s); setSubDropdownOpen(false); }}
+                className="flex w-full items-center rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                r/{s}
+              </button>
             ))}
-          </datalist>
-        </div>
-        <Select value={tone} onValueChange={setTone}>
-          <SelectTrigger className="w-28 h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TONES.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
       </div>
 
       {referencePosts.length > 0 && (
