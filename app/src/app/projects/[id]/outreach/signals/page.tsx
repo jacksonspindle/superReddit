@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { SignalCard } from '@/components/outreach/SignalCard';
 import { ScanParametersModal } from '@/components/outreach/ScanParametersModal';
 import { ScanWizard } from '@/components/outreach/ScanWizard';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import type { OutreachSignal } from '@/types';
 
@@ -32,6 +33,7 @@ export default function OutreachSignalsPage() {
   const [lastScanned, setLastScanned] = useState<string | null>(null);
 
   const [subFilter, setSubFilter] = useState<string | null>(null);
+  const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'unseen' | null>(null);
 
   // Wizard & modal state
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -202,7 +204,21 @@ export default function OutreachSignalsPage() {
     return `${Math.floor(seconds / 3600)}h ago`;
   }
 
-  const maxSubCount = analytics?.topSubreddits?.[0]?.count || 1;
+  // Client-side tier filtering (matches analytics derivation logic)
+  const filteredSignals = tierFilter
+    ? signals.filter((s) => {
+        if (tierFilter === 'unseen') return s.is_unseen;
+        // Derive tier from lead_tier or combined_score
+        let tier = s.lead_tier;
+        if (!tier) {
+          const score = s.combined_score ?? 0;
+          if (score >= 0.7) tier = 'hot';
+          else if (score >= 0.4) tier = 'warm';
+          else tier = 'cold';
+        }
+        return tier === tierFilter;
+      })
+    : signals;
 
   return (
     <PageTransition>
@@ -213,28 +229,48 @@ export default function OutreachSignalsPage() {
 
             {/* Analytics Row */}
             <div className="grid grid-cols-4 gap-3">
-              <Card className="p-4 flex flex-col gap-1">
+              <Card
+                className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
+                  tierFilter === 'hot' ? 'ring-2 ring-red-500 bg-red-500/5' : 'hover:bg-accent/50'
+                }`}
+                onClick={() => setTierFilter(tierFilter === 'hot' ? null : 'hot')}
+              >
                 <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Hot Leads</span>
                 <span className="text-3xl font-bold text-red-500">{analytics?.hotCount ?? '-'}</span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Flame className="h-3 w-3 text-red-500" /> high conversion
                 </span>
               </Card>
-              <Card className="p-4 flex flex-col gap-1">
+              <Card
+                className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
+                  tierFilter === 'warm' ? 'ring-2 ring-amber-500 bg-amber-500/5' : 'hover:bg-accent/50'
+                }`}
+                onClick={() => setTierFilter(tierFilter === 'warm' ? null : 'warm')}
+              >
                 <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Warm Leads</span>
                 <span className="text-3xl font-bold text-amber-500">{analytics?.warmCount ?? '-'}</span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Sun className="h-3 w-3 text-amber-500" /> potential leads
                 </span>
               </Card>
-              <Card className="p-4 flex flex-col gap-1">
+              <Card
+                className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
+                  tierFilter === 'unseen' ? 'ring-2 ring-blue-500 bg-blue-500/5' : 'hover:bg-accent/50'
+                }`}
+                onClick={() => setTierFilter(tierFilter === 'unseen' ? null : 'unseen')}
+              >
                 <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Unseen</span>
                 <span className="text-3xl font-bold text-blue-500">{analytics?.unseenCount ?? '-'}</span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Eye className="h-3 w-3 text-blue-500" /> needs review
                 </span>
               </Card>
-              <Card className="p-4 flex flex-col gap-1">
+              <Card
+                className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
+                  tierFilter === null ? 'ring-2 ring-border' : 'hover:bg-accent/50'
+                }`}
+                onClick={() => setTierFilter(null)}
+              >
                 <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Signals</span>
                 <span className="text-3xl font-bold">{analytics?.totalCount ?? '-'}</span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -246,30 +282,37 @@ export default function OutreachSignalsPage() {
             {/* Top Subreddits */}
             {analytics?.topSubreddits && analytics.topSubreddits.length > 0 && (
               <div>
-                <h3 className="text-[13px] font-semibold text-muted-foreground mb-2.5">Top Subreddits</h3>
+                <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Top Subreddits</h3>
                 <div className="flex gap-2 flex-wrap">
-                  {analytics.topSubreddits.map((sub) => (
-                    <button
-                      key={sub.name}
-                      onClick={() => setSubFilter(subFilter === sub.name ? null : sub.name)}
-                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        subFilter === sub.name
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-card hover:bg-accent text-foreground'
-                      }`}
-                    >
-                      <span>r/{sub.name}</span>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-semibold">
-                        {sub.count}
-                      </Badge>
-                      <div className="w-8 h-1 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-indigo-500"
-                          style={{ width: `${(sub.count / maxSubCount) * 100}%` }}
-                        />
-                      </div>
-                    </button>
-                  ))}
+                  {analytics.topSubreddits.slice(0, 6).map((sub, i) => {
+                    const isActive = subFilter === sub.name;
+                    const pct = analytics.totalCount > 0
+                      ? ((sub.count / analytics.totalCount) * 100).toFixed(1)
+                      : '0';
+                    const rankColors = ['text-rose-400', 'text-amber-400', 'text-emerald-400'];
+                    return (
+                      <button
+                        key={sub.name}
+                        onClick={() => setSubFilter(isActive ? null : sub.name)}
+                        className={`relative rounded-lg border px-3 py-2 text-left transition-colors ${
+                          isActive
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border bg-card hover:bg-accent/50'
+                        }`}
+                      >
+                        <span className={`absolute top-1 right-2 text-[9px] font-bold ${rankColors[i] || 'text-muted-foreground/50'}`}>
+                          #{i + 1}
+                        </span>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-lg font-bold tabular-nums">{sub.count}</span>
+                          <span className="text-xs font-semibold truncate">r/{sub.name}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          leads &bull; <span className="font-semibold text-emerald-500">{pct}%</span>
+                        </p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -312,7 +355,8 @@ export default function OutreachSignalsPage() {
             <div className="flex items-center gap-2">
               <h2 className="text-[15px] font-semibold">Leads</h2>
               <span className="text-xs text-muted-foreground">
-                {loading ? '...' : `${signals.length} signals`}
+                {loading ? '...' : `${filteredSignals.length} signals`}
+                {tierFilter && ` (${tierFilter})`}
               </span>
             </div>
 
@@ -323,24 +367,26 @@ export default function OutreachSignalsPage() {
                   <Skeleton key={i} className="h-72 rounded-xl" />
                 ))}
               </div>
-            ) : signals.length === 0 ? (
+            ) : filteredSignals.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
                 No signals found. Try adjusting filters or use &quot;Scan Now&quot; to find new leads.
               </div>
             ) : (
-              <StaggerList className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {signals.map((signal) => (
-                  <StaggerItem key={signal.id}>
-                    <SignalCard
-                      signal={signal}
-                      projectId={project.id}
-                      onStatusChange={handleStatusChange}
-                      onFavoriteToggle={handleFavoriteToggle}
-                      onMarkSeen={handleMarkSeen}
-                    />
-                  </StaggerItem>
-                ))}
-              </StaggerList>
+              <TooltipProvider>
+                <StaggerList className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredSignals.map((signal) => (
+                    <StaggerItem key={signal.id}>
+                      <SignalCard
+                        signal={signal}
+                        projectId={project.id}
+                        onStatusChange={handleStatusChange}
+                        onFavoriteToggle={handleFavoriteToggle}
+                        onMarkSeen={handleMarkSeen}
+                      />
+                    </StaggerItem>
+                  ))}
+                </StaggerList>
+              </TooltipProvider>
             )}
           </div>
         </div>
