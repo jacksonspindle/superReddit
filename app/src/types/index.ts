@@ -334,9 +334,19 @@ export interface OutreachSignal {
   lead_tier: 'hot' | 'warm' | 'cold' | null;
   is_unseen: boolean;
   is_favorited: boolean;
+  // V3 scoring
+  authenticity_score: number | null;
+  relevance_score: number | null;
+  buyer_intent: BuyerIntent | null;
+  discovery_source: DiscoverySource | null;
+  pipeline_version: number | null;
 }
 
 export type LeadTier = 'hot' | 'warm' | 'cold';
+
+export type BuyerIntent = 'problem_aware' | 'solution_seeking' | 'comparing' | 'ready_to_buy';
+
+export type DiscoverySource = 'subreddit_browse' | 'keyword_search' | 'comment_search' | 'both';
 
 export type AlertChannel = 'discord' | 'slack' | 'email' | 'telegram';
 

@@ -14,7 +14,7 @@ import { ScanParametersModal } from '@/components/outreach/ScanParametersModal';
 import { ScanWizard } from '@/components/outreach/ScanWizard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import type { OutreachSignal } from '@/types';
+import type { OutreachSignal, BuyerIntent } from '@/types';
 
 interface Analytics {
   hotCount: number;
@@ -34,6 +34,7 @@ export default function OutreachSignalsPage() {
 
   const [subFilter, setSubFilter] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'unseen' | null>(null);
+  const [intentFilter, setIntentFilter] = useState<BuyerIntent | null>(null);
 
   // Wizard & modal state
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -204,11 +205,13 @@ export default function OutreachSignalsPage() {
     return `${Math.floor(seconds / 3600)}h ago`;
   }
 
-  // Client-side tier filtering (matches analytics derivation logic)
-  const filteredSignals = tierFilter
-    ? signals.filter((s) => {
-        if (tierFilter === 'unseen') return s.is_unseen;
-        // Derive tier from lead_tier or combined_score
+  // Client-side filtering (tier + buyer intent)
+  const filteredSignals = signals.filter((s) => {
+    // Tier filter
+    if (tierFilter) {
+      if (tierFilter === 'unseen') {
+        if (!s.is_unseen) return false;
+      } else {
         let tier = s.lead_tier;
         if (!tier) {
           const score = s.combined_score ?? 0;
@@ -216,9 +219,13 @@ export default function OutreachSignalsPage() {
           else if (score >= 0.4) tier = 'warm';
           else tier = 'cold';
         }
-        return tier === tierFilter;
-      })
-    : signals;
+        if (tier !== tierFilter) return false;
+      }
+    }
+    // Buyer intent filter
+    if (intentFilter && s.buyer_intent !== intentFilter) return false;
+    return true;
+  });
 
   return (
     <PageTransition>
@@ -317,6 +324,43 @@ export default function OutreachSignalsPage() {
               </div>
             )}
 
+            {/* Buyer Intent Filter Pills */}
+            {analytics && (analytics as Analytics & { intentDistribution?: Record<string, number> }).intentDistribution && Object.keys((analytics as Analytics & { intentDistribution?: Record<string, number> }).intentDistribution!).length > 0 && (
+              <div>
+                <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Buyer Journey</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { key: 'problem_aware' as BuyerIntent, label: 'Problem Aware', color: 'slate' },
+                    { key: 'solution_seeking' as BuyerIntent, label: 'Solution Seeking', color: 'blue' },
+                    { key: 'comparing' as BuyerIntent, label: 'Comparing', color: 'purple' },
+                    { key: 'ready_to_buy' as BuyerIntent, label: 'Ready to Buy', color: 'green' },
+                  ] as const).map(({ key, label, color }) => {
+                    const count = ((analytics as Analytics & { intentDistribution?: Record<string, number> }).intentDistribution ?? {})[key] || 0;
+                    if (count === 0) return null;
+                    const isActive = intentFilter === key;
+                    const colorClasses: Record<string, string> = {
+                      slate: isActive ? 'ring-2 ring-slate-500 bg-slate-500/5' : 'hover:bg-accent/50',
+                      blue: isActive ? 'ring-2 ring-blue-500 bg-blue-500/5' : 'hover:bg-accent/50',
+                      purple: isActive ? 'ring-2 ring-purple-500 bg-purple-500/5' : 'hover:bg-accent/50',
+                      green: isActive ? 'ring-2 ring-green-500 bg-green-500/5' : 'hover:bg-accent/50',
+                    };
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setIntentFilter(isActive ? null : key)}
+                        className={`rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors ${colorClasses[color]}`}
+                      >
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-lg font-bold tabular-nums">{count}</span>
+                          <span className="text-xs font-semibold">{label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Scan button row */}
             <div className="flex flex-col items-center gap-3 py-4">
               <div className="flex items-center gap-3">
@@ -357,6 +401,7 @@ export default function OutreachSignalsPage() {
               <span className="text-xs text-muted-foreground">
                 {loading ? '...' : `${filteredSignals.length} signals`}
                 {tierFilter && ` (${tierFilter})`}
+                {intentFilter && ` / ${intentFilter.replace(/_/g, ' ')}`}
               </span>
             </div>
 

@@ -6,8 +6,15 @@
  */
 
 import { getAnthropicClient, HAIKU_MODEL, AI_MODEL } from '@/lib/ai/client';
-import { SIGNAL_ANALYSIS_SYSTEM_PROMPT, SIGNAL_ANALYSIS_V2_SYSTEM_PROMPT, buildV2ClassificationPrompt } from '@/lib/ai/prompts';
-import type { SignalType, PainSeverity, ScoreBin } from '@/types';
+import {
+  SIGNAL_ANALYSIS_SYSTEM_PROMPT,
+  SIGNAL_ANALYSIS_V2_SYSTEM_PROMPT,
+  buildV2ClassificationPrompt,
+  PRE_FILTER_SYSTEM_PROMPT,
+  SIGNAL_ANALYSIS_V3_SYSTEM_PROMPT,
+  buildV3ClassificationPrompt,
+} from '@/lib/ai/prompts';
+import type { SignalType, PainSeverity, ScoreBin, BuyerIntent } from '@/types';
 
 export interface ClassificationInput {
   reddit_id: string;
@@ -357,6 +364,153 @@ function parseClassificationResponse(responseText: string): ClassificationResult
     return (parsed.classifications || []).map((c) => ({
       ...c,
       intent_score: BIN_TO_SCORE[c.score_bin] ?? 0.5,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ---- V3 Classification (4-dimension scoring + buyer intent) ----
+
+export interface ClassificationResultV3 {
+  reddit_id: string;
+  intent_type: string;
+  fit_score: number;
+  lead_score: number;
+  authenticity_score: number;
+  relevance_score: number;
+  buyer_intent: BuyerIntent;
+  signal_types: SignalType[];
+  pain_severity: PainSeverity | null;
+  decision_maker: boolean;
+  competitor_mentions: { name: string; sentiment: string; switching_intent: boolean; context: string }[];
+}
+
+const VALID_BUYER_INTENTS: BuyerIntent[] = ['problem_aware', 'solution_seeking', 'comparing', 'ready_to_buy'];
+
+/**
+ * Pre-filter posts by title using a cheap Haiku call.
+ * Returns indices of posts that pass the filter.
+ */
+export async function preFilterPosts(
+  posts: { index: number; title: string }[],
+  productContext: { productName: string; productDescription: string }
+): Promise<number[]> {
+  if (posts.length === 0) return [];
+
+  const client = getAnthropicClient();
+
+  const titleList = posts
+    .map((p) => `${p.index}. ${p.title}`)
+    .join('\n');
+
+  const userPrompt = `## Product
+- **Name:** ${productContext.productName}
+- **Description:** ${productContext.productDescription}
+
+## Post Titles
+${titleList}
+
+Return the indices of titles that could be from potential leads.`;
+
+  const message = await client.messages.create({
+    model: HAIKU_MODEL,
+    max_tokens: 1024,
+    system: PRE_FILTER_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  const textContent = message.content.find((c) => c.type === 'text');
+  if (!textContent || textContent.type !== 'text') return posts.map((p) => p.index);
+
+  let text = textContent.text.trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { indices: number[] };
+    return parsed.indices || [];
+  } catch {
+    // If parsing fails, pass all posts through (be inclusive)
+    return posts.map((p) => p.index);
+  }
+}
+
+/**
+ * Classify posts using V3 4-dimension scoring + buyer intent.
+ */
+export async function classifyPostsV3(
+  posts: ClassificationInput[],
+  productContext: {
+    productName: string;
+    productDescription: string;
+    problemsSolved?: string[];
+    solutionFeatures?: string[];
+    audienceBehaviors?: string[];
+    competitors?: string[];
+    competitorWeaknesses?: string[];
+  }
+): Promise<ClassificationResultV3[]> {
+  if (posts.length === 0) return [];
+
+  const client = getAnthropicClient();
+  const prompt = buildV3ClassificationPrompt(
+    posts.map((p) => ({
+      reddit_id: p.reddit_id,
+      title: p.title,
+      body: p.body,
+      subreddit: p.subreddit,
+      author: p.author,
+      score: p.score,
+      num_comments: p.num_comments,
+    })),
+    productContext
+  );
+
+  const message = await client.messages.create({
+    model: HAIKU_MODEL,
+    max_tokens: 4096,
+    system: SIGNAL_ANALYSIS_V3_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const textContent = message.content.find((c) => c.type === 'text');
+  if (!textContent || textContent.type !== 'text') return [];
+
+  return parseV3ClassificationResponse(textContent.text);
+}
+
+function parseV3ClassificationResponse(responseText: string): ClassificationResultV3[] {
+  let text = responseText.trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  }
+
+  try {
+    const parsed = JSON.parse(text) as {
+      classifications: {
+        reddit_id: string;
+        intent_type: string;
+        fit_score: number;
+        lead_score: number;
+        authenticity_score: number;
+        relevance_score: number;
+        buyer_intent: BuyerIntent;
+        signal_types: SignalType[];
+        pain_severity: PainSeverity | null;
+        decision_maker: boolean;
+        competitor_mentions: { name: string; sentiment: string; switching_intent: boolean; context: string }[];
+      }[];
+    };
+
+    return (parsed.classifications || []).map((c) => ({
+      ...c,
+      fit_score: Math.max(1, Math.min(10, c.fit_score)),
+      lead_score: Math.max(1, Math.min(10, c.lead_score)),
+      authenticity_score: Math.max(1, Math.min(10, c.authenticity_score)),
+      relevance_score: Math.max(1, Math.min(10, c.relevance_score)),
+      buyer_intent: VALID_BUYER_INTENTS.includes(c.buyer_intent) ? c.buyer_intent : 'problem_aware',
     }));
   } catch {
     return [];

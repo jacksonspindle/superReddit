@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cardHover, cardTap } from '@/lib/motion';
 import { ReplyBuilder } from '@/components/outreach/ReplyBuilder';
 import { toast } from 'sonner';
-import type { OutreachSignal, SignalType, LeadTier } from '@/types';
+import type { OutreachSignal, SignalType, LeadTier, BuyerIntent } from '@/types';
 
 interface SignalCardV2Props {
   signal: OutreachSignal;
@@ -51,6 +51,25 @@ const painLabels: Record<string, string> = {
   low: '~ Low Pain',
   medium: '! Med Pain',
   high: '!! High Pain',
+};
+
+const buyerIntentConfig: Record<BuyerIntent, { label: string; badge: string }> = {
+  problem_aware: {
+    label: 'Problem Aware',
+    badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300',
+  },
+  solution_seeking: {
+    label: 'Solution Seeking',
+    badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+  },
+  comparing: {
+    label: 'Comparing',
+    badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+  },
+  ready_to_buy: {
+    label: 'Ready to Buy',
+    badge: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+  },
 };
 
 const tierConfig: Record<LeadTier, { label: string; badge: string; stripe: string; icon: typeof Flame }> = {
@@ -131,6 +150,7 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
   const config = tierConfig[tier];
   const TierIcon = config.icon;
   const signalTypes = signal.signal_types || [];
+  const hasV3Scores = signal.authenticity_score != null;
   const hasV2Scores = signal.fit_score != null;
 
   async function handleSendDiscordAlert() {
@@ -185,14 +205,21 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
                 </span>
               )}
 
-              {signal.intent_type && signal.intent_type !== 'unknown' && (
+              {signal.buyer_intent && buyerIntentConfig[signal.buyer_intent] ? (
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1.5 py-0 ${buyerIntentConfig[signal.buyer_intent].badge}`}
+                >
+                  {buyerIntentConfig[signal.buyer_intent].label}
+                </Badge>
+              ) : signal.intent_type && signal.intent_type !== 'unknown' ? (
                 <Badge
                   variant="secondary"
                   className={`text-[10px] px-1.5 py-0 ${intentColors[signal.intent_type] || intentColors.discussion}`}
                 >
                   {signal.intent_type}
                 </Badge>
-              )}
+              ) : null}
 
               {signal.is_unseen && (
                 <span className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0" />
@@ -244,10 +271,17 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
             </div>
           )}
 
-          {/* Subreddit */}
-          <span className="inline-flex items-center self-start rounded-md bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[11px] font-semibold text-indigo-400">
-            r/{signal.subreddit}
-          </span>
+          {/* Subreddit + discovery source */}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center rounded-md bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[11px] font-semibold text-indigo-400">
+              r/{signal.subreddit}
+            </span>
+            {signal.discovery_source && signal.discovery_source !== 'keyword_search' && (
+              <span className="text-[9px] text-muted-foreground/60 font-medium">
+                {signal.discovery_source === 'subreddit_browse' ? 'browse' : signal.discovery_source === 'both' ? 'browse+keyword' : 'comment'}
+              </span>
+            )}
+          </div>
 
           {/* Title */}
           <a
@@ -268,7 +302,14 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
           )}
 
           {/* Score row */}
-          {hasV2Scores ? (
+          {hasV3Scores ? (
+            <div className="flex gap-1.5 flex-wrap">
+              <ScoreBadge label="Fit" value={signal.fit_score!} />
+              <ScoreBadge label="Auth" value={signal.authenticity_score!} />
+              <ScoreBadge label="Rel" value={signal.relevance_score!} />
+              <ScoreBadge label="Lead" value={signal.lead_score!} />
+            </div>
+          ) : hasV2Scores ? (
             <div className="flex gap-1.5 flex-wrap">
               <ScoreBadge label="Fit" value={signal.fit_score!} />
               <ScoreBadge label="Lead" value={signal.lead_score!} />
