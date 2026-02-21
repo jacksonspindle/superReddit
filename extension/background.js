@@ -8,6 +8,8 @@ const THEY_REPLIED_KEY = 'sr_they_replied';
 const PREVIEWS_KEY = 'sr_chat_previews';
 const CONVERSATIONS_KEY = 'sr_conversations';
 const SCAN_READY_KEY = 'sr_scan_ready';
+const ACTIVITY_LOG_KEY = 'sr_activity_log';
+const ACTIVITY_LOG_MAX = 50;
 
 const SCAN_ALARM = 'sr_periodic_scan';
 const MSG_FETCH_ALARM = 'sr_message_fetch';
@@ -20,6 +22,17 @@ let composeTabId = null;
 
 const CHAT_URLS_KEY = 'sr_chat_urls';
 const CONVERSATION_CACHE_TTL = 5 * 60 * 1000;
+
+// ---- Activity Logging ----
+
+function logActivity(message, type = 'info') {
+  chrome.storage.local.get(ACTIVITY_LOG_KEY, (result) => {
+    const log = result[ACTIVITY_LOG_KEY] || [];
+    log.unshift({ message, type, timestamp: Date.now() });
+    if (log.length > ACTIVITY_LOG_MAX) log.length = ACTIVITY_LOG_MAX;
+    chrome.storage.local.set({ [ACTIVITY_LOG_KEY]: log });
+  });
+}
 
 // ---- On install/update: start periodic scanning ----
 chrome.runtime.onInstalled.addListener((details) => {
@@ -370,10 +383,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         lastSendDmTime = Date.now();
+        if (result.success) {
+          logActivity(`DM sent to u/${username}`, 'send');
+        } else {
+          logActivity(`DM failed for u/${username}: ${result.error}`, 'error');
+        }
         sendResponse(result);
       } catch (err) {
         console.log('[SR BG] SEND_DM error:', err.message);
         pendingSendDm = null;
+        logActivity(`DM error: ${err.message}`, 'error');
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -410,6 +429,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else {
       // Manual mode — no pending send. Store result so web app can poll for it.
       console.log('[SR BG] COMPOSE_RESULT (manual mode): success=' + success + ' user=' + username);
+      if (success) {
+        logActivity(`DM sent to u/${username} (manual)`, 'send');
+      } else {
+        logActivity(`DM failed for u/${username}: ${error || 'unknown'}`, 'error');
+      }
       if (success && username) {
         // Add to youSentTo storage
         chrome.storage.local.get(YOU_SENT_TO_KEY, (result) => {
@@ -612,6 +636,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CHAT_SCAN_RESULT') {
     const { usernames = [], youSentTo = [], theyReplied = [], previews = {}, chatUrls = {} } = message;
     console.log(`[SR BG] Chat scan complete: ${usernames.length} usernames, ${youSentTo.length} youSentTo, ${theyReplied.length} theyReplied`);
+    logActivity(`Scan completed — ${usernames.length} chats found`, 'scan');
     if (usernames.length > 0) {
       // Usernames — cumulative
       chrome.storage.local.get(STORAGE_KEY, (result) => {
@@ -1161,8 +1186,14 @@ async function storeScrapedMessages(userLower, scraped) {
 
 // ---- Response Handlers ----
 
+let lastKnownLoginStatus = null;
+
 async function handleCheckStatus() {
   const hasSession = await hasRedditSession();
+  if (lastKnownLoginStatus !== null && lastKnownLoginStatus !== hasSession) {
+    logActivity(hasSession ? 'Reddit session detected — logged in' : 'Reddit session lost — logged out', hasSession ? 'info' : 'error');
+  }
+  lastKnownLoginStatus = hasSession;
   if (!hasSession) {
     return { installed: true, redditLoggedIn: false, username: null, capturedCount: 0, youSentToCount: 0, theyRepliedCount: 0 };
   }
