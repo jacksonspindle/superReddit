@@ -16,14 +16,12 @@ import {
   Target,
   Radio,
   Bell,
-  BarChart3,
   Users,
   Settings,
   Github,
   Bot,
   Send,
   GitPullRequestArrow,
-  TrendingDown,
   PieChart,
   PanelLeftClose,
   PanelLeftOpen,
@@ -122,14 +120,12 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const outreachChildren = [
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
     { href: `${base}/outreach/alerts`, label: 'Alerts', icon: Bell },
-    { href: `${base}/outreach/tracker`, label: 'Tracker', icon: BarChart3 },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
   ];
 
   const dmsChildren = [
     { href: `${base}/dms`, label: 'Analytics', icon: PieChart },
     { href: `${base}/dms/pipeline`, label: 'Pipeline', icon: GitPullRequestArrow },
-    { href: `${base}/dms/churn`, label: 'Churn', icon: TrendingDown },
   ];
 
   const contextChildren = [
@@ -202,7 +198,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
       <motion.div variants={staggerItemVariants}>
         <button
           onClick={toggle}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <Icon className="h-4 w-4" />
           {label}
