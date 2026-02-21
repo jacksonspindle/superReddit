@@ -1,17 +1,23 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Globe, Loader2, Search, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AlertTriangle, ArrowUpRight, ChevronDown, Clock, ExternalLink,
+  Globe, Loader2, MessageSquare, RefreshCw, Search, Sparkles, Trash2, Users,
+} from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PageTransition, StaggerList, StaggerItem } from '@/components/motion';
 import { useProject } from '@/contexts/project-context';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { SuggestedSubreddit } from '@/lib/ai/prompts';
+import type { RedditPost } from '@/types';
 
 interface TrackedSub {
   id: string;
@@ -44,11 +50,232 @@ function formatSubscribers(n: number): string {
   return n.toString();
 }
 
+function formatNumber(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toString();
+}
+
+function timeAgo(timestamp: number) {
+  const seconds = Math.floor(Date.now() / 1000 - timestamp);
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return new Date(timestamp * 1000).toLocaleDateString();
+}
+
+type SortOption = 'hot' | 'top' | 'rising' | 'new';
+type TimeFilter = 'day' | 'week' | 'month';
+
+function SubredditFeed({ subName, projectId }: { subName: string; projectId: string }) {
+  const [posts, setPosts] = useState<RedditPost[]>([]);
+  const [sort, setSort] = useState<SortOption>('top');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const seenIds = useRef(new Set<string>());
+
+  const fetchPage = useCallback(async (pageNum: number, sortVal: SortOption, timeVal: TimeFilter, isReset: boolean) => {
+    if (isReset) {
+      setLoading(true);
+      seenIds.current = new Set();
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const params = new URLSearchParams({
+        projectId,
+        sort: sortVal,
+        t: timeVal,
+        page: String(pageNum),
+        sub: subName,
+      });
+      const res = await fetch(`/api/reddit/feed?${params}`);
+      const json = await res.json();
+
+      if (!json.error) {
+        const newPosts = (json.posts as RedditPost[]).filter((p) => {
+          if (seenIds.current.has(p.id)) return false;
+          seenIds.current.add(p.id);
+          return true;
+        });
+        if (isReset) {
+          setPosts(newPosts);
+        } else {
+          setPosts((prev) => [...prev, ...newPosts]);
+        }
+        setHasMore(json.hasMore ?? false);
+      }
+    } catch {
+      if (isReset) setPosts([]);
+    }
+
+    setLoading(false);
+    setLoadingMore(false);
+  }, [projectId, subName]);
+
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    fetchPage(0, sort, timeFilter, true);
+  }, [fetchPage, sort, timeFilter]);
+
+  function handleSortChange(newSort: SortOption) {
+    setSort(newSort);
+    setPage(0);
+    fetchPage(0, newSort, timeFilter, true);
+  }
+
+  function handleTimeChange(newTime: TimeFilter) {
+    setTimeFilter(newTime);
+    setPage(0);
+    fetchPage(0, sort, newTime, true);
+  }
+
+  function handleLoadMore() {
+    if (loadingMore || !hasMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchPage(nextPage, sort, timeFilter, false);
+  }
+
+  return (
+    <div className="border-t">
+      {/* Sort controls */}
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b bg-muted/30">
+        <Select value={sort} onValueChange={(v) => handleSortChange(v as SortOption)}>
+          <SelectTrigger className="h-7 w-[72px] text-[10px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="top">Top</SelectItem>
+            <SelectItem value="hot">Hot</SelectItem>
+            <SelectItem value="rising">Rising</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {sort === 'top' && (
+          <Select value={timeFilter} onValueChange={(v) => handleTimeChange(v as TimeFilter)}>
+            <SelectTrigger className="h-7 w-[80px] text-[10px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">Today</SelectItem>
+              <SelectItem value="week">Week</SelectItem>
+              <SelectItem value="month">Month</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 w-7 p-0 ml-auto"
+          onClick={() => { setPage(0); fetchPage(0, sort, timeFilter, true); }}
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+        </Button>
+      </div>
+
+      {/* Posts */}
+      {loading ? (
+        <div className="p-3 space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+          ))}
+        </div>
+      ) : posts.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-6">No posts found</p>
+      ) : (
+        <div>
+          {posts.map((post) => (
+            <div key={post.id} className="border-b border-border/50 last:border-b-0 px-3 py-2.5 space-y-1.5">
+              {/* Author + time */}
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="text-muted-foreground">u/{post.author}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground flex items-center gap-0.5">
+                  <Clock className="h-2.5 w-2.5" />
+                  {timeAgo(post.created_utc)}
+                </span>
+              </div>
+              {/* Title */}
+              <h4 className="text-sm font-medium leading-snug">{post.title}</h4>
+              {post.link_flair_text && (
+                <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium">
+                  {post.link_flair_text}
+                </span>
+              )}
+              {/* Body preview */}
+              {post.selftext && (
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{post.selftext}</p>
+              )}
+              {/* Stats */}
+              <div className="flex items-center gap-3 pt-0.5">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <ArrowUpRight className="h-3.5 w-3.5 text-orange-500" />
+                  <span className="font-medium">{formatNumber(post.score)}</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>{formatNumber(post.num_comments)}</span>
+                </div>
+                <a
+                  href={`https://reddit.com${post.permalink}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-auto"
+                >
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 gap-1">
+                    <ExternalLink className="h-3 w-3" />
+                    Open
+                  </Button>
+                </a>
+              </div>
+            </div>
+          ))}
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center py-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
+                Load more
+              </Button>
+            </div>
+          )}
+
+          {!hasMore && posts.length > 0 && (
+            <p className="text-[10px] text-muted-foreground text-center py-3">No more posts</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SubredditsPage() {
   const { project } = useProject();
 
   const [trackedSubs, setTrackedSubs] = useState<TrackedSub[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedSub, setExpandedSub] = useState<string | null>(null);
 
   // Search state
   const [searchInput, setSearchInput] = useState('');
@@ -378,38 +605,48 @@ export default function SubredditsPage() {
               </div>
             ) : (
               <StaggerList className="space-y-2">
-                {trackedSubs.map((sub) => (
-                  <StaggerItem key={sub.id}>
-                    <Card>
-                      <CardContent className="px-3 py-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">r/{sub.name}</span>
-                              {sub.subscribers && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Users className="h-3 w-3" />
-                                  {formatSubscribers(sub.subscribers)}
-                                </span>
-                              )}
-                            </div>
-                            {sub.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{sub.description}</p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleRemove(sub)}
+                {trackedSubs.map((sub) => {
+                  const isExpanded = expandedSub === sub.name;
+                  return (
+                    <StaggerItem key={sub.id}>
+                      <Card className="overflow-hidden">
+                        <CardContent className="p-0">
+                          <button
+                            className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                            onClick={() => setExpandedSub(isExpanded ? null : sub.name)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </StaggerItem>
-                ))}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
+                                <span className="font-medium text-sm">r/{sub.name}</span>
+                                {sub.subscribers && (
+                                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Users className="h-3 w-3" />
+                                    {formatSubscribers(sub.subscribers)}
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); handleRemove(sub); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                            {sub.description && !isExpanded && (
+                              <p className="text-xs text-muted-foreground mt-0.5 ml-5.5 line-clamp-1">{sub.description}</p>
+                            )}
+                          </button>
+                          {isExpanded && (
+                            <SubredditFeed subName={sub.name} projectId={project.id} />
+                          )}
+                        </CardContent>
+                      </Card>
+                    </StaggerItem>
+                  );
+                })}
               </StaggerList>
             )}
           </div>
