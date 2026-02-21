@@ -1,4 +1,7 @@
 import { supabase } from '../db/supabase.js';
+import { sendSlackAlert } from './slack-dispatcher.js';
+import { sendEmailAlert } from './email-dispatcher.js';
+import { sendTelegramAlert } from './telegram-dispatcher.js';
 
 interface SignalEmbed {
   signalId: string;
@@ -205,6 +208,90 @@ async function updateSignalAlertStatus(
       discord_alert_sent_at: status === 'sent' ? new Date().toISOString() : null,
     })
     .eq('id', signalId);
+}
+
+/**
+ * Process all pending alert_deliveries for a project across all channels.
+ */
+export async function dispatchMultiChannelAlerts(projectId: string, config: any): Promise<number> {
+  const { data: pending, error } = await supabase
+    .from('alert_deliveries')
+    .select('*, signal:outreach_signals(id, title, subreddit, body, author, permalink, matched_keywords, signal_types, combined_score, pain_severity, decision_maker, fetched_at, created_at)')
+    .eq('project_id', projectId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+
+  if (error || !pending?.length) return 0;
+
+  let sentCount = 0;
+
+  for (const delivery of pending) {
+    const signal = delivery.signal;
+    if (!signal) continue;
+
+    const payload = {
+      title: signal.title,
+      subreddit: signal.subreddit,
+      matchedKeywords: signal.matched_keywords || [],
+      snippet: signal.body || '',
+      redditUrl: `https://reddit.com${signal.permalink}`,
+      redditAuthor: signal.author,
+      signalTypes: signal.signal_types || [],
+      combinedScore: signal.combined_score || 0,
+      painSeverity: signal.pain_severity,
+      decisionMaker: signal.decision_maker || false,
+    };
+
+    let success = false;
+
+    try {
+      switch (delivery.channel) {
+        case 'discord':
+          if (config.discord_webhook_url) {
+            success = await sendSignalEmbed(config.discord_webhook_url, {
+              signalId: signal.id,
+              ...payload,
+              intentScore: 0,
+              safetyLevel: null,
+              detectedAt: signal.fetched_at || signal.created_at,
+            });
+          }
+          break;
+        case 'slack':
+          if (config.slack_webhook_url) {
+            success = await sendSlackAlert(config.slack_webhook_url, payload);
+          }
+          break;
+        case 'email':
+          if (config.email_address && config.email_connected) {
+            success = await sendEmailAlert(config.email_address, payload);
+          }
+          break;
+        case 'telegram':
+          if (config.telegram_chat_id && config.telegram_connected) {
+            success = await sendTelegramAlert(config.telegram_chat_id, payload);
+          }
+          break;
+      }
+    } catch (err) {
+      console.error(`Dispatch error for ${delivery.channel}:`, err);
+    }
+
+    // Update delivery status
+    await supabase
+      .from('alert_deliveries')
+      .update({
+        status: success ? 'sent' : 'failed',
+        sent_at: success ? new Date().toISOString() : null,
+        error_message: success ? null : 'Dispatch failed',
+      })
+      .eq('id', delivery.id);
+
+    if (success) sentCount++;
+    await sleep(300);
+  }
+
+  return sentCount;
 }
 
 function truncate(text: string, maxLength: number): string {

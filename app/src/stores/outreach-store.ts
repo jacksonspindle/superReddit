@@ -6,6 +6,8 @@ import type {
   OutreachKeyword,
   OutreachMonitoredSub,
   OutreachSignal,
+  AlertDelivery,
+  AlertChannel,
 } from '@/types';
 
 interface OutreachState {
@@ -21,15 +23,20 @@ interface OutreachState {
   monitoredSubs: OutreachMonitoredSub[];
   subsLoading: boolean;
 
-  // Recent alerts (signals with discord_alert_status)
+  // Recent alerts (signals with discord_alert_status) — legacy
   recentAlerts: OutreachSignal[];
   alertsLoading: boolean;
+
+  // Alert deliveries (multi-channel)
+  alertDeliveries: AlertDelivery[];
+  deliveriesLoading: boolean;
 
   // Actions
   fetchConfig: (projectId: string) => Promise<void>;
   fetchKeywords: (projectId: string) => Promise<void>;
   fetchMonitoredSubs: (projectId: string) => Promise<void>;
   fetchRecentAlerts: (projectId: string) => Promise<void>;
+  fetchAlertDeliveries: (projectId: string, channel?: AlertChannel) => Promise<void>;
   addKeyword: (projectId: string, phrases: string[]) => Promise<void>;
   removeKeyword: (keywordId: string) => Promise<void>;
   toggleKeyword: (keywordId: string, isActive: boolean) => Promise<void>;
@@ -38,6 +45,15 @@ interface OutreachState {
   toggleMonitoredSub: (subId: string, isActive: boolean) => Promise<void>;
   syncSubsFromProject: (projectId: string) => Promise<void>;
   disconnectDiscord: (projectId: string) => Promise<void>;
+  disconnectChannel: (projectId: string, channel: AlertChannel) => Promise<void>;
+  connectEmail: (projectId: string, email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyEmail: (projectId: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  updateEmailPreferences: (projectId: string, prefs: {
+    realtime_enabled?: boolean;
+    digest_enabled?: boolean;
+    digest_frequency?: 'daily' | 'weekly';
+  }) => Promise<void>;
+  connectTelegram: (projectId: string) => Promise<{ link: string; token: string } | null>;
 }
 
 export const useOutreachStore = create<OutreachState>((set, get) => ({
@@ -49,6 +65,8 @@ export const useOutreachStore = create<OutreachState>((set, get) => ({
   subsLoading: false,
   recentAlerts: [],
   alertsLoading: false,
+  alertDeliveries: [],
+  deliveriesLoading: false,
 
   fetchConfig: async (projectId) => {
     set({ configLoading: true });
@@ -98,6 +116,20 @@ export const useOutreachStore = create<OutreachState>((set, get) => ({
       set({ recentAlerts: [] });
     }
     set({ alertsLoading: false });
+  },
+
+  fetchAlertDeliveries: async (projectId, channel?) => {
+    set({ deliveriesLoading: true });
+    try {
+      const params = new URLSearchParams({ project_id: projectId, limit: '50' });
+      if (channel) params.set('channel', channel);
+      const res = await fetch(`/api/alerts/deliveries?${params}`);
+      const json = await res.json();
+      set({ alertDeliveries: json.deliveries || [] });
+    } catch {
+      set({ alertDeliveries: [] });
+    }
+    set({ deliveriesLoading: false });
   },
 
   addKeyword: async (projectId, phrases) => {
@@ -261,35 +293,133 @@ export const useOutreachStore = create<OutreachState>((set, get) => ({
   },
 
   disconnectDiscord: async (projectId) => {
+    return get().disconnectChannel(projectId, 'discord');
+  },
+
+  disconnectChannel: async (projectId, channel) => {
+    const prevConfig = get().config;
+    if (prevConfig) {
+      const updates: Partial<OutreachConfig> = {};
+      switch (channel) {
+        case 'discord':
+          Object.assign(updates, {
+            discord_connected: false,
+            discord_guild_id: null,
+            discord_guild_name: null,
+            discord_channel_id: null,
+            discord_webhook_url: null,
+          });
+          break;
+        case 'slack':
+          Object.assign(updates, {
+            slack_connected: false,
+            slack_team_id: null,
+            slack_team_name: null,
+            slack_channel_id: null,
+            slack_channel_name: null,
+            slack_webhook_url: null,
+            slack_access_token: null,
+          });
+          break;
+        case 'email':
+          Object.assign(updates, {
+            email_connected: false,
+            email_verified: false,
+            email_address: null,
+            email_realtime_enabled: true,
+            email_digest_enabled: false,
+          });
+          break;
+        case 'telegram':
+          Object.assign(updates, {
+            telegram_connected: false,
+            telegram_chat_id: null,
+            telegram_username: null,
+          });
+          break;
+      }
+      set({ config: { ...prevConfig, ...updates } as OutreachConfig });
+    }
+
+    try {
+      await fetch('/api/alerts/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId, channel }),
+      });
+    } catch {
+      if (prevConfig) set({ config: prevConfig });
+    }
+  },
+
+  connectEmail: async (projectId, email) => {
+    try {
+      const res = await fetch('/api/alerts/email/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId, email }),
+      });
+      const json = await res.json();
+      if (json.error) return { success: false, error: json.error };
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Failed to send verification code' };
+    }
+  },
+
+  verifyEmail: async (projectId, code) => {
+    try {
+      const res = await fetch('/api/alerts/email/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId, code }),
+      });
+      const json = await res.json();
+      if (json.error) return { success: false, error: json.error };
+      // Refresh config to pick up connected state
+      await get().fetchConfig(projectId);
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Verification failed' };
+    }
+  },
+
+  updateEmailPreferences: async (projectId, prefs) => {
     const prevConfig = get().config;
     if (prevConfig) {
       set({
         config: {
           ...prevConfig,
-          discord_connected: false,
-          discord_guild_id: null,
-          discord_guild_name: null,
-          discord_channel_id: null,
-          discord_webhook_url: null,
+          ...(prefs.realtime_enabled !== undefined && { email_realtime_enabled: prefs.realtime_enabled }),
+          ...(prefs.digest_enabled !== undefined && { email_digest_enabled: prefs.digest_enabled }),
+          ...(prefs.digest_frequency !== undefined && { email_digest_frequency: prefs.digest_frequency }),
         },
       });
     }
 
     try {
-      await fetch('/api/outreach/config', {
+      await fetch('/api/alerts/email/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          discord_connected: false,
-          discord_guild_id: null,
-          discord_guild_name: null,
-          discord_channel_id: null,
-          discord_webhook_url: null,
-        }),
+        body: JSON.stringify({ project_id: projectId, ...prefs }),
       });
     } catch {
       if (prevConfig) set({ config: prevConfig });
+    }
+  },
+
+  connectTelegram: async (projectId) => {
+    try {
+      const res = await fetch('/api/alerts/telegram/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId }),
+      });
+      const json = await res.json();
+      if (json.link) return { link: json.link, token: json.token };
+      return null;
+    } catch {
+      return null;
     }
   },
 }));
