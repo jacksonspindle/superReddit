@@ -1,6 +1,6 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const DEFAULT_STEPS = [
@@ -13,9 +13,10 @@ const DEFAULT_STEPS = [
 interface OnboardingSidebarProps {
   currentStep: number;
   steps?: { label: string }[];
+  onCancel?: () => void;
 }
 
-export function OnboardingSidebar({ currentStep, steps = DEFAULT_STEPS }: OnboardingSidebarProps) {
+export function OnboardingSidebar({ currentStep, steps = DEFAULT_STEPS, onCancel }: OnboardingSidebarProps) {
   return (
     <div className="flex w-60 flex-col justify-between border-r bg-card p-8">
       <div>
@@ -76,9 +77,20 @@ export function OnboardingSidebar({ currentStep, steps = DEFAULT_STEPS }: Onboar
         </nav>
       </div>
 
-      <p className="text-xs text-muted-foreground/50">
-        You can always change these settings later.
-      </p>
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground/50">
+          You can always change these settings later.
+        </p>
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          >
+            <X className="h-3 w-3" />
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }
