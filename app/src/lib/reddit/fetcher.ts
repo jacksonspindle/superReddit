@@ -35,7 +35,7 @@ class RateLimiter {
   }
 }
 
-const rateLimiter = new RateLimiter(8, 8); // 8 tokens, refills 8/min
+const rateLimiter = new RateLimiter(10, 10); // 10 tokens, refills 10/min (Reddit's actual public limit)
 
 // ---- In-Memory Cache ----
 const memoryCache = new Map<string, { data: RedditApiResponse; expiresAt: number }>();
@@ -336,4 +336,103 @@ export async function searchSubredditPosts(
   } catch (error) {
     return { posts: [], error: (error as Error).message };
   }
+}
+
+/**
+ * Multi-subreddit search with OR-grouped keywords and pagination.
+ * Drastically reduces API calls: instead of N subs x M keywords = NxM calls,
+ * this batches subs (up to 25 per chunk) and groups keywords with OR (~10 per group),
+ * resulting in ~2-4 API calls total for typical configurations.
+ */
+export async function searchMultiSubPosts(
+  subreddits: string[],
+  keywords: string[],
+  options?: {
+    timeFilter?: 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
+    limit?: number;     // total results target (default 100)
+    maxPages?: number;  // pagination depth (default 3)
+  }
+): Promise<RedditApiResponse> {
+  const timeFilter = options?.timeFilter || 'week';
+  const targetLimit = options?.limit || 100;
+  const maxPages = options?.maxPages || 3;
+
+  if (subreddits.length === 0 || keywords.length === 0) {
+    return { posts: [] };
+  }
+
+  // Build OR-grouped keyword queries (max ~10 keywords per group)
+  const keywordGroups = chunkArray(keywords, 10).map((group) =>
+    group
+      .map((kw) => (kw.includes(' ') ? `"${kw}"` : kw))
+      .join(' OR ')
+  );
+
+  // Chunk subreddits (max 25 per multi-sub request for URL length safety)
+  const subChunks = chunkArray(subreddits, 25);
+
+  const allPosts = new Map<string, RedditPost>(); // deduplicate by post ID
+
+  for (const subChunk of subChunks) {
+    const multiSub = subChunk.join('+');
+
+    for (const queryStr of keywordGroups) {
+      // Check L1 memory cache first
+      const cacheKey = `multisearch:${multiSub}:${queryStr}:${timeFilter}`;
+      const cached = getFromMemoryCache(cacheKey);
+      if (cached) {
+        for (const post of cached.posts) {
+          allPosts.set(post.id, post);
+        }
+        continue;
+      }
+
+      // Paginate through results
+      const chunkPosts: RedditPost[] = [];
+      let after: string | null = null;
+
+      for (let page = 0; page < maxPages; page++) {
+        try {
+          const afterParam = after ? `&after=${after}` : '';
+          const url = `${REDDIT_BASE}/r/${multiSub}/search.json?q=${encodeURIComponent(queryStr)}&restrict_sr=on&limit=100&sort=relevance&t=${timeFilter}&raw_json=1${afterParam}`;
+          const json = (await fetchFromReddit(url)) as {
+            data: { children: Record<string, unknown>[]; after: string | null };
+          };
+
+          const pagePosts = json.data.children.map(parseRedditPost);
+          chunkPosts.push(...pagePosts);
+
+          after = json.data.after;
+          if (!after || chunkPosts.length >= targetLimit) break;
+        } catch (error) {
+          console.error('Multi-sub search page error:', error);
+          break;
+        }
+      }
+
+      // Cache this chunk's results
+      if (chunkPosts.length > 0) {
+        setMemoryCache(cacheKey, { posts: chunkPosts });
+      }
+
+      for (const post of chunkPosts) {
+        allPosts.set(post.id, post);
+      }
+
+      // Early exit if we have enough results
+      if (allPosts.size >= targetLimit) break;
+    }
+
+    if (allPosts.size >= targetLimit) break;
+  }
+
+  return { posts: Array.from(allPosts.values()).slice(0, targetLimit) };
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
 }

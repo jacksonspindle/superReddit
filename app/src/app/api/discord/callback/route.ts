@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
           topic: 'SuperReddit keyword alerts for Reddit monitoring',
           permission_overwrites: [
             {
-              // @everyone — deny VIEW_CHANNEL
+              // @everyone - deny VIEW_CHANNEL
               id: resolvedGuildId,
               type: 0, // role
               deny: '1024', // VIEW_CHANNEL
@@ -128,44 +128,45 @@ export async function GET(request: NextRequest) {
 
     const webhookData = await webhookResponse.json();
 
-    // Upsert alert_configs row
+    // Update outreach_configs with Discord columns (unified table)
     const { error: configError } = await supabase
-      .from('alert_configs')
-      .upsert(
-        {
-          project_id: state.project_id,
-          webhook_url: webhookData.url,
-          guild_id: resolvedGuildId,
-          guild_name: guildName,
-          channel_id: channelData.id,
-          is_active: true,
-        },
-        { onConflict: 'project_id' }
-      );
+      .from('outreach_configs')
+      .update({
+        discord_guild_id: resolvedGuildId,
+        discord_guild_name: guildName,
+        discord_channel_id: channelData.id,
+        discord_webhook_url: webhookData.url,
+        discord_connected: true,
+      })
+      .eq('project_id', state.project_id);
 
     if (configError) {
-      console.error('Config insert failed:', configError);
+      console.error('Config update failed:', configError);
       return NextResponse.redirect(new URL('/alerts?error=db_error', request.url));
     }
 
-    // Copy project's existing subreddits into alert_subreddits
+    // Sync project's existing subreddits into outreach_monitored_subs
     const { data: projectSubreddits } = await supabase
       .from('subreddits')
       .select('name')
       .eq('project_id', state.project_id);
 
     if (projectSubreddits?.length) {
-      const alertSubreddits = projectSubreddits.map((s) => ({
+      const monitoredSubs = projectSubreddits.map((s) => ({
         project_id: state.project_id,
         name: s.name.toLowerCase().replace(/^r\//, ''),
+        is_active: true,
+        safety_level: 'caution',
       }));
 
       await supabase
-        .from('alert_subreddits')
-        .upsert(alertSubreddits, { onConflict: 'project_id,name' });
+        .from('outreach_monitored_subs')
+        .upsert(monitoredSubs, { onConflict: 'project_id,name' });
     }
 
-    return NextResponse.redirect(new URL('/alerts?connected=true', request.url));
+    // Redirect to the outreach alerts page
+    const redirectUrl = `/projects/${state.project_id}/outreach/alerts?connected=true`;
+    return NextResponse.redirect(new URL(redirectUrl, request.url));
   } catch (error) {
     console.error('Discord callback error:', error);
     return NextResponse.redirect(new URL('/alerts?error=unknown', request.url));

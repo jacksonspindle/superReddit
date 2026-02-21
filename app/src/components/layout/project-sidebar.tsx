@@ -15,6 +15,7 @@ import {
   LogOut,
   Target,
   Radio,
+  Bell,
   BarChart3,
   Users,
   Settings,
@@ -120,6 +121,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
 
   const outreachChildren = [
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
+    { href: `${base}/outreach/alerts`, label: 'Alerts', icon: Bell },
     { href: `${base}/outreach/tracker`, label: 'Tracker', icon: BarChart3 },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
   ];

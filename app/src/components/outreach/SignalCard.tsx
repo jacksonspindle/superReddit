@@ -1,31 +1,98 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpRight, MessageSquare, Clock, ExternalLink, Reply, X } from 'lucide-react';
+import {
+  ArrowUpRight, MessageSquare, Clock, ExternalLink, X, Bell,
+  Star, Flame, Sun, Pencil,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cardHover, cardTap } from '@/lib/motion';
-import { ComplianceBadge } from '@/components/outreach/ComplianceBadge';
 import { ReplyBuilder } from '@/components/outreach/ReplyBuilder';
-import { getSafetyLevel } from '@/lib/outreach/compliance';
-import type { OutreachSignal } from '@/types';
+import { toast } from 'sonner';
+import type { OutreachSignal, SignalType, LeadTier } from '@/types';
 
-interface SignalCardProps {
+interface SignalCardV2Props {
   signal: OutreachSignal;
   projectId: string;
-  safetyScore: number | null;
   onStatusChange: (signalId: string, status: string) => void;
+  onFavoriteToggle: (signalId: string, isFavorited: boolean) => void;
+  onMarkSeen: (signalId: string) => void;
 }
 
 const intentColors: Record<string, string> = {
-  question: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  comparison: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  problem: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  discussion: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
-  showcase: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  question: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  comparison: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
+  problem: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
+  discussion: 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300',
+  showcase: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
 };
+
+const signalTypeColors: Record<string, string> = {
+  tool_switch: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300',
+  budget_constraint: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+  repeated_pain: 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300',
+  high_signal_comment: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300',
+  mod_safe: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300',
+  trend_cluster: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-300',
+  convertible_thread: 'bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-300',
+};
+
+const painColors: Record<string, string> = {
+  low: 'text-gray-500 dark:text-gray-400',
+  medium: 'text-yellow-600 dark:text-yellow-400',
+  high: 'text-red-600 dark:text-red-400',
+};
+
+const painLabels: Record<string, string> = {
+  low: '~ Low Pain',
+  medium: '! Med Pain',
+  high: '!! High Pain',
+};
+
+const tierConfig: Record<LeadTier, { label: string; badge: string; stripe: string; icon: typeof Flame }> = {
+  hot: {
+    label: 'Hot Lead',
+    badge: 'bg-red-500/15 text-red-500 dark:bg-red-500/20 dark:text-red-400',
+    stripe: 'bg-gradient-to-r from-red-500 to-red-400',
+    icon: Flame,
+  },
+  warm: {
+    label: 'Warm Lead',
+    badge: 'bg-amber-500/15 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400',
+    stripe: 'bg-gradient-to-r from-amber-500 to-amber-400',
+    icon: Sun,
+  },
+  cold: {
+    label: 'Cold',
+    badge: 'bg-gray-500/15 text-gray-500 dark:bg-gray-500/20 dark:text-gray-400',
+    stripe: '',
+    icon: Sun,
+  },
+};
+
+function deriveTier(signal: OutreachSignal): LeadTier {
+  if (signal.lead_tier) return signal.lead_tier;
+  // Backward compat: derive from combined_score
+  if (signal.combined_score >= 0.7) return 'hot';
+  if (signal.combined_score >= 0.4) return 'warm';
+  return 'cold';
+}
+
+function scoreColor(value: number): string {
+  if (value >= 7) return 'text-green-600 dark:text-green-400';
+  if (value >= 4) return 'text-amber-600 dark:text-amber-400';
+  return 'text-gray-500 dark:text-gray-400';
+}
+
+function scoreBarColor(value: number): string {
+  if (value >= 7) return 'bg-green-500';
+  if (value >= 4) return 'bg-amber-500';
+  return 'bg-gray-400';
+}
 
 const timeAgo = (timestamp: number) => {
   const seconds = Math.floor(Date.now() / 1000 - timestamp);
@@ -41,31 +108,135 @@ const formatNumber = (n: number) => {
   return n.toString();
 };
 
-export function SignalCard({ signal, projectId, safetyScore, onStatusChange }: SignalCardProps) {
+function ScoreBadge({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-md bg-muted/50 border border-border px-2 py-1">
+      <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+      <span className={`text-xs font-semibold ${scoreColor(value)}`}>{value}</span>
+      <div className="w-5 h-0.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full ${scoreBarColor(value)}`}
+          style={{ width: `${value * 10}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle, onMarkSeen }: SignalCardV2Props) {
   const [showReply, setShowReply] = useState(false);
+  const tier = deriveTier(signal);
+  const config = tierConfig[tier];
+  const TierIcon = config.icon;
+  const signalTypes = signal.signal_types || [];
+  const hasV2Scores = signal.fit_score != null;
+
+  async function handleSendDiscordAlert() {
+    try {
+      const res = await fetch('/api/outreach/signals/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signal_id: signal.id,
+          discord_alert_status: 'pending',
+        }),
+      });
+      if (res.ok) {
+        toast.success('Discord alert queued');
+      }
+    } catch {
+      toast.error('Failed to queue alert');
+    }
+  }
+
+  function handleCardClick() {
+    if (signal.is_unseen) {
+      onMarkSeen(signal.id);
+    }
+  }
 
   return (
-    <motion.div whileHover={cardHover} whileTap={cardTap} className="h-full">
-      <Card className="transition-shadow hover:shadow-md h-full flex flex-col">
+    <motion.div whileHover={cardHover} whileTap={cardTap} className="h-full" onClick={handleCardClick}>
+      <Card className={`transition-shadow hover:shadow-md h-full flex flex-col relative overflow-hidden ${signal.is_unseen === true ? 'border-l-[3px] border-l-blue-500' : ''}`}>
+        {/* Tier stripe */}
+        {tier !== 'cold' && (
+          <div className={`h-[3px] w-full ${config.stripe}`} />
+        )}
+
         <CardContent className="p-4 flex flex-col flex-1 space-y-2.5">
-          {/* Top row: intent badge + subreddit + safety */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {signal.intent_type && (
-              <Badge
-                variant="secondary"
-                className={`text-[10px] px-1.5 py-0 ${intentColors[signal.intent_type] || intentColors.discussion}`}
-              >
-                {signal.intent_type}
-              </Badge>
-            )}
-            <span className="text-[11px] text-muted-foreground">r/{signal.subreddit}</span>
-            <ComplianceBadge level={getSafetyLevel(safetyScore)} />
-            {signal.competitor_mentioned && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
-                competitor
-              </Badge>
-            )}
+          {/* Header row: tier + intent + comment badge + actions */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${config.badge}`}>
+                {tier !== 'cold' && <TierIcon className="h-2.5 w-2.5" />}
+                {config.label}
+              </span>
+
+              {signal.is_comment && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300">
+                  <MessageSquare className="h-2.5 w-2.5" />
+                  Comment
+                </span>
+              )}
+
+              {signal.intent_type && signal.intent_type !== 'unknown' && (
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1.5 py-0 ${intentColors[signal.intent_type] || intentColors.discussion}`}
+                >
+                  {signal.intent_type}
+                </Badge>
+              )}
+
+              {signal.is_unseen && (
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onFavoriteToggle(signal.id, !signal.is_favorited); }}
+                    className={`h-7 w-7 flex items-center justify-center rounded-md transition-colors ${
+                      signal.is_favorited
+                        ? 'text-amber-500'
+                        : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <Star className="h-3.5 w-3.5" fill={signal.is_favorited ? 'currentColor' : 'none'} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{signal.is_favorited ? 'Unfavorite' : 'Favorite'}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onStatusChange(signal.id, 'dismissed'); }}
+                    className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Dismiss</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
+
+          {/* Signal type tags */}
+          {signalTypes.length > 0 && (
+            <div className="flex gap-1 flex-wrap">
+              {signalTypes.slice(0, 4).map((type) => (
+                <Badge
+                  key={type}
+                  variant="secondary"
+                  className={`text-[9px] px-1.5 py-0 font-semibold ${signalTypeColors[type] || 'bg-gray-100 text-gray-800'}`}
+                >
+                  {type.replace(/_/g, ' ')}
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {/* Title */}
           <a
@@ -73,36 +244,55 @@ export function SignalCard({ signal, projectId, safetyScore, onStatusChange }: S
             target="_blank"
             rel="noopener noreferrer"
             className="hover:underline"
+            onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-medium text-sm leading-snug line-clamp-2">{signal.title}</h3>
+            <h3 className="font-semibold text-sm leading-snug line-clamp-2">{signal.title}</h3>
           </a>
 
           {/* Body preview */}
           {signal.body && (
-            <p className="text-xs text-muted-foreground line-clamp-3">
+            <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
               {signal.body}
             </p>
           )}
 
-          {/* Matched keywords */}
-          {signal.matched_keywords.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              {signal.matched_keywords.map((kw) => (
-                <span
-                  key={kw}
-                  className="inline-flex rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium"
-                >
-                  {kw}
-                </span>
-              ))}
+          {/* Score row */}
+          {hasV2Scores ? (
+            <div className="flex gap-1.5 flex-wrap">
+              <ScoreBadge label="Fit" value={signal.fit_score!} />
+              <ScoreBadge label="Lead" value={signal.lead_score!} />
+              <ScoreBadge label="Engage" value={signal.engage_score!} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-mono font-semibold ${signal.combined_score >= 0.7 ? 'text-green-600 dark:text-green-400' : signal.combined_score >= 0.4 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
+                Score: {signal.combined_score.toFixed(2)}
+              </span>
             </div>
           )}
 
-          {/* Spacer to push meta + actions to bottom */}
+          {/* Pain + Decision Maker */}
+          {(signal.pain_severity || signal.decision_maker) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {signal.pain_severity && (
+                <span className={`text-[10px] font-semibold ${painColors[signal.pain_severity]}`}>
+                  {painLabels[signal.pain_severity]}
+                </span>
+              )}
+              {signal.decision_maker && (
+                <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[9px] font-semibold bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300">
+                  Decision Maker
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Spacer */}
           <div className="flex-1" />
 
           {/* Meta row */}
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+            <span className="text-[11px] text-muted-foreground/70">r/{signal.subreddit}</span>
             <span className="flex items-center gap-0.5">
               <ArrowUpRight className="h-3 w-3 text-orange-500" />
               {formatNumber(signal.score)}
@@ -115,51 +305,51 @@ export function SignalCard({ signal, projectId, safetyScore, onStatusChange }: S
               <Clock className="h-3 w-3" />
               {timeAgo(signal.created_utc)}
             </span>
-            <span className="ml-auto font-mono text-[10px]">
-              {signal.combined_score.toFixed(2)}
-            </span>
+            <span className="text-[10px]">u/{signal.author}</span>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 pt-0.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => setShowReply(!showReply)}
-            >
-              <Reply className="mr-1 h-3 w-3" />
-              {showReply ? 'Hide' : 'Reply'}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[11px] px-2"
-              onClick={() => onStatusChange(signal.id, 'dismissed')}
-            >
-              <X className="mr-1 h-3 w-3" />
-              Dismiss
-            </Button>
-            <a
-              href={`https://reddit.com${signal.permalink}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto"
-            >
-              <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2">
-                <ExternalLink className="h-3 w-3" />
+          {/* Footer actions */}
+          <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-border">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-2"
+                onClick={(e) => { e.stopPropagation(); window.open(`https://reddit.com${signal.permalink}`, '_blank'); }}
+              >
+                <ExternalLink className="mr-1 h-3 w-3" />
+                View Thread
               </Button>
-            </a>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] px-2"
+                onClick={(e) => { e.stopPropagation(); handleSendDiscordAlert(); }}
+              >
+                <Bell className="h-3 w-3" />
+              </Button>
+            </div>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-6 text-[11px] px-3"
+              onClick={(e) => { e.stopPropagation(); setShowReply(!showReply); }}
+            >
+              <Pencil className="mr-1 h-3 w-3" />
+              Draft Reply
+            </Button>
           </div>
 
           {/* Inline reply builder */}
           {showReply && (
-            <ReplyBuilder
-              signalId={signal.id}
-              projectId={projectId}
-              permalink={signal.permalink}
-              onCopied={() => onStatusChange(signal.id, 'replied')}
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <ReplyBuilder
+                signalId={signal.id}
+                projectId={projectId}
+                permalink={signal.permalink}
+                onCopied={() => onStatusChange(signal.id, 'replied')}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

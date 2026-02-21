@@ -5,6 +5,8 @@ import { findMatches } from './matcher.js';
 import { dispatchPendingAlerts } from './dispatcher.js';
 
 const POLL_INTERVAL = process.env.POLL_INTERVAL_MINUTES || '5';
+const ENRICHMENT_API_URL = process.env.ENRICHMENT_API_URL || '';
+const ENRICHMENT_API_KEY = process.env.ENRICHMENT_API_KEY || '';
 
 interface RedditPost {
   id: string;
@@ -14,6 +16,8 @@ interface RedditPost {
   url: string;
   permalink: string;
   author: string;
+  score: number;
+  num_comments: number;
   created_utc: number;
 }
 
@@ -35,14 +39,15 @@ export function startPoller() {
 
 /**
  * Poll all active projects for new Reddit content.
+ * Reads from outreach_configs (unified table).
  */
 async function pollAllProjects() {
   try {
-    // Get all active configs with their project info
     const { data: configs, error } = await supabase
-      .from('alert_configs')
+      .from('outreach_configs')
       .select('*')
-      .eq('is_active', true);
+      .eq('discord_connected', true)
+      .eq('polling_enabled', true);
 
     if (error || !configs?.length) return;
 
@@ -63,25 +68,34 @@ async function pollAllProjects() {
  */
 async function pollProject(config: {
   project_id: string;
-  webhook_url: string;
+  discord_webhook_url: string;
 }) {
-  // Get active subreddits
+  // Get active subreddits from outreach_monitored_subs
   const { data: subreddits } = await supabase
-    .from('alert_subreddits')
+    .from('outreach_monitored_subs')
     .select('*')
     .eq('project_id', config.project_id)
     .eq('is_active', true);
 
   if (!subreddits?.length) return;
 
-  // Get active keywords
+  // Get active keywords from outreach_keywords
   const { data: keywords } = await supabase
-    .from('alert_keywords')
+    .from('outreach_keywords')
     .select('*')
     .eq('project_id', config.project_id)
     .eq('is_active', true);
 
   if (!keywords?.length) return;
+
+  // Filter out silenced keywords
+  const now = new Date();
+  const activeKeywords = keywords.filter(
+    (kw: { silenced_until: string | null }) =>
+      !kw.silenced_until || new Date(kw.silenced_until) < now
+  );
+
+  if (!activeKeywords.length) return;
 
   // Poll each subreddit
   for (const sub of subreddits) {
@@ -91,34 +105,56 @@ async function pollProject(config: {
       for (const post of posts) {
         // Deduplicate via content hash
         const contentHash = hashContent(post.permalink);
-        const isDuplicate = await checkDuplicate(contentHash);
+        const isDuplicate = await checkDuplicate(contentHash, config.project_id);
         if (isDuplicate) continue;
 
         // Cache this content
-        await cacheContent(contentHash, post.permalink);
+        await cacheContent(contentHash, post.permalink, config.project_id);
 
         // Match against keywords
         const text = `${post.title} ${post.selftext}`;
-        const matches = findMatches(text, keywords);
+        const matches = findMatches(text, activeKeywords);
 
-        // Create alert_matches rows
-        for (const match of matches) {
-          await supabase.from('alert_matches').insert({
+        if (matches.length === 0) continue;
+
+        // Upsert into outreach_signals (unified table)
+        const matchedPhrases = matches.map((m) => m.matchedPhrase);
+        await supabase.from('outreach_signals').upsert(
+          {
             project_id: config.project_id,
-            keyword_id: match.keywordId,
+            reddit_id: post.id,
             subreddit: post.subreddit,
             title: post.title,
-            snippet: post.selftext?.slice(0, 500) || null,
-            matched_phrase: match.matchedPhrase,
-            reddit_url: `https://reddit.com${post.permalink}`,
-            reddit_author: post.author,
-          });
+            body: post.selftext?.slice(0, 2000) || null,
+            author: post.author,
+            score: post.score,
+            num_comments: post.num_comments,
+            permalink: post.permalink,
+            created_utc: post.created_utc,
+            matched_keywords: matchedPhrases,
+            intent_type: 'unknown',
+            intent_score: 0,
+            combined_score: 0,
+            competitor_mentioned: false,
+            signal_types: [],
+            discord_alert_status: 'pending',
+            status: 'new',
+            fetched_at: new Date().toISOString(),
+          },
+          { onConflict: 'project_id,reddit_id' }
+        );
+
+        // Trigger AI enrichment if endpoint configured
+        if (ENRICHMENT_API_URL) {
+          triggerEnrichment(config.project_id, post.id).catch((err) =>
+            console.error(`Enrichment trigger failed for ${post.id}:`, err)
+          );
         }
       }
 
       // Update last polled time
       await supabase
-        .from('alert_subreddits')
+        .from('outreach_monitored_subs')
         .update({ last_polled_at: new Date().toISOString() })
         .eq('id', sub.id);
     } catch (err) {
@@ -126,8 +162,26 @@ async function pollProject(config: {
     }
   }
 
-  // Dispatch any pending alerts
-  await dispatchPendingAlerts(config.project_id, config.webhook_url);
+  // Dispatch any pending Discord alerts
+  if (config.discord_webhook_url) {
+    await dispatchPendingAlerts(config.project_id, config.discord_webhook_url);
+  }
+}
+
+/**
+ * Trigger AI enrichment for a post via the Next.js API.
+ */
+async function triggerEnrichment(projectId: string, redditId: string): Promise<void> {
+  if (!ENRICHMENT_API_URL || !ENRICHMENT_API_KEY) return;
+
+  await fetch(`${ENRICHMENT_API_URL}/api/outreach/signals/enrich`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ENRICHMENT_API_KEY,
+    },
+    body: JSON.stringify({ project_id: projectId, reddit_id: redditId }),
+  });
 }
 
 /**
@@ -155,19 +209,21 @@ function hashContent(content: string): string {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
 
-async function checkDuplicate(hash: string): Promise<boolean> {
+async function checkDuplicate(hash: string, projectId: string): Promise<boolean> {
   const { data } = await supabase
-    .from('alert_content_cache')
+    .from('outreach_content_cache')
     .select('id')
     .eq('content_hash', hash)
+    .eq('project_id', projectId)
     .single();
 
   return !!data;
 }
 
-async function cacheContent(hash: string, url: string): Promise<void> {
-  await supabase.from('alert_content_cache').insert({
+async function cacheContent(hash: string, url: string, projectId: string): Promise<void> {
+  await supabase.from('outreach_content_cache').insert({
     content_hash: hash,
     reddit_url: url,
+    project_id: projectId,
   });
 }
