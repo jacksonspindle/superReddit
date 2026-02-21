@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Loader2, Megaphone, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Megaphone, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 
@@ -8,7 +8,6 @@ interface CompletionStepProps {
   userName: string;
   productName: string;
   selectedSubreddits: Set<string>;
-  likedStyles: Set<string>;
   loading: boolean;
   onBack: () => void;
   onFinish: () => void;
@@ -18,7 +17,6 @@ export function CompletionStep({
   userName,
   productName,
   selectedSubreddits,
-  likedStyles,
   loading,
   onBack,
   onFinish,
@@ -64,7 +62,7 @@ export function CompletionStep({
         initial={{ y: 15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.4 }}
-        className="mt-8 grid grid-cols-3 gap-3"
+        className="mt-8 grid grid-cols-2 gap-3"
       >
         <div className="rounded-xl border bg-card p-4">
           <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10">
@@ -73,16 +71,6 @@ export function CompletionStep({
           <p className="text-2xl font-bold">{selectedSubreddits.size}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {selectedSubreddits.size === 1 ? 'Subreddit' : 'Subreddits'}
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4">
-          <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10">
-            <Target className="h-4.5 w-4.5 text-purple-500" />
-          </div>
-          <p className="text-2xl font-bold">{likedStyles.size}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Writing {likedStyles.size === 1 ? 'Style' : 'Styles'}
           </p>
         </div>
 

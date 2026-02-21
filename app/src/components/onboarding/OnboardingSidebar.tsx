@@ -7,7 +7,6 @@ const DEFAULT_STEPS = [
   { label: 'Welcome' },
   { label: 'Your Product' },
   { label: 'Subreddits' },
-  { label: 'Writing DNA' },
   { label: 'All Set' },
 ];
 

@@ -10,7 +10,6 @@ import {
   OnboardingSidebar,
   ProductStep,
   SubredditsStep,
-  ToneStep,
   CompletionStep,
 } from '@/components/onboarding';
 import type { AddedSubreddit } from '@/components/onboarding';
@@ -20,7 +19,6 @@ import { slideHorizontalVariants } from '@/lib/motion';
 const NEW_PROJECT_STEPS = [
   { label: 'Your Product' },
   { label: 'Subreddits' },
-  { label: 'Writing DNA' },
   { label: 'All Set' },
 ];
 
@@ -49,9 +47,6 @@ export default function NewProjectPage() {
   const [selectedRepoUrl, setSelectedRepoUrl] = useState<string | null>(null);
   const [githubAccessToken, setGithubAccessToken] = useState<string | null>(null);
 
-  // Writing style
-  const [likedStyles, setLikedStyles] = useState<Set<string>>(new Set());
-  const [toneCompleted, setToneCompleted] = useState(false);
   const tone = 'Adaptive';
 
   useEffect(() => {
@@ -83,7 +78,6 @@ export default function NewProjectPage() {
       }
 
       // 1. Create the project
-      const writingStylesArray = Array.from(likedStyles);
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .insert({
@@ -94,7 +88,7 @@ export default function NewProjectPage() {
           product_url: productUrl || null,
           target_audience: targetAudience || null,
           tone,
-          writing_styles: writingStylesArray,
+          writing_styles: [],
         })
         .select()
         .single();
@@ -121,7 +115,7 @@ export default function NewProjectPage() {
             url: productUrl || '',
             audience: targetAudience || '',
             tone,
-            writingStyles: writingStylesArray,
+            writingStyles: [],
           },
         },
         ...subsArray.map((subName, i) => ({
@@ -251,27 +245,12 @@ export default function NewProjectPage() {
               />
             )}
             {step === 2 && (
-              <ToneStep
-                likedStyles={likedStyles}
-                onLikedStylesChange={setLikedStyles}
-                completed={toneCompleted}
-                onComplete={() => setToneCompleted(true)}
-                onReset={() => {
-                  setToneCompleted(false);
-                  setLikedStyles(new Set());
-                }}
-                onBack={() => goToStep(1)}
-                onNext={() => goToStep(3)}
-              />
-            )}
-            {step === 3 && (
               <CompletionStep
                 userName={userName}
                 productName={productName}
                 selectedSubreddits={selectedSubreddits}
-                likedStyles={likedStyles}
                 loading={finishing}
-                onBack={() => goToStep(2)}
+                onBack={() => goToStep(1)}
                 onFinish={handleFinish}
               />
             )}
