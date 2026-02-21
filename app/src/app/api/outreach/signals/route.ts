@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { detectSignals } from '@/lib/outreach/detector';
-import { enqueueProject, getScanStatus } from '@/lib/outreach/poll-queue';
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,16 +47,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No subreddits configured. Add subreddits to your project first.' }, { status: 400 });
     }
 
-    // Derive keywords: use config keywords if available, otherwise auto-generate from product info
-    let keywords: string[] = (config?.keywords as string[]) || [];
+    // Derive keywords: check outreach_keywords table first, then config.keywords, then auto-generate
+    let keywords: string[] = [];
+
+    // 1. Try outreach_keywords table (managed by wizard/keyword manager)
+    try {
+      const { data: keywordRows } = await supabase
+        .from('outreach_keywords')
+        .select('phrases')
+        .eq('project_id', projectId)
+        .eq('is_active', true);
+
+      if (keywordRows?.length) {
+        keywords = keywordRows.flatMap((k: { phrases: string[] }) => k.phrases);
+      }
+    } catch {
+      // Table may not exist yet
+    }
+
+    // 2. Fall back to config.keywords
     if (keywords.length === 0) {
-      const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'and', 'but', 'or', 'nor', 'not', 'so', 'yet', 'both', 'either', 'neither', 'each', 'every', 'all', 'any', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'only', 'own', 'same', 'than', 'too', 'very', 'just', 'that', 'this', 'these', 'those', 'it', 'its', 'i', 'me', 'my', 'we', 'our', 'you', 'your', 'he', 'she', 'they', 'them', 'their', 'what', 'which', 'who', 'when', 'where', 'why', 'how', 'about', 'up', 'out', 'if', 'then', 'also', 'like', 'well', 'back', 'there', 'here']);
-      const text = `${project.product_name} ${project.product_description} ${project.target_audience || ''}`;
-      const words = text.toLowerCase().split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
-      keywords = [...new Set(words)].slice(0, 10);
+      keywords = (config?.keywords as string[]) || [];
+    }
+
+    // 3. Auto-generate from product info as last resort
+    if (keywords.length === 0) {
+      // Use the product name as a phrase keyword instead of splitting into single words
+      keywords = [project.product_name];
+      // Add target audience as a keyword if available
+      if (project.target_audience) {
+        keywords.push(project.target_audience);
+      }
     }
 
     const competitors: string[] = (config?.competitors as string[]) || [];
+
+    console.log('[Signals] Subreddits:', subNames);
+    console.log('[Signals] Keywords:', keywords);
+    console.log('[Signals] Competitors:', competitors);
 
     // Check if we need to detect new signals (if none exist or latest is older than 30 min)
     let latestSignal: { fetched_at: string } | null = null;
@@ -118,65 +145,25 @@ export async function GET(request: NextRequest) {
         // Table may not exist yet, skip product context
       }
 
-      // Try queue-based scanning first (non-blocking), fall back to inline
-      let queued = false;
-      if (forceRefresh) {
-        try {
-          await enqueueProject(supabase, projectId, 'high');
-          const scanStatus = await getScanStatus(supabase, projectId);
-          if (scanStatus.status === 'queued' || scanStatus.status === 'processing') {
-            queued = true;
-          }
-        } catch {
-          // Queue table may not exist — fall back to inline detection
-        }
-      }
-
-      if (!queued) {
-        // Inline detection as fallback (or for stale non-force requests)
-        try {
-          await detectSignals(supabase, {
-            projectId,
-            keywords,
-            competitors,
-            subreddits: subNames,
-            subredditLimit: (config?.subreddit_limit as number) || 20,
-            productName: project.product_name,
-            productDescription: project.product_description,
-            productContext: productContextOption,
-            timeFilter: effectiveTimeFilter as 'hour' | 'day' | 'week' | 'month' | 'year' | 'all',
-            maxResults: effectiveMaxResults,
-            includeComments: effectiveIncludeComments,
-          });
-        } catch (detectError) {
-          console.error('Signal detection error:', detectError);
-          // Detection failed but we can still return existing signals
-        }
-      }
-
-      // If queued, return queue status so frontend can poll
-      if (queued) {
-        const scanStatus = await getScanStatus(supabase, projectId);
-
-        // Still return existing signals along with queue status
-        try {
-          const { data: existingSignals } = await supabase
-            .from('outreach_signals')
-            .select('*')
-            .eq('project_id', projectId)
-            .order('combined_score', { ascending: false })
-            .limit(100);
-
-          return NextResponse.json({
-            signals: existingSignals || [],
-            scanStatus: scanStatus,
-          });
-        } catch {
-          return NextResponse.json({
-            signals: [],
-            scanStatus: scanStatus,
-          });
-        }
+      // Always run inline detection for immediate results.
+      // Queue-based scanning is handled by the cron job (/api/cron/poll-signals).
+      try {
+        await detectSignals(supabase, {
+          projectId,
+          keywords,
+          competitors,
+          subreddits: subNames,
+          subredditLimit: (config?.subreddit_limit as number) || 20,
+          productName: project.product_name,
+          productDescription: project.product_description,
+          productContext: productContextOption,
+          timeFilter: effectiveTimeFilter as 'hour' | 'day' | 'week' | 'month' | 'year' | 'all',
+          maxResults: effectiveMaxResults,
+          includeComments: effectiveIncludeComments,
+        });
+      } catch (detectError) {
+        console.error('Signal detection error:', detectError);
+        // Detection failed but we can still return existing signals
       }
     }
 

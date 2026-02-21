@@ -77,8 +77,9 @@ const tierConfig: Record<LeadTier, { label: string; badge: string; stripe: strin
 function deriveTier(signal: OutreachSignal): LeadTier {
   if (signal.lead_tier) return signal.lead_tier;
   // Backward compat: derive from combined_score
-  if (signal.combined_score >= 0.7) return 'hot';
-  if (signal.combined_score >= 0.4) return 'warm';
+  const score = signal.combined_score ?? 0;
+  if (score >= 0.7) return 'hot';
+  if (score >= 0.4) return 'warm';
   return 'cold';
 }
 
@@ -95,6 +96,7 @@ function scoreBarColor(value: number): string {
 }
 
 const timeAgo = (timestamp: number) => {
+  if (!timestamp) return '';
   const seconds = Math.floor(Date.now() / 1000 - timestamp);
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -157,11 +159,15 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
 
   return (
     <motion.div whileHover={cardHover} whileTap={cardTap} className="h-full" onClick={handleCardClick}>
-      <Card className={`transition-shadow hover:shadow-md h-full flex flex-col relative overflow-hidden ${signal.is_unseen === true ? 'border-l-[3px] border-l-blue-500' : ''}`}>
-        {/* Tier stripe */}
-        {tier !== 'cold' && (
-          <div className={`h-[3px] w-full ${config.stripe}`} />
-        )}
+      <Card className={`transition-shadow hover:shadow-md h-full flex flex-col relative overflow-hidden ${
+        tier === 'hot'
+          ? 'border-red-500/60 border-[1.5px]'
+          : tier === 'warm'
+            ? 'border-amber-500/60 border-[1.5px]'
+            : signal.is_unseen === true
+              ? 'border-l-[3px] border-l-blue-500'
+              : ''
+      }`}>
 
         <CardContent className="p-4 flex flex-col flex-1 space-y-2.5">
           {/* Header row: tier + intent + comment badge + actions */}
@@ -238,6 +244,11 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
             </div>
           )}
 
+          {/* Subreddit */}
+          <span className="inline-flex items-center self-start rounded-md bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[11px] font-semibold text-indigo-400">
+            r/{signal.subreddit}
+          </span>
+
           {/* Title */}
           <a
             href={`https://reddit.com${signal.permalink}`}
@@ -266,7 +277,7 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
           ) : (
             <div className="flex items-center gap-2">
               <span className={`text-xs font-mono font-semibold ${signal.combined_score >= 0.7 ? 'text-green-600 dark:text-green-400' : signal.combined_score >= 0.4 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
-                Score: {signal.combined_score.toFixed(2)}
+                Score: {(signal.combined_score ?? 0).toFixed(2)}
               </span>
             </div>
           )}
@@ -292,7 +303,6 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
 
           {/* Meta row */}
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
-            <span className="text-[11px] text-muted-foreground/70">r/{signal.subreddit}</span>
             <span className="flex items-center gap-0.5">
               <ArrowUpRight className="h-3 w-3 text-orange-500" />
               {formatNumber(signal.score)}

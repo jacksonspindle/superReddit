@@ -6,7 +6,7 @@
  * Background polling uses batch API; manual "Scan Now" uses real-time API.
  */
 
-import { searchMultiSubPosts } from '@/lib/reddit/fetcher';
+import { searchMultiSubPosts, fetchSubredditPosts } from '@/lib/reddit/fetcher';
 import { tier1Score, findCompetitorMentions } from '@/lib/outreach/signal-patterns';
 import {
   classifyPostsRealtime,
@@ -80,6 +80,10 @@ export async function detectSignals(
   let cachedPosts = await getCachedSearch(supabase, cacheKey);
   let cachedCommentPosts = await getCachedSearch(supabase, commentCacheKey);
 
+  // Invalidate cached empty results — they indicate a failed search, not "no data"
+  if (cachedPosts && cachedPosts.length === 0) cachedPosts = null;
+  if (cachedCommentPosts && cachedCommentPosts.length === 0) cachedCommentPosts = null;
+
   // Fetch from APIs if not cached
   const fetchPromises: Promise<void>[] = [];
 
@@ -91,8 +95,10 @@ export async function detectSignals(
         maxPages: 3,
       }).then(async (result) => {
         cachedPosts = result.posts;
-        // Write to L2 cache
-        await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
+        // Only cache non-empty results to avoid poisoning future scans
+        if (cachedPosts.length > 0) {
+          await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
+        }
       })
     );
   }
@@ -135,6 +141,22 @@ export async function detectSignals(
 
   if (fetchPromises.length > 0) {
     await Promise.all(fetchPromises);
+  }
+
+  console.log('[Detector] Reddit posts fetched:', cachedPosts?.length ?? 0, '| Comments fetched:', cachedCommentPosts?.length ?? 0);
+
+  // Fallback: if keyword search returned 0 posts, browse subreddit new posts directly.
+  // Uses multi-sub URL to fetch from all subreddits in a single request (fast).
+  if ((!cachedPosts || cachedPosts.length === 0) && subreddits.length > 0) {
+    console.log('[Detector] Keyword search returned 0 posts — falling back to browsing subreddit posts');
+    try {
+      const multiSub = subreddits.slice(0, 25).join('+');
+      const result = await fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100));
+      cachedPosts = result.posts;
+    } catch {
+      cachedPosts = [];
+    }
+    console.log('[Detector] Fallback fetched', cachedPosts.length, 'posts from subreddit browsing');
   }
 
   // Merge posts and comments, deduplicate by ID
@@ -184,55 +206,60 @@ export async function detectSignals(
         num_comments: r.post.num_comments,
       }));
 
-    if (useV2) {
-      // V2: Product-context-aware multi-dimensional classification
-      const results = await classifyPostsV2(
-        classificationInputs,
-        {
-          productName,
-          productDescription,
-          problemsSolved: productContext.problemsSolved,
-          solutionFeatures: productContext.solutionFeatures,
-          audienceBehaviors: productContext.audienceBehaviors,
-          competitors,
-          competitorWeaknesses: productContext.competitorWeaknesses,
-        }
-      );
-
-      for (const r of results) {
-        v2Classifications.set(r.reddit_id, r);
-      }
-    } else {
-      // V1: Original classification pipeline
-      const results = await classifyPostsRealtime(
-        classificationInputs,
-        productName,
-        productDescription,
-        competitors
-      );
-
-      for (const r of results) {
-        aiClassifications.set(r.reddit_id, r);
-      }
-
-      // 4. Sonnet fallback for ambiguous results (medium bin)
-      const ambiguous = results.filter((r) => r.score_bin === 'medium');
-      if (ambiguous.length > 0) {
-        const ambiguousInputs = classificationInputs.filter((i) =>
-          ambiguous.some((a) => a.reddit_id === i.reddit_id)
+    try {
+      if (useV2) {
+        // V2: Product-context-aware multi-dimensional classification
+        const results = await classifyPostsV2(
+          classificationInputs,
+          {
+            productName,
+            productDescription,
+            problemsSolved: productContext.problemsSolved,
+            solutionFeatures: productContext.solutionFeatures,
+            audienceBehaviors: productContext.audienceBehaviors,
+            competitors,
+            competitorWeaknesses: productContext.competitorWeaknesses,
+          }
         );
 
-        const sonnetResults = await reclassifyWithSonnet(
-          ambiguousInputs,
+        for (const r of results) {
+          v2Classifications.set(r.reddit_id, r);
+        }
+      } else {
+        // V1: Original classification pipeline
+        const results = await classifyPostsRealtime(
+          classificationInputs,
           productName,
           productDescription,
           competitors
         );
 
-        for (const r of sonnetResults) {
+        for (const r of results) {
           aiClassifications.set(r.reddit_id, r);
         }
+
+        // 4. Sonnet fallback for ambiguous results (medium bin)
+        const ambiguous = results.filter((r) => r.score_bin === 'medium');
+        if (ambiguous.length > 0) {
+          const ambiguousInputs = classificationInputs.filter((i) =>
+            ambiguous.some((a) => a.reddit_id === i.reddit_id)
+          );
+
+          const sonnetResults = await reclassifyWithSonnet(
+            ambiguousInputs,
+            productName,
+            productDescription,
+            competitors
+          );
+
+          for (const r of sonnetResults) {
+            aiClassifications.set(r.reddit_id, r);
+          }
+        }
       }
+    } catch (aiError) {
+      // AI classification failed (e.g. out of credits) — continue with Tier 1 scores only
+      console.warn('[Detector] AI classification failed, using Tier 1 scores only:', (aiError as Error).message);
     }
   }
 
