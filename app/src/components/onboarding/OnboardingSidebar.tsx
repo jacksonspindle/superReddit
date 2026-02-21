@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, X } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const DEFAULT_STEPS = [
@@ -77,19 +77,19 @@ export function OnboardingSidebar({ currentStep, steps = DEFAULT_STEPS, onCancel
         </nav>
       </div>
 
-      <div className="space-y-3">
-        <p className="text-xs text-muted-foreground/50">
-          You can always change these settings later.
-        </p>
+      <div className="space-y-4">
         {onCancel && (
           <button
             onClick={onCancel}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-muted-foreground/20 px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            <X className="h-3 w-3" />
-            Cancel
+            <ArrowLeft className="h-4 w-4" />
+            Back to Projects
           </button>
         )}
+        <p className="text-xs text-muted-foreground/50">
+          You can always change these settings later.
+        </p>
       </div>
     </div>
   );
