@@ -5,15 +5,15 @@ import { MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DmDraftBuilder } from '@/components/outreach/DmDraftBuilder';
 import { PostFilterRow } from '@/components/pipeline/PostFilterRow';
 import { PipelineToolbar } from '@/components/pipeline/PipelineToolbar';
 import type { SortOption } from '@/components/pipeline/PipelineToolbar';
 import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
+import { SendQueueMode } from '@/components/pipeline/SendQueueMode';
 import { ConversationDrawer } from '@/components/pipeline/ConversationDrawer';
 import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
@@ -55,8 +55,8 @@ export default function DmPipelinePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
-  const [draftingDm, setDraftingDm] = useState<OutreachDM | null>(null);
   const [conversationDmId, setConversationDmId] = useState<string | null>(null);
+  const [sendQueueActive, setSendQueueActive] = useState(false);
 
   // Conversation drawer — derived from allDms so it auto-refreshes
   const conversationDm = conversationDmId
@@ -257,27 +257,56 @@ export default function DmPipelinePage() {
   async function handleScan() {
     setScanning(true);
     try {
-      // Sync posts first (picks up any new Reddit posts)
-      await syncPosts();
-
-      const res = await fetch('/api/outreach/dms/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id, force: true }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else if (json.scanned) {
-        toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
-        await fetchDms();
-      } else if (json.message) {
-        toast.info(json.message);
-      } else {
-        toast.info('Data is fresh — no scan needed');
+      // Sync posts first (picks up any new Reddit posts) — with 30s timeout
+      const syncController = new AbortController();
+      const syncTimeout = setTimeout(() => syncController.abort(), 30_000);
+      try {
+        await fetch('/api/outreach/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id }),
+          signal: syncController.signal,
+        });
+        await fetchMonitoredPosts();
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          console.warn('Post sync timed out after 30s — continuing with scan');
+        }
+        // Don't block scan if post sync fails
+      } finally {
+        clearTimeout(syncTimeout);
       }
-    } catch {
-      toast.error('Failed to scan threads');
+
+      // Scan threads — with 60s timeout
+      const scanController = new AbortController();
+      const scanTimeout = setTimeout(() => scanController.abort(), 60_000);
+      try {
+        const res = await fetch('/api/outreach/dms/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id, force: true }),
+          signal: scanController.signal,
+        });
+        const json = await res.json();
+        if (json.error) {
+          toast.error(json.error);
+        } else if (json.scanned) {
+          toast.success(`Found ${json.count} new DM lead${json.count !== 1 ? 's' : ''}`);
+          await fetchDms();
+        } else if (json.message) {
+          toast.info(json.message);
+        } else {
+          toast.info('Data is fresh — no scan needed');
+        }
+      } finally {
+        clearTimeout(scanTimeout);
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        toast.error('Scan timed out — try again');
+      } else {
+        toast.error('Failed to scan threads');
+      }
     }
     setScanning(false);
   }
@@ -314,6 +343,20 @@ export default function DmPipelinePage() {
   // Dismiss handler
   async function handleDismiss(dmId: string) {
     handleStageChange(dmId, 'closed', 'dismissed');
+  }
+
+  // Send queue: mark DM as sent via API
+  async function handleDmSent(dmId: string, dmContent: string, followUpDays: number | null) {
+    try {
+      await fetch('/api/outreach/dms/sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dm_id: dmId, dm_content: dmContent, follow_up_days: followUpDays }),
+      });
+      handleStageChange(dmId, 'dm_sent', undefined, true);
+    } catch {
+      toast.error('Failed to mark DM as sent');
+    }
   }
 
   // Helper: normalize permalink for comparison
@@ -425,9 +468,9 @@ export default function DmPipelinePage() {
   }
 
   function handleDmSelected() {
-    // Draft the first selected DM
+    // Open drawer for the first selected DM
     const firstSelected = columns.ready.find((d) => selectedIds.has(d.id));
-    if (firstSelected) setDraftingDm(firstSelected);
+    if (firstSelected) handleOpenConversation(firstSelected);
   }
 
   function handleMarkSentSelected() {
@@ -493,14 +536,28 @@ export default function DmPipelinePage() {
             />
 
             {/* Toolbar */}
-            <PipelineToolbar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              scanning={scanning}
-              onScan={handleScan}
-            />
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <PipelineToolbar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  scanning={scanning}
+                  onScan={handleScan}
+                />
+              </div>
+              {columns.ready.length > 0 && (
+                <Button
+                  size="lg"
+                  className="h-10 px-5 text-sm font-semibold shrink-0"
+                  onClick={() => setSendQueueActive(true)}
+                >
+                  <MoveRight className="mr-2 h-4 w-4" />
+                  Start Sending ({columns.ready.length})
+                </Button>
+              )}
+            </div>
 
             {/* Kanban board */}
             <div className="overflow-x-auto -mx-6 px-6">
@@ -521,7 +578,7 @@ export default function DmPipelinePage() {
                     stage="ready"
                     selected={selectedIds.has(dm.id)}
                     onSelect={handleSelect}
-                    onDraft={setDraftingDm}
+                    onDraft={handleOpenConversation}
                     onStageChange={handleStageChange}
                     onDismiss={handleDismiss}
                     onOpenConversation={handleOpenConversation}
@@ -579,7 +636,7 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="followup"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
-                    onDraft={setDraftingDm}
+                    onDraft={handleOpenConversation}
                     onStageChange={handleStageChange}
                     onOpenConversation={handleOpenConversation}
                   />
@@ -625,33 +682,24 @@ export default function DmPipelinePage() {
         colorClass={expandedColor}
         dms={expandedDms}
         onClose={() => setExpandedColumn(null)}
-        onDraft={setDraftingDm}
+        onDraft={handleOpenConversation}
         onStageChange={handleStageChange}
         onDismiss={handleDismiss}
         onOpenConversation={handleOpenConversation}
       />
 
-      {/* Draft DM dialog */}
-      <Dialog open={!!draftingDm} onOpenChange={(open) => !open && setDraftingDm(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              Draft DM to u/{draftingDm?.reddit_username}
-            </DialogTitle>
-          </DialogHeader>
-          {draftingDm && (
-            <DmDraftBuilder
-              dmId={draftingDm.id}
-              projectId={project.id}
-              username={draftingDm.reddit_username}
-              onSent={() => {
-                handleStageChange(draftingDm.id, 'dm_sent');
-                setDraftingDm(null);
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Send queue mode */}
+      {sendQueueActive && (
+        <SendQueueMode
+          dms={columns.ready}
+          projectId={project.id}
+          onClose={() => { setSendQueueActive(false); fetchDms(); }}
+          onStageChange={handleStageChange}
+          onDmSent={handleDmSent}
+          onDismiss={handleDismiss}
+          sendDm={sendDm}
+        />
+      )}
 
       {/* Conversation drawer */}
       <ConversationDrawer
@@ -663,11 +711,13 @@ export default function DmPipelinePage() {
         }
         open={!!conversationDm}
         onOpenChange={(open) => { if (!open) setConversationDmId(null); }}
-        onDraft={setDraftingDm}
         sendDm={sendDm}
-        extensionReady={bridgeStatus.extensionInstalled && bridgeStatus.redditLoggedIn}
-        onSent={() => {
-          fetchDms();
+        projectId={project.id}
+        onSent={async () => {
+          if (conversationDm) {
+            await handleStageChange(conversationDm.id, 'dm_sent', undefined, true);
+          }
+          await fetchDms();
           fetchAndPersistPreviews();
         }}
         fetchConversation={fetchConversation}

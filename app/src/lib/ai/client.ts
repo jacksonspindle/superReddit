@@ -12,4 +12,5 @@ export function getAnthropicClient(): Anthropic {
 }
 
 export const AI_MODEL = 'claude-sonnet-4-5-20250929';
+export const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 export const MAX_TOKENS = 4096;

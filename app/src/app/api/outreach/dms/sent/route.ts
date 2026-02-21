@@ -25,13 +25,20 @@ export async function POST(request: NextRequest) {
       .eq('id', dm_id)
       .single();
 
-    const touchNumber = (current?.touch_number ?? 0) + 1;
+    const currentTouchNumber = current?.touch_number ?? 0;
+    const touchNumber = currentTouchNumber + 1;
+    const isFirstTouch = currentTouchNumber === 0;
 
     const update: Record<string, unknown> = {
       pipeline_stage: 'dm_sent',
       dm_sent_at: new Date().toISOString(),
       touch_number: touchNumber,
     };
+
+    // Track first-touch timestamp for rate limiting
+    if (isFirstTouch) {
+      update.first_touch_sent_at = new Date().toISOString();
+    }
 
     if (dm_content) update.dm_body = dm_content;
 

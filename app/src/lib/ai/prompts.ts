@@ -500,6 +500,212 @@ Text to rewrite:
 ${text}`;
 }
 
+// ---- Outreach: Signal Analysis V2 (product-context-aware, multi-dimensional scoring) ----
+
+export const SIGNAL_ANALYSIS_V2_SYSTEM_PROMPT = `You are an expert Reddit lead classifier for SaaS products. You analyze Reddit posts to determine how well they match a specific product's value proposition and score them on three independent dimensions.
+
+## Scoring Dimensions (1-10 each)
+
+### Fit Score (How well does the post match the product?)
+- 9-10: Post describes the exact problem the product solves, mentions relevant features/workflows
+- 7-8: Strong overlap with product's problem space, user would clearly benefit
+- 5-6: Related to the product's domain but not a direct fit
+- 3-4: Tangentially related, product could help but isn't the obvious answer
+- 1-2: Barely related, product would be a stretch recommendation
+
+### Lead Score (How likely is this person to convert?)
+- 9-10: Actively seeking a solution, has budget, decision maker, urgency signals
+- 7-8: Comparing tools or expressing frustration with current solution, ready to switch
+- 5-6: Aware of the problem, open to solutions but not actively searching
+- 3-4: Describing a pain point but no buying signals
+- 1-2: Just discussing the topic, no purchase intent
+
+### Engage Score (How safe/effective would it be to reply?)
+- 9-10: Direct question seeking recommendations, mod-safe thread, high engagement
+- 7-8: Discussion thread where a helpful reply would be well-received
+- 5-6: Could reply but need to be subtle, some risk of appearing promotional
+- 3-4: Risky to reply, might get flagged as spam or off-topic
+- 1-2: Should not reply, self-promotional content or hostile thread
+
+## Signal Types
+- **tool_switch**: User is switching away from or comparing tools/services
+- **budget_constraint**: User mentions cost concerns, seeks cheaper alternatives
+- **repeated_pain**: User expresses ongoing frustration with current solution
+- **high_signal_comment**: Direct question seeking recommendations
+- **mod_safe**: Safe for natural replies without mod risk
+- **trend_cluster**: Post references trends, new tools, or emerging solutions
+- **convertible_thread**: User is ready to buy/switch/try something new
+
+## Pain Severity
+- **low**: Minor inconvenience, nice-to-have improvement
+- **medium**: Moderate frustration, actively looking for solutions
+- **high**: Severe pain, urgent need, willing to pay immediately
+
+## Decision Maker Detection
+Set decision_maker to true when the poster appears to be making the purchasing/adoption decision.
+
+## Calibration Examples
+
+### Fit=9, Lead=9, Engage=9:
+Post: "We're ditching [CompetitorX] and need [exact product category]. Budget is $X/month, team of 15. What do you recommend?"
+(Perfect product fit + active buyer + question format)
+
+### Fit=8, Lead=5, Engage=7:
+Post: "Anyone else frustrated with [competitor]'s [feature the product does better]? Been dealing with this for months."
+(Strong fit + pain but no buying signal + safe to reply)
+
+### Fit=5, Lead=3, Engage=6:
+Post: "What tools do you all use for [broad category]? Just curious about everyone's workflow."
+(Related domain + no urgency + discussion format)
+
+## Response Format
+Return JSON array. Each post can have multiple signal_types.
+
+{
+  "classifications": [
+    {
+      "reddit_id": "abc123",
+      "intent_type": "question",
+      "fit_score": 8,
+      "lead_score": 7,
+      "engage_score": 9,
+      "signal_types": ["tool_switch", "high_signal_comment"],
+      "pain_severity": "medium",
+      "decision_maker": false,
+      "competitor_mentions": [
+        { "name": "CompetitorX", "sentiment": "negative", "switching_intent": true, "context": "frustrated with pricing" }
+      ]
+    }
+  ]
+}`;
+
+export function buildV2ClassificationPrompt(
+  posts: { reddit_id: string; title: string; body: string | null; subreddit: string; author: string; score: number; num_comments: number }[],
+  productContext: {
+    productName: string;
+    productDescription: string;
+    problemsSolved?: string[];
+    solutionFeatures?: string[];
+    audienceBehaviors?: string[];
+    competitors?: string[];
+    competitorWeaknesses?: string[];
+  }
+): string {
+  const postList = posts
+    .map(
+      (p, i) =>
+        `${i + 1}. [${p.reddit_id}] r/${p.subreddit} (${p.score} pts, ${p.num_comments} comments)
+   Title: "${p.title}"
+   Body: ${p.body ? p.body.slice(0, 500) : '[no body]'}
+   Author: u/${p.author}`
+    )
+    .join('\n\n');
+
+  const problemsSection = productContext.problemsSolved?.length
+    ? `- **Problems Solved:** ${productContext.problemsSolved.join('; ')}`
+    : '';
+  const featuresSection = productContext.solutionFeatures?.length
+    ? `- **Key Features:** ${productContext.solutionFeatures.join('; ')}`
+    : '';
+  const audienceSection = productContext.audienceBehaviors?.length
+    ? `- **Target Audience Behaviors:** ${productContext.audienceBehaviors.join('; ')}`
+    : '';
+  const competitorsSection = productContext.competitors?.length
+    ? `- **Competitors:** ${productContext.competitors.join(', ')}`
+    : '';
+  const weaknessesSection = productContext.competitorWeaknesses?.length
+    ? `- **Competitor Weaknesses:** ${productContext.competitorWeaknesses.join('; ')}`
+    : '';
+
+  return `## Product Context
+- **Product:** ${productContext.productName}
+- **Description:** ${productContext.productDescription}
+${problemsSection}
+${featuresSection}
+${audienceSection}
+${competitorsSection}
+${weaknessesSection}
+
+## Posts to Classify
+${postList}
+
+Score each post on Fit (1-10), Lead (1-10), and Engage (1-10) based on how well it matches this specific product.`;
+}
+
+// ---- Outreach: Signal Analysis (7-type classification) ----
+
+export const SIGNAL_ANALYSIS_SYSTEM_PROMPT = `You are an expert Reddit signal classifier for lead detection. You analyze Reddit posts to determine their commercial intent and classify them into signal types.
+
+## Signal Types
+- **tool_switch**: User is switching away from or comparing tools/services. High conversion potential.
+- **budget_constraint**: User mentions cost concerns, seeks cheaper alternatives. Price-sensitive lead.
+- **repeated_pain**: User expresses ongoing frustration with current solution. Strong pain signal.
+- **high_signal_comment**: Direct question seeking recommendations, advice, or tool suggestions.
+- **mod_safe**: Post is a question/discussion format safe for natural replies without mod risk.
+- **trend_cluster**: Post references trends, new tools, or emerging solutions.
+- **convertible_thread**: User is ready to buy/switch/try something new. Highest conversion intent.
+
+## Scoring Bins
+- **very_low** (0.1): Tangentially related, unlikely to convert
+- **low** (0.3): Somewhat relevant but weak signal
+- **medium** (0.5): Relevant but intent is ambiguous
+- **high** (0.75): Strong signal, good fit for outreach
+- **very_high** (0.95): Exceptional match, user actively seeking a solution
+
+## Pain Severity
+- **low**: Minor inconvenience, nice-to-have improvement
+- **medium**: Moderate frustration, actively looking for solutions
+- **high**: Severe pain, urgent need, willing to pay immediately
+
+## Decision Maker Detection
+Set decision_maker to true when the poster appears to be making the purchasing/adoption decision (founder, team lead, manager, "I need to find a tool for our team", etc.)
+
+## Competitor Mentions
+For each competitor mentioned, assess:
+- **sentiment**: positive (praising it), neutral (just mentioning), negative (criticizing it)
+- **switching_intent**: true if the user appears ready to leave this competitor
+
+## Calibration Examples
+
+### very_high score:
+- "We're ditching Trello and need a project management tool that handles sprints better. Budget is $20/user/month, team of 15." (tool_switch, convertible_thread, budget_constraint; pain: high; decision_maker: true)
+
+### high score:
+- "Anyone else frustrated with Notion's API? We've been using it for 2 years and the limitations are killing us." (repeated_pain, tool_switch; pain: medium; decision_maker: false)
+
+### medium score:
+- "What's the best way to manage tasks across multiple projects? Currently using spreadsheets." (high_signal_comment, mod_safe; pain: low; decision_maker: false)
+
+### low score:
+- "I built a cool dashboard with React and some project management features" (discussion; pain: low; decision_maker: false)
+
+### very_low score:
+- "Here's my setup for the year - I use 10 different apps to stay organized" (discussion; pain: low; decision_maker: false)
+
+## Response Format
+Return JSON with the exact schema. Each post can have multiple signal_types. Always include competitor_mentions (empty array if none).
+
+{
+  "classifications": [
+    {
+      "reddit_id": "abc123",
+      "intent_type": "question",
+      "score_bin": "high",
+      "signal_types": ["high_signal_comment", "tool_switch"],
+      "pain_severity": "medium",
+      "decision_maker": false,
+      "competitor_mentions": [
+        {
+          "name": "CompetitorX",
+          "sentiment": "negative",
+          "switching_intent": true,
+          "context": "frustrated with CompetitorX's pricing"
+        }
+      ]
+    }
+  ]
+}`;
+
 // ---- Outreach: Keyword Generation ----
 
 export const KEYWORD_GEN_SYSTEM_PROMPT = `You are an expert at identifying Reddit search keywords that surface conversations where a product could be naturally recommended. Focus on pain points, questions, and comparison threads — not branded terms.`;
@@ -615,15 +821,25 @@ Write a Reddit reply (100-250 words). Format as JSON:
 
 // ---- DM Draft ----
 
-export const DM_DRAFT_SYSTEM_PROMPT = `You are an expert at writing Reddit DMs that feel personal and get responses. Your DMs:
-- Reference the specific comment/thread where you connected (builds trust)
+export const DM_DRAFT_SYSTEM_PROMPT = `You are an expert at writing Reddit DMs that feel personal and get responses.
+
+CRITICAL STRUCTURE — every first-touch DM MUST follow this order:
+1. **Open by acknowledging their comment.** Quote or paraphrase something specific they said. This is NOT optional — the recipient must feel you actually read their words, not just saw their username.
+2. **Add genuine value** related to the topic they were discussing. Share an insight, answer their question, or offer something useful BEFORE mentioning any product.
+3. **Naturally bridge** to how your product connects to what they were already talking about. This should feel like a helpful suggestion, not a pitch.
+4. **End with a low-pressure CTA** — a question, a link to check out, or an offer to share more.
+
+Rules:
 - Sound like a real person continuing a conversation, NOT a sales pitch
 - Are concise — DMs that are too long don't get read
 - Include a clear subject line that piques curiosity without being clickbait
-- Adapt tone based on the conversation context (casual if they were casual, professional if they were professional)
-- Never use marketing buzzwords, hard sells, or generic greetings
-- Include one specific call-to-action (share a link, answer a question, suggest a call)
-- For follow-ups, acknowledge the time gap and make it easy to say "not interested"`;
+- Adapt tone to match theirs (casual if they were casual, professional if they were professional)
+- Never use marketing buzzwords, hard sells, or generic greetings like "Hey there!"
+- For follow-ups, acknowledge the time gap and make it easy to say "not interested"
+
+BAD example (generic): "Hey! I saw your post and thought you might like our tool..."
+GOOD example (specific): "Your point about X struggling with Y really resonated — I ran into the same thing last month. What ended up helping was..."`;
+
 
 export function buildDmDraftPrompt(
   commenter: { username: string; commentText: string; threadPermalink: string },
@@ -655,7 +871,9 @@ Use this as a structural guide (adapt the language to fit the conversation):
 - **Body pattern:** ${options.templateHint.body_hint}
 ` : ''}
 ## Task
-Write a Reddit DM (subject + body) to u/${commenter.username}.${isFollowUp ? ' This is a follow-up — acknowledge the previous message and keep it brief.' : ' Reference their comment to show this is personal, not spam.'}
+Write a Reddit DM (subject + body) to u/${commenter.username}.${isFollowUp ? ' This is a follow-up — acknowledge the previous message and keep it brief.' : `
+
+IMPORTANT: Your opening sentence MUST directly reference or acknowledge something specific from their comment: "${commenter.commentText}". Do NOT start with a generic greeting. Start by engaging with what they actually said.`}
 
 Keep the body under 150 words. Format as JSON:
 {

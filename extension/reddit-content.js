@@ -1406,8 +1406,50 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
   // ---- Routing ----
   if (isOnComposePage()) {
-    // Auto-send on compose page (opened by SEND_DM)
-    handleComposePage();
+    // Check if this compose page was opened for manual send (queue mode)
+    chrome.storage.local.get('sr_pending_compose', function (result) {
+      var pending = result.sr_pending_compose;
+      if (pending && pending.manual && (Date.now() - pending.timestamp) < 300000) {
+        // Queue mode: user will click Send themselves — don't auto-send
+        // But still watch for when they DO send, so we can report back
+        chrome.storage.local.remove('sr_pending_compose');
+        console.log('[SuperReddit] Compose: manual mode — watching for user to click Send');
+
+        var urlParams = new URLSearchParams(location.search);
+        var toUsername = urlParams.get('to') || '';
+
+        // Watch for the Send button to appear, then listen for click
+        var manualAttempts = 0;
+        var manualWatcher = setInterval(function () {
+          manualAttempts++;
+          if (manualAttempts > 40) { // 40 × 500ms = 20s
+            clearInterval(manualWatcher);
+            return;
+          }
+          var btn = findSendButton();
+          if (!btn) return;
+          clearInterval(manualWatcher);
+
+          console.log('[SuperReddit] Manual mode: found Send button, watching for click');
+          btn.addEventListener('click', function () {
+            console.log('[SuperReddit] Manual mode: user clicked Send');
+            detectSendOutcome(toUsername);
+          });
+
+          // Also watch for form submission (Enter key, etc.)
+          var form = btn.closest('form');
+          if (form) {
+            form.addEventListener('submit', function () {
+              console.log('[SuperReddit] Manual mode: form submitted');
+              detectSendOutcome(toUsername);
+            });
+          }
+        }, 500);
+      } else {
+        // Existing SEND_DM flow: auto-send on compose page
+        handleComposePage();
+      }
+    });
   } else if (isOnChatPage()) {
     startScanning();
   } else {

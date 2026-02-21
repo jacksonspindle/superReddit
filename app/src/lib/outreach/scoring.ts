@@ -1,6 +1,6 @@
 /**
  * Combined scoring for outreach signals.
- * Formula: intent(0.5) + freshness(0.3) + engagement(0.2)
+ * Enhanced formula: signal_strength(0.4) + freshness(0.25) + engagement(0.15) + safety(0.1) + competitor_bonus(0.1)
  */
 
 const MAX_AGE_HOURS = 72; // Posts older than 72h get 0 freshness score
@@ -19,6 +19,31 @@ export function computeEngagementScore(score: number, numComments: number): numb
   return scoreNorm * 0.6 + commentsNorm * 0.4;
 }
 
+/**
+ * Compute safety component score from safety level.
+ */
+export function computeSafetyComponent(safetyLevel: 'safe' | 'caution' | 'strict' | null): number {
+  if (safetyLevel === 'safe') return 1.0;
+  if (safetyLevel === 'caution') return 0.5;
+  if (safetyLevel === 'strict') return 0.1;
+  return 0.5; // unknown defaults to caution-level
+}
+
+/**
+ * Compute competitor bonus. Posts mentioning competitors with switching intent score higher.
+ */
+export function computeCompetitorBonus(
+  competitorMentioned: boolean,
+  switchingIntent?: boolean
+): number {
+  if (!competitorMentioned) return 0;
+  if (switchingIntent) return 1.0;
+  return 0.5;
+}
+
+/**
+ * Legacy scoring (backward compatible): intent(0.5) + freshness(0.3) + engagement(0.2)
+ */
 export function computeCombinedScore(
   intentScore: number,
   createdUtc: number,
@@ -28,4 +53,48 @@ export function computeCombinedScore(
   const freshness = computeFreshnessScore(createdUtc);
   const engagement = computeEngagementScore(redditScore, numComments);
   return intentScore * 0.5 + freshness * 0.3 + engagement * 0.2;
+}
+
+// ---- V2 Scoring ----
+
+import type { LeadTier } from '@/types';
+
+export function computeV2CombinedScore(fitScore: number, leadScore: number, engageScore: number): number {
+  return (fitScore * 0.4 + leadScore * 0.35 + engageScore * 0.25) / 10;
+}
+
+export function deriveLeadTier(fitScore: number, leadScore: number): LeadTier {
+  if (fitScore >= 8 && leadScore >= 7) return 'hot';
+  if (fitScore >= 6 && leadScore >= 5) return 'warm';
+  return 'cold';
+}
+
+/**
+ * Enhanced scoring with all 5 factors:
+ * signal_strength(0.4) + freshness(0.25) + engagement(0.15) + safety(0.1) + competitor_bonus(0.1)
+ */
+export function computeEnhancedScore(params: {
+  intentScore: number;
+  createdUtc: number;
+  redditScore: number;
+  numComments: number;
+  safetyLevel?: 'safe' | 'caution' | 'strict' | null;
+  competitorMentioned?: boolean;
+  switchingIntent?: boolean;
+}): number {
+  const freshness = computeFreshnessScore(params.createdUtc);
+  const engagement = computeEngagementScore(params.redditScore, params.numComments);
+  const safety = computeSafetyComponent(params.safetyLevel ?? null);
+  const competitor = computeCompetitorBonus(
+    params.competitorMentioned ?? false,
+    params.switchingIntent
+  );
+
+  return (
+    params.intentScore * 0.4 +
+    freshness * 0.25 +
+    engagement * 0.15 +
+    safety * 0.1 +
+    competitor * 0.1
+  );
 }

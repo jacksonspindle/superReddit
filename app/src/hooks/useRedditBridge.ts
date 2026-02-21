@@ -269,6 +269,35 @@ export function useRedditBridge() {
     }
   }, []);
 
+  // Store a "manual compose" flag so the extension doesn't auto-send on the compose page
+  const prepareDraft = useCallback(async (): Promise<boolean> => {
+    try {
+      await sendToExtension<{ success: boolean }>('PREPARE_DM_DRAFT', 3_000);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Poll extension for the result of a manual compose (user clicked Send on Reddit)
+  const checkLastSend = useCallback(async (): Promise<{
+    success: boolean;
+    username: string | null;
+    error: string | null;
+  } | null> => {
+    try {
+      const result = await sendToExtension<{
+        success: boolean;
+        username: string | null;
+        error: string | null;
+        timestamp: number;
+      } | null>('CHECK_LAST_SEND', 3_000);
+      return result;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const refreshConversations = useCallback(async (): Promise<boolean> => {
     try {
       const result = await sendToExtension<{
@@ -387,6 +416,8 @@ export function useRedditBridge() {
     youSentToList,
     theyRepliedList,
     sendDm,
+    prepareDraft,
+    checkLastSend,
     fetchConversation,
     checkYouSentTo,
     checkTheyReplied,
