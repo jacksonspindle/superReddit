@@ -32,6 +32,11 @@ interface PostDraft {
   body: string;
 }
 
+export interface SuggestedPrompt {
+  text: string;
+  icon: 'write' | 'search';
+}
+
 interface ChatInterfaceProps {
   project?: Project | null;
   initialMessages?: Message[];
@@ -44,7 +49,7 @@ interface ChatInterfaceProps {
   onClearAttachments?: () => void;
   apiEndpoint?: string;
   placeholder?: string;
-  suggestedPrompts?: string[];
+  suggestedPrompts?: SuggestedPrompt[];
   emptyTitle?: string;
   emptyDescription?: string;
 }
@@ -371,11 +376,11 @@ export function ChatInterface({
     }
   }
 
-  const defaultPrompts = [
-    'Help me write a Reddit post for my product',
-    'How do I write a post that doesn\'t get flagged as spam?',
-    'Write me a post draft based on my reference posts',
-    'Help me write an engaging title for my post',
+  const defaultPrompts: SuggestedPrompt[] = [
+    { text: 'Help me write a Reddit post for my product', icon: 'write' },
+    { text: 'Write me a post draft based on my reference posts', icon: 'write' },
+    { text: 'Find top posts about my niche this week', icon: 'search' },
+    { text: 'Search Reddit for post inspiration', icon: 'search' },
   ];
   const suggestedPrompts = suggestedPromptsProp ?? defaultPrompts;
 
@@ -405,12 +410,17 @@ export function ChatInterface({
               >
                 {suggestedPrompts.map((prompt) => (
                   <motion.button
-                    key={prompt}
+                    key={prompt.text}
                     variants={staggerItemVariants}
-                    onClick={() => setInput(prompt)}
-                    className="rounded-lg border p-2 text-left text-[11px] text-muted-foreground hover:bg-muted transition-colors"
+                    onClick={() => setInput(prompt.text)}
+                    className="rounded-lg border p-2 text-left text-[11px] text-muted-foreground hover:bg-muted transition-colors flex items-start gap-2"
                   >
-                    {prompt}
+                    {prompt.icon === 'search' ? (
+                      <Search className="h-3.5 w-3.5 shrink-0 mt-0.5 text-blue-500" />
+                    ) : (
+                      <PenLine className="h-3.5 w-3.5 shrink-0 mt-0.5 text-orange-500" />
+                    )}
+                    <span>{prompt.text}</span>
                   </motion.button>
                 ))}
               </motion.div>

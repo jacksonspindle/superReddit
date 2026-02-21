@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { SearchAction } from '@/stores/create-store';
+import type { SuggestedPrompt } from '@/components/chat/ChatInterface';
 import { GripHorizontal, GripVertical, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
@@ -125,39 +126,39 @@ export default function CreatePage() {
   }
 
   // Context-aware suggested prompts for the chat
-  const suggestedPrompts = useMemo(() => {
+  const suggestedPrompts: SuggestedPrompt[] = useMemo(() => {
     const hasContent = title.trim() || body.trim();
     const hasRefs = referencePosts.length > 0;
 
     if (hasContent) {
-      const prompts = [];
+      const prompts: SuggestedPrompt[] = [];
       if (title.trim()) {
-        prompts.push(`Review my post title: "${title.slice(0, 50)}${title.length > 50 ? '...' : ''}"`);
+        prompts.push({ text: `Review my post title: "${title.slice(0, 50)}${title.length > 50 ? '...' : ''}"`, icon: 'write' });
       }
       if (body.trim()) {
-        prompts.push('Improve my post body to sound more authentic');
+        prompts.push({ text: 'Improve my post body to sound more authentic', icon: 'write' });
       }
       if (targetSubreddit) {
-        prompts.push(`Will this post work in r/${targetSubreddit}?`);
+        prompts.push({ text: `Find top posts in r/${targetSubreddit} for inspiration`, icon: 'search' });
       }
-      prompts.push('Rewrite this as a different style');
+      prompts.push({ text: 'Rewrite this as a different style', icon: 'write' });
       return prompts.slice(0, 4);
     }
 
     if (hasRefs) {
       return [
-        'Write a post draft based on my reference posts',
-        'What patterns make these reference posts successful?',
-        'Write a post in a similar style for my product',
-        'Suggest 3 different angles for my post',
+        { text: 'Write a post draft based on my reference posts', icon: 'write' as const },
+        { text: 'What patterns make these reference posts successful?', icon: 'write' as const },
+        { text: 'Search Reddit for similar high-performing posts', icon: 'search' as const },
+        { text: 'Suggest 3 different angles for my post', icon: 'write' as const },
       ];
     }
 
     return [
-      'Write me 3 post drafts for my product',
-      'Find the top posts about my niche this week',
-      'Search Reddit for posts similar to what I want to write',
-      'Help me write a post based on what\'s trending',
+      { text: 'Write me 3 post drafts for my product', icon: 'write' as const },
+      { text: 'Find the top posts about my niche this week', icon: 'search' as const },
+      { text: 'Search Reddit for posts similar to what I want to write', icon: 'search' as const },
+      { text: 'Help me write a post based on what\'s trending', icon: 'write' as const },
     ];
   }, [title, body, targetSubreddit, referencePosts.length]);
 
