@@ -124,8 +124,8 @@ export function ProjectSidebar({ project }: { project: Project }) {
   ];
 
   const dmsChildren = [
-    { href: `${base}/dms`, label: 'Analytics', icon: PieChart },
     { href: `${base}/dms/pipeline`, label: 'Pipeline', icon: GitPullRequestArrow },
+    { href: `${base}/dms`, label: 'Analytics', icon: PieChart },
   ];
 
   const contextChildren = [
