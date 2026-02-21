@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { detectSignals } from '@/lib/outreach/detector';
+import { detectSignalsV3 } from '@/lib/outreach/detector';
 import {
   enqueueProject,
   dequeueProjects,
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        const count = await detectSignals(supabase, {
+        const count = await detectSignalsV3(supabase, {
           projectId: entry.project_id,
           keywords,
           competitors: (config?.competitors as string[]) || [],
@@ -119,7 +119,8 @@ export async function GET(request: NextRequest) {
           subredditLimit: (config?.subreddit_limit as number) || 100,
           productName: project.product_name,
           productDescription: project.product_description,
-          realtime: entry.priority === 'high', // Use AI classification for manual scans
+          realtime: entry.priority === 'high',
+          browseSubreddits: true,
         });
 
         await markCompleted(supabase, entry.id, count);

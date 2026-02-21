@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { detectSignals } from '@/lib/outreach/detector';
+import { detectSignalsV3 } from '@/lib/outreach/detector';
 
 export async function GET(request: NextRequest) {
   try {
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
       // Always run inline detection for immediate results.
       // Queue-based scanning is handled by the cron job (/api/cron/poll-signals).
       try {
-        await detectSignals(supabase, {
+        await detectSignalsV3(supabase, {
           projectId,
           keywords,
           competitors,
@@ -160,6 +160,7 @@ export async function GET(request: NextRequest) {
           timeFilter: effectiveTimeFilter as 'hour' | 'day' | 'week' | 'month' | 'year' | 'all',
           maxResults: effectiveMaxResults,
           includeComments: effectiveIncludeComments,
+          browseSubreddits: true,
         });
       } catch (detectError) {
         console.error('Signal detection error:', detectError);
@@ -177,6 +178,8 @@ export async function GET(request: NextRequest) {
     const isUnseen = request.nextUrl.searchParams.get('is_unseen');
     const isFavorited = request.nextUrl.searchParams.get('is_favorited');
     const signalType = request.nextUrl.searchParams.get('signal_type');
+    const buyerIntent = request.nextUrl.searchParams.get('buyer_intent');
+    const discoverySource = request.nextUrl.searchParams.get('discovery_source');
 
     try {
       let query = supabase
@@ -210,6 +213,12 @@ export async function GET(request: NextRequest) {
       }
       if (signalType) {
         query = query.contains('signal_types', [signalType]);
+      }
+      if (buyerIntent) {
+        query = query.eq('buyer_intent', buyerIntent);
+      }
+      if (discoverySource) {
+        query = query.eq('discovery_source', discoverySource);
       }
       if (timeRange) {
         const now = Math.floor(Date.now() / 1000);

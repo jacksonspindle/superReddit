@@ -57,7 +57,7 @@ export function computeCombinedScore(
 
 // ---- V2 Scoring ----
 
-import type { LeadTier } from '@/types';
+import type { LeadTier, BuyerIntent } from '@/types';
 
 export function computeV2CombinedScore(fitScore: number, leadScore: number, engageScore: number): number {
   return (fitScore * 0.4 + leadScore * 0.35 + engageScore * 0.25) / 10;
@@ -66,6 +66,18 @@ export function computeV2CombinedScore(fitScore: number, leadScore: number, enga
 export function deriveLeadTier(fitScore: number, leadScore: number): LeadTier {
   if (fitScore >= 8 && leadScore >= 7) return 'hot';
   if (fitScore >= 6 && leadScore >= 5) return 'warm';
+  return 'cold';
+}
+
+// ---- V3 Scoring ----
+
+export function computeV3CombinedScore(fit: number, lead: number, authenticity: number, relevance: number): number {
+  return (fit * 0.30 + lead * 0.30 + authenticity * 0.20 + relevance * 0.20) / 10;
+}
+
+export function deriveLeadTierV3(fit: number, lead: number, authenticity: number, relevance: number): LeadTier {
+  if (fit >= 7 && lead >= 7 && authenticity >= 6 && relevance >= 5) return 'hot';
+  if (fit >= 5 && lead >= 5 && authenticity >= 4) return 'warm';
   return 'cold';
 }
 

@@ -658,6 +658,188 @@ ${postList}
 Score each post on Fit (1-10), Lead (1-10), and Engage (1-10) based on how well it matches this specific product.`;
 }
 
+// ---- Outreach: Pre-Filter (cheap batch title screening) ----
+
+export const PRE_FILTER_SYSTEM_PROMPT = `You are a fast Reddit post screener. Given a numbered list of post titles and a product context, return ONLY the indices of titles that could potentially be from someone who might benefit from the product.
+
+Be INCLUSIVE — false positives are fine (they'll be filtered later), but false negatives mean lost leads. Pass anything that shows:
+- A problem, question, or frustration related to the product's domain
+- Someone seeking recommendations, comparisons, or alternatives
+- Budget/pricing discussions in the product's space
+- Someone describing a workflow the product could improve
+- Any mention of competitors or similar tools
+
+REJECT posts that are clearly:
+- Memes, jokes, or off-topic entertainment
+- News articles with no engagement opportunity
+- Self-promotion or showcase with no pain signal
+- Meta/mod posts about the subreddit itself
+
+Return a JSON object with a single "indices" array of numbers:
+{ "indices": [1, 3, 7, 12] }`;
+
+// ---- Outreach: Signal Analysis V3 (4-dimension scoring + buyer intent) ----
+
+export const SIGNAL_ANALYSIS_V3_SYSTEM_PROMPT = `You are an expert Reddit lead classifier for SaaS products. You analyze Reddit posts and score them on four independent dimensions, identify buyer journey stage, and extract signal metadata.
+
+## Scoring Dimensions (1-10 each)
+
+### Fit Score (How well does the post match the product?)
+- 9-10: Post describes the exact problem the product solves, mentions relevant features/workflows
+- 7-8: Strong overlap with product's problem space, user would clearly benefit
+- 5-6: Related to the product's domain but not a direct fit
+- 3-4: Tangentially related, product could help but isn't the obvious answer
+- 1-2: Barely related, product would be a stretch recommendation
+
+### Lead Score (How likely is this person to convert?)
+- 9-10: Actively seeking a solution, has budget, decision maker, urgency signals
+- 7-8: Comparing tools or expressing frustration with current solution, ready to switch
+- 5-6: Aware of the problem, open to solutions but not actively searching
+- 3-4: Describing a pain point but no buying signals
+- 1-2: Just discussing the topic, no purchase intent
+
+### Authenticity Score (Is this a real person with a genuine need?)
+- 9-10: Detailed personal context, specific use case, established Reddit account signals
+- 7-8: Genuine question or problem description with enough detail to be real
+- 5-6: Could be real but vague, or asks a common/generic question
+- 3-4: Suspicious patterns — new account, generic phrasing, possible bot
+- 1-2: Obvious spam, bot, or astroturfing
+
+### Relevance Score (How actionable/appropriate is it to engage?)
+- 9-10: Direct question seeking recommendations, perfect reply opportunity, mod-safe
+- 7-8: Discussion where a helpful reply would be well-received
+- 5-6: Could reply but need to be subtle, some risk of appearing promotional
+- 3-4: Risky to reply — might get flagged as spam or off-topic
+- 1-2: Should not reply — self-promotional content, hostile thread, or locked
+
+## Buyer Intent (Journey Stage)
+- **problem_aware**: Knows they have a problem but hasn't started looking for solutions
+- **solution_seeking**: Actively looking for tools/solutions to their problem
+- **comparing**: Evaluating specific options, asking "X vs Y" questions
+- **ready_to_buy**: Has budget, timeline, or urgency — ready to purchase/adopt
+
+## Intent Type (Legacy — still populate for backward compatibility)
+- "question": User asking for recommendations or solutions
+- "comparison": User comparing products/tools
+- "problem": User describing a pain point
+- "discussion": General discussion
+- "showcase": Someone showing their project/tool
+
+## Signal Types
+- **tool_switch**: User is switching away from or comparing tools/services
+- **budget_constraint**: User mentions cost concerns, seeks cheaper alternatives
+- **repeated_pain**: User expresses ongoing frustration with current solution
+- **high_signal_comment**: Direct question seeking recommendations
+- **mod_safe**: Safe for natural replies without mod risk
+- **trend_cluster**: Post references trends, new tools, or emerging solutions
+- **convertible_thread**: User is ready to buy/switch/try something new
+
+## Pain Severity
+- **low**: Minor inconvenience, nice-to-have improvement
+- **medium**: Moderate frustration, actively looking for solutions
+- **high**: Severe pain, urgent need, willing to pay immediately
+
+## Decision Maker Detection
+Set decision_maker to true when the poster appears to be making the purchasing/adoption decision.
+
+## Calibration Examples
+
+### Fit=9, Lead=9, Auth=9, Rel=9 (ready_to_buy):
+Post: "We're ditching [CompetitorX] and need [exact product category]. Budget is $X/month, team of 15. What do you recommend?"
+(Perfect product fit + active buyer + real person + question format)
+
+### Fit=8, Lead=5, Auth=8, Rel=7 (problem_aware):
+Post: "Anyone else frustrated with [competitor]'s [feature the product does better]? Been dealing with this for months."
+(Strong fit + pain but no buying signal + genuine frustration + safe to reply)
+
+### Fit=7, Lead=7, Auth=7, Rel=8 (comparing):
+Post: "Trying to decide between X and Y for my team. We need Z feature and budget is tight."
+(Good fit + comparing + real context + asking for help)
+
+### Fit=5, Lead=3, Auth=6, Rel=6 (problem_aware):
+Post: "What tools do you all use for [broad category]? Just curious about everyone's workflow."
+(Related domain + no urgency + seems real + discussion format)
+
+### Fit=3, Lead=1, Auth=2, Rel=2 (problem_aware):
+Post: "Check out my new app that does X! Link in comments."
+(Tangential + no buy intent + likely spam + should not reply)
+
+## Response Format
+Return JSON array. Each post can have multiple signal_types.
+
+{
+  "classifications": [
+    {
+      "reddit_id": "abc123",
+      "intent_type": "question",
+      "fit_score": 8,
+      "lead_score": 7,
+      "authenticity_score": 9,
+      "relevance_score": 8,
+      "buyer_intent": "solution_seeking",
+      "signal_types": ["tool_switch", "high_signal_comment"],
+      "pain_severity": "medium",
+      "decision_maker": false,
+      "competitor_mentions": [
+        { "name": "CompetitorX", "sentiment": "negative", "switching_intent": true, "context": "frustrated with pricing" }
+      ]
+    }
+  ]
+}`;
+
+export function buildV3ClassificationPrompt(
+  posts: { reddit_id: string; title: string; body: string | null; subreddit: string; author: string; score: number; num_comments: number }[],
+  productContext: {
+    productName: string;
+    productDescription: string;
+    problemsSolved?: string[];
+    solutionFeatures?: string[];
+    audienceBehaviors?: string[];
+    competitors?: string[];
+    competitorWeaknesses?: string[];
+  }
+): string {
+  const postList = posts
+    .map(
+      (p, i) =>
+        `${i + 1}. [${p.reddit_id}] r/${p.subreddit} (${p.score} pts, ${p.num_comments} comments)
+   Title: "${p.title}"
+   Body: ${p.body ? p.body.slice(0, 500) : '[no body]'}
+   Author: u/${p.author}`
+    )
+    .join('\n\n');
+
+  const problemsSection = productContext.problemsSolved?.length
+    ? `- **Problems Solved:** ${productContext.problemsSolved.join('; ')}`
+    : '';
+  const featuresSection = productContext.solutionFeatures?.length
+    ? `- **Key Features:** ${productContext.solutionFeatures.join('; ')}`
+    : '';
+  const audienceSection = productContext.audienceBehaviors?.length
+    ? `- **Target Audience Behaviors:** ${productContext.audienceBehaviors.join('; ')}`
+    : '';
+  const competitorsSection = productContext.competitors?.length
+    ? `- **Competitors:** ${productContext.competitors.join(', ')}`
+    : '';
+  const weaknessesSection = productContext.competitorWeaknesses?.length
+    ? `- **Competitor Weaknesses:** ${productContext.competitorWeaknesses.join('; ')}`
+    : '';
+
+  return `## Product Context
+- **Product:** ${productContext.productName}
+- **Description:** ${productContext.productDescription}
+${problemsSection}
+${featuresSection}
+${audienceSection}
+${competitorsSection}
+${weaknessesSection}
+
+## Posts to Classify
+${postList}
+
+Score each post on Fit (1-10), Lead (1-10), Authenticity (1-10), and Relevance (1-10). Also determine the buyer intent stage for each post.`;
+}
+
 // ---- Outreach: Signal Analysis (7-type classification) ----
 
 export const SIGNAL_ANALYSIS_SYSTEM_PROMPT = `You are an expert Reddit signal classifier for lead detection. You analyze Reddit posts to determine their commercial intent and classify them into signal types.

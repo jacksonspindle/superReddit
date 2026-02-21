@@ -11,15 +11,15 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     // Try fetching with V2 columns, fall back to base columns if they don't exist yet
-    let rows: { lead_tier?: string | null; combined_score: number; is_unseen?: boolean; subreddit: string }[] = [];
+    let rows: { lead_tier?: string | null; combined_score: number; is_unseen?: boolean; subreddit: string; buyer_intent?: string | null; discovery_source?: string | null }[] = [];
 
     const { data: signals, error } = await supabase
       .from('outreach_signals')
-      .select('lead_tier, combined_score, is_unseen, subreddit')
+      .select('lead_tier, combined_score, is_unseen, subreddit, buyer_intent, discovery_source')
       .eq('project_id', projectId);
 
     if (error) {
-      // V2 columns may not exist yet, try with base columns only
+      // V3/V2 columns may not exist yet, try with base columns only
       const { data: fallbackSignals, error: fallbackError } = await supabase
         .from('outreach_signals')
         .select('combined_score, subreddit')
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       if (fallbackError) {
         return NextResponse.json({ error: fallbackError.message }, { status: 500 });
       }
-      rows = (fallbackSignals || []).map((s) => ({ ...s, lead_tier: null, is_unseen: undefined }));
+      rows = (fallbackSignals || []).map((s) => ({ ...s, lead_tier: null, is_unseen: undefined, buyer_intent: null, discovery_source: null }));
     } else {
       rows = signals || [];
     }
@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
     let warmCount = 0;
     let unseenCount = 0;
     const subredditCounts = new Map<string, number>();
+    const intentCounts = new Map<string, number>();
+    const sourceCounts = new Map<string, number>();
 
     for (const row of rows) {
       // Derive tier for old signals without lead_tier
@@ -53,6 +55,13 @@ export async function GET(request: NextRequest) {
       if (row.is_unseen) unseenCount++;
 
       subredditCounts.set(row.subreddit, (subredditCounts.get(row.subreddit) || 0) + 1);
+
+      if (row.buyer_intent) {
+        intentCounts.set(row.buyer_intent, (intentCounts.get(row.buyer_intent) || 0) + 1);
+      }
+      if (row.discovery_source) {
+        sourceCounts.set(row.discovery_source, (sourceCounts.get(row.discovery_source) || 0) + 1);
+      }
     }
 
     // Top subreddits sorted by count
@@ -61,12 +70,17 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
+    const intentDistribution = Object.fromEntries(intentCounts);
+    const sourceDistribution = Object.fromEntries(sourceCounts);
+
     return NextResponse.json({
       hotCount,
       warmCount,
       unseenCount,
       totalCount: rows.length,
       topSubreddits,
+      intentDistribution,
+      sourceDistribution,
     });
   } catch (error) {
     console.error('Signals analytics error:', error);
