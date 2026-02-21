@@ -46,12 +46,12 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Find the start: go back WEEKS * 7 days, then align to Sunday
+    // Start from 52 weeks before this week's Sunday, so today is always included
     const start = new Date(today);
-    start.setDate(start.getDate() - (WEEKS * 7 - 1) - today.getDay());
+    start.setDate(today.getDate() - today.getDay() - (WEEKS * 7));
 
-    // Build cells
-    const totalDays = WEEKS * 7;
+    // Days from start through today (inclusive)
+    const totalDays = Math.round((today.getTime() - start.getTime()) / 86400000) + 1;
     const cellList: { date: Date; dateKey: string; count: number; col: number; row: number }[] = [];
     const monthSet = new Map<string, number>(); // month label → column index
 
