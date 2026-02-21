@@ -202,7 +202,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex h-screen bg-background">
-      <OnboardingSidebar currentStep={step} />
+      <OnboardingSidebar currentStep={step} onCancel={() => router.push('/projects')} />
 
       <main className="flex flex-1 items-center justify-center overflow-y-auto p-8">
         <AnimatePresence mode="wait" custom={directionRef.current}>

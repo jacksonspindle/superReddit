@@ -197,7 +197,7 @@ export default function NewProjectPage() {
 
   return (
     <div className="flex h-screen bg-background">
-      <OnboardingSidebar currentStep={step} steps={NEW_PROJECT_STEPS} />
+      <OnboardingSidebar currentStep={step} steps={NEW_PROJECT_STEPS} onCancel={() => router.push('/projects')} />
 
       <main className="flex flex-1 items-center justify-center overflow-y-auto p-8">
         <AnimatePresence mode="wait" custom={directionRef.current}>
