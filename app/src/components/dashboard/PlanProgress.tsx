@@ -16,11 +16,11 @@ interface PlanProgressProps {
 
 const STEPS = [
   { label: 'Set up your product', ctaLabel: '', ctaPath: '' },
-  { label: 'Add target subreddits', ctaLabel: 'Go to Canvas', ctaPath: '/canvas' },
+  { label: 'Add target subreddits', ctaLabel: 'Go to Create', ctaPath: '/create' },
   { label: 'Research inspiration posts', ctaLabel: 'Go to Inspiration', ctaPath: '/inspiration' },
-  { label: 'Generate draft posts', ctaLabel: 'Go to Canvas', ctaPath: '/canvas' },
-  { label: 'Refine your drafts', ctaLabel: 'Go to Canvas', ctaPath: '/canvas' },
-  { label: 'Publish to Reddit', ctaLabel: 'Go to Canvas', ctaPath: '/canvas' },
+  { label: 'Generate draft posts', ctaLabel: 'Go to Create', ctaPath: '/create' },
+  { label: 'Refine your drafts', ctaLabel: 'Go to Create', ctaPath: '/create' },
+  { label: 'Publish to Reddit', ctaLabel: 'Go to Create', ctaPath: '/create' },
 ];
 
 export function PlanProgress({

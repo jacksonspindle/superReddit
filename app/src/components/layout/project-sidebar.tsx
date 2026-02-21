@@ -8,18 +8,12 @@ import {
   LayoutDashboard,
   PenLine,
   ChevronDown,
-  Compass,
-  Shuffle,
-  PenTool,
-  MessageSquare,
   LogOut,
   Target,
   Radio,
   Bell,
   Users,
   Settings,
-  Github,
-  Bot,
   Send,
   GitPullRequestArrow,
   PieChart,
@@ -130,12 +124,6 @@ export function ProjectSidebar({ project }: { project: Project }) {
 
   const contextChildren = [
     { href: `${base}/context/profile`, label: 'Profile', icon: Settings },
-    { href: `${base}/context/github`, label: 'GitHub', icon: Github },
-    { href: `${base}/context/claude`, label: 'Claude', icon: Bot },
-  ];
-
-  const bottomItems = [
-    { href: `${base}/canvas`, label: 'Canvas', icon: PenTool },
   ];
 
   const handleLogout = async () => {
@@ -326,8 +314,6 @@ export function ProjectSidebar({ project }: { project: Project }) {
 
           {renderSectionHeader('Context', Settings, contextExpanded, () => setContextExpanded(p => !p))}
           {renderSectionChildren('context-children', contextExpanded, contextChildren)}
-
-          {bottomItems.map((item) => renderNavLink(item))}
         </motion.nav>
 
         {/* Bottom */}
