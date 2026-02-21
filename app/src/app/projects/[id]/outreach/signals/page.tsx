@@ -87,14 +87,22 @@ export default function OutreachSignalsPage() {
     fetchAnalytics();
   }, [fetchSignals, fetchAnalytics]);
 
-  // Check wizard completion status on mount
+  // Check wizard completion status on mount — only show on first visit
   useEffect(() => {
+    const localKey = `sr_wizard_done_${project.id}`;
+    if (localStorage.getItem(localKey)) {
+      setWizardChecked(true);
+      return;
+    }
+
     async function checkWizard() {
       try {
         const res = await fetch(`/api/outreach/config?project_id=${project.id}`);
         const json = await res.json();
         if (!json.config?.scan_wizard_completed) {
           setWizardOpen(true);
+        } else {
+          localStorage.setItem(localKey, '1');
         }
       } catch {
         // Config may not exist — show wizard
@@ -445,11 +453,17 @@ export default function OutreachSignalsPage() {
         onScanRequested={handleScanNow}
       />
 
-      {/* Scan Wizard (first visit) */}
+      {/* Scan Wizard (first visit only) */}
       {wizardChecked && (
         <ScanWizard
           open={wizardOpen}
-          onOpenChange={setWizardOpen}
+          onOpenChange={(open) => {
+            setWizardOpen(open);
+            if (!open) {
+              // Mark as seen so it doesn't reappear on revisit
+              localStorage.setItem(`sr_wizard_done_${project.id}`, '1');
+            }
+          }}
           projectId={project.id}
           onComplete={handleScanNow}
         />
