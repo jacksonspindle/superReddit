@@ -20,6 +20,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   FileText,
+  Globe,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -109,6 +110,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const createChildren = [
     { href: `${base}/create`, label: 'Create', icon: PenLine },
     { href: `${base}/drafts`, label: 'Drafts', icon: FileText },
+    { href: `${base}/subreddits`, label: 'Subreddits', icon: Globe },
   ];
 
   const outreachChildren = [

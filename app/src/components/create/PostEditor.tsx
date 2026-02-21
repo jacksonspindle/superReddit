@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Copy, Save, X, ImagePlus, Link2, Video, ExternalLink } from 'lucide-react';
+import { Copy, Save, X, ImagePlus, Link2, Video, ExternalLink, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,6 +26,9 @@ export function PostEditor() {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [subDropdownOpen, setSubDropdownOpen] = useState(false);
+  const [redditSearchResults, setRedditSearchResults] = useState<{ name: string; subscribers: number; description: string }[]>([]);
+  const [redditSearchLoading, setRedditSearchLoading] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const subInputRef = useRef<HTMLDivElement>(null);
@@ -54,6 +57,62 @@ export function PostEditor() {
   const filteredSubs = trackedSubs.filter((s) =>
     s.toLowerCase().includes(targetSubreddit.toLowerCase().replace(/^r\//, ''))
   );
+
+  // Debounced Reddit search when typed value doesn't match tracked subs
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    const query = targetSubreddit.trim().replace(/^r\//, '');
+    if (query.length < 2 || filteredSubs.length > 0) {
+      setRedditSearchResults([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setRedditSearchLoading(true);
+      try {
+        const res = await fetch(`/api/reddit/search-subreddits?q=${encodeURIComponent(query)}`);
+        const json = await res.json();
+        if (json.subreddits) {
+          // Filter out any already tracked
+          const trackedSet = new Set(trackedSubs.map((s) => s.toLowerCase()));
+          setRedditSearchResults(
+            json.subreddits.filter((s: { name: string }) => !trackedSet.has(s.name.toLowerCase()))
+          );
+        }
+      } catch {
+        setRedditSearchResults([]);
+      }
+      setRedditSearchLoading(false);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [targetSubreddit, filteredSubs.length, trackedSubs]);
+
+  async function handleAddSubToProject(result: { name: string; subscribers: number; description: string }) {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('subreddits')
+      .insert({
+        project_id: project.id,
+        name: result.name,
+        subscribers: result.subscribers,
+        description: result.description,
+      });
+
+    if (error) {
+      toast.error('Failed to add subreddit');
+      return;
+    }
+
+    setTrackedSubs((prev) => [...prev, result.name]);
+    setTargetSubreddit(result.name);
+    setSubDropdownOpen(false);
+    setRedditSearchResults([]);
+    toast.success(`r/${result.name} added to project`);
+  }
 
   const processFiles = useCallback((files: FileList | File[]) => {
     const newImages: PostImage[] = [];
@@ -260,17 +319,48 @@ export function PostEditor() {
           placeholder="Target subreddit..."
           className="h-8 text-xs"
         />
-        {subDropdownOpen && filteredSubs.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-            {filteredSubs.map((s) => (
-              <button
-                key={s}
-                onClick={() => { setTargetSubreddit(s); setSubDropdownOpen(false); }}
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                r/{s}
-              </button>
-            ))}
+        {subDropdownOpen && (filteredSubs.length > 0 || redditSearchResults.length > 0 || redditSearchLoading) && (
+          <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover shadow-md overflow-hidden">
+            {filteredSubs.length > 0 && (
+              <div className="p-1">
+                {filteredSubs.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => { setTargetSubreddit(s); setSubDropdownOpen(false); }}
+                    className="flex w-full items-center rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    r/{s}
+                  </button>
+                ))}
+              </div>
+            )}
+            {(redditSearchResults.length > 0 || redditSearchLoading) && (
+              <>
+                {filteredSubs.length > 0 && <div className="border-t" />}
+                <div className="px-2 py-1.5">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Add to project</span>
+                </div>
+                {redditSearchLoading && (
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Searching Reddit...</span>
+                  </div>
+                )}
+                {redditSearchResults.map((result) => (
+                  <button
+                    key={result.name}
+                    onClick={() => handleAddSubToProject(result)}
+                    className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <span>r/{result.name}</span>
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
