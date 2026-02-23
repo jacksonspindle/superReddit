@@ -11,6 +11,7 @@ interface KanbanColumnProps {
   borderColor: string;
   onExpandColumn: () => void;
   emptyMessage: string;
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -21,6 +22,7 @@ export function KanbanColumn({
   borderColor,
   onExpandColumn,
   emptyMessage,
+  headerAction,
   children,
 }: KanbanColumnProps) {
   return (
@@ -41,6 +43,11 @@ export function KanbanColumn({
           <Maximize2 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </button>
+
+      {/* Optional header action (e.g. Start Sending / Follow Up button) */}
+      {headerAction && (
+        <div className="px-3 pt-2">{headerAction}</div>
+      )}
 
       {/* Cards area — plain scrollable div, no Radix ScrollArea */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-3">

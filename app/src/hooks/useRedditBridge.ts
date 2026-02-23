@@ -87,8 +87,18 @@ export function useRedditBridge() {
   // Listen for EXTENSION_READY heartbeat + poll status while scanning
   useEffect(() => {
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let slowPollTimer: ReturnType<typeof setInterval> | null = null;
     let pollCount = 0;
     const MAX_POLLS = 20; // 20 × 3s = 60s max polling
+
+    function startSlowPoll() {
+      if (slowPollTimer) return;
+      console.log('[SR Bridge] Starting persistent slow poll (every 60s)');
+      slowPollTimer = setInterval(() => {
+        console.log('[SR Bridge] Slow poll — checking for late replies');
+        checkStatus();
+      }, 60_000);
+    }
 
     function startPolling() {
       if (pollTimer) return;
@@ -98,10 +108,12 @@ export function useRedditBridge() {
         console.log('[SR Bridge] Poll #' + pollCount);
         checkStatus();
         if (pollCount >= MAX_POLLS) {
-          console.log('[SR Bridge] Polling complete (' + MAX_POLLS + ' polls)');
+          console.log('[SR Bridge] Fast polling complete (' + MAX_POLLS + ' polls), slow poll continues');
           if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         }
       }, 3000);
+      // Start the persistent slow poll alongside the fast burst
+      startSlowPoll();
     }
 
     function onMessage(event: MessageEvent) {
@@ -133,6 +145,7 @@ export function useRedditBridge() {
       window.removeEventListener('message', onMessage);
       clearTimeout(probeTimer);
       if (pollTimer) clearInterval(pollTimer);
+      if (slowPollTimer) clearInterval(slowPollTimer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

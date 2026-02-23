@@ -14,7 +14,6 @@ import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
 import { SendQueueMode } from '@/components/pipeline/SendQueueMode';
-import { ConversationDrawer } from '@/components/pipeline/ConversationDrawer';
 import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
@@ -59,17 +58,36 @@ export default function DmPipelinePage() {
   const [selectedSubreddits, setSelectedSubreddits] = useState<Set<string>>(new Set());
   const subredditPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [configRedditUsername, setConfigRedditUsername] = useState<string | undefined>();
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
-  const [conversationDmId, setConversationDmId] = useState<string | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
+  const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
+  const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
+  const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
 
-  // Conversation drawer — derived from allDms so it auto-refreshes
-  const conversationDm = conversationDmId
-    ? allDms.find((d) => d.id === conversationDmId) ?? null
-    : null;
+  // Open send queue starting at a specific DM (for Ready column card clicks)
+  const handleOpenReadyQueue = useCallback((dm: OutreachDM) => {
+    setSendQueueStartId(dm.id);
+    setSendQueueActive(true);
+  }, []);
 
-  const handleOpenConversation = useCallback((dm: OutreachDM) => {
-    setConversationDmId(dm.id);
+  // Open follow-up queue starting at a specific DM (for followup column card clicks)
+  const handleOpenFollowUpQueue = useCallback((dm: OutreachDM) => {
+    setFollowUpQueueStartId(dm.id);
+    setFollowUpQueueActive(true);
+  }, []);
+
+  // General card click handler for ColumnExpandOverlay — routes to the right queue
+  const handleCardClick = useCallback((dm: OutreachDM) => {
+    if (['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage)) {
+      setExpandedColumn(null);
+      setSendQueueStartId(dm.id);
+      setSendQueueActive(true);
+    } else if (dm.pipeline_stage === 'responded') {
+      setExpandedColumn(null);
+      setFollowUpQueueStartId(dm.id);
+      setFollowUpQueueActive(true);
+    }
   }, []);
 
   // Reddit Bridge
@@ -148,12 +166,16 @@ export default function DmPipelinePage() {
     } catch { /* silent */ }
   }, [project.id, fetchMonitoredPosts]);
 
-  // Fetch filter preferences from config
+  // Fetch filter preferences + reddit username from config
   const fetchFilterPreferences = useCallback(async () => {
     try {
       const res = await fetch(`/api/outreach/config?project_id=${project.id}`);
       const json = await res.json();
-      return (json.config?.pipeline_subreddit_filters as string[] | null) ?? null;
+      const cfg = json.config;
+      if (cfg?.reddit_username) {
+        setConfigRedditUsername(cfg.reddit_username.replace(/^u\//, ''));
+      }
+      return (cfg?.pipeline_subreddit_filters as string[] | null) ?? null;
     } catch {
       return null;
     }
@@ -580,9 +602,11 @@ export default function DmPipelinePage() {
   }
 
   function handleDmSelected() {
-    // Open drawer for the first selected DM
     const firstSelected = columns.ready.find((d) => selectedIds.has(d.id));
-    if (firstSelected) handleOpenConversation(firstSelected);
+    if (firstSelected) {
+      setSendQueueStartId(firstSelected.id);
+      setSendQueueActive(true);
+    }
   }
 
   function handleMarkSentSelected() {
@@ -591,6 +615,13 @@ export default function DmPipelinePage() {
     }
     toast.success(`Marked ${selectedIds.size} lead${selectedIds.size !== 1 ? 's' : ''} as sent`);
     setSelectedIds(new Set());
+  }
+
+  // Reorder DM array so a specific DM comes first (rest follow in original order)
+  function reorderFromId(dms: OutreachDM[], startId: string): OutreachDM[] {
+    const idx = dms.findIndex((d) => d.id === startId);
+    if (idx <= 0) return dms;
+    return [dms[idx], ...dms.slice(0, idx), ...dms.slice(idx + 1)];
   }
 
   // Get overlay data
@@ -654,28 +685,14 @@ export default function DmPipelinePage() {
             />
 
             {/* Toolbar */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <PipelineToolbar
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  sortBy={sortBy}
-                  onSortChange={setSortBy}
-                  scanning={scanning}
-                  onScan={handleScan}
-                />
-              </div>
-              {columns.ready.length > 0 && (
-                <Button
-                  size="lg"
-                  className="h-10 px-5 text-sm font-semibold shrink-0"
-                  onClick={() => setSendQueueActive(true)}
-                >
-                  <MoveRight className="mr-2 h-4 w-4" />
-                  Start Sending ({columns.ready.length})
-                </Button>
-              )}
-            </div>
+            <PipelineToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              scanning={scanning}
+              onScan={handleScan}
+            />
 
             {/* Kanban board */}
             <div className="overflow-x-auto -mx-6 px-6">
@@ -688,6 +705,16 @@ export default function DmPipelinePage() {
                 borderColor="rgb(59, 130, 246)"
                 onExpandColumn={() => setExpandedColumn('ready')}
                 emptyMessage="No leads ready for DM yet. Scan threads to find new leads."
+                headerAction={columns.ready.length > 0 ? (
+                  <Button
+                    size="sm"
+                    className="w-full text-xs font-semibold"
+                    onClick={() => setSendQueueActive(true)}
+                  >
+                    <MoveRight className="mr-1.5 h-3.5 w-3.5" />
+                    Start Sending ({columns.ready.length})
+                  </Button>
+                ) : undefined}
               >
                 {columns.ready.map((dm) => (
                   <KanbanLeadCard
@@ -696,10 +723,10 @@ export default function DmPipelinePage() {
                     stage="ready"
                     selected={selectedIds.has(dm.id)}
                     onSelect={handleSelect}
-                    onDraft={handleOpenConversation}
+                    onDraft={handleOpenReadyQueue}
                     onStageChange={handleStageChange}
                     onDismiss={handleDismiss}
-                    onOpenConversation={handleOpenConversation}
+                    onOpenConversation={handleOpenReadyQueue}
                   />
                 ))}
               </KanbanColumn>
@@ -727,7 +754,6 @@ export default function DmPipelinePage() {
                     stage="sent"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -747,6 +773,17 @@ export default function DmPipelinePage() {
                 borderColor="rgb(234, 179, 8)"
                 onExpandColumn={() => setExpandedColumn('followup')}
                 emptyMessage="No follow-ups needed. Leads that respond will appear here."
+                headerAction={columns.followup.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-semibold"
+                    onClick={() => setFollowUpQueueActive(true)}
+                  >
+                    <MoveRight className="mr-1.5 h-3.5 w-3.5" />
+                    Follow Up ({columns.followup.length})
+                  </Button>
+                ) : undefined}
               >
                 {columns.followup.map((dm) => (
                   <KanbanLeadCard
@@ -754,9 +791,9 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="followup"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
-                    onDraft={handleOpenConversation}
+                    onDraft={handleOpenFollowUpQueue}
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenConversation}
+                    onOpenConversation={handleOpenFollowUpQueue}
                   />
                 ))}
               </KanbanColumn>
@@ -783,7 +820,6 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="converted"
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -800,46 +836,54 @@ export default function DmPipelinePage() {
         colorClass={expandedColor}
         dms={expandedDms}
         onClose={() => setExpandedColumn(null)}
-        onDraft={handleOpenConversation}
+        onDraft={handleCardClick}
         onStageChange={handleStageChange}
         onDismiss={handleDismiss}
-        onOpenConversation={handleOpenConversation}
+        onOpenConversation={handleCardClick}
       />
 
-      {/* Send queue mode */}
-      {sendQueueActive && (
-        <SendQueueMode
-          dms={columns.ready}
-          projectId={project.id}
-          onClose={() => { setSendQueueActive(false); fetchDms(); }}
-          onStageChange={handleStageChange}
-          onDmSent={handleDmSent}
-          onDismiss={handleDismiss}
-          sendDm={sendDm}
-        />
-      )}
+      {/* Send queue mode (Ready to DM cards) */}
+      {sendQueueActive && (() => {
+        const list = sendQueueStartId
+          ? reorderFromId(columns.ready, sendQueueStartId)
+          : columns.ready;
+        return (
+          <SendQueueMode
+            dms={list}
+            projectId={project.id}
+            onClose={() => { setSendQueueActive(false); setSendQueueStartId(null); fetchDms(); }}
+            onStageChange={handleStageChange}
+            onDmSent={handleDmSent}
+            onDismiss={handleDismiss}
+            sendDm={sendDm}
+            fetchConversation={fetchConversation}
+            chatPreviews={chatPreviews}
+            redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}
+          />
+        );
+      })()}
 
-      {/* Conversation drawer */}
-      <ConversationDrawer
-        dm={conversationDm}
-        chatPreview={
-          conversationDm
-            ? chatPreviews[conversationDm.reddit_username.toLowerCase()]
-            : undefined
-        }
-        open={!!conversationDm}
-        onOpenChange={(open) => { if (!open) setConversationDmId(null); }}
-        sendDm={sendDm}
-        projectId={project.id}
-        onSent={async () => {
-          if (conversationDm) {
-            await handleStageChange(conversationDm.id, 'dm_sent', undefined, true);
-          }
-          await fetchDms();
-          fetchAndPersistPreviews();
-        }}
-        fetchConversation={fetchConversation}
-      />
+      {/* Follow-up queue mode */}
+      {followUpQueueActive && (() => {
+        const list = followUpQueueStartId
+          ? reorderFromId(columns.followup, followUpQueueStartId)
+          : columns.followup;
+        return (
+          <SendQueueMode
+            dms={list}
+            projectId={project.id}
+            onClose={() => { setFollowUpQueueActive(false); setFollowUpQueueStartId(null); fetchDms(); }}
+            onStageChange={handleStageChange}
+            onDmSent={handleDmSent}
+            onDismiss={handleDismiss}
+            sendDm={sendDm}
+            fetchConversation={fetchConversation}
+            chatPreviews={chatPreviews}
+            redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}
+          />
+        );
+      })()}
+
     </PageTransition>
   );
 }
