@@ -54,6 +54,11 @@ export default function DmPipelinePage() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Subreddit filter state
+  const [trackedSubreddits, setTrackedSubreddits] = useState<string[]>([]);
+  const [selectedSubreddits, setSelectedSubreddits] = useState<Set<string>>(new Set());
+  const subredditPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [conversationDmId, setConversationDmId] = useState<string | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
@@ -142,6 +147,89 @@ export default function DmPipelinePage() {
       await fetchMonitoredPosts();
     } catch { /* silent */ }
   }, [project.id, fetchMonitoredPosts]);
+
+  // Fetch filter preferences from config
+  const fetchFilterPreferences = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/outreach/config?project_id=${project.id}`);
+      const json = await res.json();
+      return (json.config?.pipeline_subreddit_filters as string[] | null) ?? null;
+    } catch {
+      return null;
+    }
+  }, [project.id]);
+
+  // Derive tracked subreddits from monitored posts + monitored subs, apply saved prefs
+  useEffect(() => {
+    if (loading) return;
+
+    // Derive unique subreddits from monitoredPosts (these are what actually show in pipeline)
+    const fromPosts = new Set(monitoredPosts.map((mp) => mp.subreddit.toLowerCase()));
+
+    // Also fetch from monitored_subs table as additional source
+    (async () => {
+      try {
+        const subsRes = await fetch(`/api/outreach/monitored-subs?project_id=${project.id}`);
+        const subsJson = await subsRes.json();
+        const fromSubs: string[] = (subsJson.subs || [])
+          .filter((s: { is_active?: boolean | null }) => s.is_active !== false)
+          .map((s: { name: string }) => s.name.toLowerCase());
+        for (const s of fromSubs) fromPosts.add(s);
+      } catch { /* silent */ }
+
+      const allTracked = Array.from(fromPosts).sort();
+      if (allTracked.length === 0) return;
+
+      setTrackedSubreddits(allTracked);
+
+      // Apply saved filter preferences
+      const saved = await fetchFilterPreferences();
+      if (saved && Array.isArray(saved)) {
+        const valid = new Set(saved.filter((s) => allTracked.includes(s.toLowerCase())).map((s) => s.toLowerCase()));
+        setSelectedSubreddits(valid.size > 0 ? valid : new Set(allTracked));
+      } else {
+        setSelectedSubreddits(new Set(allTracked));
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, monitoredPosts, project.id, fetchFilterPreferences]);
+
+  // Persist subreddit filter selections (debounced)
+  const persistSubredditFilters = useCallback((selected: Set<string>, tracked: string[]) => {
+    if (subredditPersistTimer.current) clearTimeout(subredditPersistTimer.current);
+    subredditPersistTimer.current = setTimeout(async () => {
+      const value = selected.size === tracked.length ? null : Array.from(selected);
+      try {
+        await fetch('/api/outreach/config', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id, pipeline_subreddit_filters: value }),
+        });
+      } catch { /* silent */ }
+    }, 500);
+  }, [project.id]);
+
+  const handleToggleSubreddit = useCallback((sub: string) => {
+    setSelectedSubreddits((prev) => {
+      const next = new Set(prev);
+      if (next.has(sub)) next.delete(sub);
+      else next.add(sub);
+      persistSubredditFilters(next, trackedSubreddits);
+      return next;
+    });
+  }, [trackedSubreddits, persistSubredditFilters]);
+
+  const handleSelectAllSubreddits = useCallback(() => {
+    const all = new Set(trackedSubreddits);
+    setSelectedSubreddits(all);
+    persistSubredditFilters(all, trackedSubreddits);
+  }, [trackedSubreddits, persistSubredditFilters]);
+
+  const handleDeselectAllSubreddits = useCallback(() => {
+    const none = new Set<string>();
+    setSelectedSubreddits(none);
+    persistSubredditFilters(none, trackedSubreddits);
+  }, [trackedSubreddits, persistSubredditFilters]);
 
   // Initial data load
   useEffect(() => {
@@ -375,8 +463,13 @@ export default function DmPipelinePage() {
       dmsByPermalink.set(key, arr);
     }
 
+    // Filter to only tracked subreddits (if any tracked)
+    const filteredMonitoredPosts = trackedSubreddits.length > 0
+      ? monitoredPosts.filter((mp) => trackedSubreddits.includes(mp.subreddit.toLowerCase()))
+      : monitoredPosts;
+
     // Map monitored posts → PostInfo (even 0-lead posts)
-    return monitoredPosts.map((mp) => {
+    return filteredMonitoredPosts.map((mp) => {
       const key = normalizePermalink(mp.permalink);
       const dms = dmsByPermalink.get(key) || [];
 
@@ -404,7 +497,7 @@ export default function DmPipelinePage() {
         stages,
       };
     }).sort((a, b) => b.leadsCount - a.leadsCount);
-  }, [monitoredPosts, allDms]);
+  }, [monitoredPosts, allDms, trackedSubreddits]);
 
   // Column mapping
   const columns = useMemo(() => {
@@ -412,6 +505,7 @@ export default function DmPipelinePage() {
 
     // Filter by selected post (permalink match)
     if (selectedPostId) {
+      // When a specific post is selected, show all leads from that post (no subreddit filter)
       const selectedPost = postInfos.find((p) => p.postId === selectedPostId);
       if (selectedPost) {
         const selectedPermalink = normalizePermalink(selectedPost.permalink);
@@ -419,6 +513,14 @@ export default function DmPipelinePage() {
           (d) => normalizePermalink(d.source_thread_permalink) === selectedPermalink
         );
       }
+    } else if (trackedSubreddits.length > 0) {
+      // "All Posts" mode — filter by selected subreddits
+      filtered = filtered.filter((d) => {
+        const permalink = d.source_thread_permalink;
+        const match = permalink.match(/\/r\/([^/]+)\//);
+        if (!match) return false; // chat:// or malformed — filter out
+        return selectedSubreddits.has(match[1].toLowerCase());
+      });
     }
 
     // Search filter
@@ -440,7 +542,17 @@ export default function DmPipelinePage() {
       followup: sorted.filter((d) => d.pipeline_stage === 'responded'),
       converted: sorted.filter((d) => d.pipeline_stage === 'converted'),
     };
-  }, [allDms, selectedPostId, searchQuery, sortBy, postInfos]);
+  }, [allDms, selectedPostId, searchQuery, sortBy, postInfos, trackedSubreddits, selectedSubreddits]);
+
+  // Lead count for filtered "All Posts" view
+  const filteredLeadCount = useMemo(() => {
+    if (trackedSubreddits.length === 0) return allDms.length;
+    return allDms.filter((d) => {
+      const match = d.source_thread_permalink.match(/\/r\/([^/]+)\//);
+      if (!match) return false;
+      return selectedSubreddits.has(match[1].toLowerCase());
+    }).length;
+  }, [allDms, trackedSubreddits, selectedSubreddits]);
 
   // Selection handlers
   function handleSelect(id: string) {
@@ -521,6 +633,12 @@ export default function DmPipelinePage() {
               allDms={allDms}
               selectedPostId={selectedPostId}
               onSelectPost={setSelectedPostId}
+              trackedSubreddits={trackedSubreddits}
+              selectedSubreddits={selectedSubreddits}
+              onToggleSubreddit={handleToggleSubreddit}
+              onSelectAllSubreddits={handleSelectAllSubreddits}
+              onDeselectAllSubreddits={handleDeselectAllSubreddits}
+              filteredLeadCount={filteredLeadCount}
             />
 
             {/* Reddit Bridge status */}

@@ -280,6 +280,7 @@ export interface OutreachConfig {
   customer_goals: string[];
   target_activities: string[];
   scan_wizard_completed: boolean;
+  pipeline_subreddit_filters: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -340,11 +341,15 @@ export interface OutreachSignal {
   buyer_intent: BuyerIntent | null;
   discovery_source: DiscoverySource | null;
   pipeline_version: number | null;
+  urgency: string | null;
+  match_reason: string | null;
 }
 
 export type LeadTier = 'hot' | 'warm' | 'cold';
 
 export type BuyerIntent = 'problem_aware' | 'solution_seeking' | 'comparing' | 'ready_to_buy';
+
+export type Urgency = 'none' | 'low' | 'medium' | 'high';
 
 export type DiscoverySource = 'subreddit_browse' | 'keyword_search' | 'comment_search' | 'both';
 

@@ -3,6 +3,7 @@
 import { MessageSquare, ArrowUp, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { SubredditFilterPopover } from './SubredditFilterPopover';
 import type { OutreachDM } from '@/types';
 
 interface PostInfo {
@@ -23,6 +24,12 @@ interface PostFilterRowProps {
   allDms: OutreachDM[];
   selectedPostId: string | null;
   onSelectPost: (postId: string | null) => void;
+  trackedSubreddits: string[];
+  selectedSubreddits: Set<string>;
+  onToggleSubreddit: (sub: string) => void;
+  onSelectAllSubreddits: () => void;
+  onDeselectAllSubreddits: () => void;
+  filteredLeadCount: number;
 }
 
 function getSubredditColor(sub: string): string {
@@ -56,8 +63,21 @@ function PipelineStrip({ stages }: { stages: PostInfo['stages'] }) {
   );
 }
 
-export function PostFilterRow({ posts, allDms, selectedPostId, onSelectPost }: PostFilterRowProps) {
+export function PostFilterRow({
+  posts,
+  allDms,
+  selectedPostId,
+  onSelectPost,
+  trackedSubreddits,
+  selectedSubreddits,
+  onToggleSubreddit,
+  onSelectAllSubreddits,
+  onDeselectAllSubreddits,
+  filteredLeadCount,
+}: PostFilterRowProps) {
   const totalLeads = allDms.length;
+  const hasSubredditFilter = trackedSubreddits.length > 0;
+  const isFiltered = hasSubredditFilter && selectedSubreddits.size < trackedSubreddits.length;
 
   return (
     <div className="space-y-2">
@@ -84,8 +104,23 @@ export function PostFilterRow({ posts, allDms, selectedPostId, onSelectPost }: P
           >
             <span className="text-lg opacity-60 mb-1">&#9783;</span>
             <span className="text-xs font-bold">All Posts</span>
-            <span className="text-xl font-extrabold text-primary mt-0.5">{totalLeads}</span>
-            <span className="text-[10px] text-muted-foreground">total leads</span>
+            <span className="text-xl font-extrabold text-primary mt-0.5">
+              {isFiltered ? filteredLeadCount : totalLeads}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {isFiltered ? `of ${totalLeads} leads` : 'total leads'}
+            </span>
+            {hasSubredditFilter && (
+              <div className="mt-1">
+                <SubredditFilterPopover
+                  trackedSubreddits={trackedSubreddits}
+                  selectedSubreddits={selectedSubreddits}
+                  onToggle={onToggleSubreddit}
+                  onSelectAll={onSelectAllSubreddits}
+                  onDeselectAll={onDeselectAllSubreddits}
+                />
+              </div>
+            )}
           </button>
 
           {/* Empty state hint */}
@@ -97,8 +132,8 @@ export function PostFilterRow({ posts, allDms, selectedPostId, onSelectPost }: P
             </div>
           )}
 
-          {/* Individual post cards */}
-          {posts.map((post) => (
+          {/* Individual post cards (filtered by selected subreddits) */}
+          {posts.filter((post) => !hasSubredditFilter || selectedSubreddits.has(post.subreddit.toLowerCase())).map((post) => (
             <button
               key={post.postId}
               onClick={() => onSelectPost(post.postId)}
