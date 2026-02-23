@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getAnthropicClient, HAIKU_MODEL } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, HAIKU_MODEL } from '@/lib/ai/client';
+
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +21,10 @@ export async function GET(request: NextRequest) {
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
 
     const client = getAnthropicClient();

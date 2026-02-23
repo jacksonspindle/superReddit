@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { verificationCodes } from '../connect/route';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,10 +39,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up stored verification code
-    const stored = verificationCodes.get(project_id);
+    // Look up stored verification code from Supabase
+    const serviceClient = await createServiceClient();
+    const { data: stored, error: lookupError } = await serviceClient
+      .from('email_verification_codes')
+      .select('id, email, code, expires_at')
+      .eq('project_id', project_id)
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-    if (!stored) {
+    if (lookupError || !stored) {
       return NextResponse.json(
         { error: 'Invalid or expired code' },
         { status: 400 }
@@ -51,8 +58,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check expiry
-    if (Date.now() > stored.expiresAt) {
-      verificationCodes.delete(project_id);
+    if (new Date() > new Date(stored.expires_at)) {
+      // Clean up expired code
+      await serviceClient
+        .from('email_verification_codes')
+        .delete()
+        .eq('id', stored.id);
       return NextResponse.json(
         { error: 'Invalid or expired code' },
         { status: 400 }
@@ -89,7 +100,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Clear the verification entry
-    verificationCodes.delete(project_id);
+    await serviceClient
+      .from('email_verification_codes')
+      .delete()
+      .eq('id', stored.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

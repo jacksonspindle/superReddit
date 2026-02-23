@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, AI_MODEL } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL } from '@/lib/ai/client';
 import { REWRITE_SYSTEM_PROMPT, buildRewritePrompt } from '@/lib/ai/prompts';
 import type { RewriteRequest, RewriteResponse } from '@/types';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +15,10 @@ export async function POST(request: NextRequest) {
 
     if (!body.tone) {
       return NextResponse.json({ error: 'Tone is required' }, { status: 400 });
+    }
+
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
 
     const client = getAnthropicClient();

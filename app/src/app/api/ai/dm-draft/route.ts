@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
 import { DM_DRAFT_SYSTEM_PROMPT, buildDmDraftPrompt } from '@/lib/ai/prompts';
 import { getTemplate } from '@/lib/outreach/dm-templates';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +51,10 @@ export async function POST(request: NextRequest) {
 
     // Get template hint if provided
     const template = template_id ? getTemplate(template_id) : null;
+
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
+    }
 
     const client = getAnthropicClient();
     const prompt = buildDmDraftPrompt(

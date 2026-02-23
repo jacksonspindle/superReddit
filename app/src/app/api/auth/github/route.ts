@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_REDIRECT_URI;
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`;
 
   if (!clientId || !redirectUri) {
     return NextResponse.json({ error: 'GitHub OAuth is not configured' }, { status: 500 });

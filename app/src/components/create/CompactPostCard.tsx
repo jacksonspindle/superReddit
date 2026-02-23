@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowUpRight, MessageSquare, Clock } from 'lucide-react';
+import { ArrowUpRight, MessageSquare, Clock, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useBookmarkStore } from '@/stores/bookmark-store';
 import type { RedditPost } from '@/types';
 
 interface CompactPostCardProps {
@@ -26,6 +27,9 @@ function formatNumber(n: number) {
 }
 
 export function CompactPostCard({ post, onUse, isUsed }: CompactPostCardProps) {
+  const { isBookmarked, addBookmark, removeBookmark } = useBookmarkStore();
+  const bookmarked = isBookmarked(post.id);
+
   return (
     <Card className="transition-shadow hover:shadow-sm">
       <CardContent className="p-3">
@@ -53,15 +57,25 @@ export function CompactPostCard({ post, onUse, isUsed }: CompactPostCardProps) {
               </span>
             </div>
           </div>
-          <Button
-            variant={isUsed ? 'secondary' : 'outline'}
-            size="sm"
-            className="h-6 text-[10px] px-2 shrink-0"
-            disabled={isUsed}
-            onClick={() => onUse(post)}
-          >
-            {isUsed ? 'Used' : 'Use'}
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-6 px-1.5 ${bookmarked ? 'text-primary' : ''}`}
+              onClick={() => bookmarked ? removeBookmark(post.id) : addBookmark(post)}
+            >
+              <Bookmark className={`h-3 w-3 ${bookmarked ? 'fill-current' : ''}`} />
+            </Button>
+            <Button
+              variant={isUsed ? 'secondary' : 'outline'}
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              disabled={isUsed}
+              onClick={() => onUse(post)}
+            >
+              {isUsed ? 'Used' : 'Use'}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

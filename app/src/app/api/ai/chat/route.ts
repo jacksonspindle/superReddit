@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
-import { getAnthropicClient, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
 import { buildChatSystemPrompt } from '@/lib/ai/prompts';
 import { createClient } from '@/lib/supabase/server';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +30,13 @@ export async function POST(request: NextRequest) {
           content: lastUserMsg.content,
         });
       }
+    }
+
+    if (!isAIConfigured()) {
+      return new Response(JSON.stringify({ error: 'AI features are not configured.' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const client = getAnthropicClient();

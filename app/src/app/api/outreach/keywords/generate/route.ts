@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
 import { KEYWORD_GEN_SYSTEM_PROMPT, buildKeywordGenPrompt } from '@/lib/ai/prompts';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +14,10 @@ export async function POST(request: NextRequest) {
         { error: 'productName and productDescription are required' },
         { status: 400 }
       );
+    }
+
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
 
     const client = getAnthropicClient();

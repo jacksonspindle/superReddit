@@ -1,0 +1,21 @@
+name: Poll Signals
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # Every 10 minutes
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger poll-signals endpoint
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/poll-signals")
+          echo "Status: $response"
+          if [ "$response" -ge 400 ]; then
+            echo "::error::Cron request failed with status $response"
+            exit 1
+          fi

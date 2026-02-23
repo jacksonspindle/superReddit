@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnthropicClient, AI_MODEL } from '@/lib/ai/client';
 
+export const maxDuration = 60;
+
 function parseRepoUrl(url: string): { owner: string; repo: string } | null {
   // Handle: https://github.com/owner/repo, github.com/owner/repo, owner/repo
   const cleaned = url.trim().replace(/\/+$/, '');
@@ -71,6 +73,28 @@ export async function POST(request: NextRequest) {
       .filter(Boolean)
       .join('\n');
 
+    // Derive a human-friendly name from the repo name (e.g. "my-cool-app" → "My Cool App")
+    const friendlyName =
+      repoData.name
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+    const productUrl = repoData.homepage || repoData.html_url;
+
+    // If no Anthropic key, fall back to GitHub metadata directly
+    if (!process.env.ANTHROPIC_API_KEY) {
+      const description =
+        repoData.description ||
+        (readmeContent ? readmeContent.slice(0, 300).split('\n').filter(Boolean)[0] : '') ||
+        '';
+
+      return NextResponse.json({
+        productName: friendlyName,
+        productDescription: description,
+        productUrl,
+      });
+    }
+
     const client = getAnthropicClient();
     const message = await client.messages.create({
       model: AI_MODEL,
@@ -107,8 +131,33 @@ Return JSON with these fields:
 
     const result = JSON.parse(responseText);
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('GitHub analyze error:', error);
+
+    // Surface specific error messages instead of a generic catch-all
+    const err = error as { status?: number; message?: string; error?: { type?: string } };
+
+    if (err?.status === 401 || err?.error?.type === 'authentication_error') {
+      return NextResponse.json(
+        { error: 'AI service authentication failed. Check the ANTHROPIC_API_KEY.' },
+        { status: 500 }
+      );
+    }
+
+    if (err?.status === 404 || err?.error?.type === 'not_found_error') {
+      return NextResponse.json(
+        { error: 'AI model not found. The configured model may be unavailable.' },
+        { status: 500 }
+      );
+    }
+
+    if (err?.message?.includes('timed out') || err?.message?.includes('ETIMEDOUT')) {
+      return NextResponse.json(
+        { error: 'Analysis timed out. Please try again.' },
+        { status: 504 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to analyze repository. Please try again.' },
       { status: 500 }

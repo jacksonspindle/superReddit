@@ -1,0 +1,21 @@
+name: Email Digest
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # Daily at 9am UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger email-digest endpoint
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/email-digest")
+          echo "Status: $response"
+          if [ "$response" -ge 400 ]; then
+            echo "::error::Cron request failed with status $response"
+            exit 1
+          fi
