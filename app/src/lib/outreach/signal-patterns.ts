@@ -148,3 +148,77 @@ export function findCompetitorMentions(
 
   return results;
 }
+
+// ---- Heuristic Pre-Filter ----
+
+export interface HeuristicResult {
+  score: number;
+  passed: boolean;
+  tier1: Tier1Result;
+  keywordMatches: string[];
+  competitorMatches: string[];
+  negativeSignals: string[];
+}
+
+const NEGATIVE_PATTERNS = [
+  { pattern: /\b(?:i\s+built|check\s+out\s+my|just\s+launched\s+my|i\s+made|i\s+created)\b/i, label: 'self_promotion' },
+  { pattern: /\b(?:meme|shitpost|shit\s*post|mod\s+post|rule\s+update|meta\s+thread)\b/i, label: 'meme_meta' },
+];
+
+const HEURISTIC_THRESHOLD = 3;
+
+/**
+ * Heuristic pre-filter: combines tier1 regex scoring, keyword matching,
+ * competitor matching, and negative signal detection.
+ * Posts scoring >= 3 pass to AI classification.
+ */
+export function heuristicPreFilter(
+  title: string,
+  body: string | null,
+  keywords: string[],
+  competitors: string[]
+): HeuristicResult {
+  const text = `${title} ${body || ''}`;
+  const textLower = text.toLowerCase();
+
+  // 1. Tier 1 regex scoring
+  const tier1 = tier1Score(title, body);
+
+  // 2. Keyword matching: +3 per keyword match
+  const keywordMatches: string[] = [];
+  for (const kw of keywords) {
+    if (kw && textLower.includes(kw.toLowerCase())) {
+      keywordMatches.push(kw);
+    }
+  }
+  const keywordBonus = keywordMatches.length * 3;
+
+  // 3. Competitor matching: +2 per competitor match
+  const competitorMentions = findCompetitorMentions(text, competitors);
+  const competitorMatches = competitorMentions.map((m) => m.name);
+  const competitorBonus = competitorMatches.length * 2;
+
+  // 4. Negative signal detection
+  const negativeSignals: string[] = [];
+  for (const { pattern, label } of NEGATIVE_PATTERNS) {
+    if (pattern.test(text)) {
+      negativeSignals.push(label);
+    }
+  }
+  // URL-only posts with no selftext and no question
+  if (!body?.trim() && /^https?:\/\//i.test(title) && !title.includes('?')) {
+    negativeSignals.push('url_only_no_engagement');
+  }
+  const negativePenalty = negativeSignals.length * 3;
+
+  const score = Math.max(0, tier1.score + keywordBonus + competitorBonus - negativePenalty);
+
+  return {
+    score,
+    passed: score >= HEURISTIC_THRESHOLD,
+    tier1,
+    keywordMatches,
+    competitorMatches,
+    negativeSignals,
+  };
+}

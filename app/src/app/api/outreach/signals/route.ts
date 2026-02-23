@@ -186,7 +186,8 @@ export async function GET(request: NextRequest) {
         .from('outreach_signals')
         .select('*')
         .eq('project_id', projectId)
-        .order('combined_score', { ascending: false });
+        .order('combined_score', { ascending: false })
+        .order('created_utc', { ascending: false });
 
       if (status) {
         query = query.eq('status', status);

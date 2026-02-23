@@ -742,6 +742,15 @@ export const SIGNAL_ANALYSIS_V3_SYSTEM_PROMPT = `You are an expert Reddit lead c
 ## Decision Maker Detection
 Set decision_maker to true when the poster appears to be making the purchasing/adoption decision.
 
+## Urgency
+- **none**: No time pressure indicated
+- **low**: Vague timeline ("eventually", "sometime soon")
+- **medium**: Moderate timeline ("this quarter", "next few weeks", "soon")
+- **high**: Urgent need ("ASAP", "by Friday", "contract expiring", "need this today", "deadline")
+
+## Match Reason
+Provide a single sentence explaining WHY this post is relevant to the product. Focus on the specific problem or need that connects to the product's value proposition. This is for internal use only.
+
 ## Calibration Examples
 
 ### Fit=9, Lead=9, Auth=9, Rel=9 (ready_to_buy):
@@ -780,6 +789,8 @@ Return JSON array. Each post can have multiple signal_types.
       "signal_types": ["tool_switch", "high_signal_comment"],
       "pain_severity": "medium",
       "decision_maker": false,
+      "urgency": "medium",
+      "match_reason": "User is actively seeking a tool switch due to pricing frustration, directly matching our value proposition.",
       "competitor_mentions": [
         { "name": "CompetitorX", "sentiment": "negative", "switching_intent": true, "context": "frustrated with pricing" }
       ]
@@ -837,7 +848,7 @@ ${weaknessesSection}
 ## Posts to Classify
 ${postList}
 
-Score each post on Fit (1-10), Lead (1-10), Authenticity (1-10), and Relevance (1-10). Also determine the buyer intent stage for each post.`;
+Score each post on Fit (1-10), Lead (1-10), Authenticity (1-10), and Relevance (1-10). Also determine the buyer intent stage, urgency level, and match reason for each post.`;
 }
 
 // ---- Outreach: Signal Analysis (7-type classification) ----

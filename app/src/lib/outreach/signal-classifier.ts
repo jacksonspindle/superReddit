@@ -14,7 +14,7 @@ import {
   SIGNAL_ANALYSIS_V3_SYSTEM_PROMPT,
   buildV3ClassificationPrompt,
 } from '@/lib/ai/prompts';
-import type { SignalType, PainSeverity, ScoreBin, BuyerIntent } from '@/types';
+import type { SignalType, PainSeverity, ScoreBin, BuyerIntent, Urgency } from '@/types';
 
 export interface ClassificationInput {
   reddit_id: string;
@@ -383,10 +383,13 @@ export interface ClassificationResultV3 {
   signal_types: SignalType[];
   pain_severity: PainSeverity | null;
   decision_maker: boolean;
+  urgency: Urgency;
+  match_reason: string | null;
   competitor_mentions: { name: string; sentiment: string; switching_intent: boolean; context: string }[];
 }
 
 const VALID_BUYER_INTENTS: BuyerIntent[] = ['problem_aware', 'solution_seeking', 'comparing', 'ready_to_buy'];
+const VALID_URGENCIES: Urgency[] = ['none', 'low', 'medium', 'high'];
 
 /**
  * Pre-filter posts by title using a cheap Haiku call.
@@ -500,6 +503,8 @@ function parseV3ClassificationResponse(responseText: string): ClassificationResu
         signal_types: SignalType[];
         pain_severity: PainSeverity | null;
         decision_maker: boolean;
+        urgency?: Urgency;
+        match_reason?: string | null;
         competitor_mentions: { name: string; sentiment: string; switching_intent: boolean; context: string }[];
       }[];
     };
@@ -511,6 +516,8 @@ function parseV3ClassificationResponse(responseText: string): ClassificationResu
       authenticity_score: Math.max(1, Math.min(10, c.authenticity_score)),
       relevance_score: Math.max(1, Math.min(10, c.relevance_score)),
       buyer_intent: VALID_BUYER_INTENTS.includes(c.buyer_intent) ? c.buyer_intent : 'problem_aware',
+      urgency: VALID_URGENCIES.includes(c.urgency as Urgency) ? c.urgency! : 'none',
+      match_reason: c.match_reason ?? null,
     }));
   } catch {
     return [];

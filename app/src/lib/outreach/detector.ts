@@ -7,7 +7,7 @@
  */
 
 import { searchMultiSubPosts, fetchSubredditPosts } from '@/lib/reddit/fetcher';
-import { tier1Score, findCompetitorMentions } from '@/lib/outreach/signal-patterns';
+import { tier1Score, findCompetitorMentions, heuristicPreFilter } from '@/lib/outreach/signal-patterns';
 import {
   classifyPostsRealtime,
   reclassifyWithSonnet,
@@ -19,7 +19,7 @@ import {
   type ClassificationResultV2,
   type ClassificationResultV3,
 } from '@/lib/outreach/signal-classifier';
-import { computeEnhancedScore, computeV2CombinedScore, deriveLeadTier, computeV3CombinedScore, deriveLeadTierV3 } from '@/lib/outreach/scoring';
+import { computeEnhancedScore, computeV2CombinedScore, deriveLeadTier, computeV3CombinedScore, deriveLeadTierV3, computeV3CombinedScoreEnhanced, deriveLeadTierV3Enhanced } from '@/lib/outreach/scoring';
 import * as pullpush from '@/lib/reddit/pullpush';
 import { buildCacheKey, getCachedSearch, setCachedSearch } from '@/lib/reddit/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -502,10 +502,12 @@ const V3_CLASSIFY_BATCH_SIZE = 20;
 /**
  * V3 detection pipeline:
  * 1. Browse subreddits (free) + keyword search (free)
- * 2. Deduplicate against DB
- * 3. AI pre-filter on titles (replaces regex)
- * 4. Full 4-dimension AI classification
- * 5. Build signal rows with V3 scoring
+ * 2. Deduplicate against DB (only process new posts)
+ * 3. Two-lane pre-filter:
+ *    - Fast lane: heuristic keyword/competitor/regex match (free, instant)
+ *    - Semantic lane: AI title screening for remaining posts (cheap, batched)
+ * 4. Full 4-dimension AI classification on filtered posts
+ * 5. Intent-boosted scoring (buyer_intent, urgency, pain, competitor switching)
  */
 export async function detectSignalsV3(
   supabase: SupabaseClient,
@@ -674,40 +676,60 @@ export async function detectSignalsV3(
 
   if (newPosts.length === 0) return 0;
 
-  // ---- AI Pre-Filter (replaces regex Tier 1) ----
-  let filteredPosts = newPosts;
+  // ---- Two-Lane Pre-Filter: Heuristic Fast-Pass + AI Semantic Filter ----
+  // Lane 1 (free): Posts matching keywords/competitors/regex skip straight to classification
+  // Lane 2 (cheap): Remaining posts get AI title screening for semantic relevance
+  const fastPassPosts: typeof newPosts = [];
+  const needsAIFilter: typeof newPosts = [];
 
-  try {
-    // Batch titles into groups of 50
-    const titleBatches: { index: number; title: string }[][] = [];
-    for (let i = 0; i < newPosts.length; i += PRE_FILTER_BATCH_SIZE) {
-      titleBatches.push(
-        newPosts.slice(i, i + PRE_FILTER_BATCH_SIZE).map((p, j) => ({
-          index: i + j,
-          title: p.title || p.selftext?.slice(0, 100) || '',
-        }))
-      );
+  for (const p of newPosts) {
+    const result = heuristicPreFilter(p.title, p.selftext, keywords, competitors);
+    if (result.passed) {
+      fastPassPosts.push(p);
+    } else {
+      needsAIFilter.push(p);
     }
-
-    const passedIndices = new Set<number>();
-    for (const batch of titleBatches) {
-      const indices = await preFilterPosts(batch, { productName, productDescription });
-      for (const idx of indices) {
-        passedIndices.add(idx);
-      }
-    }
-
-    filteredPosts = newPosts.filter((_, i) => passedIndices.has(i));
-    console.log('[DetectorV3] Pre-filter passed:', filteredPosts.length, '/', newPosts.length);
-  } catch (preFilterErr) {
-    // Fall back to regex tier1 scoring if AI pre-filter fails
-    console.warn('[DetectorV3] Pre-filter failed, falling back to regex:', (preFilterErr as Error).message);
-    filteredPosts = newPosts.filter((p) => {
-      const t1 = tier1Score(p.title, p.selftext);
-      return t1.score >= TIER1_THRESHOLD;
-    });
-    console.log('[DetectorV3] Regex fallback passed:', filteredPosts.length);
   }
+
+  console.log('[DetectorV3] Heuristic fast-pass:', fastPassPosts.length, '| Needs AI filter:', needsAIFilter.length);
+
+  // AI semantic pre-filter on posts that didn't match heuristics
+  const aiPassedPosts: typeof newPosts = [];
+  if (needsAIFilter.length > 0) {
+    try {
+      const titleBatches: { index: number; title: string }[][] = [];
+      for (let i = 0; i < needsAIFilter.length; i += PRE_FILTER_BATCH_SIZE) {
+        titleBatches.push(
+          needsAIFilter.slice(i, i + PRE_FILTER_BATCH_SIZE).map((p, j) => ({
+            index: i + j,
+            title: p.title || p.selftext?.slice(0, 100) || '',
+          }))
+        );
+      }
+
+      const passedIndices = new Set<number>();
+      for (const batch of titleBatches) {
+        const indices = await preFilterPosts(batch, { productName, productDescription });
+        for (const idx of indices) {
+          passedIndices.add(idx);
+        }
+      }
+
+      for (const idx of passedIndices) {
+        if (idx < needsAIFilter.length) {
+          aiPassedPosts.push(needsAIFilter[idx]);
+        }
+      }
+      console.log('[DetectorV3] AI semantic filter passed:', aiPassedPosts.length, '/', needsAIFilter.length);
+    } catch (preFilterErr) {
+      // AI pre-filter failed — these posts are simply skipped (fast-pass posts still proceed)
+      console.warn('[DetectorV3] AI pre-filter failed, skipping semantic lane:', (preFilterErr as Error).message);
+    }
+  }
+
+  // Merge both lanes
+  const filteredPosts = [...fastPassPosts, ...aiPassedPosts];
+  console.log('[DetectorV3] Total posts for classification:', filteredPosts.length, '/', newPosts.length);
 
   if (filteredPosts.length === 0) return 0;
 
@@ -753,18 +775,44 @@ export async function detectSignalsV3(
     const v3 = v3Classifications.get(post.id);
     const postSource = (post as { _source?: string })._source || 'keyword_search';
 
-    let fitScore = v3?.fit_score ?? 5;
-    let leadScore = v3?.lead_score ?? 3;
-    let authenticityScore = v3?.authenticity_score ?? 5;
-    let relevanceScore = v3?.relevance_score ?? 5;
-    let buyerIntent = v3?.buyer_intent ?? 'problem_aware';
-    let intentType = v3?.intent_type ?? 'discussion';
-    let signalTypes = v3?.signal_types ?? [];
-    let painSeverity = v3?.pain_severity ?? null;
-    let decisionMaker = v3?.decision_maker ?? false;
+    const fitScore = v3?.fit_score ?? 5;
+    const leadScore = v3?.lead_score ?? 3;
+    const authenticityScore = v3?.authenticity_score ?? 5;
+    const relevanceScore = v3?.relevance_score ?? 5;
+    const buyerIntent = v3?.buyer_intent ?? 'problem_aware';
+    const intentType = v3?.intent_type ?? 'discussion';
+    const signalTypes = v3?.signal_types ?? [];
+    const painSeverity = v3?.pain_severity ?? null;
+    const decisionMaker = v3?.decision_maker ?? false;
+    const urgency = v3?.urgency ?? 'none';
+    const matchReason = v3?.match_reason ?? null;
 
-    const combinedScore = computeV3CombinedScore(fitScore, leadScore, authenticityScore, relevanceScore);
-    const leadTier = deriveLeadTierV3(fitScore, leadScore, authenticityScore, relevanceScore);
+    const competitorMentioned = (v3?.competitor_mentions?.length ?? 0) > 0;
+    const switchingIntent = v3?.competitor_mentions?.some((c) => c.switching_intent) ?? false;
+
+    const combinedScore = computeV3CombinedScoreEnhanced({
+      fit: fitScore,
+      lead: leadScore,
+      authenticity: authenticityScore,
+      relevance: relevanceScore,
+      buyerIntent,
+      decisionMaker,
+      painSeverity,
+      competitorMentioned,
+      switchingIntent,
+      urgency: urgency as 'none' | 'low' | 'medium' | 'high',
+    });
+    const leadTier = deriveLeadTierV3Enhanced({
+      fit: fitScore,
+      lead: leadScore,
+      authenticity: authenticityScore,
+      relevance: relevanceScore,
+      buyerIntent,
+      decisionMaker,
+      painSeverity,
+      competitorMentioned,
+      switchingIntent,
+    });
 
     // Backward compat: engage_score = avg(authenticity, relevance)
     const engageScore = Math.round((authenticityScore + relevanceScore) / 2);
@@ -786,7 +834,7 @@ export async function detectSignalsV3(
       matched_keywords: keywords.filter((kw) =>
         `${post.title} ${post.selftext}`.toLowerCase().includes(kw.toLowerCase())
       ),
-      competitor_mentioned: (v3?.competitor_mentions?.length ?? 0) > 0,
+      competitor_mentioned: competitorMentioned,
       signal_types: signalTypes,
       pain_severity: painSeverity,
       decision_maker: decisionMaker,
@@ -807,6 +855,9 @@ export async function detectSignalsV3(
       buyer_intent: buyerIntent,
       discovery_source: postSource,
       pipeline_version: 3,
+      // V3 enhanced fields
+      urgency,
+      match_reason: matchReason,
     };
   });
 
@@ -817,8 +868,8 @@ export async function detectSignalsV3(
       .upsert(signals, { onConflict: 'project_id,reddit_id' });
 
     if (upsertError) {
-      // Strip V3 columns and retry with V2
-      const withoutV3 = signals.map(({ authenticity_score, relevance_score, buyer_intent, discovery_source, pipeline_version, ...rest }) => rest);
+      // Strip V3 + enhanced columns and retry with V2
+      const withoutV3 = signals.map(({ authenticity_score, relevance_score, buyer_intent, discovery_source, pipeline_version, urgency, match_reason, ...rest }) => rest);
       const { error: retryV2Error } = await supabase
         .from('outreach_signals')
         .upsert(withoutV3, { onConflict: 'project_id,reddit_id' });

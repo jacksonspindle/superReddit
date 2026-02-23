@@ -57,7 +57,7 @@ export function computeCombinedScore(
 
 // ---- V2 Scoring ----
 
-import type { LeadTier, BuyerIntent } from '@/types';
+import type { LeadTier, BuyerIntent, Urgency } from '@/types';
 
 export function computeV2CombinedScore(fitScore: number, leadScore: number, engageScore: number): number {
   return (fitScore * 0.4 + leadScore * 0.35 + engageScore * 0.25) / 10;
@@ -78,6 +78,101 @@ export function computeV3CombinedScore(fit: number, lead: number, authenticity: 
 export function deriveLeadTierV3(fit: number, lead: number, authenticity: number, relevance: number): LeadTier {
   if (fit >= 7 && lead >= 7 && authenticity >= 6 && relevance >= 5) return 'hot';
   if (fit >= 5 && lead >= 5 && authenticity >= 4) return 'warm';
+  return 'cold';
+}
+
+// ---- V3 Enhanced Scoring (intent-boosted) ----
+
+const BUYER_INTENT_BONUS: Record<BuyerIntent, number> = {
+  problem_aware: 0,
+  solution_seeking: 0.04,
+  comparing: 0.07,
+  ready_to_buy: 0.12,
+};
+
+const PAIN_SEVERITY_BONUS: Record<string, number> = {
+  low: 0,
+  medium: 0.02,
+  high: 0.05,
+};
+
+const URGENCY_BONUS: Record<Urgency, number> = {
+  none: 0,
+  low: 0.01,
+  medium: 0.03,
+  high: 0.06,
+};
+
+export function computeV3CombinedScoreEnhanced(params: {
+  fit: number;
+  lead: number;
+  authenticity: number;
+  relevance: number;
+  buyerIntent: BuyerIntent;
+  decisionMaker: boolean;
+  painSeverity: string | null;
+  competitorMentioned: boolean;
+  switchingIntent: boolean;
+  urgency?: Urgency;
+}): number {
+  const base = (params.fit * 0.30 + params.lead * 0.30 + params.authenticity * 0.20 + params.relevance * 0.20) / 10;
+
+  let bonus = 0;
+  bonus += BUYER_INTENT_BONUS[params.buyerIntent] ?? 0;
+  if (params.decisionMaker) bonus += 0.05;
+  bonus += PAIN_SEVERITY_BONUS[params.painSeverity ?? 'low'] ?? 0;
+  if (params.competitorMentioned && params.switchingIntent) bonus += 0.08;
+  bonus += URGENCY_BONUS[params.urgency ?? 'none'] ?? 0;
+
+  return Math.min(1.0, base + bonus);
+}
+
+export function deriveLeadTierV3Enhanced(params: {
+  fit: number;
+  lead: number;
+  authenticity: number;
+  relevance: number;
+  buyerIntent: BuyerIntent;
+  decisionMaker: boolean;
+  painSeverity: string | null;
+  competitorMentioned: boolean;
+  switchingIntent: boolean;
+}): LeadTier {
+  const { fit, lead, authenticity, relevance, buyerIntent, decisionMaker, painSeverity, competitorMentioned, switchingIntent } = params;
+
+  // Intent-boosted HOT: ready_to_buy/comparing + strong scores
+  if ((buyerIntent === 'ready_to_buy' || buyerIntent === 'comparing') &&
+      fit >= 5 && lead >= 6 && authenticity >= 5 && relevance >= 4) {
+    return 'hot';
+  }
+
+  // DM+pain HOT: decision maker + high pain + strong scores
+  if (decisionMaker && painSeverity === 'high' &&
+      fit >= 5 && lead >= 5 && authenticity >= 5 && relevance >= 4) {
+    return 'hot';
+  }
+
+  // Competitor switch HOT: competitor mentioned + switching intent + strong scores
+  if (competitorMentioned && switchingIntent && fit >= 5 && lead >= 5) {
+    return 'hot';
+  }
+
+  // Original HOT threshold
+  if (fit >= 7 && lead >= 7 && authenticity >= 6 && relevance >= 5) {
+    return 'hot';
+  }
+
+  // Intent-boosted WARM: solution_seeking/comparing/ready_to_buy + moderate scores
+  if ((buyerIntent === 'solution_seeking' || buyerIntent === 'comparing' || buyerIntent === 'ready_to_buy') &&
+      fit >= 4 && lead >= 4 && authenticity >= 3) {
+    return 'warm';
+  }
+
+  // Original WARM threshold
+  if (fit >= 5 && lead >= 5 && authenticity >= 4) {
+    return 'warm';
+  }
+
   return 'cold';
 }
 
