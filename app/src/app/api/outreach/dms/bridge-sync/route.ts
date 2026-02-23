@@ -167,7 +167,12 @@ export async function POST(request: NextRequest) {
       if (skipStages.has(entry.pipeline_stage)) continue;
       const uname = normalizeUsername(entry.reddit_username);
 
-      if (repliedSet.has(uname) && entry.pipeline_stage !== 'responded') {
+      // Only advance dm_sent → responded (not any non-responded stage).
+      // theyReplied is historical ("they replied at some point"), not "they sent the last message".
+      // Also check preview fromYou — if true, you already replied back, don't advance.
+      if (repliedSet.has(uname) && entry.pipeline_stage === 'dm_sent') {
+        const previewForUser = previews?.[uname];
+        if (previewForUser && previewForUser.fromYou === true) continue;
         await supabase.from('outreach_dms').update({ pipeline_stage: 'responded' }).eq('id', entry.id);
         reconciled++;
       } else if (sentSet.has(uname) && !repliedSet.has(uname) && readyStages.has(entry.pipeline_stage)) {

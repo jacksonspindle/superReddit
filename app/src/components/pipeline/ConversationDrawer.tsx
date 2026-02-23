@@ -17,6 +17,7 @@ import { ConversationTimeline } from './ConversationTimeline';
 import { toast } from 'sonner';
 import type { OutreachDM, DmRateLimit } from '@/types';
 import type { ChatPreview, ConversationMessage } from '@/hooks/useRedditBridge';
+import { deduplicateMessages } from '@/lib/outreach/deduplicateMessages';
 
 interface ConversationDrawerProps {
   dm: OutreachDM | null;
@@ -44,87 +45,6 @@ const stageConfig: Record<string, { label: string; className: string }> = {
   converted: { label: 'Converted', className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
   closed: { label: 'Closed', className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
 };
-
-// Global cache: once we discover the logged-in user's chat author name
-// (e.g. "opcollectr") from ANY conversation, reuse it for all others.
-let _myAuthorName: string | undefined;
-
-function deduplicateMessages(
-  messages: ConversationMessage[],
-  otherUsername: string,
-  myUsername?: string,
-  sentBody?: string,
-): ConversationMessage[] {
-  if (messages.length === 0) return messages;
-
-  const otherLower = otherUsername.toLowerCase();
-  const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
-  const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
-
-  const uiChrome = new Set([
-    'send message', 'type a message', 'send', 'message',
-    'start a conversation', 'say something nice',
-  ]);
-
-  const processed = messages
-    .filter((msg) => !timestampOnly.test(msg.text.trim()))
-    .filter((msg) => !uiChrome.has(msg.text.trim().toLowerCase()))
-    .map((msg) => ({
-      ...msg,
-      text: msg.text.replace(timestampPrefix, '').trim(),
-      author: msg.author === 'them' ? otherLower : msg.author,
-    }))
-    .filter((msg) => msg.text.length > 0);
-
-  const seen = new Set<string>();
-  const deduped = processed.filter((msg) => {
-    const key = msg.text.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  const uniqueAuthors = [...new Set(deduped.map((m) => m.author.toLowerCase()))];
-
-  if (uniqueAuthors.length === 2) {
-    let discovered = _myAuthorName;
-
-    if (discovered && !uniqueAuthors.includes(discovered)) {
-      discovered = undefined;
-    }
-
-    if (!discovered && myUsername) {
-      discovered = uniqueAuthors.find((a) => a === myUsername.toLowerCase());
-    }
-
-    if (!discovered && sentBody) {
-      const sentLower = sentBody.trim().toLowerCase();
-      if (sentLower) {
-        const match = deduped.find((m) => {
-          const msgLower = m.text.trim().toLowerCase();
-          return msgLower === sentLower
-            || msgLower.includes(sentLower)
-            || sentLower.includes(msgLower);
-        });
-        if (match) discovered = match.author.toLowerCase();
-      }
-    }
-
-    if (!discovered && deduped.length > 0) {
-      discovered = deduped[0].author.toLowerCase();
-    }
-
-    if (discovered) {
-      _myAuthorName = discovered;
-      return deduped.map((m) => ({
-        ...m,
-        isFromYou: m.author.toLowerCase() === discovered,
-      }));
-    }
-  }
-
-  return deduped;
-}
 
 function getInitials(username: string): string {
   return username.slice(0, 2).toUpperCase();

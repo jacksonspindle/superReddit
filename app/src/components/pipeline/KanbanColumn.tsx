@@ -1,11 +1,13 @@
 'use client';
 
+import { useDroppable } from '@dnd-kit/core';
 import { Maximize2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
   title: string;
+  columnId: string;
   count: number;
   colorClass: string;
   borderColor: string;
@@ -17,6 +19,7 @@ interface KanbanColumnProps {
 
 export function KanbanColumn({
   title,
+  columnId,
   count,
   colorClass,
   borderColor,
@@ -25,8 +28,16 @@ export function KanbanColumn({
   headerAction,
   children,
 }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: columnId });
+
   return (
-    <div className="rounded-xl border bg-muted/30 flex flex-col min-w-0 min-h-[500px] overflow-hidden">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-xl border bg-muted/30 flex flex-col min-w-0 min-h-[500px] overflow-hidden transition-all",
+        isOver && "ring-2 ring-primary/50 bg-primary/5"
+      )}
+    >
       {/* Column header */}
       <button
         onClick={onExpandColumn}
