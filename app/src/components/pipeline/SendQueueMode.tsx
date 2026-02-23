@@ -30,7 +30,9 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { timeAgo } from '@/lib/time';
+import { ConversationTimeline } from './ConversationTimeline';
 import type { OutreachDM, PermissionType, DmRateLimit } from '@/types';
+import type { ChatPreview, ConversationMessage } from '@/hooks/useRedditBridge';
 
 interface SendQueueModeProps {
   dms: OutreachDM[];
@@ -45,6 +47,8 @@ interface SendQueueModeProps {
     rateLimited?: boolean;
     retryAfterMs?: number;
   }>;
+  fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
+  chatPreviews?: Record<string, ChatPreview>;
 }
 
 const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
@@ -59,6 +63,49 @@ function isRawUrl(text: string): boolean {
   return /^https?:\/\/\S+$/i.test(trimmed);
 }
 
+/**
+ * Post-process scraped DOM messages to remove duplicates caused by
+ * parent/child CSS selector overlap in the DOM scraper.
+ */
+function deduplicateMessages(
+  messages: ConversationMessage[],
+  otherUsername: string
+): ConversationMessage[] {
+  if (messages.length === 0) return messages;
+
+  const otherLower = otherUsername.toLowerCase();
+  const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
+  const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
+
+  const uiChrome = new Set([
+    'send message', 'type a message', 'send', 'message',
+    'start a conversation', 'say something nice',
+  ]);
+
+  const processed = messages
+    .filter((msg) => !timestampOnly.test(msg.text.trim()))
+    .filter((msg) => !uiChrome.has(msg.text.trim().toLowerCase()))
+    .map((msg) => {
+      const author = msg.author === 'them' ? otherLower : msg.author;
+      const isOtherUser = author.toLowerCase() === otherLower;
+      return {
+        ...msg,
+        text: msg.text.replace(timestampPrefix, '').trim(),
+        author,
+        isFromYou: msg.isFromYou || !isOtherUser,
+      };
+    })
+    .filter((msg) => msg.text.length > 0);
+
+  const seen = new Set<string>();
+  return processed.filter((msg) => {
+    const key = msg.text.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function SendQueueMode({
   dms,
   projectId,
@@ -67,6 +114,8 @@ export function SendQueueMode({
   onDmSent,
   onDismiss,
   sendDm,
+  fetchConversation,
+  chatPreviews,
 }: SendQueueModeProps) {
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -83,10 +132,16 @@ export function SendQueueMode({
   const [rateLimit, setRateLimit] = useState<DmRateLimit | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [pauseReason, setPauseReason] = useState<string | null>(null);
+  const [fullMessages, setFullMessages] = useState<ConversationMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Local conversation cache — avoids re-fetching the same username
+  const conversationCache = useRef<Map<string, ConversationMessage[]>>(new Map());
+  const initialPrefetchDone = useRef(false);
 
   // Swipe gesture state
   const swipeX = useMotionValue(0);
@@ -159,6 +214,79 @@ export function SendQueueMode({
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
   }, [started, currentIndex, currentDm, cooldownRemaining]);
+
+  // Fetch a conversation and store in local cache
+  const fetchAndCacheConversation = useCallback(
+    async (dm: OutreachDM): Promise<ConversationMessage[]> => {
+      const cacheKey = dm.reddit_username.toLowerCase();
+      const cached = conversationCache.current.get(cacheKey);
+      if (cached) return cached;
+      if (!fetchConversation) return [];
+      const msgs = await fetchConversation(dm.reddit_username);
+      const deduped = deduplicateMessages(msgs, dm.reddit_username);
+      conversationCache.current.set(cacheKey, deduped);
+      return deduped;
+    },
+    [fetchConversation]
+  );
+
+  // Load conversation for the current card (cache-aware)
+  useEffect(() => {
+    if (!currentDm || !fetchConversation) {
+      setFullMessages([]);
+      return;
+    }
+    // Instant cache hit — no spinner needed
+    const cacheKey = currentDm.reddit_username.toLowerCase();
+    const cached = conversationCache.current.get(cacheKey);
+    if (cached) {
+      setFullMessages(cached);
+      setLoadingMessages(false);
+      return;
+    }
+    // Cache miss — show spinner and fetch
+    let cancelled = false;
+    setLoadingMessages(true);
+    fetchAndCacheConversation(currentDm).then((msgs) => {
+      if (!cancelled) {
+        setFullMessages(msgs);
+        setLoadingMessages(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setFullMessages([]);
+        setLoadingMessages(false);
+      }
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDm?.id, fetchConversation, fetchAndCacheConversation]);
+
+  // Prefetch next 3 conversations in background as user views current card
+  useEffect(() => {
+    if (!started || !fetchConversation || !currentDm) return;
+    const PREFETCH_AHEAD = 3;
+    const startIdx = currentIndex + 1;
+    const endIdx = Math.min(startIdx + PREFETCH_AHEAD, queue.length);
+    for (let i = startIdx; i < endIdx; i++) {
+      const dm = queue[i];
+      if (!dm) continue;
+      if (conversationCache.current.has(dm.reddit_username.toLowerCase())) continue;
+      fetchAndCacheConversation(dm).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, currentIndex, currentDm?.id, fetchConversation, fetchAndCacheConversation]);
+
+  // Prefetch first few conversations on mount (before user clicks Start Sending)
+  useEffect(() => {
+    if (!fetchConversation || queue.length === 0 || initialPrefetchDone.current) return;
+    initialPrefetchDone.current = true;
+    const INITIAL_PREFETCH = 3;
+    const count = Math.min(INITIAL_PREFETCH, queue.length);
+    for (let i = 0; i < count; i++) {
+      fetchAndCacheConversation(queue[i]).catch(() => {});
+    }
+  }, [fetchConversation, queue, fetchAndCacheConversation]);
 
   // Count leads that need generation
   const needsGeneration = useMemo(
@@ -684,18 +812,26 @@ export function SendQueueMode({
                           </div>
                         </div>
 
-                        {/* Their comment — context for the DM */}
-                        {commentDisplay && (
-                          <div className="px-5 py-3 border-b bg-muted/30">
-                            <p className="text-[11px] font-medium text-muted-foreground mb-1">Their comment</p>
-                            <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words leading-relaxed">{commentDisplay}</p>
-                          </div>
-                        )}
+                        {/* Card body — conversation history + draft */}
+                        <div className="flex-1 overflow-y-auto px-5 py-3">
+                          {/* Conversation history */}
+                          {loadingMessages ? (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              <span className="ml-2 text-xs text-muted-foreground">Loading conversation...</span>
+                            </div>
+                          ) : (
+                            <ConversationTimeline
+                              dm={currentDm}
+                              chatPreview={chatPreviews?.[currentDm.reddit_username.toLowerCase()]}
+                              fullMessages={fullMessages}
+                            />
+                          )}
 
-                        {/* Card body — draft message */}
-                        <div className="flex-1 p-5 overflow-y-auto">
+                          {/* Draft section */}
                           {currentDraft && currentDraft.body ? (
-                            <div className="space-y-3">
+                            <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
+                              <p className="text-[11px] font-medium text-muted-foreground">Draft</p>
                               <p className="text-sm whitespace-pre-wrap leading-relaxed">{currentDraft.body}</p>
                               <Button
                                 variant="ghost"
@@ -713,7 +849,7 @@ export function SendQueueMode({
                               </Button>
                             </div>
                           ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                            <div className="mt-3 pt-3 border-t border-border/40 flex flex-col items-center text-center gap-3 py-4">
                               <MessageCircle className="h-8 w-8 text-muted-foreground/30" />
                               <p className="text-sm text-muted-foreground">No draft yet</p>
                               <Button

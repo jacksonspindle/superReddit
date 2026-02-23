@@ -14,7 +14,6 @@ import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
 import { SendQueueMode } from '@/components/pipeline/SendQueueMode';
-import { ConversationDrawer } from '@/components/pipeline/ConversationDrawer';
 import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
@@ -60,23 +59,13 @@ export default function DmPipelinePage() {
   const subredditPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
-  const [conversationDmId, setConversationDmId] = useState<string | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
   const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
   const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
 
-  // Conversation drawer — derived from allDms so it auto-refreshes
-  const conversationDm = conversationDmId
-    ? allDms.find((d) => d.id === conversationDmId) ?? null
-    : null;
-
-  const handleOpenConversation = useCallback((dm: OutreachDM) => {
-    setConversationDmId(dm.id);
-  }, []);
-
-  // Open send queue starting at a specific DM (for sent column card clicks)
-  const handleOpenSentQueue = useCallback((dm: OutreachDM) => {
+  // Open send queue starting at a specific DM (for Ready column card clicks)
+  const handleOpenReadyQueue = useCallback((dm: OutreachDM) => {
     setSendQueueStartId(dm.id);
     setSendQueueActive(true);
   }, []);
@@ -85,6 +74,19 @@ export default function DmPipelinePage() {
   const handleOpenFollowUpQueue = useCallback((dm: OutreachDM) => {
     setFollowUpQueueStartId(dm.id);
     setFollowUpQueueActive(true);
+  }, []);
+
+  // General card click handler for ColumnExpandOverlay — routes to the right queue
+  const handleCardClick = useCallback((dm: OutreachDM) => {
+    if (['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage)) {
+      setExpandedColumn(null);
+      setSendQueueStartId(dm.id);
+      setSendQueueActive(true);
+    } else if (dm.pipeline_stage === 'responded') {
+      setExpandedColumn(null);
+      setFollowUpQueueStartId(dm.id);
+      setFollowUpQueueActive(true);
+    }
   }, []);
 
   // Reddit Bridge
@@ -595,9 +597,11 @@ export default function DmPipelinePage() {
   }
 
   function handleDmSelected() {
-    // Open drawer for the first selected DM
     const firstSelected = columns.ready.find((d) => selectedIds.has(d.id));
-    if (firstSelected) handleOpenConversation(firstSelected);
+    if (firstSelected) {
+      setSendQueueStartId(firstSelected.id);
+      setSendQueueActive(true);
+    }
   }
 
   function handleMarkSentSelected() {
@@ -714,10 +718,10 @@ export default function DmPipelinePage() {
                     stage="ready"
                     selected={selectedIds.has(dm.id)}
                     onSelect={handleSelect}
-                    onDraft={handleOpenConversation}
+                    onDraft={handleOpenReadyQueue}
                     onStageChange={handleStageChange}
                     onDismiss={handleDismiss}
-                    onOpenConversation={handleOpenConversation}
+                    onOpenConversation={handleOpenReadyQueue}
                   />
                 ))}
               </KanbanColumn>
@@ -745,7 +749,6 @@ export default function DmPipelinePage() {
                     stage="sent"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenSentQueue}
                   />
                 ))}
               </KanbanColumn>
@@ -812,7 +815,6 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="converted"
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenConversation}
                   />
                 ))}
               </KanbanColumn>
@@ -829,16 +831,16 @@ export default function DmPipelinePage() {
         colorClass={expandedColor}
         dms={expandedDms}
         onClose={() => setExpandedColumn(null)}
-        onDraft={handleOpenConversation}
+        onDraft={handleCardClick}
         onStageChange={handleStageChange}
         onDismiss={handleDismiss}
-        onOpenConversation={handleOpenConversation}
+        onOpenConversation={handleCardClick}
       />
 
-      {/* Send queue mode (Ready to DM + DM Sent cards) */}
+      {/* Send queue mode (Ready to DM cards) */}
       {sendQueueActive && (() => {
         const list = sendQueueStartId
-          ? reorderFromId(columns.sent.length > 0 && columns.sent.some(d => d.id === sendQueueStartId) ? columns.sent : columns.ready, sendQueueStartId)
+          ? reorderFromId(columns.ready, sendQueueStartId)
           : columns.ready;
         return (
           <SendQueueMode
@@ -849,6 +851,8 @@ export default function DmPipelinePage() {
             onDmSent={handleDmSent}
             onDismiss={handleDismiss}
             sendDm={sendDm}
+            fetchConversation={fetchConversation}
+            chatPreviews={chatPreviews}
           />
         );
       })()}
@@ -867,31 +871,12 @@ export default function DmPipelinePage() {
             onDmSent={handleDmSent}
             onDismiss={handleDismiss}
             sendDm={sendDm}
+            fetchConversation={fetchConversation}
+            chatPreviews={chatPreviews}
           />
         );
       })()}
 
-      {/* Conversation drawer */}
-      <ConversationDrawer
-        dm={conversationDm}
-        chatPreview={
-          conversationDm
-            ? chatPreviews[conversationDm.reddit_username.toLowerCase()]
-            : undefined
-        }
-        open={!!conversationDm}
-        onOpenChange={(open) => { if (!open) setConversationDmId(null); }}
-        sendDm={sendDm}
-        projectId={project.id}
-        onSent={async () => {
-          if (conversationDm) {
-            await handleStageChange(conversationDm.id, 'dm_sent', undefined, true);
-          }
-          await fetchDms();
-          fetchAndPersistPreviews();
-        }}
-        fetchConversation={fetchConversation}
-      />
     </PageTransition>
   );
 }
