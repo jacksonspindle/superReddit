@@ -250,6 +250,9 @@ export function SendQueueMode({
       const promise = (async () => {
         try {
           const msgs = await fetchConversation(dm.reddit_username);
+          console.log(`[SR ConvoDebug] Raw messages for u/${dm.reddit_username} (myUser=${redditUsername}):`,
+            msgs.map(m => ({ author: m.author, isFromYou: m.isFromYou, text: m.text.slice(0, 40) }))
+          );
           const deduped = deduplicateMessages(msgs, dm.reddit_username, redditUsername);
           // Only cache non-empty results — empty may mean the extension hasn't
           // loaded this conversation yet, so we want to retry on next view
