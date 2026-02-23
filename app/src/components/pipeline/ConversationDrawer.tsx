@@ -86,9 +86,10 @@ function deduplicateMessages(
         ...msg,
         text: msg.text.replace(timestampPrefix, '').trim(),
         author,
-        // In a 1:1 DM, authorship is deterministic: if author matches
-        // the other user it's from them, otherwise it's from you.
-        isFromYou: !isOtherUser,
+        // If we can positively identify the author as the other user, override.
+        // Otherwise trust the extension's original isFromYou value (the author
+        // field may use IDs or formats that don't match the username).
+        isFromYou: isOtherUser ? false : msg.isFromYou,
       };
     })
     // Step 3: Remove messages that became empty after timestamp strip
