@@ -134,12 +134,38 @@ export default function DmPipelinePage() {
   const bridgeSyncKeyRef = useRef('');
 
   // Detect account mismatch: extension Reddit user vs project config user
+  // Also blocks sync when config username isn't set (prevents cross-account pollution)
   const accountMismatch = useMemo(() => {
-    if (!bridgeStatus.redditUsername || !configRedditUsername) return false;
+    // Extension not reporting a username — can't validate, allow existing data to show
+    if (!bridgeStatus.redditUsername) return false;
+    // No config username set — block sync until auto-link completes
+    if (!configRedditUsername) return true;
+    // Both present — compare
     const extUser = bridgeStatus.redditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
     const cfgUser = configRedditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
     return extUser !== cfgUser;
   }, [bridgeStatus.redditUsername, configRedditUsername]);
+
+  // Auto-link: when no config username is set but extension reports one, save it
+  useEffect(() => {
+    if (!bridgeStatus.redditUsername || configRedditUsername) return;
+    const username = bridgeStatus.redditUsername.replace(/^\/?u\//, '').trim();
+    if (!username) return;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/outreach/config', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ project_id: project.id, reddit_username: username }),
+        });
+        if (res.ok) {
+          setConfigRedditUsername(username);
+          toast.success(`Linked Reddit account u/${username} to this project`);
+        }
+      } catch { /* silent */ }
+    })();
+  }, [bridgeStatus.redditUsername, configRedditUsername, project.id]);
 
   // Fetch all DMs
   const fetchDms = useCallback(async () => {

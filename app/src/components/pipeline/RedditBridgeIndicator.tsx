@@ -30,6 +30,7 @@ export function RedditBridgeIndicator({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect account mismatch: extension Reddit user vs project config user
+  const configMissing = !configRedditUsername && !!redditUsername;
   const accountMismatch = (() => {
     if (!redditUsername || !configRedditUsername) return false;
     const extUser = redditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
@@ -79,6 +80,16 @@ export function RedditBridgeIndicator({
         Reddit not logged in — click to sign in
         <ExternalLink className="h-3 w-3" />
       </a>
+    );
+  }
+
+  // No config username yet — auto-linking in progress
+  if (configMissing) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Linking Reddit account u/{redditUsername} to this project...
+      </div>
     );
   }
 
