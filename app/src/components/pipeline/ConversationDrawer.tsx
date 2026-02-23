@@ -32,6 +32,7 @@ interface ConversationDrawerProps {
   projectId: string;
   onSent?: () => void;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
+  redditUsername?: string;
 }
 
 const stageConfig: Record<string, { label: string; className: string }> = {
@@ -45,16 +46,22 @@ const stageConfig: Record<string, { label: string; className: string }> = {
 };
 
 /**
- * Post-process scraped DOM messages to remove duplicates caused by
- * parent/child CSS selector overlap in the DOM scraper.
+ * Post-process scraped DOM messages: remove duplicates, fix authorship,
+ * and filter out cross-conversation contamination.
+ *
+ * @param myUsername — the logged-in Reddit username. When provided, any
+ *   message whose author doesn't match either participant is dropped
+ *   (the extension sometimes returns messages from a different chat).
  */
 function deduplicateMessages(
   messages: ConversationMessage[],
-  otherUsername: string
+  otherUsername: string,
+  myUsername?: string,
 ): ConversationMessage[] {
   if (messages.length === 0) return messages;
 
   const otherLower = otherUsername.toLowerCase();
+  const myLower = myUsername?.toLowerCase();
   // Matches "9:36 AM" or "4:30 PM" as the ENTIRE message text
   const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
   // Matches "9:36 AM " at the START of message text (timestamp prefix from parent element)
@@ -85,9 +92,16 @@ function deduplicateMessages(
       };
     })
     // Step 3: Remove messages that became empty after timestamp strip
-    .filter((msg) => msg.text.length > 0);
+    .filter((msg) => msg.text.length > 0)
+    // Step 4: Drop messages from unrecognised authors (cross-conversation contamination).
+    // In a 1:1 DM the only valid authors are "me" and "them".
+    .filter((msg) => {
+      if (!myLower) return true; // can't validate without logged-in username
+      const a = msg.author.toLowerCase();
+      return a === otherLower || a === myLower;
+    });
 
-  // Step 4: Deduplicate by lowercase text only — in 1:1 DMs identical text is
+  // Step 5: Deduplicate by lowercase text only — in 1:1 DMs identical text is
   // always a scraper artifact (parent/child overlap), not two people saying the same thing
   const seen = new Set<string>();
   return processed.filter((msg) => {
@@ -111,6 +125,7 @@ export function ConversationDrawer({
   projectId,
   onSent,
   fetchConversation,
+  redditUsername,
 }: ConversationDrawerProps) {
   const [replyBody, setReplyBody] = useState('');
   const [draftSubject, setDraftSubject] = useState('');
@@ -132,7 +147,7 @@ export function ConversationDrawer({
     setLoadingMessages(true);
     fetchConversation(dm.reddit_username).then((msgs) => {
       if (!cancelled) {
-        setFullMessages(deduplicateMessages(msgs, dm.reddit_username));
+        setFullMessages(deduplicateMessages(msgs, dm.reddit_username, redditUsername));
         setLoadingMessages(false);
       }
     });

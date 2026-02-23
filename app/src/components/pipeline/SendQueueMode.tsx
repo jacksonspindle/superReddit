@@ -49,6 +49,7 @@ interface SendQueueModeProps {
   }>;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
   chatPreviews?: Record<string, ChatPreview>;
+  redditUsername?: string;
 }
 
 const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
@@ -64,16 +65,22 @@ function isRawUrl(text: string): boolean {
 }
 
 /**
- * Post-process scraped DOM messages to remove duplicates caused by
- * parent/child CSS selector overlap in the DOM scraper.
+ * Post-process scraped DOM messages: remove duplicates, fix authorship,
+ * and filter out cross-conversation contamination.
+ *
+ * @param myUsername — the logged-in Reddit username. When provided, any
+ *   message whose author doesn't match either participant is dropped
+ *   (the extension sometimes returns messages from a different chat).
  */
 function deduplicateMessages(
   messages: ConversationMessage[],
-  otherUsername: string
+  otherUsername: string,
+  myUsername?: string,
 ): ConversationMessage[] {
   if (messages.length === 0) return messages;
 
   const otherLower = otherUsername.toLowerCase();
+  const myLower = myUsername?.toLowerCase();
   const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
   const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
 
@@ -97,7 +104,14 @@ function deduplicateMessages(
         isFromYou: !isOtherUser,
       };
     })
-    .filter((msg) => msg.text.length > 0);
+    .filter((msg) => msg.text.length > 0)
+    // Drop messages from unrecognised authors (cross-conversation contamination).
+    // In a 1:1 DM the only valid authors are "me" and "them".
+    .filter((msg) => {
+      if (!myLower) return true; // can't validate without logged-in username
+      const a = msg.author.toLowerCase();
+      return a === otherLower || a === myLower;
+    });
 
   const seen = new Set<string>();
   return processed.filter((msg) => {
@@ -118,6 +132,7 @@ export function SendQueueMode({
   sendDm,
   fetchConversation,
   chatPreviews,
+  redditUsername,
 }: SendQueueModeProps) {
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -230,7 +245,7 @@ export function SendQueueMode({
       inflight.current.add(cacheKey);
       try {
         const msgs = await fetchConversation(dm.reddit_username);
-        const deduped = deduplicateMessages(msgs, dm.reddit_username);
+        const deduped = deduplicateMessages(msgs, dm.reddit_username, redditUsername);
         // Only cache non-empty results — empty may mean the extension hasn't
         // loaded this conversation yet, so we want to retry on next view
         if (deduped.length > 0) {
@@ -241,7 +256,7 @@ export function SendQueueMode({
         inflight.current.delete(cacheKey);
       }
     },
-    [fetchConversation]
+    [fetchConversation, redditUsername]
   );
 
   // Load conversation for the current card (cache-aware)

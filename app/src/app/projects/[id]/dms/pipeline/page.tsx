@@ -853,6 +853,7 @@ export default function DmPipelinePage() {
             sendDm={sendDm}
             fetchConversation={fetchConversation}
             chatPreviews={chatPreviews}
+            redditUsername={bridgeStatus.redditUsername}
           />
         );
       })()}
@@ -873,6 +874,7 @@ export default function DmPipelinePage() {
             sendDm={sendDm}
             fetchConversation={fetchConversation}
             chatPreviews={chatPreviews}
+            redditUsername={bridgeStatus.redditUsername}
           />
         );
       })()}
