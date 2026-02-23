@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
@@ -66,6 +68,40 @@ export default function DmPipelinePage() {
   const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
   const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
   const replyScanDoneRef = useRef(false);
+
+  // Drag-and-drop state
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const columnToStage: Record<string, string> = {
+    ready: 'dm_ready',
+    sent: 'dm_sent',
+    followup: 'responded',
+    converted: 'converted',
+  };
+
+  function onDragStart(event: DragStartEvent) {
+    setActiveDragId(event.active.id as string);
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const dmId = active.id as string;
+    const targetColumn = over.id as string;
+    const targetStage = columnToStage[targetColumn];
+    if (!targetStage) return;
+
+    // Find which column the card currently lives in
+    const currentColumn = Object.entries(columns).find(([, dms]) =>
+      dms.some((d) => d.id === dmId)
+    )?.[0];
+    if (currentColumn === targetColumn) return;
+
+    handleStageChange(dmId, targetStage);
+  }
 
   // Open send queue starting at a specific DM (for Ready column card clicks)
   const handleOpenReadyQueue = useCallback((dm: OutreachDM) => {
@@ -753,11 +789,13 @@ export default function DmPipelinePage() {
             />
 
             {/* Kanban board */}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <div className="overflow-x-auto -mx-6 px-6">
             <div className="grid grid-cols-[minmax(320px,1fr)_32px_minmax(320px,1fr)_32px_minmax(320px,1fr)_32px_minmax(320px,1fr)] gap-0 items-stretch min-w-[1376px]">
               {/* Ready to DM */}
               <KanbanColumn
                 title="Ready to DM"
+                columnId="ready"
                 count={columns.ready.length}
                 colorClass="text-blue-600"
                 borderColor="rgb(59, 130, 246)"
@@ -779,6 +817,7 @@ export default function DmPipelinePage() {
                     key={dm.id}
                     dm={dm}
                     stage="ready"
+                    isDragging={dm.id === activeDragId}
                     selected={selectedIds.has(dm.id)}
                     onSelect={handleSelect}
                     onDraft={handleOpenReadyQueue}
@@ -799,6 +838,7 @@ export default function DmPipelinePage() {
               {/* DM Sent */}
               <KanbanColumn
                 title="DM Sent"
+                columnId="sent"
                 count={columns.sent.length}
                 colorClass="text-orange-600"
                 borderColor="rgb(249, 115, 22)"
@@ -810,6 +850,7 @@ export default function DmPipelinePage() {
                     key={dm.id}
                     dm={dm}
                     stage="sent"
+                    isDragging={dm.id === activeDragId}
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
                   />
@@ -826,6 +867,7 @@ export default function DmPipelinePage() {
               {/* Follow Up */}
               <KanbanColumn
                 title="Follow Up"
+                columnId="followup"
                 count={columns.followup.length}
                 colorClass="text-yellow-600"
                 borderColor="rgb(234, 179, 8)"
@@ -848,6 +890,7 @@ export default function DmPipelinePage() {
                     key={dm.id}
                     dm={dm}
                     stage="followup"
+                    isDragging={dm.id === activeDragId}
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onDraft={handleOpenFollowUpQueue}
                     onStageChange={handleStageChange}
@@ -866,6 +909,7 @@ export default function DmPipelinePage() {
               {/* Converted */}
               <KanbanColumn
                 title="Converted"
+                columnId="converted"
                 count={columns.converted.length}
                 colorClass="text-green-600"
                 borderColor="rgb(34, 197, 94)"
@@ -877,12 +921,37 @@ export default function DmPipelinePage() {
                     key={dm.id}
                     dm={dm}
                     stage="converted"
+                    isDragging={dm.id === activeDragId}
                     onStageChange={handleStageChange}
                   />
                 ))}
               </KanbanColumn>
             </div>
             </div>
+
+            {/* Ghost card overlay while dragging */}
+            <DragOverlay dropAnimation={null}>
+              {activeDragId ? (() => {
+                const dragDm = allDms.find((d) => d.id === activeDragId);
+                if (!dragDm) return null;
+                const dragStage: KanbanStage =
+                  ['detected', 'dm_ready', 'draft_generated'].includes(dragDm.pipeline_stage) ? 'ready'
+                  : dragDm.pipeline_stage === 'dm_sent' ? 'sent'
+                  : dragDm.pipeline_stage === 'responded' ? 'followup'
+                  : 'converted';
+                return (
+                  <div className="opacity-80 rotate-2 w-[320px]">
+                    <KanbanLeadCard
+                      dm={dragDm}
+                      stage={dragStage}
+                      chatPreview={chatPreviews[dragDm.reddit_username.toLowerCase()]}
+                      onStageChange={() => {}}
+                    />
+                  </div>
+                );
+              })() : null}
+            </DragOverlay>
+            </DndContext>
           </div>
         </div>
       </div>

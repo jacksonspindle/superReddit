@@ -1,5 +1,7 @@
 'use client';
 
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle, MessageSquare, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +17,7 @@ interface KanbanLeadCardProps {
   stage: KanbanStage;
   chatPreview?: ChatPreview;
   selected?: boolean;
+  isDragging?: boolean;
   onSelect?: (id: string) => void;
   onDraft?: (dm: OutreachDM) => void;
   onStageChange: (dmId: string, stage: string, outcome?: string) => void;
@@ -46,19 +49,31 @@ export function KanbanLeadCard({
   stage,
   chatPreview,
   selected,
+  isDragging,
   onSelect,
   onDraft,
   onStageChange,
   onDismiss,
   onOpenConversation,
 }: KanbanLeadCardProps) {
+  const { setNodeRef, transform, listeners, attributes } = useDraggable({ id: dm.id });
   const permission = permissionConfig[dm.permission_type] || permissionConfig.passive_commenter;
   const subreddit = dm.signal?.subreddit || '';
   const threadTitle = dm.signal?.title || 'Thread';
   const fuStatus = followUpStatus(dm.follow_up_due);
 
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+
   return (
-    <motion.div whileHover={cardHover} whileTap={cardTap} className="w-full min-w-0">
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      whileHover={isDragging ? undefined : cardHover}
+      whileTap={isDragging ? undefined : cardTap}
+      className={`w-full min-w-0 ${isDragging ? 'opacity-30' : ''}`}
+    >
       <div
         className="w-full rounded-lg border border-border bg-card/80 p-3 transition-shadow hover:shadow-md cursor-pointer"
         onClick={(e) => {
@@ -264,13 +279,6 @@ export function KanbanLeadCard({
                 onClick={() => onDraft?.(dm)}
               >
                 Follow-up <ArrowRight className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
-                onClick={() => onStageChange(dm.id, 'dm_sent')}
-              >
-                <Undo2 className="h-3 w-3" /> Back to Sent
               </button>
               <button
                 type="button"
