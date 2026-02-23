@@ -133,6 +133,14 @@ export default function DmPipelinePage() {
   const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
+  // Detect account mismatch: extension Reddit user vs project config user
+  const accountMismatch = useMemo(() => {
+    if (!bridgeStatus.redditUsername || !configRedditUsername) return false;
+    const extUser = bridgeStatus.redditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
+    const cfgUser = configRedditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
+    return extUser !== cfgUser;
+  }, [bridgeStatus.redditUsername, configRedditUsername]);
+
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
     try {
@@ -155,20 +163,25 @@ export default function DmPipelinePage() {
       await fetch('/api/outreach/dms/persist-previews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id, previews: previewData }),
+        body: JSON.stringify({
+          project_id: project.id,
+          previews: previewData,
+          sender_username: bridgeStatus.redditUsername ?? undefined,
+        }),
       });
     } catch { /* silent */ }
-  }, [project.id]);
+  }, [project.id, bridgeStatus.redditUsername]);
 
   // Wrapper: fetch previews from extension and persist to DB
   const fetchAndPersistPreviews = useCallback(async () => {
+    if (accountMismatch) return {};
     const p = await fetchPreviews();
     if (Object.keys(p).length > 0) {
       await persistPreviews(p);
       await fetchDms();
     }
     return p;
-  }, [fetchPreviews, persistPreviews, fetchDms]);
+  }, [fetchPreviews, persistPreviews, fetchDms, accountMismatch]);
 
   // Fetch replies (posts the user has replied to)
   const fetchPosts = useCallback(async () => {
@@ -336,6 +349,7 @@ export default function DmPipelinePage() {
   // Stage transitions are handled exclusively by the unified effect below.
   useEffect(() => {
     if (loading) return;
+    if (accountMismatch) return; // Block sync when Reddit account doesn't match project
     const hasCounts = bridgeStatus.youSentToCount > 0 || bridgeStatus.theyRepliedCount > 0;
     const hasArrays = youSentToList.length > 0 || theyRepliedList.length > 0;
     if (!hasCounts && !hasArrays) return;
@@ -373,6 +387,7 @@ export default function DmPipelinePage() {
             youSentTo: sentList,
             theyReplied: repliedList,
             previews: currentPreviews,
+            sender_username: bridgeStatus.redditUsername ?? undefined,
           }),
         });
         const json = await res.json();
@@ -386,7 +401,7 @@ export default function DmPipelinePage() {
     }
     sync();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
+  }, [loading, accountMismatch, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
 
   /** Single source of truth for DM stage — pure function, no side effects */
   function computeDesiredStage(
@@ -411,6 +426,7 @@ export default function DmPipelinePage() {
   // preview auto-advance, conversation fallback) with a single source of truth.
   useEffect(() => {
     if (loading) return;
+    if (accountMismatch) return; // Block stage sync when Reddit account doesn't match project
     if (!bridgeStatus.extensionInstalled || bridgeStatus.checking) return;
 
     const redditUser = bridgeStatus.redditUsername ?? configRedditUsername;
@@ -524,7 +540,7 @@ export default function DmPipelinePage() {
     const interval = setInterval(runStageSync, 30_000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, accountMismatch]);
 
   // Manual scan
   async function handleScan() {
@@ -845,6 +861,7 @@ export default function DmPipelinePage() {
               capturedCount={bridgeStatus.capturedCount}
               youSentToCount={bridgeStatus.youSentToCount}
               theyRepliedCount={bridgeStatus.theyRepliedCount}
+              configRedditUsername={configRedditUsername}
             />
 
             {/* Toolbar */}

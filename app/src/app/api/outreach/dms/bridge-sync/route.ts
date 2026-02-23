@@ -9,11 +9,12 @@ function normalizeUsername(raw: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { project_id, youSentTo, theyReplied, previews } = body as {
+    const { project_id, youSentTo, theyReplied, previews, sender_username } = body as {
       project_id: string;
       youSentTo: string[];
       theyReplied: string[];
       previews?: Record<string, { text: string; fromYou: boolean; theirText?: string | null }>;
+      sender_username?: string;
     };
 
     if (!project_id) {
@@ -38,6 +39,26 @@ export async function POST(request: NextRequest) {
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // Defense-in-depth: reject if sender Reddit account doesn't match project config
+    if (sender_username) {
+      const { data: config } = await supabase
+        .from('outreach_configs')
+        .select('reddit_username')
+        .eq('project_id', project_id)
+        .maybeSingle();
+
+      if (config?.reddit_username) {
+        const senderNorm = normalizeUsername(sender_username);
+        const configNorm = normalizeUsername(config.reddit_username);
+        if (senderNorm !== configNorm) {
+          return NextResponse.json(
+            { error: 'Account mismatch: sender does not match project Reddit account' },
+            { status: 409 },
+          );
+        }
+      }
     }
 
     // Get existing pipeline entries — group ALL entries per username (not just one)

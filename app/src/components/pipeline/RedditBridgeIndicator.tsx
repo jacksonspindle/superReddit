@@ -12,6 +12,7 @@ interface RedditBridgeIndicatorProps {
   capturedCount?: number;
   youSentToCount?: number;
   theyRepliedCount?: number;
+  configRedditUsername?: string;
 }
 
 export function RedditBridgeIndicator({
@@ -23,9 +24,18 @@ export function RedditBridgeIndicator({
   capturedCount,
   youSentToCount,
   theyRepliedCount,
+  configRedditUsername,
 }: RedditBridgeIndicatorProps) {
   const [dismissed, setDismissed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Detect account mismatch: extension Reddit user vs project config user
+  const accountMismatch = (() => {
+    if (!redditUsername || !configRedditUsername) return false;
+    const extUser = redditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
+    const cfgUser = configRedditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
+    return extUser !== cfgUser;
+  })();
 
   // Auto-dismiss the "connected" banner after 4s
   const isConnectedIdle = extensionInstalled && redditLoggedIn && !checking && !reconciling;
@@ -69,6 +79,20 @@ export function RedditBridgeIndicator({
         Reddit not logged in — click to sign in
         <ExternalLink className="h-3 w-3" />
       </a>
+    );
+  }
+
+  // Account mismatch — block sync and warn the user
+  if (accountMismatch) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        <span>
+          You&apos;re logged into Reddit as <strong>u/{redditUsername}</strong>, but this project uses{' '}
+          <strong>u/{configRedditUsername}</strong>. Switch Reddit accounts or open the correct project.
+          DM sync is paused.
+        </span>
+      </div>
     );
   }
 
