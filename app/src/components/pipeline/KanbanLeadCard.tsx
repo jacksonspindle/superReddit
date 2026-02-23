@@ -267,6 +267,13 @@ export function KanbanLeadCard({
               </button>
               <button
                 type="button"
+                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+                onClick={() => onStageChange(dm.id, 'dm_sent')}
+              >
+                <Undo2 className="h-3 w-3" /> Back to Sent
+              </button>
+              <button
+                type="button"
                 className="flex items-center gap-0.5 text-xs font-medium text-green-600 hover:underline cursor-pointer ml-auto"
                 onClick={() => onStageChange(dm.id, 'converted')}
               >
