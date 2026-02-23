@@ -63,6 +63,8 @@ export default function DmPipelinePage() {
   const [conversationDmId, setConversationDmId] = useState<string | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
+  const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
+  const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
 
   // Conversation drawer — derived from allDms so it auto-refreshes
   const conversationDm = conversationDmId
@@ -71,6 +73,18 @@ export default function DmPipelinePage() {
 
   const handleOpenConversation = useCallback((dm: OutreachDM) => {
     setConversationDmId(dm.id);
+  }, []);
+
+  // Open send queue starting at a specific DM (for sent column card clicks)
+  const handleOpenSentQueue = useCallback((dm: OutreachDM) => {
+    setSendQueueStartId(dm.id);
+    setSendQueueActive(true);
+  }, []);
+
+  // Open follow-up queue starting at a specific DM (for followup column card clicks)
+  const handleOpenFollowUpQueue = useCallback((dm: OutreachDM) => {
+    setFollowUpQueueStartId(dm.id);
+    setFollowUpQueueActive(true);
   }, []);
 
   // Reddit Bridge
@@ -594,6 +608,13 @@ export default function DmPipelinePage() {
     setSelectedIds(new Set());
   }
 
+  // Reorder DM array so a specific DM comes first (rest follow in original order)
+  function reorderFromId(dms: OutreachDM[], startId: string): OutreachDM[] {
+    const idx = dms.findIndex((d) => d.id === startId);
+    if (idx <= 0) return dms;
+    return [dms[idx], ...dms.slice(0, idx), ...dms.slice(idx + 1)];
+  }
+
   // Get overlay data
   const expandedTitle = expandedColumn
     ? { ready: 'Ready to DM', sent: 'DM Sent', followup: 'Follow Up', converted: 'Converted' }[expandedColumn]
@@ -724,7 +745,7 @@ export default function DmPipelinePage() {
                     stage="sent"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenConversation}
+                    onOpenConversation={handleOpenSentQueue}
                   />
                 ))}
               </KanbanColumn>
@@ -762,9 +783,9 @@ export default function DmPipelinePage() {
                     dm={dm}
                     stage="followup"
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
-                    onDraft={handleOpenConversation}
+                    onDraft={handleOpenFollowUpQueue}
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenConversation}
+                    onOpenConversation={handleOpenFollowUpQueue}
                   />
                 ))}
               </KanbanColumn>
@@ -814,31 +835,41 @@ export default function DmPipelinePage() {
         onOpenConversation={handleOpenConversation}
       />
 
-      {/* Send queue mode */}
-      {sendQueueActive && (
-        <SendQueueMode
-          dms={columns.ready}
-          projectId={project.id}
-          onClose={() => { setSendQueueActive(false); fetchDms(); }}
-          onStageChange={handleStageChange}
-          onDmSent={handleDmSent}
-          onDismiss={handleDismiss}
-          sendDm={sendDm}
-        />
-      )}
+      {/* Send queue mode (Ready to DM + DM Sent cards) */}
+      {sendQueueActive && (() => {
+        const list = sendQueueStartId
+          ? reorderFromId(columns.sent.length > 0 && columns.sent.some(d => d.id === sendQueueStartId) ? columns.sent : columns.ready, sendQueueStartId)
+          : columns.ready;
+        return (
+          <SendQueueMode
+            dms={list}
+            projectId={project.id}
+            onClose={() => { setSendQueueActive(false); setSendQueueStartId(null); fetchDms(); }}
+            onStageChange={handleStageChange}
+            onDmSent={handleDmSent}
+            onDismiss={handleDismiss}
+            sendDm={sendDm}
+          />
+        );
+      })()}
 
       {/* Follow-up queue mode */}
-      {followUpQueueActive && (
-        <SendQueueMode
-          dms={columns.followup}
-          projectId={project.id}
-          onClose={() => { setFollowUpQueueActive(false); fetchDms(); }}
-          onStageChange={handleStageChange}
-          onDmSent={handleDmSent}
-          onDismiss={handleDismiss}
-          sendDm={sendDm}
-        />
-      )}
+      {followUpQueueActive && (() => {
+        const list = followUpQueueStartId
+          ? reorderFromId(columns.followup, followUpQueueStartId)
+          : columns.followup;
+        return (
+          <SendQueueMode
+            dms={list}
+            projectId={project.id}
+            onClose={() => { setFollowUpQueueActive(false); setFollowUpQueueStartId(null); fetchDms(); }}
+            onStageChange={handleStageChange}
+            onDmSent={handleDmSent}
+            onDismiss={handleDismiss}
+            sendDm={sendDm}
+          />
+        );
+      })()}
 
       {/* Conversation drawer */}
       <ConversationDrawer
