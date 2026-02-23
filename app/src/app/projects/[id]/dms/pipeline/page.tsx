@@ -655,39 +655,14 @@ export default function DmPipelinePage() {
             />
 
             {/* Toolbar */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <PipelineToolbar
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  sortBy={sortBy}
-                  onSortChange={setSortBy}
-                  scanning={scanning}
-                  onScan={handleScan}
-                />
-              </div>
-              {columns.ready.length > 0 && (
-                <Button
-                  size="lg"
-                  className="h-10 px-5 text-sm font-semibold shrink-0"
-                  onClick={() => setSendQueueActive(true)}
-                >
-                  <MoveRight className="mr-2 h-4 w-4" />
-                  Start Sending ({columns.ready.length})
-                </Button>
-              )}
-              {columns.followup.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-10 px-5 text-sm font-semibold shrink-0"
-                  onClick={() => setFollowUpQueueActive(true)}
-                >
-                  <MoveRight className="mr-2 h-4 w-4" />
-                  Follow Up ({columns.followup.length})
-                </Button>
-              )}
-            </div>
+            <PipelineToolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              scanning={scanning}
+              onScan={handleScan}
+            />
 
             {/* Kanban board */}
             <div className="overflow-x-auto -mx-6 px-6">
@@ -700,6 +675,16 @@ export default function DmPipelinePage() {
                 borderColor="rgb(59, 130, 246)"
                 onExpandColumn={() => setExpandedColumn('ready')}
                 emptyMessage="No leads ready for DM yet. Scan threads to find new leads."
+                headerAction={columns.ready.length > 0 ? (
+                  <Button
+                    size="sm"
+                    className="w-full text-xs font-semibold"
+                    onClick={() => setSendQueueActive(true)}
+                  >
+                    <MoveRight className="mr-1.5 h-3.5 w-3.5" />
+                    Start Sending ({columns.ready.length})
+                  </Button>
+                ) : undefined}
               >
                 {columns.ready.map((dm) => (
                   <KanbanLeadCard
@@ -759,6 +744,17 @@ export default function DmPipelinePage() {
                 borderColor="rgb(234, 179, 8)"
                 onExpandColumn={() => setExpandedColumn('followup')}
                 emptyMessage="No follow-ups needed. Leads that respond will appear here."
+                headerAction={columns.followup.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-semibold"
+                    onClick={() => setFollowUpQueueActive(true)}
+                  >
+                    <MoveRight className="mr-1.5 h-3.5 w-3.5" />
+                    Follow Up ({columns.followup.length})
+                  </Button>
+                ) : undefined}
               >
                 {columns.followup.map((dm) => (
                   <KanbanLeadCard
