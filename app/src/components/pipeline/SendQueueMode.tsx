@@ -72,15 +72,20 @@ function isRawUrl(text: string): boolean {
  *   message whose author doesn't match either participant is dropped
  *   (the extension sometimes returns messages from a different chat).
  */
+// Global cache: once we discover the logged-in user's chat author name
+// (e.g. "opcollectr") from ANY conversation, reuse it for all others.
+// This persists for the lifetime of the page — no per-card guessing needed.
+let _myAuthorName: string | undefined;
+
 function deduplicateMessages(
   messages: ConversationMessage[],
   otherUsername: string,
   myUsername?: string,
+  sentBody?: string,
 ): ConversationMessage[] {
   if (messages.length === 0) return messages;
 
   const otherLower = otherUsername.toLowerCase();
-  const myLower = myUsername?.toLowerCase();
   const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
   const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
 
@@ -92,35 +97,74 @@ function deduplicateMessages(
   const processed = messages
     .filter((msg) => !timestampOnly.test(msg.text.trim()))
     .filter((msg) => !uiChrome.has(msg.text.trim().toLowerCase()))
-    .map((msg) => {
-      const author = msg.author === 'them' ? otherLower : msg.author;
-      const isOtherUser = author.toLowerCase() === otherLower;
-      return {
-        ...msg,
-        text: msg.text.replace(timestampPrefix, '').trim(),
-        author,
-        // If we can positively identify the author as the other user, override.
-        // Otherwise trust the extension's original isFromYou value (the author
-        // field may use IDs or formats that don't match the username).
-        isFromYou: isOtherUser ? false : msg.isFromYou,
-      };
-    })
-    .filter((msg) => msg.text.length > 0)
-    // Drop messages from unrecognised authors (cross-conversation contamination).
-    // In a 1:1 DM the only valid authors are "me" and "them".
-    .filter((msg) => {
-      if (!myLower) return true; // can't validate without logged-in username
-      const a = msg.author.toLowerCase();
-      return a === otherLower || a === myLower;
-    });
+    .map((msg) => ({
+      ...msg,
+      text: msg.text.replace(timestampPrefix, '').trim(),
+      author: msg.author === 'them' ? otherLower : msg.author,
+    }))
+    .filter((msg) => msg.text.length > 0);
 
   const seen = new Set<string>();
-  return processed.filter((msg) => {
+  const deduped = processed.filter((msg) => {
     const key = msg.text.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+
+  // --- Determine "my" author name (the logged-in user's chat display name) ---
+  // The extension's isFromYou is unreliable and author names don't match
+  // Reddit usernames. We identify "me" once and cache it globally.
+  const uniqueAuthors = [...new Set(deduped.map((m) => m.author.toLowerCase()))];
+
+  if (uniqueAuthors.length === 2) {
+    let discovered = _myAuthorName;
+
+    // If already cached, verify it's one of the two authors in this conversation
+    if (discovered && !uniqueAuthors.includes(discovered)) {
+      discovered = undefined;
+    }
+
+    // Try to discover from known myUsername (bridge redditUsername)
+    if (!discovered && myUsername) {
+      discovered = uniqueAuthors.find((a) => a === myUsername.toLowerCase());
+    }
+
+    // Try to discover from sent message body — find a message matching
+    // dm.dm_body, that message's author is "me"
+    if (!discovered && sentBody) {
+      const sentLower = sentBody.trim().toLowerCase();
+      if (sentLower) {
+        const match = deduped.find((m) => {
+          const msgLower = m.text.trim().toLowerCase();
+          return msgLower === sentLower
+            || msgLower.includes(sentLower)
+            || sentLower.includes(msgLower);
+        });
+        if (match) discovered = match.author.toLowerCase();
+      }
+    }
+
+    // Outreach heuristic: we always send the first message in a conversation,
+    // so the first message's author is "me"
+    if (!discovered && deduped.length > 0) {
+      discovered = deduped[0].author.toLowerCase();
+    }
+
+    // Cache globally so every future conversation uses this immediately
+    if (discovered) {
+      _myAuthorName = discovered;
+    }
+
+    if (discovered) {
+      return deduped.map((m) => ({
+        ...m,
+        isFromYou: m.author.toLowerCase() === discovered,
+      }));
+    }
+  }
+
+  return deduped;
 }
 
 export function SendQueueMode({
@@ -251,7 +295,7 @@ export function SendQueueMode({
       const promise = (async () => {
         try {
           const msgs = await fetchConversation(dm.reddit_username);
-          const deduped = deduplicateMessages(msgs, dm.reddit_username, redditUsername);
+          const deduped = deduplicateMessages(msgs, dm.reddit_username, redditUsername, dm.dm_body || undefined);
           // Only cache non-empty results — empty may mean the extension hasn't
           // loaded this conversation yet, so we want to retry on next view
           if (deduped.length > 0) {

@@ -45,72 +45,85 @@ const stageConfig: Record<string, { label: string; className: string }> = {
   closed: { label: 'Closed', className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
 };
 
-/**
- * Post-process scraped DOM messages: remove duplicates, fix authorship,
- * and filter out cross-conversation contamination.
- *
- * @param myUsername — the logged-in Reddit username. When provided, any
- *   message whose author doesn't match either participant is dropped
- *   (the extension sometimes returns messages from a different chat).
- */
+// Global cache: once we discover the logged-in user's chat author name
+// (e.g. "opcollectr") from ANY conversation, reuse it for all others.
+let _myAuthorName: string | undefined;
+
 function deduplicateMessages(
   messages: ConversationMessage[],
   otherUsername: string,
   myUsername?: string,
+  sentBody?: string,
 ): ConversationMessage[] {
   if (messages.length === 0) return messages;
 
   const otherLower = otherUsername.toLowerCase();
-  const myLower = myUsername?.toLowerCase();
-  // Matches "9:36 AM" or "4:30 PM" as the ENTIRE message text
   const timestampOnly = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
-  // Matches "9:36 AM " at the START of message text (timestamp prefix from parent element)
   const timestampPrefix = /^\d{1,2}:\d{2}\s*(AM|PM)\s+/i;
 
-  // Reddit chat UI strings the scraper picks up as messages
   const uiChrome = new Set([
     'send message', 'type a message', 'send', 'message',
     'start a conversation', 'say something nice',
   ]);
 
   const processed = messages
-    // Step 1a: Remove pure timestamp messages ("9:36 AM", "4:30 PM")
     .filter((msg) => !timestampOnly.test(msg.text.trim()))
-    // Step 1b: Remove Reddit UI chrome text ("Send message", etc.)
     .filter((msg) => !uiChrome.has(msg.text.trim().toLowerCase()))
-    // Step 2: Normalize — strip leading timestamp prefix, fix "them" author, fix isFromYou
-    .map((msg) => {
-      const author = msg.author === 'them' ? otherLower : msg.author;
-      const isOtherUser = author.toLowerCase() === otherLower;
-      return {
-        ...msg,
-        text: msg.text.replace(timestampPrefix, '').trim(),
-        author,
-        // If we can positively identify the author as the other user, override.
-        // Otherwise trust the extension's original isFromYou value (the author
-        // field may use IDs or formats that don't match the username).
-        isFromYou: isOtherUser ? false : msg.isFromYou,
-      };
-    })
-    // Step 3: Remove messages that became empty after timestamp strip
-    .filter((msg) => msg.text.length > 0)
-    // Step 4: Drop messages from unrecognised authors (cross-conversation contamination).
-    // In a 1:1 DM the only valid authors are "me" and "them".
-    .filter((msg) => {
-      if (!myLower) return true; // can't validate without logged-in username
-      const a = msg.author.toLowerCase();
-      return a === otherLower || a === myLower;
-    });
+    .map((msg) => ({
+      ...msg,
+      text: msg.text.replace(timestampPrefix, '').trim(),
+      author: msg.author === 'them' ? otherLower : msg.author,
+    }))
+    .filter((msg) => msg.text.length > 0);
 
-  // Step 5: Deduplicate by lowercase text only — in 1:1 DMs identical text is
-  // always a scraper artifact (parent/child overlap), not two people saying the same thing
   const seen = new Set<string>();
-  return processed.filter((msg) => {
+  const deduped = processed.filter((msg) => {
     const key = msg.text.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+
+  const uniqueAuthors = [...new Set(deduped.map((m) => m.author.toLowerCase()))];
+
+  if (uniqueAuthors.length === 2) {
+    let discovered = _myAuthorName;
+
+    if (discovered && !uniqueAuthors.includes(discovered)) {
+      discovered = undefined;
+    }
+
+    if (!discovered && myUsername) {
+      discovered = uniqueAuthors.find((a) => a === myUsername.toLowerCase());
+    }
+
+    if (!discovered && sentBody) {
+      const sentLower = sentBody.trim().toLowerCase();
+      if (sentLower) {
+        const match = deduped.find((m) => {
+          const msgLower = m.text.trim().toLowerCase();
+          return msgLower === sentLower
+            || msgLower.includes(sentLower)
+            || sentLower.includes(msgLower);
+        });
+        if (match) discovered = match.author.toLowerCase();
+      }
+    }
+
+    if (!discovered && deduped.length > 0) {
+      discovered = deduped[0].author.toLowerCase();
+    }
+
+    if (discovered) {
+      _myAuthorName = discovered;
+      return deduped.map((m) => ({
+        ...m,
+        isFromYou: m.author.toLowerCase() === discovered,
+      }));
+    }
+  }
+
+  return deduped;
 }
 
 function getInitials(username: string): string {
@@ -148,7 +161,7 @@ export function ConversationDrawer({
     setLoadingMessages(true);
     fetchConversation(dm.reddit_username).then((msgs) => {
       if (!cancelled) {
-        setFullMessages(deduplicateMessages(msgs, dm.reddit_username, redditUsername));
+        setFullMessages(deduplicateMessages(msgs, dm.reddit_username, redditUsername, dm.dm_body || undefined));
         setLoadingMessages(false);
       }
     });

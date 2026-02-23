@@ -58,6 +58,7 @@ export default function DmPipelinePage() {
   const [selectedSubreddits, setSelectedSubreddits] = useState<Set<string>>(new Set());
   const subredditPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [configRedditUsername, setConfigRedditUsername] = useState<string | undefined>();
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
@@ -165,12 +166,16 @@ export default function DmPipelinePage() {
     } catch { /* silent */ }
   }, [project.id, fetchMonitoredPosts]);
 
-  // Fetch filter preferences from config
+  // Fetch filter preferences + reddit username from config
   const fetchFilterPreferences = useCallback(async () => {
     try {
       const res = await fetch(`/api/outreach/config?project_id=${project.id}`);
       const json = await res.json();
-      return (json.config?.pipeline_subreddit_filters as string[] | null) ?? null;
+      const cfg = json.config;
+      if (cfg?.reddit_username) {
+        setConfigRedditUsername(cfg.reddit_username.replace(/^u\//, ''));
+      }
+      return (cfg?.pipeline_subreddit_filters as string[] | null) ?? null;
     } catch {
       return null;
     }
@@ -853,7 +858,7 @@ export default function DmPipelinePage() {
             sendDm={sendDm}
             fetchConversation={fetchConversation}
             chatPreviews={chatPreviews}
-            redditUsername={bridgeStatus.redditUsername}
+            redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}
           />
         );
       })()}
@@ -874,7 +879,7 @@ export default function DmPipelinePage() {
             sendDm={sendDm}
             fetchConversation={fetchConversation}
             chatPreviews={chatPreviews}
-            redditUsername={bridgeStatus.redditUsername}
+            redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}
           />
         );
       })()}
