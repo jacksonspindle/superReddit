@@ -62,6 +62,7 @@ export default function DmPipelinePage() {
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [conversationDmId, setConversationDmId] = useState<string | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
+  const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
 
   // Conversation drawer — derived from allDms so it auto-refreshes
   const conversationDm = conversationDmId
@@ -675,6 +676,17 @@ export default function DmPipelinePage() {
                   Start Sending ({columns.ready.length})
                 </Button>
               )}
+              {columns.followup.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-10 px-5 text-sm font-semibold shrink-0"
+                  onClick={() => setFollowUpQueueActive(true)}
+                >
+                  <MoveRight className="mr-2 h-4 w-4" />
+                  Follow Up ({columns.followup.length})
+                </Button>
+              )}
             </div>
 
             {/* Kanban board */}
@@ -812,6 +824,19 @@ export default function DmPipelinePage() {
           dms={columns.ready}
           projectId={project.id}
           onClose={() => { setSendQueueActive(false); fetchDms(); }}
+          onStageChange={handleStageChange}
+          onDmSent={handleDmSent}
+          onDismiss={handleDismiss}
+          sendDm={sendDm}
+        />
+      )}
+
+      {/* Follow-up queue mode */}
+      {followUpQueueActive && (
+        <SendQueueMode
+          dms={columns.followup}
+          projectId={project.id}
+          onClose={() => { setFollowUpQueueActive(false); fetchDms(); }}
           onStageChange={handleStageChange}
           onDmSent={handleDmSent}
           onDismiss={handleDismiss}
