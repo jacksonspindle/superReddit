@@ -382,7 +382,10 @@ export default function DmPipelinePage() {
       for (const dm of dmsSent) {
         try {
           const rawMessages = await fetchConversation(dm.reddit_username);
-          if (!rawMessages || rawMessages.length === 0) continue;
+          if (!rawMessages || rawMessages.length === 0) {
+            console.log(`[Reply Scan] ${dm.reddit_username}: no messages returned`);
+            continue;
+          }
 
           const processed = deduplicateMessages(
             rawMessages,
@@ -391,13 +394,23 @@ export default function DmPipelinePage() {
             dm.dm_body ?? undefined,
           );
 
+          // Only trust reply detection when there are 2+ distinct authors.
+          // Single-author conversations can't contain a reply, and the
+          // extension's raw isFromYou is unreliable for those cases.
+          const uniqueAuthors = new Set(processed.map((m) => m.author.toLowerCase()));
+          if (uniqueAuthors.size < 2) {
+            console.log(`[Reply Scan] ${dm.reddit_username}: only ${uniqueAuthors.size} author(s) [${[...uniqueAuthors].join(', ')}] — skipping`);
+            continue;
+          }
+
           const hasReply = processed.some((m) => !m.isFromYou);
+          console.log(`[Reply Scan] ${dm.reddit_username}: ${processed.length} msgs, ${uniqueAuthors.size} authors [${[...uniqueAuthors].join(', ')}], hasReply=${hasReply}`);
           if (hasReply) {
             await handleStageChange(dm.id, 'responded', undefined, true);
             advancedCount++;
           }
-        } catch {
-          // Skip this DM on error, continue scanning others
+        } catch (err) {
+          console.warn(`[Reply Scan] ${dm.reddit_username}: error`, err);
         }
       }
 
