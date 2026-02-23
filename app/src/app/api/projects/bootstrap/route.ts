@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getAnthropicClient, AI_MODEL } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL } from '@/lib/ai/client';
 import { SUGGEST_SUBREDDITS_SYSTEM_PROMPT, buildSuggestSubredditsPrompt } from '@/lib/ai/prompts';
 import { discoverSubreddits } from '@/lib/reddit/discover';
+
+export const maxDuration = 60;
 import { fetchSubredditInfo } from '@/lib/reddit/fetcher';
 
 export async function POST(request: NextRequest) {
@@ -39,6 +41,10 @@ export async function POST(request: NextRequest) {
     );
 
     // Step 2: Ask Claude for best subreddits using enriched candidates
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
+    }
+
     const client = getAnthropicClient();
     const prompt = buildSuggestSubredditsPrompt(
       {

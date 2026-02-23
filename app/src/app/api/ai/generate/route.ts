@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
 import { GENERATE_SYSTEM_PROMPT, buildGeneratePrompt } from '@/lib/ai/prompts';
 import type { GenerateRequest, GenerateResponse } from '@/types';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +21,10 @@ export async function POST(request: NextRequest) {
         { error: 'At least one example post is required' },
         { status: 400 }
       );
+    }
+
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
 
     const client = getAnthropicClient();

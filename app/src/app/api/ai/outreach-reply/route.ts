@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL, MAX_TOKENS } from '@/lib/ai/client';
 import { REPLY_DRAFT_SYSTEM_PROMPT, buildReplyDraftPrompt } from '@/lib/ai/prompts';
 import { createClient } from '@/lib/supabase/server';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +60,10 @@ export async function POST(request: NextRequest) {
         if (kws.length > 0) notes.push(`Restricted keywords: ${kws.join(', ')}`);
       }
       if (notes.length > 0) complianceNotes = notes.join('\n');
+    }
+
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
 
     const client = getAnthropicClient();

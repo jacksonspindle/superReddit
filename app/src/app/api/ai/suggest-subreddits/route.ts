@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, AI_MODEL } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, AI_MODEL } from '@/lib/ai/client';
 import { SUGGEST_SUBREDDITS_SYSTEM_PROMPT, buildSuggestSubredditsPrompt } from '@/lib/ai/prompts';
 import { discoverSubreddits } from '@/lib/reddit/discover';
 import { fetchSubredditInfo } from '@/lib/reddit/fetcher';
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +34,10 @@ export async function POST(request: NextRequest) {
     );
 
     // Step 2: Ask Claude to rank and filter using enriched candidates
+    if (!isAIConfigured()) {
+      return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
+    }
+
     const client = getAnthropicClient();
     const prompt = buildSuggestSubredditsPrompt(
       {

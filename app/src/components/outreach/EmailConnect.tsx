@@ -17,20 +17,17 @@ interface EmailConnectProps {
 
 export function EmailConnect({ config, projectId, onDisconnect }: EmailConnectProps) {
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [verifyMode, setVerifyMode] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   const isConnected = config?.email_connected;
 
-  async function handleSendCode() {
+  async function handleConnect() {
     if (!email.trim()) {
       toast.error('Please enter an email address');
       return;
     }
-    setSending(true);
+    setConnecting(true);
     try {
       const res = await fetch('/api/alerts/email/connect', {
         method: 'POST',
@@ -42,39 +39,13 @@ export function EmailConnect({ config, projectId, onDisconnect }: EmailConnectPr
       if (json.error) {
         toast.error(json.error);
       } else {
-        toast.success('Verification code sent!');
-        setVerifyMode(true);
-      }
-    } catch {
-      toast.error('Failed to send verification code');
-    }
-    setSending(false);
-  }
-
-  async function handleVerify() {
-    if (!code.trim()) {
-      toast.error('Please enter the verification code');
-      return;
-    }
-    setVerifying(true);
-    try {
-      const res = await fetch('/api/alerts/email/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId, code: code.trim() }),
-      });
-      const json = await res.json();
-
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('Email verified successfully!');
+        toast.success('Email connected!');
         window.location.reload();
       }
     } catch {
-      toast.error('Failed to verify code');
+      toast.error('Failed to connect email');
     }
-    setVerifying(false);
+    setConnecting(false);
   }
 
   async function handlePreferenceChange(update: Record<string, unknown>) {
@@ -98,7 +69,7 @@ export function EmailConnect({ config, projectId, onDisconnect }: EmailConnectPr
     setSavingPrefs(false);
   }
 
-  // State 3: Connected
+  // Connected state
   if (isConnected) {
     return (
       <Card>
@@ -205,50 +176,7 @@ export function EmailConnect({ config, projectId, onDisconnect }: EmailConnectPr
     );
   }
 
-  // State 2: Verifying
-  if (verifyMode) {
-    return (
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium text-sm">Verify Email</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Enter the 6-digit code sent to{' '}
-            <span className="font-medium text-foreground">{email}</span>
-          </p>
-          <div className="flex items-center gap-2">
-            <Input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="000000"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              className="w-32 text-center tracking-widest"
-            />
-            <Button onClick={handleVerify} disabled={verifying} size="sm">
-              {verifying && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-              Verify
-            </Button>
-          </div>
-          <button
-            type="button"
-            className="text-[10px] text-muted-foreground underline hover:text-foreground"
-            onClick={() => {
-              setVerifyMode(false);
-              setCode('');
-            }}
-          >
-            Use a different email
-          </button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // State 1: Disconnected
+  // Disconnected state
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
@@ -266,11 +194,12 @@ export function EmailConnect({ config, projectId, onDisconnect }: EmailConnectPr
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
             className="max-w-xs"
           />
-          <Button onClick={handleSendCode} disabled={sending} size="sm">
-            {sending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-            Send Code
+          <Button onClick={handleConnect} disabled={connecting} size="sm">
+            {connecting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+            Connect
           </Button>
         </div>
       </CardContent>

@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       client_id: clientId,
       client_secret: clientSecret,
       code,
+      redirect_uri: process.env.GITHUB_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/github/callback`,
     }),
   });
 
