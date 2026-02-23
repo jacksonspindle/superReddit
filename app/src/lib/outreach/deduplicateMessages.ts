@@ -98,6 +98,21 @@ export function deduplicateMessages(
         isFromYou: m.author.toLowerCase() === discovered,
       }));
     }
+  } else if (uniqueAuthors.length === 1) {
+    // Single author visible after dedup — the extension may have attributed
+    // all messages to one side. We can still determine isFromYou if we know
+    // which side this author represents.
+    const singleAuthor = uniqueAuthors[0];
+    const myLower = myUsername?.toLowerCase();
+
+    let allFromYou: boolean | undefined;
+    if (myLower && singleAuthor === myLower) allFromYou = true;
+    else if (singleAuthor === otherLower) allFromYou = false;
+    else if (_myAuthorName && singleAuthor === _myAuthorName) allFromYou = true;
+
+    if (allFromYou !== undefined) {
+      return deduped.map((m) => ({ ...m, isFromYou: allFromYou! }));
+    }
   }
 
   return deduped;

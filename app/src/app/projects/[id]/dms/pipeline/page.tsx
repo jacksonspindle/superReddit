@@ -68,7 +68,9 @@ export default function DmPipelinePage() {
   const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
   const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
   const replyScanDoneRef = useRef(false);
-  const previewAutoAdvancedRef = useRef<Set<string>>(new Set());
+  const previewAutoAdvancedRef = useRef<Map<string, string>>(new Map());
+  const convoFallbackRef = useRef<Map<string, { stage: string; checkedAt: number }>>(new Map());
+  const theyRepliedListRef = useRef<string[]>([]);
 
   // Drag-and-drop state
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -132,6 +134,9 @@ export default function DmPipelinePage() {
   // Reddit Bridge
   const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
+  // Keep theyRepliedList in a ref so the conversation fallback can read it
+  // without adding it to its dependency array (which would change array size)
+  theyRepliedListRef.current = theyRepliedList;
 
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
@@ -402,13 +407,13 @@ export default function DmPipelinePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
 
-  // Background reply scan — detect replies from conversation data for dm_sent DMs
+  // Background reply scan — detect replies from conversation data for dm_sent/responded DMs
   useEffect(() => {
     if (loading || !fetchConversation || replyScanDoneRef.current) return;
     if (!bridgeStatus.extensionInstalled || bridgeStatus.checking) return;
 
-    const dmsSent = allDms.filter((d) => d.pipeline_stage === 'dm_sent');
-    if (dmsSent.length === 0) return;
+    const activeDms = allDms.filter((d) => d.pipeline_stage === 'dm_sent' || d.pipeline_stage === 'responded');
+    if (activeDms.length === 0) return;
 
     replyScanDoneRef.current = true;
     const redditUser = bridgeStatus.redditUsername ?? configRedditUsername;
@@ -416,7 +421,7 @@ export default function DmPipelinePage() {
     (async () => {
       let advancedCount = 0;
 
-      for (const dm of dmsSent) {
+      for (const dm of activeDms) {
         try {
           const rawMessages = await fetchConversation(dm.reddit_username);
           if (!rawMessages || rawMessages.length === 0) {
@@ -431,20 +436,45 @@ export default function DmPipelinePage() {
             dm.dm_body ?? undefined,
           );
 
-          // Only trust reply detection when there are 2+ distinct authors.
-          // Single-author conversations can't contain a reply, and the
-          // extension's raw isFromYou is unreliable for those cases.
-          const uniqueAuthors = new Set(processed.map((m) => m.author.toLowerCase()));
-          if (uniqueAuthors.size < 2) {
-            console.log(`[Reply Scan] ${dm.reddit_username}: only ${uniqueAuthors.size} author(s) [${[...uniqueAuthors].join(', ')}] — skipping`);
+          // Check who sent the LAST message
+          const lastMsg = processed[processed.length - 1];
+          let lastFromYou = lastMsg?.isFromYou;
+
+          // If deduplicateMessages couldn't determine authorship, fall back to
+          // the raw extension isFromYou on the last message (less reliable, but
+          // better than missing replies entirely)
+          if (lastFromYou === undefined && rawMessages.length > 0) {
+            const lastRaw = rawMessages[rawMessages.length - 1];
+            if (typeof lastRaw.isFromYou === 'boolean') {
+              lastFromYou = lastRaw.isFromYou;
+              console.log(`[Reply Scan] ${dm.reddit_username}: using raw isFromYou fallback=${lastFromYou}`);
+            }
+          }
+
+          if (lastFromYou === undefined) {
+            console.log(`[Reply Scan] ${dm.reddit_username}: ${processed.length} msgs, couldn't determine authorship — skipping`);
             continue;
           }
 
-          const hasReply = processed.some((m) => !m.isFromYou);
-          console.log(`[Reply Scan] ${dm.reddit_username}: ${processed.length} msgs, ${uniqueAuthors.size} authors [${[...uniqueAuthors].join(', ')}], hasReply=${hasReply}`);
-          if (hasReply) {
-            await handleStageChange(dm.id, 'responded', undefined, true);
-            advancedCount++;
+          const desiredStage = lastFromYou ? 'dm_sent' : 'responded';
+          console.log(`[Reply Scan] ${dm.reddit_username}: ${processed.length} msgs, lastFromYou=${lastFromYou}, desired=${desiredStage}, current=${dm.pipeline_stage}`);
+
+          // Persist reply text to DB so cards always show a preview snippet
+          const theirLastMsg = [...processed].reverse().find((m) => m.isFromYou === false);
+          if (theirLastMsg && theirLastMsg.text && theirLastMsg.text !== dm.last_reply_text) {
+            fetch('/api/outreach/dms/stage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dm_id: dm.id, last_reply_text: theirLastMsg.text }),
+            }).catch(() => {});
+          }
+
+          if (desiredStage !== dm.pipeline_stage) {
+            previewAutoAdvancedRef.current.set(dm.id, desiredStage);
+            await handleStageChange(dm.id, desiredStage, undefined, true);
+            if (desiredStage === 'responded') advancedCount++;
+          } else {
+            previewAutoAdvancedRef.current.set(dm.id, desiredStage);
           }
         } catch (err) {
           console.warn(`[Reply Scan] ${dm.reddit_username}: error`, err);
@@ -458,37 +488,154 @@ export default function DmPipelinePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, allDms, fetchConversation, bridgeStatus.extensionInstalled, bridgeStatus.checking]);
 
-  // Preview-based reply detection — catch replies the one-shot scan missed
+  // Preview-based bidirectional stage detection
+  // Uses fromYou to determine who sent the last message:
+  //   fromYou === false → responded (Follow Up)
+  //   fromYou === true  → dm_sent (DM Sent)
   useEffect(() => {
     if (loading) return;
     if (Object.keys(chatPreviews).length === 0) return;
 
-    const dmsSent = allDms.filter((d) => d.pipeline_stage === 'dm_sent');
-    if (dmsSent.length === 0) return;
+    const activeDms = allDms.filter((d) => d.pipeline_stage === 'dm_sent' || d.pipeline_stage === 'responded');
+    if (activeDms.length === 0) return;
 
-    const toAdvance: OutreachDM[] = [];
-    for (const dm of dmsSent) {
-      if (previewAutoAdvancedRef.current.has(dm.id)) continue;
+    const toChange: { dm: OutreachDM; desiredStage: string }[] = [];
+    for (const dm of activeDms) {
       const preview = chatPreviews[dm.reddit_username.toLowerCase()];
       if (!preview) continue;
-      if (preview.theirText || preview.fromYou === false) {
-        toAdvance.push(dm);
-      }
-    }
-    if (toAdvance.length === 0) return;
 
-    for (const dm of toAdvance) {
-      previewAutoAdvancedRef.current.add(dm.id);
+      const desiredStage = preview.fromYou === false ? 'responded' : 'dm_sent';
+
+      // Skip if already at the desired stage
+      if (desiredStage === dm.pipeline_stage) {
+        previewAutoAdvancedRef.current.set(dm.id, desiredStage);
+        continue;
+      }
+
+      // Skip if we already processed this exact transition
+      if (previewAutoAdvancedRef.current.get(dm.id) === desiredStage) continue;
+
+      toChange.push({ dm, desiredStage });
+    }
+    if (toChange.length === 0) return;
+
+    // Mark synchronously before async loop to prevent double-processing
+    for (const { dm, desiredStage } of toChange) {
+      previewAutoAdvancedRef.current.set(dm.id, desiredStage);
     }
 
     (async () => {
-      for (const dm of toAdvance) {
-        await handleStageChange(dm.id, 'responded', undefined, true);
+      let advancedCount = 0;
+      for (const { dm, desiredStage } of toChange) {
+        await handleStageChange(dm.id, desiredStage, undefined, true);
+        if (desiredStage === 'responded') advancedCount++;
       }
-      toast.success(`Auto-detected ${toAdvance.length} repl${toAdvance.length !== 1 ? 'ies' : 'y'}`);
+      // Only toast for advances (dm_sent → responded). Reverts are silent.
+      if (advancedCount > 0) {
+        toast.success(`Auto-detected ${advancedCount} repl${advancedCount !== 1 ? 'ies' : 'y'}`);
+      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, chatPreviews, allDms]);
+
+  // Conversation fallback — for DMs with NO preview data (e.g. not visible in chat sidebar)
+  // Uses fetchConversation as primary, theyRepliedList as last resort
+  useEffect(() => {
+    if (loading || !fetchConversation) return;
+    if (!bridgeStatus.extensionInstalled || bridgeStatus.checking) return;
+
+    const activeDms = allDms.filter((d) => d.pipeline_stage === 'dm_sent' || d.pipeline_stage === 'responded');
+    if (activeDms.length === 0) return;
+
+    // Only target DMs that have NO preview data
+    const noPreviewDms = activeDms.filter((dm) => {
+      const preview = chatPreviews[dm.reddit_username.toLowerCase()];
+      return !preview;
+    });
+    if (noPreviewDms.length === 0) return;
+
+    const redditUser = bridgeStatus.redditUsername ?? configRedditUsername;
+    const repliedSet = new Set(theyRepliedListRef.current.map((u) => u.toLowerCase()));
+    const now = Date.now();
+
+    (async () => {
+      let advancedCount = 0;
+
+      for (const dm of noPreviewDms) {
+        // Throttle: skip if checked within last 25s
+        const cached = convoFallbackRef.current.get(dm.id);
+        if (cached && now - cached.checkedAt < 25_000) continue;
+
+        try {
+          const rawMessages = await fetchConversation(dm.reddit_username);
+
+          if (rawMessages && rawMessages.length > 0) {
+            // Got conversation data — determine who sent last message
+            const processed = deduplicateMessages(
+              rawMessages,
+              dm.reddit_username,
+              redditUser,
+              dm.dm_body ?? undefined,
+            );
+
+            const lastMsg = processed[processed.length - 1];
+            let lastFromYou = lastMsg?.isFromYou;
+
+            // Fall back to raw extension isFromYou if deduplicateMessages couldn't determine
+            if (lastFromYou === undefined && rawMessages.length > 0) {
+              const lastRaw = rawMessages[rawMessages.length - 1];
+              if (typeof lastRaw.isFromYou === 'boolean') {
+                lastFromYou = lastRaw.isFromYou;
+                console.log(`[Convo Fallback] ${dm.reddit_username}: using raw isFromYou=${lastFromYou}`);
+              }
+            }
+
+            if (lastFromYou !== undefined) {
+              const desiredStage = lastFromYou ? 'dm_sent' : 'responded';
+              convoFallbackRef.current.set(dm.id, { stage: desiredStage, checkedAt: now });
+              previewAutoAdvancedRef.current.set(dm.id, desiredStage);
+
+              // Persist reply text to DB so the card shows a preview snippet
+              // even for sidebar-absent conversations
+              const theirLastMsg = [...processed].reverse().find((m) => m.isFromYou === false);
+              if (theirLastMsg && theirLastMsg.text && theirLastMsg.text !== dm.last_reply_text) {
+                fetch('/api/outreach/dms/stage', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ dm_id: dm.id, last_reply_text: theirLastMsg.text }),
+                }).catch(() => {});
+              }
+
+              if (desiredStage !== dm.pipeline_stage) {
+                await handleStageChange(dm.id, desiredStage, undefined, true);
+                if (desiredStage === 'responded') advancedCount++;
+              }
+              continue;
+            }
+          }
+
+          // No conversation data OR couldn't determine authorship —
+          // use theyRepliedList as last resort (one-directional: only advance to responded)
+          if (dm.pipeline_stage === 'dm_sent' && repliedSet.has(dm.reddit_username.toLowerCase())) {
+            console.log(`[Convo Fallback] ${dm.reddit_username}: no conversation data, but in theyRepliedList — advancing`);
+            convoFallbackRef.current.set(dm.id, { stage: 'responded', checkedAt: now });
+            previewAutoAdvancedRef.current.set(dm.id, 'responded');
+            await handleStageChange(dm.id, 'responded', undefined, true);
+            advancedCount++;
+          } else {
+            convoFallbackRef.current.set(dm.id, { stage: dm.pipeline_stage, checkedAt: now });
+          }
+        } catch (err) {
+          console.warn(`[Convo Fallback] ${dm.reddit_username}: error`, err);
+        }
+      }
+
+      if (advancedCount > 0) {
+        toast.success(`Found ${advancedCount} repl${advancedCount !== 1 ? 'ies' : 'y'} (conversation check)`);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, chatPreviews, allDms, fetchConversation, bridgeStatus.extensionInstalled, bridgeStatus.checking]);
 
   // Manual scan
   async function handleScan() {
