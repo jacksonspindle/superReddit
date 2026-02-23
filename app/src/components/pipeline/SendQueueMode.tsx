@@ -92,7 +92,9 @@ function deduplicateMessages(
         ...msg,
         text: msg.text.replace(timestampPrefix, '').trim(),
         author,
-        isFromYou: msg.isFromYou || !isOtherUser,
+        // In a 1:1 DM, authorship is deterministic: if author matches
+        // the other user it's from them, otherwise it's from you.
+        isFromYou: !isOtherUser,
       };
     })
     .filter((msg) => msg.text.length > 0);
