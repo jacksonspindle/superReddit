@@ -140,17 +140,13 @@ export async function POST(request: NextRequest) {
 
     for (const [username, dms] of existingByUsername) {
       for (const dm of dms) {
-        // Advance READY → dm_sent (or responded) if user sent a DM
+        // Advance READY → dm_sent if user sent a DM (initial classification only)
         if (readyStages.has(dm.pipeline_stage) && sentSet.has(username)) {
-          const newStage = repliedSet.has(username) ? 'responded' : 'dm_sent';
-          await supabase.from('outreach_dms').update({ pipeline_stage: newStage }).eq('id', dm.id);
+          await supabase.from('outreach_dms').update({ pipeline_stage: 'dm_sent' }).eq('id', dm.id);
           advanced++;
         }
-        // Advance dm_sent → responded if they replied
-        else if (dm.pipeline_stage === 'dm_sent' && repliedSet.has(username)) {
-          await supabase.from('outreach_dms').update({ pipeline_stage: 'responded' }).eq('id', dm.id);
-          advanced++;
-        }
+        // NOTE: dm_sent → responded advancement removed — client unified effect
+        // handles this with fresh conversation/preview data instead of historical theyReplied
       }
     }
 
@@ -167,15 +163,10 @@ export async function POST(request: NextRequest) {
       if (skipStages.has(entry.pipeline_stage)) continue;
       const uname = normalizeUsername(entry.reddit_username);
 
-      // Only advance dm_sent → responded (not any non-responded stage).
-      // theyReplied is historical ("they replied at some point"), not "they sent the last message".
-      // Also check preview fromYou — if true, you already replied back, don't advance.
-      if (repliedSet.has(uname) && entry.pipeline_stage === 'dm_sent') {
-        const previewForUser = previews?.[uname];
-        if (previewForUser && previewForUser.fromYou === true) continue;
-        await supabase.from('outreach_dms').update({ pipeline_stage: 'responded' }).eq('id', entry.id);
-        reconciled++;
-      } else if (sentSet.has(uname) && !repliedSet.has(uname) && readyStages.has(entry.pipeline_stage)) {
+      // NOTE: dm_sent → responded reconciliation removed — client unified effect
+      // handles this with fresh conversation/preview data instead of historical theyReplied.
+      // Only reconcile ready → dm_sent for sent users (safe initial classification).
+      if (sentSet.has(uname) && readyStages.has(entry.pipeline_stage)) {
         await supabase.from('outreach_dms').update({ pipeline_stage: 'dm_sent' }).eq('id', entry.id);
         reconciled++;
       }
