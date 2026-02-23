@@ -141,6 +141,7 @@ export function SendQueueMode({
 
   // Local conversation cache — avoids re-fetching the same username
   const conversationCache = useRef<Map<string, ConversationMessage[]>>(new Map());
+  const inflight = useRef<Set<string>>(new Set());
   const initialPrefetchDone = useRef(false);
 
   // Swipe gesture state
@@ -215,17 +216,28 @@ export function SendQueueMode({
     }
   }, [started, currentIndex, currentDm, cooldownRemaining]);
 
-  // Fetch a conversation and store in local cache
+  // Fetch a conversation and store in local cache (only caches non-empty results)
   const fetchAndCacheConversation = useCallback(
     async (dm: OutreachDM): Promise<ConversationMessage[]> => {
       const cacheKey = dm.reddit_username.toLowerCase();
       const cached = conversationCache.current.get(cacheKey);
       if (cached) return cached;
       if (!fetchConversation) return [];
-      const msgs = await fetchConversation(dm.reddit_username);
-      const deduped = deduplicateMessages(msgs, dm.reddit_username);
-      conversationCache.current.set(cacheKey, deduped);
-      return deduped;
+      // Prevent duplicate in-flight requests for the same user
+      if (inflight.current.has(cacheKey)) return [];
+      inflight.current.add(cacheKey);
+      try {
+        const msgs = await fetchConversation(dm.reddit_username);
+        const deduped = deduplicateMessages(msgs, dm.reddit_username);
+        // Only cache non-empty results — empty may mean the extension hasn't
+        // loaded this conversation yet, so we want to retry on next view
+        if (deduped.length > 0) {
+          conversationCache.current.set(cacheKey, deduped);
+        }
+        return deduped;
+      } finally {
+        inflight.current.delete(cacheKey);
+      }
     },
     [fetchConversation]
   );
@@ -236,7 +248,7 @@ export function SendQueueMode({
       setFullMessages([]);
       return;
     }
-    // Instant cache hit — no spinner needed
+    // Instant cache hit (only non-empty results are cached)
     const cacheKey = currentDm.reddit_username.toLowerCase();
     const cached = conversationCache.current.get(cacheKey);
     if (cached) {
