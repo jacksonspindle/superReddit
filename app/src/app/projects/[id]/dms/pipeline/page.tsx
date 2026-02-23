@@ -68,6 +68,7 @@ export default function DmPipelinePage() {
   const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
   const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
   const replyScanDoneRef = useRef(false);
+  const previewAutoAdvancedRef = useRef<Set<string>>(new Set());
 
   // Drag-and-drop state
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -456,6 +457,38 @@ export default function DmPipelinePage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, allDms, fetchConversation, bridgeStatus.extensionInstalled, bridgeStatus.checking]);
+
+  // Preview-based reply detection — catch replies the one-shot scan missed
+  useEffect(() => {
+    if (loading) return;
+    if (Object.keys(chatPreviews).length === 0) return;
+
+    const dmsSent = allDms.filter((d) => d.pipeline_stage === 'dm_sent');
+    if (dmsSent.length === 0) return;
+
+    const toAdvance: OutreachDM[] = [];
+    for (const dm of dmsSent) {
+      if (previewAutoAdvancedRef.current.has(dm.id)) continue;
+      const preview = chatPreviews[dm.reddit_username.toLowerCase()];
+      if (!preview) continue;
+      if (preview.theirText || preview.fromYou === false) {
+        toAdvance.push(dm);
+      }
+    }
+    if (toAdvance.length === 0) return;
+
+    for (const dm of toAdvance) {
+      previewAutoAdvancedRef.current.add(dm.id);
+    }
+
+    (async () => {
+      for (const dm of toAdvance) {
+        await handleStageChange(dm.id, 'responded', undefined, true);
+      }
+      toast.success(`Auto-detected ${toAdvance.length} repl${toAdvance.length !== 1 ? 'ies' : 'y'}`);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, chatPreviews, allDms]);
 
   // Manual scan
   async function handleScan() {
