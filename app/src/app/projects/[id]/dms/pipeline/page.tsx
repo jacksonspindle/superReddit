@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { useRedditBridge } from '@/hooks/useRedditBridge';
 import type { ChatPreview } from '@/hooks/useRedditBridge';
 import type { OutreachDM, DmPipelineStage, MonitoredPost } from '@/types';
+import { deduplicateMessages } from '@/lib/outreach/deduplicateMessages';
 
 type KanbanStage = 'ready' | 'sent' | 'followup' | 'converted';
 
@@ -64,6 +65,7 @@ export default function DmPipelinePage() {
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
   const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
   const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
+  const replyScanDoneRef = useRef(false);
 
   // Open send queue starting at a specific DM (for Ready column card clicks)
   const handleOpenReadyQueue = useCallback((dm: OutreachDM) => {
@@ -362,6 +364,49 @@ export default function DmPipelinePage() {
     sync();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
+
+  // Background reply scan — detect replies from conversation data for dm_sent DMs
+  useEffect(() => {
+    if (loading || !fetchConversation || replyScanDoneRef.current) return;
+    if (!bridgeStatus.extensionInstalled || bridgeStatus.checking) return;
+
+    const dmsSent = allDms.filter((d) => d.pipeline_stage === 'dm_sent');
+    if (dmsSent.length === 0) return;
+
+    replyScanDoneRef.current = true;
+    const redditUser = bridgeStatus.redditUsername ?? configRedditUsername;
+
+    (async () => {
+      let advancedCount = 0;
+
+      for (const dm of dmsSent) {
+        try {
+          const rawMessages = await fetchConversation(dm.reddit_username);
+          if (!rawMessages || rawMessages.length === 0) continue;
+
+          const processed = deduplicateMessages(
+            rawMessages,
+            dm.reddit_username,
+            redditUser,
+            dm.dm_body ?? undefined,
+          );
+
+          const hasReply = processed.some((m) => !m.isFromYou);
+          if (hasReply) {
+            await handleStageChange(dm.id, 'responded', undefined, true);
+            advancedCount++;
+          }
+        } catch {
+          // Skip this DM on error, continue scanning others
+        }
+      }
+
+      if (advancedCount > 0) {
+        toast.success(`Found ${advancedCount} new repl${advancedCount !== 1 ? 'ies' : 'y'}`);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, allDms, fetchConversation, bridgeStatus.extensionInstalled, bridgeStatus.checking]);
 
   // Manual scan
   async function handleScan() {
