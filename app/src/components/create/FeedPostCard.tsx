@@ -1,7 +1,8 @@
 'use client';
 
-import { ArrowUpRight, MessageSquare, Clock, ExternalLink } from 'lucide-react';
+import { ArrowUpRight, MessageSquare, Clock, ExternalLink, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useBookmarkStore } from '@/stores/bookmark-store';
 import type { RedditPost } from '@/types';
 
 interface FeedPostCardProps {
@@ -30,6 +31,8 @@ function isValidThumbnail(url: string | null): boolean {
 }
 
 export function FeedPostCard({ post, onUse, isUsed }: FeedPostCardProps) {
+  const { isBookmarked, addBookmark, removeBookmark } = useBookmarkStore();
+  const bookmarked = isBookmarked(post.id);
   const showPreview = post.preview_url;
   const showThumbnail = !showPreview && isValidThumbnail(post.thumbnail);
 
@@ -123,6 +126,14 @@ export function FeedPostCard({ post, onUse, isUsed }: FeedPostCardProps) {
                 <ExternalLink className="h-3 w-3" />
               </Button>
             </a>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-6 px-1.5 ${bookmarked ? 'text-primary' : ''}`}
+              onClick={() => bookmarked ? removeBookmark(post.id) : addBookmark(post)}
+            >
+              <Bookmark className={`h-3 w-3 ${bookmarked ? 'fill-current' : ''}`} />
+            </Button>
             <Button
               variant={isUsed ? 'secondary' : 'outline'}
               size="sm"
