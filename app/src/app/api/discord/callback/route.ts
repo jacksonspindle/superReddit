@@ -164,9 +164,16 @@ export async function GET(request: NextRequest) {
         .upsert(monitoredSubs, { onConflict: 'project_id,name' });
     }
 
-    // Redirect to the outreach alerts page
-    const redirectUrl = `/projects/${state.project_id}/outreach/alerts?connected=true`;
-    return NextResponse.redirect(new URL(redirectUrl, request.url));
+    // Return a self-closing HTML page (parent polls for connection)
+    return new NextResponse(
+      `<!DOCTYPE html>
+<html><head><title>Discord Connected</title></head>
+<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb">
+<p style="font-size:18px;color:#111">Discord connected! You can close this window.</p>
+<script>setTimeout(()=>window.close(),1500)</script>
+</body></html>`,
+      { status: 200, headers: { 'Content-Type': 'text/html' } }
+    );
   } catch (error) {
     console.error('Discord callback error:', error);
     return NextResponse.redirect(new URL('/alerts?error=unknown', request.url));
