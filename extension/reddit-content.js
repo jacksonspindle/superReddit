@@ -761,15 +761,16 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   let latestScanData = { usernames: [], youSentTo: [], theyReplied: [], previews: {}, chatUrls: {} };
 
   // ---- Identify the currently open/active chat conversation partner ----
-  // Reddit's sidebar marks the active conversation with visual styling.
-  // We identify it by checking which conversation link is selected/highlighted.
+  // IMPORTANT: All strategies here MUST depend on actual rendered DOM state,
+  // NOT the URL. The URL changes immediately on navigation but the DOM/SPA
+  // may still be rendering the previous conversation. URL-based checks would
+  // falsely validate stale content, causing cross-contamination.
   function identifyOpenChatPartner() {
     const chatLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
     if (chatLinks.length === 0) return null;
 
-    // Strategy 1: Look for an active/selected/current state on sidebar links.
-    // Reddit uses various indicators: aria-current, aria-selected, data-active,
-    // or background-color/highlight CSS on the active conversation.
+    // Strategy 1: Explicit active/selected state attributes on sidebar links.
+    // These are set by the chat app when it actually renders a conversation.
     for (const link of chatLinks) {
       const ariaCurrent = link.getAttribute('aria-current');
       const ariaSelected = link.getAttribute('aria-selected');
@@ -782,42 +783,28 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     }
 
-    // Strategy 2: Check for visual active state via CSS (highlighted background).
-    // The active conversation typically has a different background color.
-    for (const link of chatLinks) {
-      try {
-        const style = window.getComputedStyle(link);
-        const bg = style.backgroundColor;
-        // Skip transparent / default backgrounds — active items have a visible bg
-        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
-          // Check if this link has a noticeably different background than others
-          const label = link.getAttribute('aria-label') || '';
-          const m = label.match(/Direct chat with\s+(.+)/i);
-          if (m) {
-            // Verify: check the current URL for this user's room path
-            const username = m[1].trim().toLowerCase();
-            const href = link.getAttribute('href') || '';
-            const currentPath = location.pathname;
-            if (href && currentPath.includes('/chat/') &&
-                (currentPath.includes(href.replace(/^\/chat/, '')) || currentPath === href)) {
-              return username;
-            }
-          }
-        }
-      } catch (e) { /* skip */ }
-    }
-
-    // Strategy 3: Match the current URL path to a known conversation link's href.
-    // If we navigated to /chat/room/ROOM_ID, the sidebar link pointing to that room
-    // tells us who the conversation is with.
-    const currentPath = location.pathname;
-    if (currentPath.includes('/chat/')) {
+    // Strategy 2: Visual active state — find the sidebar link with a different
+    // background color than the majority (the "highlighted" one).
+    // This is a rendered DOM property, not URL-dependent.
+    if (chatLinks.length >= 2) {
+      const bgCounts = {};
+      const linkBgs = [];
       for (const link of chatLinks) {
-        const href = link.getAttribute('href') || '';
-        if (!href || href === '#') continue;
-        // Normalize: href may be /room/!xxx or /chat/room/!xxx
-        const normalizedHref = href.startsWith('/room/') ? '/chat' + href : href;
-        if (currentPath === normalizedHref || currentPath.startsWith(normalizedHref)) {
+        try {
+          const bg = window.getComputedStyle(link).backgroundColor || '';
+          linkBgs.push({ link, bg });
+          bgCounts[bg] = (bgCounts[bg] || 0) + 1;
+        } catch (e) { linkBgs.push({ link, bg: '' }); }
+      }
+      // Find the most common background (the "default" inactive color)
+      let defaultBg = '';
+      let maxCount = 0;
+      for (const [bg, count] of Object.entries(bgCounts)) {
+        if (count > maxCount) { defaultBg = bg; maxCount = count; }
+      }
+      // The active link is the ONE with a different background
+      for (const { link, bg } of linkBgs) {
+        if (bg && bg !== defaultBg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
           const label = link.getAttribute('aria-label') || '';
           const m = label.match(/Direct chat with\s+(.+)/i);
           if (m) return m[1].trim().toLowerCase();
@@ -825,8 +812,9 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     }
 
-    // Strategy 4: Look for the conversation header in the message panel.
+    // Strategy 3: Look for the conversation header in the message panel.
     // Reddit shows the partner's name prominently at the top of the chat.
+    // This text only updates when the conversation actually renders.
     const headerSelectors = [
       'h1', 'h2', 'h3',
       '[data-testid*="conversation-header"]',
@@ -839,7 +827,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       for (const header of headers) {
         const text = (header.textContent || '').trim();
         if (text && looksLikeUsername(text) && !isCommonWord(text)) {
-          // Verify this header username is a known conversation partner
+          // Cross-reference with sidebar to confirm it's a real chat partner
           const textLower = text.toLowerCase();
           for (const link of chatLinks) {
             const label = link.getAttribute('aria-label') || '';
@@ -852,6 +840,8 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     }
 
+    // NO URL-based fallback. If we can't determine the active conversation
+    // from rendered DOM state, return null — scrape will be rejected.
     return null;
   }
 
