@@ -21,6 +21,7 @@ import {
   PanelLeftOpen,
   FileText,
   Globe,
+  Puzzle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -126,6 +127,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
 
   const contextChildren = [
     { href: `${base}/context/profile`, label: 'Profile', icon: Settings },
+    { href: `${base}/context/extension`, label: 'Extension', icon: Puzzle },
   ];
 
   const handleLogout = async () => {
