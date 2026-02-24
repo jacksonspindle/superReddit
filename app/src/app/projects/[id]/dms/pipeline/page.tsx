@@ -16,6 +16,7 @@ import { KanbanColumn } from '@/components/pipeline/KanbanColumn';
 import { KanbanLeadCard } from '@/components/pipeline/KanbanLeadCard';
 import { ColumnExpandOverlay } from '@/components/pipeline/ColumnExpandOverlay';
 import { SendQueueMode } from '@/components/pipeline/SendQueueMode';
+import { LeadDetailPanel } from '@/components/pipeline/LeadDetailPanel';
 import { RedditBridgeIndicator } from '@/components/pipeline/RedditBridgeIndicator';
 import type { PostInfo } from '@/components/pipeline/PostFilterRow';
 import { toast } from 'sonner';
@@ -68,6 +69,7 @@ export default function DmPipelinePage() {
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
   const [sendQueueStartId, setSendQueueStartId] = useState<string | null>(null);
   const [followUpQueueStartId, setFollowUpQueueStartId] = useState<string | null>(null);
+  const [detailDm, setDetailDm] = useState<OutreachDM | null>(null);
   const previewAutoAdvancedRef = useRef<Map<string, string>>(new Map());
   const convoFallbackRef = useRef<Map<string, { stage: string; checkedAt: number }>>(new Map());
 
@@ -117,17 +119,26 @@ export default function DmPipelinePage() {
     setFollowUpQueueActive(true);
   }, []);
 
-  // General card click handler for ColumnExpandOverlay — routes to the right queue
-  const handleCardClick = useCallback((dm: OutreachDM) => {
+  // Open detail panel for any card click
+  const handleOpenDetail = useCallback((dm: OutreachDM) => {
+    setDetailDm(dm);
+  }, []);
+
+  // Route from detail panel "Send" button to the right queue
+  const handleDetailToQueue = useCallback((dm: OutreachDM) => {
     if (['detected', 'dm_ready', 'draft_generated'].includes(dm.pipeline_stage)) {
-      setExpandedColumn(null);
       setSendQueueStartId(dm.id);
       setSendQueueActive(true);
     } else if (dm.pipeline_stage === 'responded') {
-      setExpandedColumn(null);
       setFollowUpQueueStartId(dm.id);
       setFollowUpQueueActive(true);
     }
+  }, []);
+
+  // General card click handler for ColumnExpandOverlay
+  const handleCardClick = useCallback((dm: OutreachDM) => {
+    setExpandedColumn(null);
+    setDetailDm(dm);
   }, []);
 
   // Reddit Bridge
@@ -955,7 +966,7 @@ export default function DmPipelinePage() {
                     onDraft={handleOpenReadyQueue}
                     onStageChange={handleStageChange}
                     onDismiss={handleDismiss}
-                    onOpenConversation={handleOpenReadyQueue}
+                    onOpenConversation={handleOpenDetail}
                   />
                 ))}
               </KanbanColumn>
@@ -985,6 +996,7 @@ export default function DmPipelinePage() {
                     isDragging={dm.id === activeDragId}
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onStageChange={handleStageChange}
+                    onOpenConversation={handleOpenDetail}
                   />
                 ))}
               </KanbanColumn>
@@ -1026,7 +1038,7 @@ export default function DmPipelinePage() {
                     chatPreview={chatPreviews[dm.reddit_username.toLowerCase()]}
                     onDraft={handleOpenFollowUpQueue}
                     onStageChange={handleStageChange}
-                    onOpenConversation={handleOpenFollowUpQueue}
+                    onOpenConversation={handleOpenDetail}
                   />
                 ))}
               </KanbanColumn>
@@ -1055,6 +1067,7 @@ export default function DmPipelinePage() {
                     stage="converted"
                     isDragging={dm.id === activeDragId}
                     onStageChange={handleStageChange}
+                    onOpenConversation={handleOpenDetail}
                   />
                 ))}
               </KanbanColumn>
@@ -1151,6 +1164,18 @@ export default function DmPipelinePage() {
           />
         );
       })()}
+
+      {/* Lead detail panel (conversation view) */}
+      {detailDm && (
+        <LeadDetailPanel
+          dm={detailDm}
+          chatPreview={chatPreviews[detailDm.reddit_username.toLowerCase()]}
+          redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}
+          fetchConversation={fetchConversation}
+          onClose={() => setDetailDm(null)}
+          onOpenQueue={handleDetailToQueue}
+        />
+      )}
 
     </PageTransition>
   );
