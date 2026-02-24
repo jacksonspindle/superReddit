@@ -227,11 +227,11 @@ export function ConversationTimeline({ dm, chatPreview, fullMessages, loading }:
         </div>
       )}
 
-      {/* Subtle indicator: full thread still loading in background */}
+      {/* Full thread loading indicator */}
       {loading && (
-        <div className="flex items-center justify-center py-2">
-          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/40" />
-          <span className="ml-1.5 text-[10px] text-muted-foreground/40">Loading full thread...</span>
+        <div className="flex items-center justify-center gap-2 py-4 px-3 mt-2 rounded-lg border border-dashed border-border/60 bg-muted/20">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-xs text-muted-foreground font-medium">Loading full conversation from Reddit...</span>
         </div>
       )}
 

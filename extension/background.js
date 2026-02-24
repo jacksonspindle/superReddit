@@ -1136,23 +1136,52 @@ async function fetchConversationViaNavigation(username) {
     });
   });
 
-  // Helper: check storage for fresh interceptor-captured messages
+  // Helper: check storage for fresh interceptor-captured messages.
+  // First checks the exact username key. If not found, also checks ALL conversations
+  // for any that were updated after navStartTime — the interceptor may store under a
+  // display name that doesn't exactly match the Reddit username. When a match is found
+  // under a different key, we copy it under the correct username key.
   async function checkFreshMessages(user) {
     const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
     const convos = stored[CONVERSATIONS_KEY] || {};
+
+    // Direct match (most common case)
     const convo = convos[user] || null;
     if (convo && convo.messages && convo.messages.length > 0 && convo.lastUpdated >= navStartTime) {
       return convo;
     }
+
+    // Fuzzy match: look for any conversation updated since navigation started.
+    // The interceptor might store data under a display name (e.g., "opcollectr" vs "OpCollectr")
+    // or under a Matrix ID. We trust it if exactly ONE conversation was updated in this window.
+    const recentlyUpdated = [];
+    for (const [key, val] of Object.entries(convos)) {
+      if (key === user) continue; // already checked
+      if (val && val.messages && val.messages.length > 0 && val.lastUpdated >= navStartTime) {
+        recentlyUpdated.push({ key, convo: val });
+      }
+    }
+    if (recentlyUpdated.length === 1) {
+      // Exactly one other conversation was updated — it's very likely the one we navigated to
+      const match = recentlyUpdated[0];
+      console.log('[SR BG] checkFreshMessages: fuzzy match — data stored under "' + match.key + '" but we want "' + user + '", copying');
+      // Copy under the correct username key
+      convos[user] = { ...match.convo };
+      await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
+      return match.convo;
+    }
+
     return null;
   }
 
   // Aggressive poll: check interceptor + DOM scrape every 750ms, return instantly
   // when data appears. tabLoaded flag enables DOM scrape after page is ready.
+  // DOM scrape retries up to 3 times (SPA may need a moment to render the conversation).
   async function pollForData(tid, user, maxWaitMs) {
     const POLL_INTERVAL = 750;
     let tabLoaded = false;
-    let domScrapeTried = false;
+    let domScrapeAttempts = 0;
+    const MAX_DOM_SCRAPE_ATTEMPTS = 3;
 
     // Non-blocking tab load listener
     const loadDone = new Promise((resolve) => {
@@ -1180,13 +1209,18 @@ async function fetchConversationViaNavigation(username) {
         return intercepted;
       }
 
-      // Once tab has loaded, try DOM scrape (only once — it's expensive)
-      if (tabLoaded && !domScrapeTried) {
-        domScrapeTried = true;
+      // Once tab has loaded, try DOM scrape (retry up to 3 times with delays between)
+      if (tabLoaded && domScrapeAttempts < MAX_DOM_SCRAPE_ATTEMPTS) {
+        domScrapeAttempts++;
+        console.log('[SR BG] Poll: DOM scrape attempt ' + domScrapeAttempts + '/' + MAX_DOM_SCRAPE_ATTEMPTS + ' for u/' + user);
         const domResult = await validatedDomScrape(tid, user);
         if (domResult) {
-          console.log('[SR BG] Poll: DOM scrape hit after ' + (Date.now() - navStartTime) + 'ms for u/' + user);
+          console.log('[SR BG] Poll: DOM scrape hit after ' + (Date.now() - navStartTime) + 'ms for u/' + user + ' (attempt ' + domScrapeAttempts + ')');
           return domResult;
+        }
+        // Wait extra time between DOM scrape retries (give SPA time to render)
+        if (domScrapeAttempts < MAX_DOM_SCRAPE_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
 
@@ -1196,7 +1230,7 @@ async function fetchConversationViaNavigation(username) {
     // Final check after timeout
     const lastChance = await checkFreshMessages(user);
     if (lastChance) return lastChance;
-    if (!domScrapeTried) {
+    if (domScrapeAttempts === 0) {
       const finalDom = await validatedDomScrape(tid, user);
       if (finalDom) return finalDom;
     }
@@ -1243,6 +1277,48 @@ async function fetchConversationViaNavigation(username) {
         return await storeScrapedMessages(userLower, scraped);
       }
 
+      // Tertiary validation: if exactly 2 authors and one is unknown,
+      // check if the "other" author is a known conversation partner from the sidebar.
+      // If the only other user in the convo IS our target (via sidebar scan data), accept it.
+      // This handles display name mismatches (e.g., "OpCollectr" vs "opcollectr").
+      if (authors.size === 2) {
+        // Pull sidebar scan data to see known usernames
+        const scanData = await new Promise((resolve) => {
+          const timer = setTimeout(() => resolve(null), 2000);
+          try {
+            chrome.tabs.sendMessage(tid, { type: 'GET_SCAN_DATA' }, (resp) => {
+              clearTimeout(timer);
+              if (chrome.runtime.lastError || !resp) { resolve(null); return; }
+              resolve(resp);
+            });
+          } catch { clearTimeout(timer); resolve(null); }
+        });
+        if (scanData && scanData.usernames) {
+          const knownUsers = new Set(scanData.usernames.map(u => u.toLowerCase()));
+          const authorArr = [...authors];
+          // If one author is a known chat partner that ISN'T the target, reject
+          // If neither is known or one matches target pattern, accept cautiously
+          const authorsInSidebar = authorArr.filter(a => knownUsers.has(a));
+          const authorsNotInSidebar = authorArr.filter(a => !knownUsers.has(a));
+          // If exactly one author is in sidebar and it's NOT our target,
+          // the other author must be "me" — so the sidebar author IS the conversation partner
+          if (authorsInSidebar.length === 1 && authorsInSidebar[0] === userLower) {
+            console.log('[SR BG] Validated DOM scrape via sidebar cross-ref: ' + scraped.length + ' messages for u/' + user + ' (sidebar match)');
+            return await storeScrapedMessages(userLower, scraped);
+          }
+          // If one author is NOT in sidebar (likely "me" with a display name),
+          // and the target IS in the sidebar, that's also a valid match
+          if (authorsNotInSidebar.length === 1 && knownUsers.has(userLower)) {
+            // The known sidebar user that isn't "me" should be our target
+            const sidebarAuthor = authorsInSidebar[0];
+            if (sidebarAuthor === userLower) {
+              console.log('[SR BG] Validated DOM scrape via display-name elimination: ' + scraped.length + ' messages for u/' + user);
+              return await storeScrapedMessages(userLower, scraped);
+            }
+          }
+        }
+      }
+
       console.log('[SR BG] DOM scrape REJECTED: chatPartner=' + chatPartner + ', authors=[' + [...authors].join(', ') + '], expected u/' + user);
       return null;
     } catch (err) {
@@ -1269,7 +1345,7 @@ async function fetchConversationViaNavigation(username) {
       await chrome.tabs.update(tabId, { url: fullUrl });
 
       // Aggressive poll: returns the instant data is available (interceptor or DOM scrape)
-      const convo = await pollForData(tabId, userLower, 8000);
+      const convo = await pollForData(tabId, userLower, 12000);
       if (convo) {
         console.log('[SR BG] Direct nav: got ' + convo.messages.length + ' messages for u/' + username);
         return convo;
@@ -1304,7 +1380,7 @@ async function fetchConversationViaNavigation(username) {
 
     // Aggressive poll — sidebar nav doesn't change the URL so no waitForTabLoad needed
     // Just poll for interceptor data + DOM scrape
-    const convo = await pollForData(tabId, userLower, 8000);
+    const convo = await pollForData(tabId, userLower, 12000);
     if (convo) {
       console.log('[SR BG] Sidebar nav: got ' + convo.messages.length + ' messages for u/' + username);
       return convo;

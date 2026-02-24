@@ -840,6 +840,30 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       }
     }
 
+    // Strategy 4: Look for user profile links in the message panel area.
+    // The conversation partner's username often appears as a clickable profile link
+    // (e.g., /user/USERNAME) near the top of the chat panel. Only trust if we find
+    // exactly one unique user link that also appears in the sidebar (cross-reference).
+    const messagePanelLinks = document.querySelectorAll('a[href*="/user/"]');
+    const panelUsernames = new Set();
+    for (const link of messagePanelLinks) {
+      const m = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
+      if (m && m[1] !== 'me' && !isCommonWord(m[1])) {
+        const uLower = m[1].toLowerCase();
+        // Cross-reference with sidebar
+        for (const sideLink of chatLinks) {
+          const sLabel = sideLink.getAttribute('aria-label') || '';
+          const sm = sLabel.match(/Direct chat with\s+(.+)/i);
+          if (sm && sm[1].trim().toLowerCase() === uLower) {
+            panelUsernames.add(uLower);
+          }
+        }
+      }
+    }
+    if (panelUsernames.size === 1) {
+      return [...panelUsernames][0];
+    }
+
     // NO URL-based fallback. If we can't determine the active conversation
     // from rendered DOM state, return null — scrape will be rejected.
     return null;
