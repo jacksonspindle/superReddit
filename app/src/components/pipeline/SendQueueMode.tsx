@@ -216,9 +216,24 @@ export function SendQueueMode({
         try {
           const msgs = await fetchConversation(dm.reddit_username);
           const deduped = deduplicateMessages(msgs, dm.reddit_username, redditUsername, dm.dm_body || undefined);
-          // Only cache non-empty results — empty may mean the extension hasn't
-          // loaded this conversation yet, so we want to retry on next view
+          // Safety check: reject messages that don't belong to this conversation.
+          // If none of the message authors match the expected reddit_username,
+          // the extension returned cross-contaminated data.
           if (deduped.length > 0) {
+            const targetLower = dm.reddit_username.toLowerCase();
+            const authors = new Set(deduped.map((m) => m.author.toLowerCase()));
+            const hasTargetUser = authors.has(targetLower) ||
+              // Also accept if the sidebar label "them" was used
+              deduped.some((m) => !m.isFromYou && m.author.toLowerCase() !== 'you');
+            // Strict check: at least one non-"you" message author must match the target
+            const nonYouAuthors = [...authors].filter((a) => a !== 'you' && a !== redditUsername?.toLowerCase());
+            const matchesTarget = nonYouAuthors.includes(targetLower) ||
+              nonYouAuthors.length === 0; // all messages from "you" is fine
+            if (!matchesTarget && nonYouAuthors.length > 0) {
+              console.warn('[SendQueue] Rejected cross-contaminated messages for u/' + dm.reddit_username +
+                ' — authors were: [' + nonYouAuthors.join(', ') + ']');
+              return [];
+            }
             conversationCache.current.set(cacheKey, deduped);
           }
           return deduped;

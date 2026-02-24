@@ -1137,40 +1137,16 @@ async function fetchConversationViaNavigation(username) {
   });
 
   // Helper: check storage for fresh interceptor-captured messages.
-  // First checks the exact username key. If not found, also checks ALL conversations
-  // for any that were updated after navStartTime — the interceptor may store under a
-  // display name that doesn't exactly match the Reddit username. When a match is found
-  // under a different key, we copy it under the correct username key.
+  // ONLY checks the exact username key — no fuzzy matching.
+  // Fuzzy matching is unsafe because the WebSocket is persistent and delivers
+  // messages for ALL conversations at any time, causing cross-contamination.
   async function checkFreshMessages(user) {
     const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
     const convos = stored[CONVERSATIONS_KEY] || {};
-
-    // Direct match (most common case)
     const convo = convos[user] || null;
     if (convo && convo.messages && convo.messages.length > 0 && convo.lastUpdated >= navStartTime) {
       return convo;
     }
-
-    // Fuzzy match: look for any conversation updated since navigation started.
-    // The interceptor might store data under a display name (e.g., "opcollectr" vs "OpCollectr")
-    // or under a Matrix ID. We trust it if exactly ONE conversation was updated in this window.
-    const recentlyUpdated = [];
-    for (const [key, val] of Object.entries(convos)) {
-      if (key === user) continue; // already checked
-      if (val && val.messages && val.messages.length > 0 && val.lastUpdated >= navStartTime) {
-        recentlyUpdated.push({ key, convo: val });
-      }
-    }
-    if (recentlyUpdated.length === 1) {
-      // Exactly one other conversation was updated — it's very likely the one we navigated to
-      const match = recentlyUpdated[0];
-      console.log('[SR BG] checkFreshMessages: fuzzy match — data stored under "' + match.key + '" but we want "' + user + '", copying');
-      // Copy under the correct username key
-      convos[user] = { ...match.convo };
-      await new Promise((resolve) => chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve));
-      return match.convo;
-    }
-
     return null;
   }
 
@@ -1277,12 +1253,11 @@ async function fetchConversationViaNavigation(username) {
         return await storeScrapedMessages(userLower, scraped);
       }
 
-      // Tertiary validation: if exactly 2 authors and one is unknown,
-      // check if the "other" author is a known conversation partner from the sidebar.
-      // If the only other user in the convo IS our target (via sidebar scan data), accept it.
-      // This handles display name mismatches (e.g., "OpCollectr" vs "opcollectr").
+      // Tertiary validation: if exactly 2 authors, pull sidebar data and check
+      // if exactly one author is the target username (a known chat partner).
+      // The other author would be "me" (possibly under a display name).
+      // This is safe because it still requires the target username to be one of the authors.
       if (authors.size === 2) {
-        // Pull sidebar scan data to see known usernames
         const scanData = await new Promise((resolve) => {
           const timer = setTimeout(() => resolve(null), 2000);
           try {
@@ -1296,25 +1271,11 @@ async function fetchConversationViaNavigation(username) {
         if (scanData && scanData.usernames) {
           const knownUsers = new Set(scanData.usernames.map(u => u.toLowerCase()));
           const authorArr = [...authors];
-          // If one author is a known chat partner that ISN'T the target, reject
-          // If neither is known or one matches target pattern, accept cautiously
           const authorsInSidebar = authorArr.filter(a => knownUsers.has(a));
-          const authorsNotInSidebar = authorArr.filter(a => !knownUsers.has(a));
-          // If exactly one author is in sidebar and it's NOT our target,
-          // the other author must be "me" — so the sidebar author IS the conversation partner
+          // Accept ONLY if exactly one author is a known sidebar user AND it's the target
           if (authorsInSidebar.length === 1 && authorsInSidebar[0] === userLower) {
             console.log('[SR BG] Validated DOM scrape via sidebar cross-ref: ' + scraped.length + ' messages for u/' + user + ' (sidebar match)');
             return await storeScrapedMessages(userLower, scraped);
-          }
-          // If one author is NOT in sidebar (likely "me" with a display name),
-          // and the target IS in the sidebar, that's also a valid match
-          if (authorsNotInSidebar.length === 1 && knownUsers.has(userLower)) {
-            // The known sidebar user that isn't "me" should be our target
-            const sidebarAuthor = authorsInSidebar[0];
-            if (sidebarAuthor === userLower) {
-              console.log('[SR BG] Validated DOM scrape via display-name elimination: ' + scraped.length + ' messages for u/' + user);
-              return await storeScrapedMessages(userLower, scraped);
-            }
           }
         }
       }
