@@ -930,6 +930,39 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       var text = message.text || '';
       if (!text) { sendResponse({ filled: false }); return true; }
 
+      function fillElement(el) {
+        // Focus the element first
+        el.focus();
+        // Select all existing content (if any) then replace with our text
+        // using execCommand which works with React-controlled inputs
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+          el.select();
+        } else {
+          // contenteditable — select all
+          var sel = window.getSelection();
+          var range = document.createRange();
+          range.selectNodeContents(el);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        // execCommand('insertText') fires proper InputEvent that React detects
+        var inserted = document.execCommand('insertText', false, text);
+        if (inserted) return true;
+        // Fallback: native setter + synthetic events for older browsers
+        if (el.tagName === 'TEXTAREA') {
+          var nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+          nativeSetter.call(el, text);
+        } else if (el.tagName === 'INPUT') {
+          var inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          inputSetter.call(el, text);
+        } else {
+          el.textContent = text;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+
       function tryFill() {
         // Strategy 1: textarea (current Reddit chat uses a textarea with placeholder "Message")
         var textareas = deepQueryAll('textarea');
@@ -937,13 +970,10 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           var ta = textareas[j];
           var ph = (ta.getAttribute('placeholder') || '').toLowerCase();
           if (ta.offsetHeight > 0 && (ph.indexOf('message') !== -1 || ph.indexOf('type') !== -1 || ph === '')) {
-            ta.focus();
-            var nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
-            nativeSetter.call(ta, text);
-            ta.dispatchEvent(new Event('input', { bubbles: true }));
-            ta.dispatchEvent(new Event('change', { bubbles: true }));
-            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea (placeholder="' + ta.getAttribute('placeholder') + '")');
-            return true;
+            if (fillElement(ta)) {
+              console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea (placeholder="' + ta.getAttribute('placeholder') + '")');
+              return true;
+            }
           }
         }
 
@@ -952,11 +982,10 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         for (var i = 0; i < editables.length; i++) {
           var el = editables[i];
           if (el.offsetHeight > 0 && el.offsetWidth > 0) {
-            el.focus();
-            el.textContent = '';
-            document.execCommand('insertText', false, text);
-            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled contenteditable');
-            return true;
+            if (fillElement(el)) {
+              console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled contenteditable');
+              return true;
+            }
           }
         }
 
@@ -966,13 +995,10 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           var inp = inputs[k];
           var inpPh = (inp.getAttribute('placeholder') || '').toLowerCase();
           if (inp.offsetHeight > 0 && (inpPh.indexOf('message') !== -1 || inpPh.indexOf('type') !== -1)) {
-            inp.focus();
-            var inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-            inputSetter.call(inp, text);
-            inp.dispatchEvent(new Event('input', { bubbles: true }));
-            inp.dispatchEvent(new Event('change', { bubbles: true }));
-            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled input');
-            return true;
+            if (fillElement(inp)) {
+              console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled input');
+              return true;
+            }
           }
         }
 

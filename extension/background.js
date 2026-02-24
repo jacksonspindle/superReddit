@@ -599,13 +599,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await new Promise((r) => setTimeout(r, 1500));
         }
 
-        // Pre-fill the chat input
+        // Pre-fill the chat input — retry from background side too,
+        // since content script may not be ready immediately in new popup
         if (text) {
-          chrome.tabs.sendMessage(tab.id, { type: 'PREFILL_CHAT_INPUT', text }, () => {
-            if (chrome.runtime.lastError) {
-              console.log('[SR BG] PREFILL_CHAT_INPUT failed:', chrome.runtime.lastError.message);
+          let filled = false;
+          for (let attempt = 0; attempt < 15 && !filled; attempt++) {
+            try {
+              const result = await new Promise((resolve) => {
+                const timer = setTimeout(() => resolve(null), 2000);
+                chrome.tabs.sendMessage(tab.id, { type: 'PREFILL_CHAT_INPUT', text }, (resp) => {
+                  clearTimeout(timer);
+                  if (chrome.runtime.lastError) {
+                    resolve(null);
+                    return;
+                  }
+                  resolve(resp);
+                });
+              });
+              if (result && result.filled) {
+                filled = true;
+                console.log('[SR BG] PREFILL_CHAT_INPUT succeeded on attempt ' + (attempt + 1));
+              } else {
+                await new Promise((r) => setTimeout(r, 800));
+              }
+            } catch (_) {
+              await new Promise((r) => setTimeout(r, 800));
             }
-          });
+          }
+          if (!filled) {
+            console.log('[SR BG] PREFILL_CHAT_INPUT: all attempts failed, message is on clipboard');
+          }
         }
 
         sendResponse({ success: true });
