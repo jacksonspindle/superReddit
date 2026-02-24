@@ -33,10 +33,12 @@ interface ProductStepProps {
   productDescription: string;
   productUrl: string;
   targetAudience: string;
+  redditUsername: string;
   onProductNameChange: (v: string) => void;
   onProductDescriptionChange: (v: string) => void;
   onProductUrlChange: (v: string) => void;
   onTargetAudienceChange: (v: string) => void;
+  onRedditUsernameChange: (v: string) => void;
   onRepoSelected?: (repoUrl: string, accessToken: string | null) => void;
   onNext: () => void;
 }
@@ -46,10 +48,12 @@ export function ProductStep({
   productDescription,
   productUrl,
   targetAudience,
+  redditUsername,
   onProductNameChange,
   onProductDescriptionChange,
   onProductUrlChange,
   onTargetAudienceChange,
+  onRedditUsernameChange,
   onRepoSelected,
   onNext,
 }: ProductStepProps) {
@@ -417,6 +421,21 @@ export function ProductStep({
             onChange={(e) => onTargetAudienceChange(e.target.value)}
             placeholder="Indie hackers, SaaS founders, developers..."
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ob-reddit-username" className="text-xs">
+            Reddit Username (optional)
+          </Label>
+          <Input
+            id="ob-reddit-username"
+            value={redditUsername}
+            onChange={(e) => onRedditUsernameChange(e.target.value)}
+            placeholder="u/your_username"
+          />
+          <p className="text-xs text-muted-foreground">
+            Used to link your DM pipeline to the correct Reddit account.
+          </p>
         </div>
       </div>
 

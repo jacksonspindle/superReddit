@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
-import { MoveRight } from 'lucide-react';
+import { AlertTriangle, MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -62,6 +62,7 @@ export default function DmPipelinePage() {
   const subredditPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [configRedditUsername, setConfigRedditUsername] = useState<string | undefined>();
+  const [noConfigUsername, setNoConfigUsername] = useState(false);
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
@@ -146,26 +147,8 @@ export default function DmPipelinePage() {
     return extUser !== cfgUser;
   }, [bridgeStatus.redditUsername, configRedditUsername]);
 
-  // Auto-link: when no config username is set but extension reports one, save it
-  useEffect(() => {
-    if (!bridgeStatus.redditUsername || configRedditUsername) return;
-    const username = bridgeStatus.redditUsername.replace(/^\/?u\//, '').trim();
-    if (!username) return;
-
-    (async () => {
-      try {
-        const res = await fetch('/api/outreach/config', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id: project.id, reddit_username: username }),
-        });
-        if (res.ok) {
-          setConfigRedditUsername(username);
-          toast.success(`Linked Reddit account u/${username} to this project`);
-        }
-      } catch { /* silent */ }
-    })();
-  }, [bridgeStatus.redditUsername, configRedditUsername, project.id]);
+  // Auto-link removed — user must explicitly configure Reddit username
+  // via Context > Profile or during onboarding.
 
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
@@ -176,6 +159,7 @@ export default function DmPipelinePage() {
         toast.error(json.error);
       } else {
         setAllDms(json.dms || []);
+        setNoConfigUsername(!!json.no_config);
       }
     } catch {
       toast.error('Failed to load DMs');
@@ -876,6 +860,21 @@ export default function DmPipelinePage() {
               onDeselectAllSubreddits={handleDeselectAllSubreddits}
               filteredLeadCount={filteredLeadCount}
             />
+
+            {/* No-config banner: prompt user to set Reddit username */}
+            {noConfigUsername && !loading && (
+              <div className="flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-4 py-3">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                    Set your Reddit username to activate the DM pipeline
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Go to <strong>Context &gt; Profile</strong> and enter your Reddit username so we know which DMs belong to this project.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Reddit Bridge status */}
             <RedditBridgeIndicator
