@@ -406,9 +406,9 @@ export function SendQueueMode({
   // Ref to the Reddit compose popup window
   const redditPopupRef = useRef<Window | null>(null);
 
-  // Open Reddit compose/chat popup for manual send
+  // Open Reddit compose popup for manual send
   const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
-    // Copy message to clipboard
+    // Copy message to clipboard as backup
     navigator.clipboard.writeText(draft.body).catch(() => {});
 
     // Tell extension we're about to open a compose window
@@ -417,15 +417,10 @@ export function SendQueueMode({
     const popupWidth = 700;
     const left = window.screen.availWidth - popupWidth;
 
-    // Follow-ups: open existing chat conversation (just /message/compose?to= redirects to chat)
-    // First touch: full compose page with pre-filled subject + message
-    let url: string;
-    if (isFollowUp) {
-      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}`;
-    } else {
-      const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
-      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
-    }
+    // Always pre-fill message body. Skip subject for follow-ups (not needed for replies).
+    const subject = isFollowUp ? '' : (draft.subject || draft.body.slice(0, 60).split('\n')[0]);
+    let url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&message=${encodeURIComponent(draft.body)}`;
+    if (subject) url += `&subject=${encodeURIComponent(subject)}`;
 
     const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
     redditPopupRef.current = popup;
@@ -945,14 +940,10 @@ export function SendQueueMode({
                                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                               </div>
                               <p className="text-sm font-medium text-center">
-                                {isFollowUp ? 'Paste & send in the Reddit chat' : 'Click send in the Reddit window'}
+                                Click send in the Reddit window
                               </p>
                               <p className="text-xs text-muted-foreground text-center">
-                                {isFollowUp ? (
-                                  <>Message copied &mdash; paste with <kbd className="inline-flex items-center rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">{typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+V</kbd> in the chat with <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span></>
-                                ) : (
-                                  <>Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send</>
-                                )}
+                                Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send
                               </p>
                             </div>
 
