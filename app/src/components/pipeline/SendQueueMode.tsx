@@ -421,8 +421,8 @@ export function SendQueueMode({
         setSentFlash(false);
         setCurrentIndex((i) => i + 1);
 
-        // Start 2-minute cooldown before next lead
-        startCooldown(120);
+        // Short cooldown before next lead (skip entirely for follow-ups)
+        if (!isFollowUp) startCooldown(10);
         // Refresh rate limit from server periodically
         fetchRateLimit().then((rl) => {
           if (rl && !rl.canSend) {
@@ -434,7 +434,7 @@ export function SendQueueMode({
         });
       }, 1500);
     },
-    [followUpDays, onDmSent, startCooldown, fetchRateLimit]
+    [followUpDays, onDmSent, startCooldown, fetchRateLimit, isFollowUp]
   );
 
   // Ref to the Reddit compose popup window

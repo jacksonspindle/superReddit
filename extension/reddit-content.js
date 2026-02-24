@@ -963,6 +963,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
         return true;
       }
 
+      // Returns the element that was filled, or null
       function tryFill() {
         // Strategy 1: textarea (current Reddit chat uses a textarea with placeholder "Message")
         var textareas = deepQueryAll('textarea');
@@ -972,7 +973,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           if (ta.offsetHeight > 0 && (ph.indexOf('message') !== -1 || ph.indexOf('type') !== -1 || ph === '')) {
             if (fillElement(ta)) {
               console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea (placeholder="' + ta.getAttribute('placeholder') + '")');
-              return true;
+              return ta;
             }
           }
         }
@@ -984,7 +985,7 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           if (el.offsetHeight > 0 && el.offsetWidth > 0) {
             if (fillElement(el)) {
               console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled contenteditable');
-              return true;
+              return el;
             }
           }
         }
@@ -997,25 +998,56 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
           if (inp.offsetHeight > 0 && (inpPh.indexOf('message') !== -1 || inpPh.indexOf('type') !== -1)) {
             if (fillElement(inp)) {
               console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled input');
-              return true;
+              return inp;
             }
           }
         }
 
         console.log('[SuperReddit] PREFILL_CHAT_INPUT: no input found (textareas=' + textareas.length + ', editables=' + editables.length + ', inputs=' + inputs.length + ')');
-        return false;
+        return null;
+      }
+
+      // Watch a filled element — when it empties, the user sent the message, so auto-close popup
+      function watchForSend(filledEl) {
+        function getContent(el) {
+          if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') return el.value;
+          return el.textContent || '';
+        }
+        var originalLen = getContent(filledEl).length;
+        if (originalLen === 0) return; // nothing to watch
+        var checks = 0;
+        var maxChecks = 120; // 60 seconds max
+        var watchInterval = setInterval(function() {
+          checks++;
+          var current = getContent(filledEl).trim();
+          if (current.length === 0 && checks > 2) {
+            // Input cleared — message was sent
+            clearInterval(watchInterval);
+            console.log('[SuperReddit] Message sent detected — requesting popup close');
+            // Small delay so the user sees the message appear in chat
+            setTimeout(function() {
+              chrome.runtime.sendMessage({ type: 'CLOSE_POPUP' });
+            }, 1500);
+          } else if (checks >= maxChecks) {
+            clearInterval(watchInterval);
+          }
+        }, 500);
       }
 
       // Try immediately, then retry a few times (SPA input may not be rendered yet)
-      if (tryFill()) {
+      var filledEl = tryFill();
+      if (filledEl) {
+        watchForSend(filledEl);
         sendResponse({ filled: true });
       } else {
         var attempts = 0;
         var retryInterval = setInterval(function() {
           attempts++;
-          if (tryFill() || attempts >= 10) {
+          var el = tryFill();
+          if (el || attempts >= 10) {
             clearInterval(retryInterval);
-            sendResponse({ filled: attempts < 10 });
+            if (el) watchForSend(el);
+            sendResponse({ filled: !!el });
           }
         }, 500);
       }

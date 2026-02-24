@@ -19,6 +19,7 @@ let lastTabOpenTime = 0;
 let lastSendDmTime = 0;
 let pendingSendDm = null; // { resolve, tabId, timer }
 let composeTabId = null;
+let popupWindowIds = {}; // tabId -> windowId mapping for auto-close
 
 const CHAT_URLS_KEY = 'sr_chat_urls';
 const CONVERSATION_CACHE_TTL = 30 * 60 * 1000;
@@ -568,6 +569,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           top: 0,
         });
         const tab = win.tabs[0];
+        // Track this popup so content script can request auto-close after send
+        popupWindowIds[tab.id] = win.id;
 
         // Wait for the page to load
         await new Promise((resolve) => {
@@ -638,6 +641,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
     return true;
+  }
+
+  // Auto-close popup window after message is sent
+  if (message.type === 'CLOSE_POPUP') {
+    const tabId = sender.tab?.id;
+    const windowId = tabId ? popupWindowIds[tabId] : null;
+    if (windowId) {
+      delete popupWindowIds[tabId];
+      console.log('[SR BG] CLOSE_POPUP: closing popup window', windowId);
+      chrome.windows.remove(windowId).catch(() => {});
+    }
+    sendResponse({ closed: !!windowId });
+    return false;
   }
 
   if (message.type === 'GET_CHAT_URL') {
@@ -819,6 +835,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === chatTabId) {
     chatTabId = null;
   }
+  // Clean up popup window tracking
+  delete popupWindowIds[tabId];
   // If compose tab closed prematurely, resolve pending send with error
   if (tabId === composeTabId) {
     composeTabId = null;
