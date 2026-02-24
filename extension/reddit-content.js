@@ -760,6 +760,30 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   // The background service worker uses chrome.tabs.sendMessage() to pull data.
   let latestScanData = { usernames: [], youSentTo: [], theyReplied: [], previews: {}, chatUrls: {} };
 
+  // ---- Fetch target hint ----
+  // A time-limited hint from background.js telling us which user's conversation
+  // we're currently trying to fetch. Used ONLY as a fallback when
+  // identifyConversationUser() returns null (can't determine the partner from
+  // message authors alone). Expires after 15 seconds to prevent leaking to
+  // future conversations.
+  let _fetchTarget = null; // { username: string, setAt: number }
+  const FETCH_TARGET_TTL = 15_000;
+
+  function getActiveFetchTarget() {
+    if (!_fetchTarget) return null;
+    if (Date.now() - _fetchTarget.setAt > FETCH_TARGET_TTL) {
+      _fetchTarget = null;
+      return null;
+    }
+    return _fetchTarget.username;
+  }
+
+  function consumeFetchTarget() {
+    const target = getActiveFetchTarget();
+    _fetchTarget = null; // one-time use
+    return target;
+  }
+
   // ---- Identify the currently open/active chat conversation partner ----
   // IMPORTANT: All strategies here MUST depend on actual rendered DOM state,
   // NOT the URL. The URL changes immediately on navigation but the DOM/SPA
@@ -870,6 +894,15 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'SET_FETCH_TARGET') {
+      const username = (message.username || '').toLowerCase();
+      if (username) {
+        _fetchTarget = { username, setAt: Date.now() };
+        console.log('[SuperReddit] SET_FETCH_TARGET: ' + username);
+      }
+      sendResponse({ ok: true });
+      return true;
+    }
     if (message.type === 'GET_SCAN_DATA') {
       console.log('[SuperReddit] GET_SCAN_DATA pull request — returning', latestScanData.usernames.length, 'usernames');
       sendResponse(latestScanData);
@@ -1519,8 +1552,20 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
       var conversationUser = identifyConversationUser(wsMessages);
       if (!conversationUser) {
-        console.log('[SuperReddit] WS: intercepted ' + wsMessages.length + ' messages but could not identify conversation partner');
-        return;
+        // Fallback: use fetch target hint if available and messages are 1:1
+        var uniqueAuthors = {};
+        for (var wa = 0; wa < wsMessages.length; wa++) {
+          if (wsMessages[wa].author) uniqueAuthors[wsMessages[wa].author] = true;
+        }
+        var authorCount = Object.keys(uniqueAuthors).length;
+        var target = (authorCount >= 1 && authorCount <= 2) ? getActiveFetchTarget() : null;
+        if (target) {
+          conversationUser = target;
+          console.log('[SuperReddit] WS: used fetch target hint "' + target + '" for ' + wsMessages.length + ' messages (authors: ' + Object.keys(uniqueAuthors).join(', ') + ')');
+        } else {
+          console.log('[SuperReddit] WS: intercepted ' + wsMessages.length + ' messages but could not identify conversation partner (authors: ' + Object.keys(uniqueAuthors).join(', ') + ')');
+          return;
+        }
       }
 
       var tagged = tagMessages(wsMessages, conversationUser);
@@ -1570,8 +1615,20 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     var conversationUser = identifyConversationUser(messages);
     if (!conversationUser) {
-      console.log('[SuperReddit] Intercepted ' + messages.length + ' messages but could not identify conversation partner');
-      return;
+      // Fallback: use fetch target hint if available
+      var apiUniqueAuthors = {};
+      for (var aa = 0; aa < messages.length; aa++) {
+        if (messages[aa].author) apiUniqueAuthors[messages[aa].author] = true;
+      }
+      var apiAuthorCount = Object.keys(apiUniqueAuthors).length;
+      var apiTarget = (apiAuthorCount >= 1 && apiAuthorCount <= 2) ? getActiveFetchTarget() : null;
+      if (apiTarget) {
+        conversationUser = apiTarget;
+        console.log('[SuperReddit] API: used fetch target hint "' + apiTarget + '" for ' + messages.length + ' messages');
+      } else {
+        console.log('[SuperReddit] Intercepted ' + messages.length + ' messages but could not identify conversation partner');
+        return;
+      }
     }
 
     var tagged = tagMessages(messages, conversationUser);

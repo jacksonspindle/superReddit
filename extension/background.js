@@ -1152,6 +1152,7 @@ async function fetchConversationViaNavigation(username) {
   async function pollForData(tid, user, maxWaitMs) {
     const POLL_INTERVAL = 750;
     let tabLoaded = false;
+    let fetchTargetSent = false;
     let domScrapeAttempts = 0;
     const MAX_DOM_SCRAPE_ATTEMPTS = 3;
 
@@ -1179,6 +1180,15 @@ async function fetchConversationViaNavigation(username) {
       if (intercepted) {
         console.log('[SR BG] Poll: interceptor hit after ' + (Date.now() - navStartTime) + 'ms for u/' + user);
         return intercepted;
+      }
+
+      // Re-send fetch target after tab loads (content script re-injects on navigation)
+      if (tabLoaded && !fetchTargetSent) {
+        fetchTargetSent = true;
+        try {
+          await chrome.tabs.sendMessage(tid, { type: 'SET_FETCH_TARGET', username: user });
+          console.log('[SR BG] Poll: re-sent SET_FETCH_TARGET for u/' + user + ' after tab load');
+        } catch (_) { /* content script may not be ready yet */ }
       }
 
       // Once tab has loaded, try DOM scrape (retry up to 3 times with delays between)
@@ -1299,6 +1309,12 @@ async function fetchConversationViaNavigation(username) {
       const fullUrl = adjustedPath.startsWith('http') ? adjustedPath : 'https://www.reddit.com' + adjustedPath;
       console.log('[SR BG] Navigating directly to ' + fullUrl + ' for u/' + username);
 
+      // Tell content script who we're fetching BEFORE navigation so intercepted
+      // data can be attributed even when identifyConversationUser() returns null
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: 'SET_FETCH_TARGET', username: userLower });
+      } catch (_) { /* content script may not be ready yet — that's OK, it'll re-inject after nav */ }
+
       await chrome.tabs.update(tabId, { url: fullUrl });
 
       // Aggressive poll: returns the instant data is available (interceptor or DOM scrape)
@@ -1314,6 +1330,11 @@ async function fetchConversationViaNavigation(username) {
 
     // Step 2: No chatUrl stored — fall back to sidebar click navigation
     console.log('[SR BG] No chatUrl for u/' + username + ', falling back to sidebar click');
+
+    // Tell content script who we're fetching BEFORE sidebar click
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'SET_FETCH_TARGET', username: userLower });
+    } catch (_) { /* content script may not be ready */ }
 
     const response = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve(null), 10000);
