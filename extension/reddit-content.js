@@ -925,46 +925,62 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       return true;
     }
     if (message.type === 'PREFILL_CHAT_INPUT') {
-      // Find the chat message input and fill it with the provided text
+      // Find the chat message input and fill it with the provided text.
+      // Reddit chat UI may be inside shadow DOM, so we use deepQueryAll.
       var text = message.text || '';
       if (!text) { sendResponse({ filled: false }); return true; }
 
-      // Reddit chat uses a contenteditable div or textarea for the message input
       function tryFill() {
-        // Try contenteditable div first (new Reddit chat UI)
-        var editables = document.querySelectorAll('[contenteditable="true"]');
+        // Strategy 1: textarea (current Reddit chat uses a textarea with placeholder "Message")
+        var textareas = deepQueryAll('textarea');
+        for (var j = 0; j < textareas.length; j++) {
+          var ta = textareas[j];
+          var ph = (ta.getAttribute('placeholder') || '').toLowerCase();
+          if (ta.offsetHeight > 0 && (ph.indexOf('message') !== -1 || ph.indexOf('type') !== -1 || ph === '')) {
+            ta.focus();
+            var nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+            nativeSetter.call(ta, text);
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea (placeholder="' + ta.getAttribute('placeholder') + '")');
+            return true;
+          }
+        }
+
+        // Strategy 2: contenteditable div (older Reddit chat UI)
+        var editables = deepQueryAll('[contenteditable="true"]');
         for (var i = 0; i < editables.length; i++) {
           var el = editables[i];
-          // Look for the message input (usually has placeholder text or is in the chat area)
           if (el.offsetHeight > 0 && el.offsetWidth > 0) {
             el.focus();
-            // Clear existing content
             el.textContent = '';
-            // Use execCommand for React compatibility
             document.execCommand('insertText', false, text);
             console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled contenteditable');
             return true;
           }
         }
-        // Try textarea fallback
-        var textareas = document.querySelectorAll('textarea[placeholder*="Message"], textarea[name="message"]');
-        for (var j = 0; j < textareas.length; j++) {
-          var ta = textareas[j];
-          if (ta.offsetHeight > 0) {
-            ta.focus();
-            // Use native setter for React-controlled inputs
-            var nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
-            nativeSetter.call(ta, text);
-            ta.dispatchEvent(new Event('input', { bubbles: true }));
-            ta.dispatchEvent(new Event('change', { bubbles: true }));
-            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea');
+
+        // Strategy 3: input[type=text] with message-like placeholder
+        var inputs = deepQueryAll('input[type="text"]');
+        for (var k = 0; k < inputs.length; k++) {
+          var inp = inputs[k];
+          var inpPh = (inp.getAttribute('placeholder') || '').toLowerCase();
+          if (inp.offsetHeight > 0 && (inpPh.indexOf('message') !== -1 || inpPh.indexOf('type') !== -1)) {
+            inp.focus();
+            var inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            inputSetter.call(inp, text);
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            inp.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled input');
             return true;
           }
         }
+
+        console.log('[SuperReddit] PREFILL_CHAT_INPUT: no input found (textareas=' + textareas.length + ', editables=' + editables.length + ', inputs=' + inputs.length + ')');
         return false;
       }
 
-      // Try immediately, then retry a few times (input might not be rendered yet)
+      // Try immediately, then retry a few times (SPA input may not be rendered yet)
       if (tryFill()) {
         sendResponse({ filled: true });
       } else {
