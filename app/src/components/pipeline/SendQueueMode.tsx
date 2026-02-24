@@ -475,8 +475,13 @@ export function SendQueueMode({
     if (isFollowUp && openChatAndPrefill) {
       // Copy to clipboard as backup
       navigator.clipboard.writeText(draft.body).catch(() => {});
-      openChatAndPrefill(currentDm.reddit_username, draft.body);
       setManualSendDm(currentDm);
+      const opened = await openChatAndPrefill(currentDm.reddit_username, draft.body);
+      if (!opened) {
+        // Extension couldn't open popup — fall back to window.open
+        console.warn('[SendQueue] openChatAndPrefill failed, falling back to window.open');
+        openRedditCompose(currentDm, draft);
+      }
       return;
     }
 

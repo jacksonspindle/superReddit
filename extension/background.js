@@ -549,12 +549,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Always open a new popup window — never reuse existing tabs.
         // The extension keeps a background chat tab for scraping; reusing it
         // would hijack that tab instead of showing the user a visible popup.
-        const popupLeft = Math.max(0, screen.availWidth - 720);
+        // Note: service workers don't have access to `screen`, so we use
+        // chrome.windows.getCurrent or sensible defaults.
+        let screenWidth = 1920;
+        let screenHeight = 900;
+        try {
+          const currentWin = await chrome.windows.getCurrent();
+          if (currentWin && currentWin.width) screenWidth = currentWin.left + currentWin.width;
+          if (currentWin && currentWin.height) screenHeight = currentWin.top + currentWin.height;
+        } catch (_) { /* use defaults */ }
+        const popupLeft = Math.max(0, screenWidth - 720);
         const win = await chrome.windows.create({
           url: targetUrl,
           type: 'popup',
           width: 700,
-          height: Math.min(900, screen.availHeight),
+          height: Math.min(900, screenHeight),
           left: popupLeft,
           top: 0,
         });
