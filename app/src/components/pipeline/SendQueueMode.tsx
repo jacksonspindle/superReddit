@@ -849,9 +849,6 @@ export function SendQueueMode({
                 )}
                 <p className="text-center text-[10px] text-muted-foreground pb-3">
                   Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to open Reddit
-                  {rateLimit && (
-                    <span className="ml-1">&middot; {rateLimit.dailyLimit}/day</span>
-                  )}
                 </p>
 
                 {/* Card container */}
