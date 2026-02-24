@@ -1173,38 +1173,47 @@ async function fetchConversationViaNavigation(username) {
     return null;
   }
 
-  // Helper: DOM scrape fallback WITH strict participant validation.
-  // Scrapes the visible thread, then checks that the requested user actually
-  // appears as one of the message authors. If not, the scrape is from a
-  // different conversation (cross-contamination) and we discard it.
-  // STRICT: only accept when the exact username appears in authors.
-  // Chat display names often differ from usernames, so this will reject
-  // many valid scrapes — but showing nothing is better than wrong data.
+  // Helper: DOM scrape fallback WITH conversation-identity validation.
+  // Instead of checking message author names (unreliable — display names ≠ usernames),
+  // we ask the content script to identify the currently displayed conversation partner
+  // from the chat sidebar/header (which shows the exact Reddit username).
   async function validatedDomScrape(tid, user) {
     try {
-      const scraped = await new Promise((resolve) => {
-        const timer = setTimeout(() => resolve([]), 5000);
+      const result = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), 5000);
         chrome.tabs.sendMessage(tid, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
           clearTimeout(timer);
-          if (chrome.runtime.lastError || !resp) { resolve([]); return; }
-          resolve(resp.messages || []);
+          if (chrome.runtime.lastError || !resp) { resolve(null); return; }
+          resolve(resp);
         });
       });
 
-      if (scraped.length === 0) return null;
+      if (!result) return null;
+      const scraped = result.messages || [];
+      const chatPartner = result.chatPartner || null;
 
-      const authors = new Set(scraped.map(m => (m.author || '').toLowerCase()));
+      if (scraped.length === 0) {
+        console.log('[SR BG] DOM scrape: 0 messages for u/' + user);
+        return null;
+      }
+
       const userLower = user.toLowerCase();
 
-      // Only accept if the exact requested username appears as a message author.
-      // No fallbacks — chat display names ≠ usernames, chatUrl presence doesn't
-      // guarantee the page rendered the correct conversation (SPA timing issues).
-      if (authors.has(userLower)) {
-        console.log('[SR BG] Validated DOM scrape: ' + scraped.length + ' messages, u/' + user + ' found in authors [' + [...authors].join(', ') + ']');
+      // Primary validation: the content script identified the open chat partner
+      // from the sidebar aria-label or URL match (exact Reddit username).
+      if (chatPartner && chatPartner === userLower) {
+        console.log('[SR BG] Validated DOM scrape via chat identity: ' + scraped.length + ' messages for u/' + user + ' (partner=' + chatPartner + ')');
         return await storeScrapedMessages(userLower, scraped);
       }
 
-      console.log('[SR BG] DOM scrape REJECTED: authors [' + [...authors].join(', ') + '] do not include u/' + user);
+      // Secondary validation: check if exact username appears in message authors
+      const authors = new Set(scraped.map(m => (m.author || '').toLowerCase()));
+      if (authors.has(userLower)) {
+        console.log('[SR BG] Validated DOM scrape via author match: ' + scraped.length + ' messages for u/' + user + ' (authors=[' + [...authors].join(', ') + '])');
+        return await storeScrapedMessages(userLower, scraped);
+      }
+
+      console.log('[SR BG] DOM scrape REJECTED: chatPartner=' + chatPartner + ', authors=[' + [...authors].join(', ') + '], expected u/' + user);
       return null;
     } catch (err) {
       console.log('[SR BG] DOM scrape error:', err.message);
