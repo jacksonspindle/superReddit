@@ -1136,9 +1136,26 @@ async function fetchConversationViaNavigation(username) {
     });
   });
 
-  // Helper: wait for tab to finish loading after navigation
-  function waitForTabLoad(tid, maxWaitMs) {
-    return new Promise((resolve) => {
+  // Helper: check storage for fresh interceptor-captured messages
+  async function checkFreshMessages(user) {
+    const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
+    const convos = stored[CONVERSATIONS_KEY] || {};
+    const convo = convos[user] || null;
+    if (convo && convo.messages && convo.messages.length > 0 && convo.lastUpdated >= navStartTime) {
+      return convo;
+    }
+    return null;
+  }
+
+  // Aggressive poll: check interceptor + DOM scrape every 750ms, return instantly
+  // when data appears. tabLoaded flag enables DOM scrape after page is ready.
+  async function pollForData(tid, user, maxWaitMs) {
+    const POLL_INTERVAL = 750;
+    let tabLoaded = false;
+    let domScrapeTried = false;
+
+    // Non-blocking tab load listener
+    const loadDone = new Promise((resolve) => {
       const timeout = setTimeout(() => {
         chrome.tabs.onUpdated.removeListener(listener);
         resolve();
@@ -1147,28 +1164,41 @@ async function fetchConversationViaNavigation(username) {
         if (updatedTabId === tid && changeInfo.status === 'complete') {
           clearTimeout(timeout);
           chrome.tabs.onUpdated.removeListener(listener);
-          // Brief extra wait for JS to execute and WS to connect
-          setTimeout(resolve, 1000);
+          setTimeout(resolve, 500); // brief settle time
         }
       }
       chrome.tabs.onUpdated.addListener(listener);
     });
-  }
+    loadDone.then(() => { tabLoaded = true; });
 
-  // Helper: check storage for conversation messages that arrived AFTER navigation started.
-  // Primarily trusts messages stored by the WebSocket/API interceptor (which uses real
-  // author data from Reddit's API).
-  async function checkFreshMessages(user, retries, delayMs) {
-    for (let i = 0; i < retries; i++) {
-      const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
-      const convos = stored[CONVERSATIONS_KEY] || {};
-      const convo = convos[user] || null;
-      if (convo && convo.messages && convo.messages.length > 0 && convo.lastUpdated >= navStartTime) {
-        return convo;
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      // Check interceptor (fast — just a storage read)
+      const intercepted = await checkFreshMessages(user);
+      if (intercepted) {
+        console.log('[SR BG] Poll: interceptor hit after ' + (Date.now() - navStartTime) + 'ms for u/' + user);
+        return intercepted;
       }
-      if (i < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      // Once tab has loaded, try DOM scrape (only once — it's expensive)
+      if (tabLoaded && !domScrapeTried) {
+        domScrapeTried = true;
+        const domResult = await validatedDomScrape(tid, user);
+        if (domResult) {
+          console.log('[SR BG] Poll: DOM scrape hit after ' + (Date.now() - navStartTime) + 'ms for u/' + user);
+          return domResult;
+        }
       }
+
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+    }
+
+    // Final check after timeout
+    const lastChance = await checkFreshMessages(user);
+    if (lastChance) return lastChance;
+    if (!domScrapeTried) {
+      const finalDom = await validatedDomScrape(tid, user);
+      if (finalDom) return finalDom;
     }
     return null;
   }
@@ -1237,25 +1267,12 @@ async function fetchConversationViaNavigation(username) {
       console.log('[SR BG] Navigating directly to ' + fullUrl + ' for u/' + username);
 
       await chrome.tabs.update(tabId, { url: fullUrl });
-      await waitForTabLoad(tabId, 5000);
 
-      // Quick interceptor check: 3 retries × 1.5s = 4.5s
-      const convo = await checkFreshMessages(userLower, 3, 1500);
+      // Aggressive poll: returns the instant data is available (interceptor or DOM scrape)
+      const convo = await pollForData(tabId, userLower, 8000);
       if (convo) {
-        console.log('[SR BG] Direct nav: found ' + convo.messages.length + ' fresh messages for u/' + username);
+        console.log('[SR BG] Direct nav: got ' + convo.messages.length + ' messages for u/' + username);
         return convo;
-      }
-
-      // Interceptor missed — try validated DOM scrape immediately (no extra wait).
-      console.log('[SR BG] Direct nav: trying DOM scrape for u/' + username + '...');
-      const domResult = await validatedDomScrape(tabId, userLower);
-      if (domResult) return domResult;
-
-      // Last chance: one more interceptor check (data may have arrived during scrape)
-      const lateConvo = await checkFreshMessages(userLower, 1, 0);
-      if (lateConvo) {
-        console.log('[SR BG] Direct nav: late interceptor hit for u/' + username);
-        return lateConvo;
       }
 
       console.log('[SR BG] Direct nav: no valid data for u/' + username);
@@ -1283,25 +1300,14 @@ async function fetchConversationViaNavigation(username) {
       return null;
     }
 
-    console.log('[SR BG] Sidebar nav: triggered conversation for u/' + username + ', waiting for capture...');
+    console.log('[SR BG] Sidebar nav: triggered conversation for u/' + username + ', polling for data...');
 
-    // Quick interceptor check: 4 retries × 1.5s = 6s (sidebar nav needs a bit more time)
-    const convo = await checkFreshMessages(userLower, 4, 1500);
+    // Aggressive poll — sidebar nav doesn't change the URL so no waitForTabLoad needed
+    // Just poll for interceptor data + DOM scrape
+    const convo = await pollForData(tabId, userLower, 8000);
     if (convo) {
-      console.log('[SR BG] Sidebar nav: found ' + convo.messages.length + ' fresh messages for u/' + username);
+      console.log('[SR BG] Sidebar nav: got ' + convo.messages.length + ' messages for u/' + username);
       return convo;
-    }
-
-    // Interceptor missed — try validated DOM scrape immediately
-    console.log('[SR BG] Sidebar nav: trying DOM scrape for u/' + username + '...');
-    const domResult = await validatedDomScrape(tabId, userLower);
-    if (domResult) return domResult;
-
-    // Last chance interceptor check
-    const lateConvo = await checkFreshMessages(userLower, 1, 0);
-    if (lateConvo) {
-      console.log('[SR BG] Sidebar nav: late interceptor hit for u/' + username);
-      return lateConvo;
     }
 
     console.log('[SR BG] Sidebar nav: no valid data for u/' + username);
