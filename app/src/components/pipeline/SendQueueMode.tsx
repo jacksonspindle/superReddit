@@ -943,22 +943,21 @@ export function SendQueueMode({
 
                           {/* Draft actions */}
                           {!hasDraftContent && (
-                            <div className="mt-3 pt-3 border-t border-border/40 flex flex-col items-center text-center gap-3 py-4">
-                              <MessageCircle className="h-8 w-8 text-muted-foreground/30" />
-                              <p className="text-sm text-muted-foreground">No draft yet</p>
+                            <div className="mt-3 pt-3 border-t border-border/40 flex justify-center py-2">
                               <Button
                                 variant="outline"
+                                size="sm"
                                 onClick={() => generateDraft(currentDm.id)}
                                 disabled={generating.has(currentDm.id)}
                               >
                                 {generating.has(currentDm.id) ? (
                                   <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                     Generating...
                                   </>
                                 ) : (
                                   <>
-                                    <Sparkles className="mr-2 h-4 w-4" />
+                                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                                     Generate Draft
                                   </>
                                 )}
