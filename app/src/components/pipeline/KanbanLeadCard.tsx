@@ -2,7 +2,7 @@
 
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { X, ExternalLink, ArrowRight, Check, Clock, AlertCircle, MessageSquare, Undo2 } from 'lucide-react';
+import { X, ExternalLink, ArrowRight, Clock, AlertCircle, MessageSquare, Undo2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { cardHover, cardTap } from '@/lib/motion';
@@ -279,13 +279,6 @@ export function KanbanLeadCard({
                 onClick={() => onDraft?.(dm)}
               >
                 Follow-up <ArrowRight className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-0.5 text-xs font-medium text-green-600 hover:underline cursor-pointer ml-auto"
-                onClick={() => onStageChange(dm.id, 'converted')}
-              >
-                <Check className="h-3 w-3" /> Won
               </button>
             </>
           )}

@@ -47,7 +47,6 @@ interface OutreachState {
   disconnectDiscord: (projectId: string) => Promise<void>;
   disconnectChannel: (projectId: string, channel: AlertChannel) => Promise<void>;
   connectEmail: (projectId: string, email: string) => Promise<{ success: boolean; error?: string }>;
-  verifyEmail: (projectId: string, code: string) => Promise<{ success: boolean; error?: string }>;
   updateEmailPreferences: (projectId: string, prefs: {
     realtime_enabled?: boolean;
     digest_enabled?: boolean;
@@ -363,24 +362,7 @@ export const useOutreachStore = create<OutreachState>((set, get) => ({
       if (json.error) return { success: false, error: json.error };
       return { success: true };
     } catch {
-      return { success: false, error: 'Failed to send verification code' };
-    }
-  },
-
-  verifyEmail: async (projectId, code) => {
-    try {
-      const res = await fetch('/api/alerts/email/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId, code }),
-      });
-      const json = await res.json();
-      if (json.error) return { success: false, error: json.error };
-      // Refresh config to pick up connected state
-      await get().fetchConfig(projectId);
-      return { success: true };
-    } catch {
-      return { success: false, error: 'Verification failed' };
+      return { success: false, error: 'Failed to connect email' };
     }
   },
 
