@@ -118,10 +118,16 @@ export function SendQueueMode({
   const rightOverlayOpacityRaw = useTransform(swipeX, [50, 200], [0, 1]);
   const swipeDisabled = sending || sentFlash || cooldownRemaining > 0 || !!pauseReason || !!manualSendDm;
 
-  // Active queue (excluding dismissed leads)
+  // Active queue (excluding dismissed leads and leads already messaged per extension)
   const queue = useMemo(
-    () => dms.filter((d) => !dismissedIds.has(d.id)),
-    [dms, dismissedIds]
+    () => dms.filter((d) => {
+      if (dismissedIds.has(d.id)) return false;
+      // Hide leads the extension already shows we've messaged
+      const preview = chatPreviews?.[d.reddit_username.toLowerCase()];
+      if (preview?.fromYou) return false;
+      return true;
+    }),
+    [dms, dismissedIds, chatPreviews]
   );
 
   const currentDm = queue[currentIndex] ?? null;
