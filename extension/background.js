@@ -701,33 +701,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // 2. Try navigation (direct URL or sidebar click) — WebSocket captures messages
         const result = await fetchConversationViaNavigation(username);
 
-        // 3. Return whatever we have (fresh fetch, or stale cache as last resort)
+        // 3. Return fresh fetch result only — do NOT fall back to stale cache
+        // (fetchConversationViaNavigation clears the cache before navigating to
+        // prevent cross-contamination, so stale data should not be returned)
         if (result && result.messages && result.messages.length > 0) {
           sendResponse({
             messages: result.messages,
             lastUpdated: result.lastUpdated,
             source: result.source,
           });
-        } else if (cached && cached.messages && cached.messages.length > 0) {
-          console.log('[SR BG] GET_FULL_CONVERSATION: returning stale cache for u/' + username);
-          sendResponse({
-            messages: cached.messages,
-            lastUpdated: cached.lastUpdated,
-            source: cached.source,
-          });
         } else {
+          console.log('[SR BG] GET_FULL_CONVERSATION: no fresh data for u/' + username + ' after navigation');
           sendResponse({ messages: [], lastUpdated: null, source: null });
         }
       } catch (err) {
         console.log('[SR BG] GET_FULL_CONVERSATION error for u/' + username + ':', err.message);
-        // Return stale cache on error
-        const fallbackStored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
-        const fallbackConvos = fallbackStored[CONVERSATIONS_KEY] || {};
-        const fallback = fallbackConvos[userLower] || null;
+        // Don't return stale cache — it may be cross-contaminated
         sendResponse({
-          messages: fallback ? fallback.messages : [],
-          lastUpdated: fallback ? fallback.lastUpdated : null,
-          source: fallback ? fallback.source : null,
+          messages: [],
+          lastUpdated: null,
+          source: null,
           error: err.message,
         });
       }
@@ -1125,6 +1118,24 @@ async function fetchConversationViaNavigation(username) {
 
   const userLower = username.toLowerCase();
 
+  // Clear ONLY dom_scrape-sourced cached conversations before navigating.
+  // Interceptor-sourced data is trustworthy (author identification is real),
+  // so we keep it. DOM-scraped data may be cross-contaminated and must be cleared.
+  const navStartTime = Date.now();
+  await new Promise((resolve) => {
+    chrome.storage.local.get(CONVERSATIONS_KEY, (result) => {
+      const convos = result[CONVERSATIONS_KEY] || {};
+      const cached = convos[userLower];
+      if (cached && cached.source === 'dom_scrape') {
+        delete convos[userLower];
+        chrome.storage.local.set({ [CONVERSATIONS_KEY]: convos }, resolve);
+        console.log('[SR BG] Cleared DOM-scraped cache for u/' + username + ' before navigation');
+      } else {
+        resolve();
+      }
+    });
+  });
+
   // Helper: wait for tab to finish loading after navigation
   function waitForTabLoad(tid, maxWaitMs) {
     return new Promise((resolve) => {
@@ -1144,13 +1155,15 @@ async function fetchConversationViaNavigation(username) {
     });
   }
 
-  // Helper: check storage for conversation messages, with retry
-  async function checkStoredMessages(user, retries, delayMs) {
+  // Helper: check storage for conversation messages that arrived AFTER navigation started.
+  // Primarily trusts messages stored by the WebSocket/API interceptor (which uses real
+  // author data from Reddit's API).
+  async function checkFreshMessages(user, retries, delayMs) {
     for (let i = 0; i < retries; i++) {
       const stored = await new Promise((resolve) => chrome.storage.local.get(CONVERSATIONS_KEY, resolve));
       const convos = stored[CONVERSATIONS_KEY] || {};
       const convo = convos[user] || null;
-      if (convo && convo.messages && convo.messages.length > 0) {
+      if (convo && convo.messages && convo.messages.length > 0 && convo.lastUpdated >= navStartTime) {
         return convo;
       }
       if (i < retries - 1) {
@@ -1160,19 +1173,53 @@ async function fetchConversationViaNavigation(username) {
     return null;
   }
 
-  // Helper: DOM scrape attempt
-  async function tryScrape(tid) {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => resolve([]), 5000);
-      chrome.tabs.sendMessage(tid, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
-        clearTimeout(timer);
-        if (chrome.runtime.lastError || !resp) {
-          resolve([]);
-          return;
-        }
-        resolve(resp.messages || []);
+  // Helper: DOM scrape fallback WITH participant validation.
+  // Scrapes the visible thread, then checks that the requested user actually
+  // appears as one of the message authors. If not, the scrape is from a
+  // different conversation (cross-contamination) and we discard it.
+  async function validatedDomScrape(tid, user) {
+    try {
+      const scraped = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve([]), 5000);
+        chrome.tabs.sendMessage(tid, { type: 'SCRAPE_OPEN_THREAD' }, (resp) => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError || !resp) { resolve([]); return; }
+          resolve(resp.messages || []);
+        });
       });
-    });
+
+      if (scraped.length === 0) return null;
+
+      // Validate: at least one message author must match the requested username.
+      // Authors in scraped data may be Reddit display names (not always exact username),
+      // so also check if the current page URL contains a known chat path for this user.
+      const authors = new Set(scraped.map(m => (m.author || '').toLowerCase()));
+      const userLower = user.toLowerCase();
+
+      if (authors.has(userLower) || authors.has('them')) {
+        // 'them' is the generic label the scraper uses for the other person —
+        // if the conversation was navigated to for this user, 'them' IS this user.
+        console.log('[SR BG] Validated DOM scrape: ' + scraped.length + ' messages, authors match u/' + user);
+        return await storeScrapedMessages(userLower, scraped);
+      }
+
+      // Extra check: if there are exactly 2 unique authors and one of them is "me",
+      // the other SHOULD be the requested user (we just navigated to their chat).
+      // Accept if the chat URL we navigated to belongs to this user.
+      const chatUrls = await getStoredChatUrls();
+      const expectedPath = chatUrls[userLower];
+      if (expectedPath && authors.size <= 2) {
+        // We navigated to this user's known chat URL — trust the scrape
+        console.log('[SR BG] Validated DOM scrape via chatUrl: ' + scraped.length + ' messages for u/' + user);
+        return await storeScrapedMessages(userLower, scraped);
+      }
+
+      console.log('[SR BG] DOM scrape REJECTED: authors [' + [...authors].join(', ') + '] do not include u/' + user);
+      return null;
+    } catch (err) {
+      console.log('[SR BG] DOM scrape error:', err.message);
+      return null;
+    }
   }
 
   try {
@@ -1183,42 +1230,37 @@ async function fetchConversationViaNavigation(username) {
 
     if (chatPath) {
       // Direct URL navigation — much more reliable than sidebar clicking
-      // Fix path: Reddit link hrefs are /room/!... but actual URL needs /chat/room/!...
       let adjustedPath = chatPath;
       if (adjustedPath.startsWith('/room/') && !adjustedPath.startsWith('/chat/')) {
         adjustedPath = '/chat' + adjustedPath;
       }
       const fullUrl = adjustedPath.startsWith('http') ? adjustedPath : 'https://www.reddit.com' + adjustedPath;
       console.log('[SR BG] Navigating directly to ' + fullUrl + ' for u/' + username);
-      await chrome.tabs.update(tabId, { url: fullUrl });
 
-      // Wait for page load + interceptor to capture messages
+      await chrome.tabs.update(tabId, { url: fullUrl });
       await waitForTabLoad(tabId, 8000);
 
-      // Check storage with retries (interceptor might need a moment)
-      const convo = await checkStoredMessages(userLower, 3, 1500);
+      // Only trust messages captured by the WebSocket/API interceptor.
+      // 5 retries × 2s = 10s window for the interceptor to capture and store messages.
+      const convo = await checkFreshMessages(userLower, 5, 2000);
       if (convo) {
-        console.log('[SR BG] Direct nav: found ' + convo.messages.length + ' messages for u/' + username);
+        console.log('[SR BG] Direct nav: found ' + convo.messages.length + ' fresh messages for u/' + username);
         return convo;
       }
 
-      // Try DOM scrape as fallback — wait a bit longer for page to fully render
-      console.log('[SR BG] Direct nav: no intercepted messages, waiting 3s then trying DOM scrape...');
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      const scraped = await tryScrape(tabId);
-      if (scraped.length > 0) {
-        console.log('[SR BG] Direct nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
-        // Log first message preview to verify quality
-        if (scraped[0]) console.log('[SR BG] First scraped msg: "' + (scraped[0].text || '').substring(0, 80) + '"');
-        return await storeScrapedMessages(userLower, scraped);
-      }
+      // Interceptor didn't capture — try validated DOM scrape as fallback.
+      // Only stores if the scraped messages actually contain the expected user.
+      console.log('[SR BG] Direct nav: no intercepted messages for u/' + username + ', trying validated DOM scrape...');
+      const domResult = await validatedDomScrape(tabId, userLower);
+      if (domResult) return domResult;
 
-      console.log('[SR BG] Direct nav: no messages found for u/' + username);
+      console.log('[SR BG] Direct nav: no valid data for u/' + username);
       return null;
     }
 
     // Step 2: No chatUrl stored — fall back to sidebar click navigation
     console.log('[SR BG] No chatUrl for u/' + username + ', falling back to sidebar click');
+
     const response = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve(null), 10000);
       chrome.tabs.sendMessage(tabId, { type: 'NAVIGATE_TO_CHAT', username }, (resp) => {
@@ -1239,22 +1281,19 @@ async function fetchConversationViaNavigation(username) {
 
     console.log('[SR BG] Sidebar nav: triggered conversation for u/' + username + ', waiting for capture...');
 
-    // Check storage with retries (wait for interceptor/WebSocket)
-    const convo = await checkStoredMessages(userLower, 4, 1500);
+    // 6 retries × 2s = 12s window (sidebar nav is slower)
+    const convo = await checkFreshMessages(userLower, 6, 2000);
     if (convo) {
-      console.log('[SR BG] Sidebar nav: found ' + convo.messages.length + ' messages for u/' + username);
+      console.log('[SR BG] Sidebar nav: found ' + convo.messages.length + ' fresh messages for u/' + username);
       return convo;
     }
 
-    // DOM scrape fallback
-    console.log('[SR BG] Sidebar nav: no intercepted messages, trying DOM scrape...');
-    const scraped = await tryScrape(tabId);
-    if (scraped.length > 0) {
-      console.log('[SR BG] Sidebar nav: scraped ' + scraped.length + ' messages from DOM for u/' + username);
-      return await storeScrapedMessages(userLower, scraped);
-    }
+    // Interceptor didn't capture — try validated DOM scrape
+    console.log('[SR BG] Sidebar nav: no intercepted messages for u/' + username + ', trying validated DOM scrape...');
+    const domResult = await validatedDomScrape(tabId, userLower);
+    if (domResult) return domResult;
 
-    console.log('[SR BG] Sidebar nav: no messages found for u/' + username);
+    console.log('[SR BG] Sidebar nav: no valid data for u/' + username);
     return null;
   } catch (err) {
     console.log('[SR BG] Navigation error for u/' + username + ':', err.message);
