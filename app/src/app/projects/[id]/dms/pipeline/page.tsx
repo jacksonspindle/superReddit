@@ -418,7 +418,15 @@ export default function DmPipelinePage() {
     currentStage: string,
     preview: { fromYou: boolean } | undefined,
     conversationLastFromYou: boolean | undefined,
+    dmSentAt: string | null | undefined,
   ): string {
+    // Grace period: if DM was sent within last 2 minutes, don't revert to responded.
+    // Prevents stale extension data from overriding the user's explicit send action.
+    if (dmSentAt && currentStage === 'dm_sent') {
+      const sentAgo = Date.now() - new Date(dmSentAt).getTime();
+      if (sentAgo < 120_000) return 'dm_sent';
+    }
+
     // Priority 1: Conversation data (most reliable)
     if (conversationLastFromYou !== undefined) {
       return conversationLastFromYou ? 'dm_sent' : 'responded';
@@ -522,7 +530,7 @@ export default function DmPipelinePage() {
           }
         }
 
-        const desiredStage = computeDesiredStage(dm.pipeline_stage, preview, conversationLastFromYou);
+        const desiredStage = computeDesiredStage(dm.pipeline_stage, preview, conversationLastFromYou, dm.dm_sent_at);
 
         // Skip if already correct
         if (desiredStage === dm.pipeline_stage) {
@@ -653,6 +661,8 @@ export default function DmPipelinePage() {
         body: JSON.stringify({ dm_id: dmId, dm_content: dmContent, follow_up_days: followUpDays }),
       });
       handleStageChange(dmId, 'dm_sent', undefined, true);
+      // Clear stale auto-advance cache so reconciliation doesn't revert
+      previewAutoAdvancedRef.current.delete(dmId);
     } catch {
       toast.error('Failed to mark DM as sent');
     }
