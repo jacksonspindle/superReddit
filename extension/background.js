@@ -546,23 +546,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           ? (adjustedPath.startsWith('http') ? adjustedPath : 'https://www.reddit.com' + adjustedPath)
           : 'https://www.reddit.com/chat';
 
-        // Look for an existing visible Reddit chat tab
-        const tabs = await chrome.tabs.query({ url: ['*://www.reddit.com/chat*', '*://chat.reddit.com/*'] });
-        let tab;
-        if (tabs.length > 0) {
-          tab = tabs[0];
-          await chrome.tabs.update(tab.id, { url: targetUrl, active: true });
-          await chrome.windows.update(tab.windowId, { focused: true });
-        } else {
-          // Open a new popup window
-          const win = await chrome.windows.create({
-            url: targetUrl,
-            type: 'popup',
-            width: 700,
-            height: 900,
-          });
-          tab = win.tabs[0];
-        }
+        // Always open a new popup window — never reuse existing tabs.
+        // The extension keeps a background chat tab for scraping; reusing it
+        // would hijack that tab instead of showing the user a visible popup.
+        const popupLeft = Math.max(0, screen.availWidth - 720);
+        const win = await chrome.windows.create({
+          url: targetUrl,
+          type: 'popup',
+          width: 700,
+          height: Math.min(900, screen.availHeight),
+          left: popupLeft,
+          top: 0,
+        });
+        const tab = win.tabs[0];
 
         // Wait for the page to load
         await new Promise((resolve) => {
