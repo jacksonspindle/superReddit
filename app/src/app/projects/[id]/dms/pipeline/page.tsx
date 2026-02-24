@@ -131,7 +131,7 @@ export default function DmPipelinePage() {
   }, []);
 
   // Reddit Bridge
-  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, prepareDraft, checkLastSend, getChatUrl, fetchConversation } = useRedditBridge();
+  const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, prepareDraft, checkLastSend, getChatUrl, openChatAndPrefill, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
   // Detect account mismatch: extension Reddit user vs project config user
@@ -1118,6 +1118,7 @@ export default function DmPipelinePage() {
             checkLastSend={checkLastSend}
             prepareDraft={prepareDraft}
             getChatUrl={getChatUrl}
+            openChatAndPrefill={openChatAndPrefill}
             fetchConversation={fetchConversation}
             chatPreviews={chatPreviews}
             redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}
@@ -1143,6 +1144,7 @@ export default function DmPipelinePage() {
             checkLastSend={checkLastSend}
             prepareDraft={prepareDraft}
             getChatUrl={getChatUrl}
+            openChatAndPrefill={openChatAndPrefill}
             fetchConversation={fetchConversation}
             chatPreviews={chatPreviews}
             redditUsername={bridgeStatus.redditUsername ?? configRedditUsername}

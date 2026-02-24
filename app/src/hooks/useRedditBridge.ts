@@ -320,6 +320,15 @@ export function useRedditBridge() {
     }
   }, []);
 
+  const openChatAndPrefill = useCallback(async (username: string, text: string): Promise<boolean> => {
+    try {
+      const result = await sendToExtension<{ success: boolean; error?: string }>('OPEN_CHAT_AND_PREFILL', 20_000, { username: username.toLowerCase(), text });
+      return result.success;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const refreshConversations = useCallback(async (): Promise<boolean> => {
     try {
       const result = await sendToExtension<{
@@ -441,6 +450,7 @@ export function useRedditBridge() {
     prepareDraft,
     checkLastSend,
     getChatUrl,
+    openChatAndPrefill,
     fetchConversation,
     checkYouSentTo,
     checkTheyReplied,

@@ -52,6 +52,7 @@ interface SendQueueModeProps {
   checkLastSend?: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
   prepareDraft?: () => Promise<boolean>;
   getChatUrl?: (username: string) => Promise<string | null>;
+  openChatAndPrefill?: (username: string, text: string) => Promise<boolean>;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
   chatPreviews?: Record<string, ChatPreview>;
   redditUsername?: string;
@@ -81,6 +82,7 @@ export function SendQueueMode({
   checkLastSend,
   prepareDraft,
   getChatUrl,
+  openChatAndPrefill,
   fetchConversation,
   chatPreviews,
   redditUsername,
@@ -441,15 +443,19 @@ export function SendQueueMode({
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
-    // For follow-ups, try to get the direct chat URL first
-    let chatUrl: string | null = null;
-    if (isFollowUp && getChatUrl) {
-      chatUrl = await getChatUrl(currentDm.reddit_username);
+    // For follow-ups, use extension to open the chat and pre-fill the message
+    if (isFollowUp && openChatAndPrefill) {
+      // Copy to clipboard as backup
+      navigator.clipboard.writeText(draft.body).catch(() => {});
+      openChatAndPrefill(currentDm.reddit_username, draft.body);
+      setManualSendDm(currentDm);
+      return;
     }
 
-    openRedditCompose(currentDm, draft, chatUrl ?? undefined);
+    // First touch — open Reddit compose popup
+    openRedditCompose(currentDm, draft);
     setManualSendDm(currentDm);
-  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose, isFollowUp, getChatUrl]);
+  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose, isFollowUp, openChatAndPrefill]);
 
   // Close the Reddit popup window if it's still open
   const closeRedditPopup = useCallback(() => {
@@ -993,11 +999,12 @@ export function SendQueueMode({
                                   onClick={async () => {
                                     const draft = drafts.get(manualSendDm.id);
                                     if (draft) {
-                                      let chatUrl: string | undefined;
-                                      if (isFollowUp && getChatUrl) {
-                                        chatUrl = (await getChatUrl(manualSendDm.reddit_username)) ?? undefined;
+                                      if (isFollowUp && openChatAndPrefill) {
+                                        navigator.clipboard.writeText(draft.body).catch(() => {});
+                                        openChatAndPrefill(manualSendDm.reddit_username, draft.body);
+                                      } else {
+                                        openRedditCompose(manualSendDm, draft);
                                       }
-                                      openRedditCompose(manualSendDm, draft, chatUrl);
                                     }
                                   }}
                                 >

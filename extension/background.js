@@ -524,6 +524,94 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'OPEN_CHAT_AND_PREFILL') {
+    (async () => {
+      try {
+        const username = (message.data?.username || '').toLowerCase();
+        const text = message.data?.text || '';
+        if (!username) {
+          sendResponse({ success: false, error: 'Missing username' });
+          return;
+        }
+
+        // Find or create a visible chat tab
+        const chatUrls = await getStoredChatUrls();
+        const chatPath = chatUrls[username] || null;
+
+        let adjustedPath = chatPath;
+        if (adjustedPath && adjustedPath.startsWith('/room/') && !adjustedPath.startsWith('/chat/')) {
+          adjustedPath = '/chat' + adjustedPath;
+        }
+        const targetUrl = adjustedPath
+          ? (adjustedPath.startsWith('http') ? adjustedPath : 'https://www.reddit.com' + adjustedPath)
+          : 'https://www.reddit.com/chat';
+
+        // Look for an existing visible Reddit chat tab
+        const tabs = await chrome.tabs.query({ url: ['*://www.reddit.com/chat*', '*://chat.reddit.com/*'] });
+        let tab;
+        if (tabs.length > 0) {
+          tab = tabs[0];
+          await chrome.tabs.update(tab.id, { url: targetUrl, active: true });
+          await chrome.windows.update(tab.windowId, { focused: true });
+        } else {
+          // Open a new popup window
+          const win = await chrome.windows.create({
+            url: targetUrl,
+            type: 'popup',
+            width: 700,
+            height: 900,
+          });
+          tab = win.tabs[0];
+        }
+
+        // Wait for the page to load
+        await new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
+          }, 10000);
+          function listener(updatedTabId, changeInfo) {
+            if (updatedTabId === tab.id && changeInfo.status === 'complete') {
+              clearTimeout(timeout);
+              chrome.tabs.onUpdated.removeListener(listener);
+              setTimeout(resolve, 2000);
+            }
+          }
+          chrome.tabs.onUpdated.addListener(listener);
+        });
+
+        // If we didn't have a direct chat URL, navigate to the user via sidebar click
+        if (!chatPath) {
+          await new Promise((resolve) => {
+            const timer = setTimeout(() => resolve(null), 10000);
+            chrome.tabs.sendMessage(tab.id, { type: 'NAVIGATE_TO_CHAT', username }, (resp) => {
+              clearTimeout(timer);
+              if (chrome.runtime.lastError) { resolve(null); return; }
+              resolve(resp);
+            });
+          });
+          // Wait for navigation to settle
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+
+        // Pre-fill the chat input
+        if (text) {
+          chrome.tabs.sendMessage(tab.id, { type: 'PREFILL_CHAT_INPUT', text }, () => {
+            if (chrome.runtime.lastError) {
+              console.log('[SR BG] PREFILL_CHAT_INPUT failed:', chrome.runtime.lastError.message);
+            }
+          });
+        }
+
+        sendResponse({ success: true });
+      } catch (err) {
+        console.log('[SR BG] OPEN_CHAT_AND_PREFILL error:', err.message);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'GET_CHAT_URL') {
     const username = (message.data?.username || '').toLowerCase();
     if (!username) {

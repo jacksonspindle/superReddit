@@ -736,6 +736,61 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
       sendResponse({ messages: threadMessages });
       return true;
     }
+    if (message.type === 'PREFILL_CHAT_INPUT') {
+      // Find the chat message input and fill it with the provided text
+      var text = message.text || '';
+      if (!text) { sendResponse({ filled: false }); return true; }
+
+      // Reddit chat uses a contenteditable div or textarea for the message input
+      function tryFill() {
+        // Try contenteditable div first (new Reddit chat UI)
+        var editables = document.querySelectorAll('[contenteditable="true"]');
+        for (var i = 0; i < editables.length; i++) {
+          var el = editables[i];
+          // Look for the message input (usually has placeholder text or is in the chat area)
+          if (el.offsetHeight > 0 && el.offsetWidth > 0) {
+            el.focus();
+            // Clear existing content
+            el.textContent = '';
+            // Use execCommand for React compatibility
+            document.execCommand('insertText', false, text);
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled contenteditable');
+            return true;
+          }
+        }
+        // Try textarea fallback
+        var textareas = document.querySelectorAll('textarea[placeholder*="Message"], textarea[name="message"]');
+        for (var j = 0; j < textareas.length; j++) {
+          var ta = textareas[j];
+          if (ta.offsetHeight > 0) {
+            ta.focus();
+            // Use native setter for React-controlled inputs
+            var nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+            nativeSetter.call(ta, text);
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea');
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // Try immediately, then retry a few times (input might not be rendered yet)
+      if (tryFill()) {
+        sendResponse({ filled: true });
+      } else {
+        var attempts = 0;
+        var retryInterval = setInterval(function() {
+          attempts++;
+          if (tryFill() || attempts >= 10) {
+            clearInterval(retryInterval);
+            sendResponse({ filled: attempts < 10 });
+          }
+        }, 500);
+      }
+      return true;
+    }
     if (message.type === 'NAVIGATE_TO_CHAT') {
       // Background is asking us to click a specific conversation in the sidebar
       const targetUser = (message.username || '').toLowerCase();
