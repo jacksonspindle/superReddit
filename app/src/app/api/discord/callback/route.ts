@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code');
@@ -128,25 +128,35 @@ export async function GET(request: NextRequest) {
 
     const webhookData = await webhookResponse.json();
 
-    // Update outreach_configs with Discord columns (unified table)
-    const { error: configError } = await supabase
+    // Use service client for DB operations (bypasses RLS)
+    const serviceClient = await createServiceClient();
+
+    // Upsert outreach_configs with Discord columns (unified table)
+    const { error: configError } = await serviceClient
       .from('outreach_configs')
-      .update({
+      .upsert({
+        project_id: state.project_id,
         discord_guild_id: resolvedGuildId,
         discord_guild_name: guildName,
         discord_channel_id: channelData.id,
         discord_webhook_url: webhookData.url,
         discord_connected: true,
-      })
-      .eq('project_id', state.project_id);
+      }, { onConflict: 'project_id' });
 
     if (configError) {
       console.error('Config update failed:', configError);
-      return NextResponse.redirect(new URL('/alerts?error=db_error', request.url));
+      return new NextResponse(
+        `<!DOCTYPE html>
+<html><head><title>Connection Failed</title></head>
+<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb">
+<p style="font-size:18px;color:#b91c1c">Discord connection failed. Please try again.</p>
+</body></html>`,
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
+      );
     }
 
     // Sync project's existing subreddits into outreach_monitored_subs
-    const { data: projectSubreddits } = await supabase
+    const { data: projectSubreddits } = await serviceClient
       .from('subreddits')
       .select('name')
       .eq('project_id', state.project_id);
@@ -159,14 +169,21 @@ export async function GET(request: NextRequest) {
         safety_level: 'caution',
       }));
 
-      await supabase
+      await serviceClient
         .from('outreach_monitored_subs')
         .upsert(monitoredSubs, { onConflict: 'project_id,name' });
     }
 
-    // Redirect to the outreach alerts page
-    const redirectUrl = `/projects/${state.project_id}/outreach/alerts?connected=true`;
-    return NextResponse.redirect(new URL(redirectUrl, request.url));
+    // Return a self-closing HTML page (parent polls for connection)
+    return new NextResponse(
+      `<!DOCTYPE html>
+<html><head><title>Discord Connected</title></head>
+<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb">
+<p style="font-size:18px;color:#111">Discord connected! You can close this window.</p>
+<script>setTimeout(()=>window.close(),1500)</script>
+</body></html>`,
+      { status: 200, headers: { 'Content-Type': 'text/html' } }
+    );
   } catch (error) {
     console.error('Discord callback error:', error);
     return NextResponse.redirect(new URL('/alerts?error=unknown', request.url));

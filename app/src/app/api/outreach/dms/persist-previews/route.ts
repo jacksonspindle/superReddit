@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
+/** Strip u/ or /u/ prefix, trim, lowercase — so "u/FooBar" → "foobar" */
+function normalizeUsername(raw: string): string {
+  return raw.replace(/^\/?u\//, '').trim().toLowerCase();
+}
+
 /**
  * Batch-persist chat preview text for DMs:
  * - "You:" previews → dm_body (what user sent)
@@ -9,9 +14,10 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { project_id, previews } = body as {
+    const { project_id, previews, sender_username } = body as {
       project_id: string;
       previews: Record<string, { text: string; fromYou: boolean; theirText?: string | null }>;
+      sender_username?: string;
     };
 
     if (!project_id || !previews || Object.keys(previews).length === 0) {
@@ -25,6 +31,26 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createServiceClient();
+
+    // Defense-in-depth: reject if sender Reddit account doesn't match project config
+    if (sender_username) {
+      const { data: config } = await supabase
+        .from('outreach_configs')
+        .select('reddit_username')
+        .eq('project_id', project_id)
+        .maybeSingle();
+
+      if (config?.reddit_username) {
+        const senderNorm = normalizeUsername(sender_username);
+        const configNorm = normalizeUsername(config.reddit_username);
+        if (senderNorm !== configNorm) {
+          return NextResponse.json(
+            { error: 'Account mismatch: sender does not match project Reddit account' },
+            { status: 409 },
+          );
+        }
+      }
+    }
 
     // Get all DMs for this project in sent/responded stages
     const { data: dms } = await supabase

@@ -92,28 +92,26 @@ export function PostFilterRow({
 
       <ScrollArea className="w-full overflow-visible">
         <div className="flex gap-2.5 py-2 items-stretch">
-          {/* All Posts card */}
-          <div className="shrink-0 flex flex-col items-center">
-            <button
-              onClick={() => onSelectPost(null)}
-              className={cn(
-                'min-w-[100px] shrink-0 rounded-xl border bg-card p-3 flex flex-col items-center justify-center text-center transition-all hover:-translate-y-0.5',
-                selectedPostId === null
-                  ? 'ring-2 ring-primary border-primary shadow-md'
-                  : 'hover:border-muted-foreground/30'
-              )}
-            >
-              <span className="text-lg opacity-60 mb-1">&#9783;</span>
-              <span className="text-xs font-bold">All Posts</span>
-              <span className="text-xl font-extrabold text-primary mt-0.5">
-                {isFiltered ? filteredLeadCount : totalLeads}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {isFiltered ? `of ${totalLeads} leads` : 'total leads'}
-              </span>
-            </button>
+          {/* All Posts card — matches height of post cards */}
+          <div
+            onClick={() => onSelectPost(null)}
+            className={cn(
+              'min-w-[110px] shrink-0 rounded-xl border bg-card p-3 flex flex-col items-center justify-center text-center transition-all hover:-translate-y-0.5 cursor-pointer gap-0.5',
+              selectedPostId === null
+                ? 'ring-2 ring-primary border-primary shadow-md'
+                : 'hover:border-muted-foreground/30'
+            )}
+          >
+            <span className="text-lg opacity-60">&#9783;</span>
+            <span className="text-xs font-bold">All Posts</span>
+            <span className="text-2xl font-extrabold text-primary">
+              {isFiltered ? filteredLeadCount : totalLeads}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {isFiltered ? `of ${totalLeads} leads` : 'total leads'}
+            </span>
             {hasSubredditFilter && (
-              <div className="mt-1">
+              <div onClick={(e) => e.stopPropagation()}>
                 <SubredditFilterPopover
                   trackedSubreddits={trackedSubreddits}
                   selectedSubreddits={selectedSubreddits}

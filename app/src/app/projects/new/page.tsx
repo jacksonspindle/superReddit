@@ -36,6 +36,7 @@ export default function NewProjectPage() {
   const [productDescription, setProductDescription] = useState('');
   const [productUrl, setProductUrl] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
+  const [redditUsername, setRedditUsername] = useState('');
 
   // Subreddits
   const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>([]);
@@ -186,7 +187,23 @@ export default function NewProjectPage() {
         }
       }
 
-      // 6. Redirect to the new project
+      // 6. Save Reddit username to outreach config if provided
+      if (redditUsername.trim()) {
+        try {
+          await fetch('/api/outreach/config', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: project.id,
+              reddit_username: redditUsername.replace(/^\/?u\//, '').trim(),
+            }),
+          });
+        } catch {
+          // Non-critical — user can set it later in Context > Profile
+        }
+      }
+
+      // 7. Redirect to the new project
       router.replace(`/projects/${project.id}`);
     } catch (err) {
       console.error('New project finish error:', err);
@@ -216,10 +233,12 @@ export default function NewProjectPage() {
                 productDescription={productDescription}
                 productUrl={productUrl}
                 targetAudience={targetAudience}
+                redditUsername={redditUsername}
                 onProductNameChange={setProductName}
                 onProductDescriptionChange={setProductDescription}
                 onProductUrlChange={setProductUrl}
                 onTargetAudienceChange={setTargetAudience}
+                onRedditUsernameChange={setRedditUsername}
                 onRepoSelected={(url, token) => {
                   setSelectedRepoUrl(url);
                   setGithubAccessToken(token);

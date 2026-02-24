@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, Unplug, Wifi } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,46 @@ interface DiscordConnectProps {
 
 export function DiscordConnect({ config, projectId, onDisconnect }: DiscordConnectProps) {
   const [connecting, setConnecting] = useState(false);
+  const [polling, setPolling] = useState(false);
+  const pollCountRef = useRef(0);
 
   const isConnected = config?.discord_connected && config?.discord_guild_id;
+
+  // Polling effect: checks outreach config every 3s for up to 2 minutes
+  useEffect(() => {
+    if (!polling) return;
+
+    pollCountRef.current = 0;
+
+    const interval = setInterval(async () => {
+      pollCountRef.current += 1;
+
+      if (pollCountRef.current > 40) {
+        setPolling(false);
+        clearInterval(interval);
+        toast.error('Discord connection timed out. Please try again.');
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/outreach/config?project_id=${projectId}`
+        );
+        const json = await res.json();
+
+        if (json?.config?.discord_connected) {
+          setPolling(false);
+          clearInterval(interval);
+          toast.success('Discord connected!');
+          window.location.reload();
+        }
+      } catch {
+        // Silently retry on network errors
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [polling, projectId]);
 
   async function handleConnect() {
     setConnecting(true);
@@ -28,7 +66,8 @@ export function DiscordConnect({ config, projectId, onDisconnect }: DiscordConne
       if (json.error) {
         toast.error(json.error);
       } else if (json.auth_url) {
-        window.location.href = json.auth_url;
+        window.open(json.auth_url, '_blank', 'width=600,height=700');
+        setPolling(true);
       }
     } catch {
       toast.error('Failed to start Discord connection');
@@ -77,10 +116,18 @@ export function DiscordConnect({ config, projectId, onDisconnect }: DiscordConne
         <p className="text-xs text-muted-foreground">
           Connect your Discord server to receive real-time alerts when Reddit posts match your keywords.
         </p>
-        <Button onClick={handleConnect} disabled={connecting} size="sm">
-          {connecting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-          Connect to Discord
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleConnect} disabled={connecting || polling} size="sm">
+            {connecting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+            Connect to Discord
+          </Button>
+          {polling && (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Waiting for connection...
+            </span>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

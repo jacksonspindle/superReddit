@@ -9,11 +9,12 @@ function normalizeUsername(raw: string): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { project_id, youSentTo, theyReplied, previews } = body as {
+    const { project_id, youSentTo, theyReplied, previews, sender_username } = body as {
       project_id: string;
       youSentTo: string[];
       theyReplied: string[];
       previews?: Record<string, { text: string; fromYou: boolean; theirText?: string | null }>;
+      sender_username?: string;
     };
 
     if (!project_id) {
@@ -38,6 +39,26 @@ export async function POST(request: NextRequest) {
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // Defense-in-depth: reject if sender Reddit account doesn't match project config
+    if (sender_username) {
+      const { data: config } = await supabase
+        .from('outreach_configs')
+        .select('reddit_username')
+        .eq('project_id', project_id)
+        .maybeSingle();
+
+      if (config?.reddit_username) {
+        const senderNorm = normalizeUsername(sender_username);
+        const configNorm = normalizeUsername(config.reddit_username);
+        if (senderNorm !== configNorm) {
+          return NextResponse.json(
+            { error: 'Account mismatch: sender does not match project Reddit account' },
+            { status: 409 },
+          );
+        }
+      }
     }
 
     // Get existing pipeline entries — group ALL entries per username (not just one)
@@ -74,6 +95,9 @@ export async function POST(request: NextRequest) {
     let created = 0;
     let advanced = 0;
 
+    // Normalized sender account for stamping on all inserts/updates
+    const senderAccount = sender_username ? normalizeUsername(sender_username) : null;
+
     // 1. Create new entries for users not in pipeline
     const toInsert: {
       project_id: string;
@@ -84,6 +108,7 @@ export async function POST(request: NextRequest) {
       permission_score: number;
       dm_body?: string;
       dm_sent_at?: string;
+      sender_account?: string;
     }[] = [];
 
     // Users you sent to (not yet in pipeline)
@@ -97,6 +122,7 @@ export async function POST(request: NextRequest) {
         source_thread_permalink: `chat://${username}`,
         permission_type: 'direct_chat',
         permission_score: 1,
+        ...(senderAccount ? { sender_account: senderAccount } : {}),
       };
       const previewText = getYouPreview(username);
       if (previewText) {
@@ -117,6 +143,7 @@ export async function POST(request: NextRequest) {
         source_thread_permalink: `chat://${username}`,
         permission_type: 'direct_chat',
         permission_score: 1,
+        ...(senderAccount ? { sender_account: senderAccount } : {}),
       });
     }
 
@@ -128,7 +155,23 @@ export async function POST(request: NextRequest) {
           ignoreDuplicates: true,
         });
       if (error) {
-        console.error('Bridge sync insert error:', error);
+        // Fallback: if sender_account column doesn't exist yet, retry without it
+        if (error.message?.includes('sender_account')) {
+          const cleaned = toInsert.map(({ sender_account, ...rest }) => rest);
+          const { error: retryErr } = await supabase
+            .from('outreach_dms')
+            .upsert(cleaned, {
+              onConflict: 'project_id,reddit_username,source_thread_permalink',
+              ignoreDuplicates: true,
+            });
+          if (retryErr) {
+            console.error('Bridge sync insert error (fallback):', retryErr);
+          } else {
+            created = cleaned.length;
+          }
+        } else {
+          console.error('Bridge sync insert error:', error);
+        }
       } else {
         created = toInsert.length;
       }
@@ -142,7 +185,13 @@ export async function POST(request: NextRequest) {
       for (const dm of dms) {
         // Advance READY → dm_sent if user sent a DM (initial classification only)
         if (readyStages.has(dm.pipeline_stage) && sentSet.has(username)) {
-          await supabase.from('outreach_dms').update({ pipeline_stage: 'dm_sent' }).eq('id', dm.id);
+          const updates: Record<string, string> = { pipeline_stage: 'dm_sent' };
+          if (senderAccount) updates.sender_account = senderAccount;
+          const { error: advErr } = await supabase.from('outreach_dms').update(updates).eq('id', dm.id);
+          // Fallback if sender_account column doesn't exist yet
+          if (advErr?.message?.includes('sender_account')) {
+            await supabase.from('outreach_dms').update({ pipeline_stage: 'dm_sent' }).eq('id', dm.id);
+          }
           advanced++;
         }
         // NOTE: dm_sent → responded advancement removed — client unified effect
@@ -167,7 +216,12 @@ export async function POST(request: NextRequest) {
       // handles this with fresh conversation/preview data instead of historical theyReplied.
       // Only reconcile ready → dm_sent for sent users (safe initial classification).
       if (sentSet.has(uname) && readyStages.has(entry.pipeline_stage)) {
-        await supabase.from('outreach_dms').update({ pipeline_stage: 'dm_sent' }).eq('id', entry.id);
+        const updates: Record<string, string> = { pipeline_stage: 'dm_sent' };
+        if (senderAccount) updates.sender_account = senderAccount;
+        const { error: recErr } = await supabase.from('outreach_dms').update(updates).eq('id', entry.id);
+        if (recErr?.message?.includes('sender_account')) {
+          await supabase.from('outreach_dms').update({ pipeline_stage: 'dm_sent' }).eq('id', entry.id);
+        }
         reconciled++;
       }
     }

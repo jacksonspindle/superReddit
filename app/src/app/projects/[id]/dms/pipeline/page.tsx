@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
-import { MoveRight } from 'lucide-react';
+import { AlertTriangle, MoveRight } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -62,6 +62,7 @@ export default function DmPipelinePage() {
   const subredditPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [configRedditUsername, setConfigRedditUsername] = useState<string | undefined>();
+  const [noConfigUsername, setNoConfigUsername] = useState(false);
   const [expandedColumn, setExpandedColumn] = useState<KanbanStage | null>(null);
   const [sendQueueActive, setSendQueueActive] = useState(false);
   const [followUpQueueActive, setFollowUpQueueActive] = useState(false);
@@ -133,6 +134,22 @@ export default function DmPipelinePage() {
   const { status: bridgeStatus, reconciling, previews: chatPreviews, fetchPreviews, checkYouSentTo, checkTheyReplied, youSentToList, theyRepliedList, sendDm, fetchConversation } = useRedditBridge();
   const bridgeSyncKeyRef = useRef('');
 
+  // Detect account mismatch: extension Reddit user vs project config user
+  // Also blocks sync when config username isn't set (prevents cross-account pollution)
+  const accountMismatch = useMemo(() => {
+    // Extension not reporting a username — can't validate, allow existing data to show
+    if (!bridgeStatus.redditUsername) return false;
+    // No config username set — block sync until auto-link completes
+    if (!configRedditUsername) return true;
+    // Both present — compare
+    const extUser = bridgeStatus.redditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
+    const cfgUser = configRedditUsername.replace(/^\/?u\//, '').trim().toLowerCase();
+    return extUser !== cfgUser;
+  }, [bridgeStatus.redditUsername, configRedditUsername]);
+
+  // Auto-link removed — user must explicitly configure Reddit username
+  // via Context > Profile or during onboarding.
+
   // Fetch all DMs
   const fetchDms = useCallback(async () => {
     try {
@@ -142,6 +159,7 @@ export default function DmPipelinePage() {
         toast.error(json.error);
       } else {
         setAllDms(json.dms || []);
+        setNoConfigUsername(!!json.no_config);
       }
     } catch {
       toast.error('Failed to load DMs');
@@ -155,20 +173,25 @@ export default function DmPipelinePage() {
       await fetch('/api/outreach/dms/persist-previews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: project.id, previews: previewData }),
+        body: JSON.stringify({
+          project_id: project.id,
+          previews: previewData,
+          sender_username: bridgeStatus.redditUsername ?? undefined,
+        }),
       });
     } catch { /* silent */ }
-  }, [project.id]);
+  }, [project.id, bridgeStatus.redditUsername]);
 
   // Wrapper: fetch previews from extension and persist to DB
   const fetchAndPersistPreviews = useCallback(async () => {
+    if (accountMismatch) return {};
     const p = await fetchPreviews();
     if (Object.keys(p).length > 0) {
       await persistPreviews(p);
       await fetchDms();
     }
     return p;
-  }, [fetchPreviews, persistPreviews, fetchDms]);
+  }, [fetchPreviews, persistPreviews, fetchDms, accountMismatch]);
 
   // Fetch replies (posts the user has replied to)
   const fetchPosts = useCallback(async () => {
@@ -336,6 +359,7 @@ export default function DmPipelinePage() {
   // Stage transitions are handled exclusively by the unified effect below.
   useEffect(() => {
     if (loading) return;
+    if (accountMismatch) return; // Block sync when Reddit account doesn't match project
     const hasCounts = bridgeStatus.youSentToCount > 0 || bridgeStatus.theyRepliedCount > 0;
     const hasArrays = youSentToList.length > 0 || theyRepliedList.length > 0;
     if (!hasCounts && !hasArrays) return;
@@ -373,6 +397,7 @@ export default function DmPipelinePage() {
             youSentTo: sentList,
             theyReplied: repliedList,
             previews: currentPreviews,
+            sender_username: bridgeStatus.redditUsername ?? undefined,
           }),
         });
         const json = await res.json();
@@ -386,7 +411,7 @@ export default function DmPipelinePage() {
     }
     sync();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
+  }, [loading, accountMismatch, bridgeStatus.youSentToCount, bridgeStatus.theyRepliedCount, youSentToList, theyRepliedList]);
 
   /** Single source of truth for DM stage — pure function, no side effects */
   function computeDesiredStage(
@@ -411,6 +436,7 @@ export default function DmPipelinePage() {
   // preview auto-advance, conversation fallback) with a single source of truth.
   useEffect(() => {
     if (loading) return;
+    if (accountMismatch) return; // Block stage sync when Reddit account doesn't match project
     if (!bridgeStatus.extensionInstalled || bridgeStatus.checking) return;
 
     const redditUser = bridgeStatus.redditUsername ?? configRedditUsername;
@@ -524,7 +550,7 @@ export default function DmPipelinePage() {
     const interval = setInterval(runStageSync, 30_000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, accountMismatch]);
 
   // Manual scan
   async function handleScan() {
@@ -835,6 +861,21 @@ export default function DmPipelinePage() {
               filteredLeadCount={filteredLeadCount}
             />
 
+            {/* No-config banner: prompt user to set Reddit username */}
+            {noConfigUsername && !loading && (
+              <div className="flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-4 py-3">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                    Set your Reddit username to activate the DM pipeline
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Go to <strong>Context &gt; Profile</strong> and enter your Reddit username so we know which DMs belong to this project.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Reddit Bridge status */}
             <RedditBridgeIndicator
               extensionInstalled={bridgeStatus.extensionInstalled}
@@ -845,6 +886,7 @@ export default function DmPipelinePage() {
               capturedCount={bridgeStatus.capturedCount}
               youSentToCount={bridgeStatus.youSentToCount}
               theyRepliedCount={bridgeStatus.theyRepliedCount}
+              configRedditUsername={configRedditUsername}
             />
 
             {/* Toolbar */}

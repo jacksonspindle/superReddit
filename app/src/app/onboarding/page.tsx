@@ -31,6 +31,7 @@ export default function OnboardingPage() {
   const [productDescription, setProductDescription] = useState('');
   const [productUrl, setProductUrl] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
+  const [redditUsername, setRedditUsername] = useState('');
 
   // Subreddits (lifted from SubredditsStep for persistence)
   const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>([]);
@@ -181,7 +182,23 @@ export default function OnboardingPage() {
         }
       }
 
-      // 6. Mark onboarding complete
+      // 6. Save Reddit username to outreach config if provided
+      if (redditUsername.trim()) {
+        try {
+          await fetch('/api/outreach/config', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: project.id,
+              reddit_username: redditUsername.replace(/^\/?u\//, '').trim(),
+            }),
+          });
+        } catch {
+          // Non-critical — user can set it later in Context > Profile
+        }
+      }
+
+      // 7. Mark onboarding complete
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ onboarding_completed: true })
@@ -191,7 +208,7 @@ export default function OnboardingPage() {
         console.error('Profile update error:', profileError);
       }
 
-      // 6. Redirect to the new project canvas
+      // 8. Redirect to the new project canvas
       router.replace(`/projects/${project.id}`);
     } catch (err) {
       console.error('Onboarding finish error:', err);
@@ -224,10 +241,12 @@ export default function OnboardingPage() {
                 productDescription={productDescription}
                 productUrl={productUrl}
                 targetAudience={targetAudience}
+                redditUsername={redditUsername}
                 onProductNameChange={setProductName}
                 onProductDescriptionChange={setProductDescription}
                 onProductUrlChange={setProductUrl}
                 onTargetAudienceChange={setTargetAudience}
+                onRedditUsernameChange={setRedditUsername}
                 onRepoSelected={(url, token) => {
                   setSelectedRepoUrl(url);
                   setGithubAccessToken(token);

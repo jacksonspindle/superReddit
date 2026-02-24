@@ -481,6 +481,7 @@ export interface OutreachDM {
   outcome: string | null;
   notes: string | null;
   last_reply_text: string | null;
+  sender_account: string | null;
   created_at: string;
   updated_at: string;
   signal?: {
