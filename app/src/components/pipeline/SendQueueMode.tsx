@@ -109,6 +109,8 @@ export function SendQueueMode({
   const conversationCache = useRef<Map<string, ConversationMessage[]>>(new Map());
   // In-flight promise map — lets concurrent callers share a single fetch
   const inflight = useRef<Map<string, Promise<ConversationMessage[]>>>(new Map());
+  // Track DMs we've already auto-advanced (to prevent double-firing)
+  const autoAdvancedIds = useRef<Set<string>>(new Set());
   const initialPrefetchDone = useRef(false);
 
   // Swipe gesture state
@@ -278,6 +280,34 @@ export function SendQueueMode({
     }
   }, [fetchConversation, queue, fetchAndCacheConversation]);
 
+  // Auto-advance leads where we've already sent a message
+  useEffect(() => {
+    if (!started || !currentDm || sentFlash || loadingMessages || manualSendDm) return;
+    if (autoAdvancedIds.current.has(currentDm.id)) return;
+
+    const username = currentDm.reddit_username.toLowerCase();
+
+    // Check chatPreviews for instant detection
+    const preview = chatPreviews?.[username];
+    const youSentViaPreview = preview?.fromYou;
+
+    // Check full conversation messages
+    const youSentViaMessages = fullMessages.some((m) => m.isFromYou);
+
+    if (youSentViaPreview || youSentViaMessages) {
+      autoAdvancedIds.current.add(currentDm.id);
+
+      // Determine if they also replied
+      const theyReplied = (youSentViaPreview && preview?.theirText) ||
+        (youSentViaMessages && fullMessages.some((m) => !m.isFromYou));
+      const newStage = theyReplied ? 'responded' : 'dm_sent';
+
+      onStageChange(currentDm.id, newStage);
+      toast.info(`Already messaged u/${currentDm.reddit_username} — skipping`);
+      setCurrentIndex((i) => i + 1);
+    }
+  }, [started, currentDm, sentFlash, loadingMessages, manualSendDm, chatPreviews, fullMessages, onStageChange]);
+
   // Count leads that need generation
   const needsGeneration = useMemo(
     () => queue.filter((d) => !drafts.has(d.id)).length,
@@ -398,18 +428,20 @@ export function SendQueueMode({
   // Ref to the Reddit compose popup window
   const redditPopupRef = useRef<Window | null>(null);
 
-  // Open Reddit chat popup for manual send
+  // Open Reddit compose popup for manual send — pre-filled with all fields
   const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
-    // Copy message to clipboard — user pastes into the existing chat
+    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+
+    // Copy message to clipboard as backup
     navigator.clipboard.writeText(draft.body).catch(() => {});
 
     // Tell extension we're about to open a compose window
     prepareDraft?.();
 
-    // Open Reddit Chat with this user (opens existing conversation, not a new PM thread)
+    // Open Reddit compose popup on the right side, pre-filled with to/subject/message
     const popupWidth = 700;
     const left = window.screen.availWidth - popupWidth;
-    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}`;
+    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
     const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
     redditPopupRef.current = popup;
   }, [prepareDraft]);
@@ -928,10 +960,10 @@ export function SendQueueMode({
                                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                               </div>
                               <p className="text-sm font-medium text-center">
-                                Paste &amp; send in the Reddit chat
+                                Click send in the Reddit window
                               </p>
                               <p className="text-xs text-muted-foreground text-center">
-                                Message copied &mdash; paste with <kbd className="inline-flex items-center rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">{typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+V</kbd> in the chat with <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span>
+                                Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send
                               </p>
                             </div>
 
@@ -952,7 +984,7 @@ export function SendQueueMode({
                                   }}
                                 >
                                   <Copy className="mr-1 h-3 w-3" />
-                                  Re-copy Message
+                                  Copy Message
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -966,7 +998,7 @@ export function SendQueueMode({
                                   }}
                                 >
                                   <ExternalLink className="mr-1 h-3 w-3" />
-                                  Re-open Chat
+                                  Re-open Window
                                 </Button>
                               </div>
 
