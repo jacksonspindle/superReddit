@@ -121,15 +121,19 @@ export function SendQueueMode({
   const currentDm = queue[currentIndex] ?? null;
   const isFinished = started && currentIndex >= queue.length;
 
-  // Load existing drafts on mount
+  // Seed drafts from DB values, but never overwrite local edits
   useEffect(() => {
-    const initial = new Map<string, { subject: string; body: string }>();
-    for (const dm of dms) {
-      if (dm.dm_subject || dm.dm_body) {
-        initial.set(dm.id, { subject: dm.dm_subject || '', body: dm.dm_body || '' });
+    setDrafts((prev) => {
+      const next = new Map(prev);
+      let changed = false;
+      for (const dm of dms) {
+        if ((dm.dm_subject || dm.dm_body) && !next.has(dm.id)) {
+          next.set(dm.id, { subject: dm.dm_subject || '', body: dm.dm_body || '' });
+          changed = true;
+        }
       }
-    }
-    setDrafts(initial);
+      return changed ? next : prev;
+    });
   }, [dms]);
 
   // Fetch rate limit status
@@ -808,27 +812,8 @@ export function SendQueueMode({
                             />
                           )}
 
-                          {/* Draft section */}
-                          {currentDraft && currentDraft.body ? (
-                            <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
-                              <p className="text-[11px] font-medium text-muted-foreground">Draft</p>
-                              <p className="text-sm whitespace-pre-wrap leading-relaxed">{currentDraft.body}</p>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-[11px] text-muted-foreground"
-                                onClick={() => generateDraft(currentDm.id)}
-                                disabled={generating.has(currentDm.id)}
-                              >
-                                {generating.has(currentDm.id) ? (
-                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="mr-1 h-3 w-3" />
-                                )}
-                                Regenerate
-                              </Button>
-                            </div>
-                          ) : (
+                          {/* Draft actions */}
+                          {!hasDraftContent && (
                             <div className="mt-3 pt-3 border-t border-border/40 flex flex-col items-center text-center gap-3 py-4">
                               <MessageCircle className="h-8 w-8 text-muted-foreground/30" />
                               <p className="text-sm text-muted-foreground">No draft yet</p>
@@ -854,17 +839,31 @@ export function SendQueueMode({
                         </div>
 
                         {/* Card footer — edit area */}
-                        <div className="border-t p-3">
-                          <div className="flex items-end gap-2">
-                            <Textarea
-                              ref={textareaRef}
-                              value={currentDraft?.body || ''}
-                              onChange={(e) => updateDraft(currentDm.id, 'body', e.target.value)}
-                              placeholder={`Edit message to u/${currentDm.reddit_username}...`}
-                              className="min-h-[44px] max-h-[120px] text-sm resize-none rounded-xl"
-                              rows={2}
-                            />
-                          </div>
+                        <div className="border-t p-3 space-y-1.5">
+                          <Textarea
+                            ref={textareaRef}
+                            value={currentDraft?.body || ''}
+                            onChange={(e) => updateDraft(currentDm.id, 'body', e.target.value)}
+                            placeholder={`Write a message to u/${currentDm.reddit_username}...`}
+                            className="min-h-[44px] max-h-[120px] text-sm resize-none rounded-xl"
+                            rows={2}
+                          />
+                          {hasDraftContent && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[11px] text-muted-foreground"
+                              onClick={() => generateDraft(currentDm.id)}
+                              disabled={generating.has(currentDm.id)}
+                            >
+                              {generating.has(currentDm.id) ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="mr-1 h-3 w-3" />
+                              )}
+                              Regenerate
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </motion.div>
