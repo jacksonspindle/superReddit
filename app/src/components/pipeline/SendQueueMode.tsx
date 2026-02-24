@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Flame,
   TrendingUp,
+  Copy,
 } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from 'motion/react';
 import type { PanInfo } from 'motion/react';
@@ -48,6 +49,8 @@ interface SendQueueModeProps {
     rateLimited?: boolean;
     retryAfterMs?: number;
   }>;
+  checkLastSend?: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
+  prepareDraft?: () => Promise<boolean>;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
   chatPreviews?: Record<string, ChatPreview>;
   redditUsername?: string;
@@ -73,6 +76,8 @@ export function SendQueueMode({
   onDmSent,
   onDismiss,
   sendDm,
+  checkLastSend,
+  prepareDraft,
   fetchConversation,
   chatPreviews,
   redditUsername,
@@ -94,6 +99,7 @@ export function SendQueueMode({
   const [pauseReason, setPauseReason] = useState<string | null>(null);
   const [fullMessages, setFullMessages] = useState<ConversationMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [manualSendDm, setManualSendDm] = useState<OutreachDM | null>(null);
 
   const sentFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -110,7 +116,7 @@ export function SendQueueMode({
   const swipeRotate = useTransform(swipeX, [-200, 200], [-12, 12]);
   const leftOverlayOpacity = useTransform(swipeX, [-200, -50], [1, 0]);
   const rightOverlayOpacityRaw = useTransform(swipeX, [50, 200], [0, 1]);
-  const swipeDisabled = sending || sentFlash || cooldownRemaining > 0 || !!pauseReason;
+  const swipeDisabled = sending || sentFlash || cooldownRemaining > 0 || !!pauseReason || !!manualSendDm;
 
   // Active queue (excluding dismissed leads)
   const queue = useMemo(
@@ -389,37 +395,72 @@ export function SendQueueMode({
     [followUpDays, onDmSent, startCooldown, fetchRateLimit]
   );
 
-  // Send DM directly via extension
-  const handleSend = useCallback(async () => {
-    if (!currentDm || cooldownRemaining > 0 || pauseReason) return;
+  // Ref to the Reddit compose popup window
+  const redditPopupRef = useRef<Window | null>(null);
+
+  // Open Reddit compose popup for manual send
+  const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
+    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+
+    // Copy message to clipboard as backup
+    navigator.clipboard.writeText(draft.body).catch(() => {});
+
+    // Tell extension we're about to open a compose window
+    prepareDraft?.();
+
+    // Open Reddit compose popup on the right side of the screen, pre-filled
+    const popupWidth = 700;
+    const left = window.screen.availWidth - popupWidth;
+    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+    const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
+    redditPopupRef.current = popup;
+  }, [prepareDraft]);
+
+  const handleSend = useCallback(() => {
+    if (!currentDm || cooldownRemaining > 0 || pauseReason || manualSendDm) return;
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
-    setSending(true);
-    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+    openRedditCompose(currentDm, draft);
+    setManualSendDm(currentDm);
+  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose]);
 
-    const result = await sendDm(currentDm.reddit_username, subject, draft.body);
+  // Confirm the user sent the message in Reddit
+  const handleConfirmSent = useCallback(() => {
+    if (!manualSendDm) return;
+    const draft = drafts.get(manualSendDm.id);
+    markSentAndAdvance(manualSendDm.id, draft?.body || '');
+    setManualSendDm(null);
+    redditPopupRef.current = null;
+  }, [manualSendDm, drafts, markSentAndAdvance]);
 
-    if (result.rateLimited) {
-      setSending(false);
-      const retryMs = result.retryAfterMs || 5 * 60 * 1000;
-      const retryMin = Math.ceil(retryMs / 1000 / 60);
-      setPauseReason(`Reddit rate limited — retry in ${retryMin} minute${retryMin !== 1 ? 's' : ''}`);
-      // Auto-resume after the cooldown
-      setTimeout(() => {
-        setPauseReason(null);
-        fetchRateLimit();
-      }, retryMs);
-      return;
-    }
+  // Cancel the manual send flow
+  const handleCancelSend = useCallback(() => {
+    setManualSendDm(null);
+    redditPopupRef.current = null;
+  }, []);
 
-    if (result.success) {
-      markSentAndAdvance(currentDm.id, draft.body);
-    } else {
-      setSending(false);
-      toast.error(result.error || 'Failed to send DM');
-    }
-  }, [currentDm, drafts, sendDm, markSentAndAdvance, cooldownRemaining, pauseReason, fetchRateLimit]);
+  // Auto-detect when user sends via the Reddit popup (poll extension)
+  useEffect(() => {
+    if (!manualSendDm || !checkLastSend) return;
+    const targetUsername = manualSendDm.reddit_username.toLowerCase();
+
+    const interval = setInterval(async () => {
+      try {
+        const result = await checkLastSend();
+        if (result?.success && result.username?.toLowerCase() === targetUsername) {
+          // Auto-detected send — advance immediately
+          const draft = drafts.get(manualSendDm.id);
+          markSentAndAdvance(manualSendDm.id, draft?.body || '');
+          setManualSendDm(null);
+          redditPopupRef.current = null;
+          toast.success('Message sent!');
+        }
+      } catch { /* silent */ }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [manualSendDm, checkLastSend, drafts, markSentAndAdvance]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -433,6 +474,10 @@ export function SendQueueMode({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        if (manualSendDm) {
+          handleCancelSend();
+          return;
+        }
         if (started && !isFinished) {
           if (confirm('Exit send queue? Your progress will be saved.')) onClose();
         } else {
@@ -441,6 +486,10 @@ export function SendQueueMode({
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
+        if (manualSendDm) {
+          handleConfirmSent();
+          return;
+        }
         if (started && currentDm && !sentFlash && !sending && hasDraftContent && cooldownRemaining === 0 && !pauseReason) {
           handleSend();
         }
@@ -448,7 +497,7 @@ export function SendQueueMode({
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [started, isFinished, currentDm, sentFlash, sending, hasDraftContent, onClose, handleSend, cooldownRemaining, pauseReason]);
+  }, [started, isFinished, currentDm, sentFlash, sending, hasDraftContent, onClose, handleSend, cooldownRemaining, pauseReason, manualSendDm, handleConfirmSent, handleCancelSend]);
 
   function handleSkip() {
     if (!currentDm) return;
@@ -751,7 +800,7 @@ export function SendQueueMode({
                       </motion.div>
 
                       {/* The card itself */}
-                      <div className="h-full rounded-2xl border bg-card shadow-xl overflow-hidden flex flex-col">
+                      <div className="h-full rounded-2xl border bg-card shadow-xl overflow-hidden flex flex-col relative">
                         {/* Card header — who + context */}
                         <div className="px-5 pt-5 pb-3 border-b">
                           <div className="flex items-center gap-2.5">
@@ -865,6 +914,84 @@ export function SendQueueMode({
                             </Button>
                           )}
                         </div>
+
+                        {/* Manual send confirm overlay */}
+                        {manualSendDm && manualSendDm.id === currentDm.id && (
+                          <div className="absolute inset-0 z-20 rounded-2xl bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 gap-5">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                              </div>
+                              <p className="text-sm font-medium text-center">
+                                Hit send in the Reddit window
+                              </p>
+                              <p className="text-xs text-muted-foreground text-center">
+                                to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> &mdash; we&apos;ll detect it automatically
+                              </p>
+                            </div>
+
+                            <div className="flex flex-col gap-2 w-full max-w-xs">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 text-xs"
+                                  onClick={() => {
+                                    const draft = drafts.get(manualSendDm.id);
+                                    if (draft) {
+                                      navigator.clipboard.writeText(draft.body).then(
+                                        () => toast.success('Copied to clipboard'),
+                                        () => toast.error('Failed to copy')
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <Copy className="mr-1 h-3 w-3" />
+                                  Copy Message
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 text-xs"
+                                  onClick={() => {
+                                    const draft = drafts.get(manualSendDm.id);
+                                    if (draft) {
+                                      openRedditCompose(manualSendDm, draft);
+                                    }
+                                  }}
+                                >
+                                  <ExternalLink className="mr-1 h-3 w-3" />
+                                  Re-open Window
+                                </Button>
+                              </div>
+
+                              <div className="relative flex items-center justify-center py-1">
+                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+                                <span className="relative bg-background px-2 text-[10px] text-muted-foreground">or confirm manually</span>
+                              </div>
+
+                              <Button
+                                onClick={handleConfirmSent}
+                                className="w-full bg-green-500 hover:bg-green-600 text-white"
+                                size="sm"
+                              >
+                                <Check className="mr-2 h-4 w-4" />
+                                I&apos;ve Sent It
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-xs text-muted-foreground"
+                                onClick={handleCancelSend}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to confirm &middot; Esc to cancel
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   </AnimatePresence>
@@ -917,7 +1044,7 @@ export function SendQueueMode({
 
                 {/* Hint text */}
                 <p className="text-center text-[10px] text-muted-foreground">
-                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to send
+                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to open Reddit
                   {rateLimit && (
                     <span className="ml-1">&middot; {rateLimit.dailyCount}/{rateLimit.dailyLimit} today</span>
                   )}
