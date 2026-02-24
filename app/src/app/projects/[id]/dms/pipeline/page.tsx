@@ -315,6 +315,16 @@ export default function DmPipelinePage() {
     persistSubredditFilters(none, trackedSubreddits);
   }, [trackedSubreddits, persistSubredditFilters]);
 
+  const handleAddSubreddit = useCallback((sub: string) => {
+    const normalized = sub.toLowerCase();
+    setTrackedSubreddits((prev) => prev.includes(normalized) ? prev : [...prev, normalized].sort());
+    setSelectedSubreddits((prev) => {
+      const next = new Set(prev);
+      next.add(normalized);
+      return next;
+    });
+  }, []);
+
   // Initial data load
   useEffect(() => {
     async function init() {
@@ -868,6 +878,7 @@ export default function DmPipelinePage() {
               onToggleSubreddit={handleToggleSubreddit}
               onSelectAllSubreddits={handleSelectAllSubreddits}
               onDeselectAllSubreddits={handleDeselectAllSubreddits}
+              onAddSubreddit={handleAddSubreddit}
               filteredLeadCount={filteredLeadCount}
             />
 

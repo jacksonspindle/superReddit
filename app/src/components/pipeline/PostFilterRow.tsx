@@ -29,6 +29,7 @@ interface PostFilterRowProps {
   onToggleSubreddit: (sub: string) => void;
   onSelectAllSubreddits: () => void;
   onDeselectAllSubreddits: () => void;
+  onAddSubreddit?: (sub: string) => void;
   filteredLeadCount: number;
 }
 
@@ -73,6 +74,7 @@ export function PostFilterRow({
   onToggleSubreddit,
   onSelectAllSubreddits,
   onDeselectAllSubreddits,
+  onAddSubreddit,
   filteredLeadCount,
 }: PostFilterRowProps) {
   const totalLeads = allDms.length;
@@ -118,6 +120,7 @@ export function PostFilterRow({
                   onToggle={onToggleSubreddit}
                   onSelectAll={onSelectAllSubreddits}
                   onDeselectAll={onDeselectAllSubreddits}
+                  onAddSubreddit={onAddSubreddit}
                 />
               </div>
             )}

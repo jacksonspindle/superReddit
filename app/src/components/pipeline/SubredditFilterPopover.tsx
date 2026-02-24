@@ -1,6 +1,7 @@
 'use client';
 
-import { Filter } from 'lucide-react';
+import { useState } from 'react';
+import { Filter, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -24,6 +25,7 @@ interface SubredditFilterPopoverProps {
   onToggle: (sub: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  onAddSubreddit?: (sub: string) => void;
 }
 
 export function SubredditFilterPopover({
@@ -32,9 +34,23 @@ export function SubredditFilterPopover({
   onToggle,
   onSelectAll,
   onDeselectAll,
+  onAddSubreddit,
 }: SubredditFilterPopoverProps) {
   const allSelected = selectedSubreddits.size === trackedSubreddits.length;
   const noneSelected = selectedSubreddits.size === 0;
+  const [inputValue, setInputValue] = useState('');
+
+  function handleAdd() {
+    const raw = inputValue.trim().replace(/^\/?r\//, '').toLowerCase();
+    if (!raw) return;
+    if (trackedSubreddits.includes(raw)) {
+      // Already tracked — just select it
+      if (!selectedSubreddits.has(raw)) onToggle(raw);
+    } else {
+      onAddSubreddit?.(raw);
+    }
+    setInputValue('');
+  }
 
   return (
     <Popover>
@@ -107,6 +123,29 @@ export function SubredditFilterPopover({
             );
           })}
         </div>
+        {onAddSubreddit && (
+          <div className="px-2 py-2 border-t">
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleAdd(); }}
+              className="flex items-center gap-1.5"
+            >
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Add subreddit..."
+                className="flex-1 min-w-0 text-xs bg-muted/50 rounded-md px-2 py-1.5 outline-none placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary/30"
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim()}
+                className="shrink-0 h-6 w-6 rounded-md bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </form>
+          </div>
+        )}
         {noneSelected && (
           <div className="px-3 py-2 border-t">
             <p className="text-[10px] text-muted-foreground">Select at least one subreddit to see leads.</p>
