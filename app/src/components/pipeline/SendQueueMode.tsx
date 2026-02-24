@@ -836,6 +836,19 @@ export function SendQueueMode({
             {/* Swipeable card area */}
             {!pauseReason && cooldownRemaining === 0 && (
               <div className="flex-1 w-full max-w-2xl mx-auto flex flex-col px-6 py-6">
+                {/* Hint text — above card */}
+                {!hasDraftContent && (
+                  <p className="text-center text-xs text-yellow-600 dark:text-yellow-400 font-medium pb-1">
+                    Write or generate a message before sending
+                  </p>
+                )}
+                <p className="text-center text-[10px] text-muted-foreground pb-3">
+                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to open Reddit
+                  {rateLimit && (
+                    <span className="ml-1">&middot; {rateLimit.dailyLimit}/day</span>
+                  )}
+                </p>
+
                 {/* Card container */}
                 <div className="relative flex-1 min-h-0">
                   <AnimatePresence mode="wait">
@@ -1106,20 +1119,6 @@ export function SendQueueMode({
                   </button>
                 </div>
 
-                {/* "Write a message" notice */}
-                {!hasDraftContent && (
-                  <p className="text-center text-xs text-yellow-600 dark:text-yellow-400 font-medium pt-1">
-                    Write or generate a message before sending
-                  </p>
-                )}
-
-                {/* Hint text */}
-                <p className="text-center text-[10px] text-muted-foreground">
-                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to open Reddit
-                  {rateLimit && (
-                    <span className="ml-1">&middot; {rateLimit.dailyCount}/{rateLimit.dailyLimit} today</span>
-                  )}
-                </p>
               </div>
             )}
           </div>
