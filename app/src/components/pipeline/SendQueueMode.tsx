@@ -398,20 +398,18 @@ export function SendQueueMode({
   // Ref to the Reddit compose popup window
   const redditPopupRef = useRef<Window | null>(null);
 
-  // Open Reddit compose popup for manual send
+  // Open Reddit chat popup for manual send
   const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
-    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
-
-    // Copy message to clipboard as backup
+    // Copy message to clipboard — user pastes into the existing chat
     navigator.clipboard.writeText(draft.body).catch(() => {});
 
     // Tell extension we're about to open a compose window
     prepareDraft?.();
 
-    // Open Reddit compose popup on the right side of the screen, pre-filled
+    // Open Reddit Chat with this user (opens existing conversation, not a new PM thread)
     const popupWidth = 700;
     const left = window.screen.availWidth - popupWidth;
-    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}`;
     const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
     redditPopupRef.current = popup;
   }, [prepareDraft]);
@@ -930,10 +928,10 @@ export function SendQueueMode({
                                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                               </div>
                               <p className="text-sm font-medium text-center">
-                                Hit send in the Reddit window
+                                Paste &amp; send in the Reddit chat
                               </p>
                               <p className="text-xs text-muted-foreground text-center">
-                                to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> &mdash; we&apos;ll detect it automatically
+                                Message copied &mdash; paste with <kbd className="inline-flex items-center rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">{typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+V</kbd> in the chat with <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span>
                               </p>
                             </div>
 
@@ -954,7 +952,7 @@ export function SendQueueMode({
                                   }}
                                 >
                                   <Copy className="mr-1 h-3 w-3" />
-                                  Copy Message
+                                  Re-copy Message
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -968,13 +966,13 @@ export function SendQueueMode({
                                   }}
                                 >
                                   <ExternalLink className="mr-1 h-3 w-3" />
-                                  Re-open Window
+                                  Re-open Chat
                                 </Button>
                               </div>
 
                               <div className="relative flex items-center justify-center py-1">
                                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
-                                <span className="relative bg-background px-2 text-[10px] text-muted-foreground">or confirm manually</span>
+                                <span className="relative bg-background px-2 text-[10px] text-muted-foreground">then confirm</span>
                               </div>
 
                               <Button
