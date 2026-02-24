@@ -54,6 +54,7 @@ interface SendQueueModeProps {
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
   chatPreviews?: Record<string, ChatPreview>;
   redditUsername?: string;
+  isFollowUp?: boolean;
 }
 
 const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
@@ -81,6 +82,7 @@ export function SendQueueMode({
   fetchConversation,
   chatPreviews,
   redditUsername,
+  isFollowUp,
 }: SendQueueModeProps) {
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -404,23 +406,30 @@ export function SendQueueMode({
   // Ref to the Reddit compose popup window
   const redditPopupRef = useRef<Window | null>(null);
 
-  // Open Reddit compose popup for manual send — pre-filled with all fields
+  // Open Reddit compose/chat popup for manual send
   const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
-    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
-
-    // Copy message to clipboard as backup
+    // Copy message to clipboard
     navigator.clipboard.writeText(draft.body).catch(() => {});
 
     // Tell extension we're about to open a compose window
     prepareDraft?.();
 
-    // Open Reddit compose popup on the right side, pre-filled with to/subject/message
     const popupWidth = 700;
     const left = window.screen.availWidth - popupWidth;
-    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+
+    // Follow-ups: open existing chat conversation (just /message/compose?to= redirects to chat)
+    // First touch: full compose page with pre-filled subject + message
+    let url: string;
+    if (isFollowUp) {
+      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}`;
+    } else {
+      const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+    }
+
     const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
     redditPopupRef.current = popup;
-  }, [prepareDraft]);
+  }, [prepareDraft, isFollowUp]);
 
   const handleSend = useCallback(() => {
     if (!currentDm || cooldownRemaining > 0 || pauseReason || manualSendDm) return;
@@ -590,14 +599,14 @@ export function SendQueueMode({
                 <p className="text-muted-foreground">
                   {queue.length} lead{queue.length !== 1 ? 's' : ''} ready to message
                 </p>
-                {rateLimit && (
+                {!isFollowUp && rateLimit && (
                   <p className="text-xs text-muted-foreground">
                     Daily: {rateLimit.dailyCount}/{rateLimit.dailyLimit} &middot; Weekly: {rateLimit.weeklyCount}/{rateLimit.weeklyLimit}
                   </p>
                 )}
               </div>
 
-              {rateLimit && (rateLimit.dailyLimit - rateLimit.dailyCount) < queue.length && (rateLimit.dailyLimit - rateLimit.dailyCount) > 0 && (
+              {!isFollowUp && rateLimit && (rateLimit.dailyLimit - rateLimit.dailyCount) < queue.length && (rateLimit.dailyLimit - rateLimit.dailyCount) > 0 && (
                 <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 text-xs text-yellow-700 dark:text-yellow-300">
                   Reddit&apos;s messaging guidelines limit daily sends. You have {rateLimit.dailyLimit - rateLimit.dailyCount} sends remaining today — {queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount)} lead{queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount) !== 1 ? 's' : ''} will need to wait until tomorrow.
                 </div>
@@ -936,10 +945,14 @@ export function SendQueueMode({
                                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                               </div>
                               <p className="text-sm font-medium text-center">
-                                Click send in the Reddit window
+                                {isFollowUp ? 'Paste & send in the Reddit chat' : 'Click send in the Reddit window'}
                               </p>
                               <p className="text-xs text-muted-foreground text-center">
-                                Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send
+                                {isFollowUp ? (
+                                  <>Message copied &mdash; paste with <kbd className="inline-flex items-center rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">{typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+V</kbd> in the chat with <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span></>
+                                ) : (
+                                  <>Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send</>
+                                )}
                               </p>
                             </div>
 

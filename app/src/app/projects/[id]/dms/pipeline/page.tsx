@@ -1133,6 +1133,7 @@ export default function DmPipelinePage() {
           <SendQueueMode
             dms={list}
             projectId={project.id}
+            isFollowUp
             onClose={() => { setFollowUpQueueActive(false); setFollowUpQueueStartId(null); fetchDms(); }}
             onStageChange={handleStageChange}
             onDmSent={handleDmSent}
