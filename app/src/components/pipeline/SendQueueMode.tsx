@@ -111,6 +111,8 @@ export function SendQueueMode({
   const inflight = useRef<Map<string, Promise<ConversationMessage[]>>>(new Map());
   // Track DMs we've already auto-advanced (to prevent double-firing)
   const autoAdvancedIds = useRef<Set<string>>(new Set());
+  // Track which DM's messages are currently in fullMessages (prevents stale data races)
+  const messagesForDmId = useRef<string | null>(null);
   const initialPrefetchDone = useRef(false);
 
   // Swipe gesture state
@@ -226,13 +228,17 @@ export function SendQueueMode({
   useEffect(() => {
     if (!currentDm || !fetchConversation) {
       setFullMessages([]);
+      messagesForDmId.current = null;
       return;
     }
+    // Reset tracking on card change
+    messagesForDmId.current = null;
     // Instant cache hit (only non-empty results are cached)
     const cacheKey = currentDm.reddit_username.toLowerCase();
     const cached = conversationCache.current.get(cacheKey);
     if (cached) {
       setFullMessages(cached);
+      messagesForDmId.current = currentDm.id;
       setLoadingMessages(false);
       return;
     }
@@ -242,11 +248,13 @@ export function SendQueueMode({
     fetchAndCacheConversation(currentDm).then((msgs) => {
       if (!cancelled) {
         setFullMessages(msgs);
+        messagesForDmId.current = currentDm.id;
         setLoadingMessages(false);
       }
     }).catch(() => {
       if (!cancelled) {
         setFullMessages([]);
+        messagesForDmId.current = currentDm.id;
         setLoadingMessages(false);
       }
     });
@@ -284,29 +292,22 @@ export function SendQueueMode({
   useEffect(() => {
     if (!started || !currentDm || sentFlash || loadingMessages || manualSendDm) return;
     if (autoAdvancedIds.current.has(currentDm.id)) return;
+    // Only check when fullMessages are confirmed to be for THIS card (prevents stale data)
+    if (messagesForDmId.current !== currentDm.id) return;
+    if (fullMessages.length === 0) return;
 
-    const username = currentDm.reddit_username.toLowerCase();
+    const youSent = fullMessages.some((m) => m.isFromYou);
 
-    // Check chatPreviews for instant detection
-    const preview = chatPreviews?.[username];
-    const youSentViaPreview = preview?.fromYou;
-
-    // Check full conversation messages
-    const youSentViaMessages = fullMessages.some((m) => m.isFromYou);
-
-    if (youSentViaPreview || youSentViaMessages) {
+    if (youSent) {
       autoAdvancedIds.current.add(currentDm.id);
-
-      // Determine if they also replied
-      const theyReplied = (youSentViaPreview && preview?.theirText) ||
-        (youSentViaMessages && fullMessages.some((m) => !m.isFromYou));
+      const theyReplied = fullMessages.some((m) => !m.isFromYou);
       const newStage = theyReplied ? 'responded' : 'dm_sent';
 
       onStageChange(currentDm.id, newStage);
       toast.info(`Already messaged u/${currentDm.reddit_username} — skipping`);
       setCurrentIndex((i) => i + 1);
     }
-  }, [started, currentDm, sentFlash, loadingMessages, manualSendDm, chatPreviews, fullMessages, onStageChange]);
+  }, [started, currentDm, sentFlash, loadingMessages, manualSendDm, fullMessages, onStageChange]);
 
   // Count leads that need generation
   const needsGeneration = useMemo(
