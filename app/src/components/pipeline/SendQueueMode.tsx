@@ -264,30 +264,42 @@ export function SendQueueMode({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDm?.id, fetchConversation, fetchAndCacheConversation]);
 
-  // Prefetch next 3 conversations in background as user views current card
+  // Prefetch next conversations in background as user views current card.
+  // IMPORTANT: Must serialize — the extension uses a single chat tab, so
+  // parallel fetches cause cross-contamination (user A gets user B's messages).
   useEffect(() => {
     if (!started || !fetchConversation || !currentDm) return;
-    const PREFETCH_AHEAD = 3;
-    const startIdx = currentIndex + 1;
-    const endIdx = Math.min(startIdx + PREFETCH_AHEAD, queue.length);
-    for (let i = startIdx; i < endIdx; i++) {
-      const dm = queue[i];
-      if (!dm) continue;
-      if (conversationCache.current.has(dm.reddit_username.toLowerCase())) continue;
-      fetchAndCacheConversation(dm).catch(() => {});
-    }
+    let cancelled = false;
+    (async () => {
+      const PREFETCH_AHEAD = 3;
+      const startIdx = currentIndex + 1;
+      const endIdx = Math.min(startIdx + PREFETCH_AHEAD, queue.length);
+      for (let i = startIdx; i < endIdx; i++) {
+        if (cancelled) break;
+        const dm = queue[i];
+        if (!dm) continue;
+        if (conversationCache.current.has(dm.reddit_username.toLowerCase())) continue;
+        await fetchAndCacheConversation(dm).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, currentIndex, currentDm?.id, fetchConversation, fetchAndCacheConversation]);
 
-  // Prefetch first few conversations on mount (before user clicks Start Sending)
+  // Prefetch first few conversations on mount (serialized).
   useEffect(() => {
     if (!fetchConversation || queue.length === 0 || initialPrefetchDone.current) return;
     initialPrefetchDone.current = true;
-    const INITIAL_PREFETCH = 3;
-    const count = Math.min(INITIAL_PREFETCH, queue.length);
-    for (let i = 0; i < count; i++) {
-      fetchAndCacheConversation(queue[i]).catch(() => {});
-    }
+    let cancelled = false;
+    (async () => {
+      const INITIAL_PREFETCH = 3;
+      const count = Math.min(INITIAL_PREFETCH, queue.length);
+      for (let i = 0; i < count; i++) {
+        if (cancelled) break;
+        await fetchAndCacheConversation(queue[i]).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
   }, [fetchConversation, queue, fetchAndCacheConversation]);
 
   // Count leads that need generation
