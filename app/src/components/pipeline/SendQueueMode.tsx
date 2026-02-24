@@ -898,19 +898,14 @@ export function SendQueueMode({
 
                         {/* Card body — conversation history + draft */}
                         <div className="flex-1 overflow-y-auto px-5 py-3">
-                          {/* Conversation history */}
-                          {loadingMessages ? (
-                            <div className="flex items-center justify-center py-6">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              <span className="ml-2 text-xs text-muted-foreground">Loading conversation...</span>
-                            </div>
-                          ) : (
-                            <ConversationTimeline
-                              dm={currentDm}
-                              chatPreview={chatPreviews?.[currentDm.reddit_username.toLowerCase()]}
-                              fullMessages={fullMessages}
-                            />
-                          )}
+                          {/* Conversation history — show DB/preview data immediately,
+                              upgrade to full messages when they arrive */}
+                          <ConversationTimeline
+                            dm={currentDm}
+                            chatPreview={chatPreviews?.[currentDm.reddit_username.toLowerCase()]}
+                            fullMessages={fullMessages}
+                            loading={loadingMessages}
+                          />
 
                           {/* Draft actions */}
                           {!hasDraftContent && (
