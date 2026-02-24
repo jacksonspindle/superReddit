@@ -51,6 +51,7 @@ interface SendQueueModeProps {
   }>;
   checkLastSend?: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
   prepareDraft?: () => Promise<boolean>;
+  getChatUrl?: (username: string) => Promise<string | null>;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
   chatPreviews?: Record<string, ChatPreview>;
   redditUsername?: string;
@@ -79,6 +80,7 @@ export function SendQueueMode({
   sendDm,
   checkLastSend,
   prepareDraft,
+  getChatUrl,
   fetchConversation,
   chatPreviews,
   redditUsername,
@@ -406,9 +408,9 @@ export function SendQueueMode({
   // Ref to the Reddit compose popup window
   const redditPopupRef = useRef<Window | null>(null);
 
-  // Open Reddit compose popup for manual send
-  const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
-    // Copy message to clipboard as backup
+  // Open Reddit compose or chat popup for manual send
+  const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }, chatUrl?: string) => {
+    // Copy message to clipboard
     navigator.clipboard.writeText(draft.body).catch(() => {});
 
     // Tell extension we're about to open a compose window
@@ -417,23 +419,37 @@ export function SendQueueMode({
     const popupWidth = 700;
     const left = window.screen.availWidth - popupWidth;
 
-    // Always pre-fill message body. Skip subject for follow-ups (not needed for replies).
-    const subject = isFollowUp ? '' : (draft.subject || draft.body.slice(0, 60).split('\n')[0]);
-    let url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&message=${encodeURIComponent(draft.body)}`;
-    if (subject) url += `&subject=${encodeURIComponent(subject)}`;
+    let url: string;
+    if (isFollowUp && chatUrl) {
+      // Open the existing Reddit chat conversation directly
+      url = chatUrl;
+    } else if (isFollowUp) {
+      // No chat URL available — compose page as fallback, pre-fill message
+      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&message=${encodeURIComponent(draft.body)}`;
+    } else {
+      // First touch — full compose with subject + message
+      const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+    }
 
     const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
     redditPopupRef.current = popup;
   }, [prepareDraft, isFollowUp]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     if (!currentDm || cooldownRemaining > 0 || pauseReason || manualSendDm) return;
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
-    openRedditCompose(currentDm, draft);
+    // For follow-ups, try to get the direct chat URL first
+    let chatUrl: string | null = null;
+    if (isFollowUp && getChatUrl) {
+      chatUrl = await getChatUrl(currentDm.reddit_username);
+    }
+
+    openRedditCompose(currentDm, draft, chatUrl ?? undefined);
     setManualSendDm(currentDm);
-  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose]);
+  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose, isFollowUp, getChatUrl]);
 
   // Close the Reddit popup window if it's still open
   const closeRedditPopup = useCallback(() => {
@@ -940,10 +956,14 @@ export function SendQueueMode({
                                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                               </div>
                               <p className="text-sm font-medium text-center">
-                                Click send in the Reddit window
+                                {isFollowUp ? 'Paste & send in the Reddit chat' : 'Click send in the Reddit window'}
                               </p>
                               <p className="text-xs text-muted-foreground text-center">
-                                Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send
+                                {isFollowUp ? (
+                                  <>Message copied to clipboard &mdash; paste with <kbd className="inline-flex items-center rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">{typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+V</kbd> in the chat with <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span></>
+                                ) : (
+                                  <>Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send</>
+                                )}
                               </p>
                             </div>
 
@@ -970,15 +990,19 @@ export function SendQueueMode({
                                   variant="outline"
                                   size="sm"
                                   className="flex-1 text-xs"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     const draft = drafts.get(manualSendDm.id);
                                     if (draft) {
-                                      openRedditCompose(manualSendDm, draft);
+                                      let chatUrl: string | undefined;
+                                      if (isFollowUp && getChatUrl) {
+                                        chatUrl = (await getChatUrl(manualSendDm.reddit_username)) ?? undefined;
+                                      }
+                                      openRedditCompose(manualSendDm, draft, chatUrl);
                                     }
                                   }}
                                 >
                                   <ExternalLink className="mr-1 h-3 w-3" />
-                                  Re-open Window
+                                  {isFollowUp ? 'Re-open Chat' : 'Re-open Window'}
                                 </Button>
                               </div>
 

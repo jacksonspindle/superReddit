@@ -311,6 +311,15 @@ export function useRedditBridge() {
     }
   }, []);
 
+  const getChatUrl = useCallback(async (username: string): Promise<string | null> => {
+    try {
+      const result = await sendToExtension<{ url: string | null }>('GET_CHAT_URL', 3_000, { username: username.toLowerCase() });
+      return result.url ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const refreshConversations = useCallback(async (): Promise<boolean> => {
     try {
       const result = await sendToExtension<{
@@ -431,6 +440,7 @@ export function useRedditBridge() {
     sendDm,
     prepareDraft,
     checkLastSend,
+    getChatUrl,
     fetchConversation,
     checkYouSentTo,
     checkTheyReplied,

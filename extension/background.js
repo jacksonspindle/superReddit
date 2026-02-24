@@ -524,6 +524,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'GET_CHAT_URL') {
+    const username = (message.data?.username || '').toLowerCase();
+    if (!username) {
+      sendResponse({ url: null });
+      return false;
+    }
+    chrome.storage.local.get(CHAT_URLS_KEY, (result) => {
+      const chatUrls = result[CHAT_URLS_KEY] || {};
+      const chatPath = chatUrls[username] || null;
+      sendResponse({ url: chatPath ? ('https://www.reddit.com' + (chatPath.startsWith('/chat') ? chatPath : '/chat' + chatPath)) : null });
+    });
+    return true; // async sendResponse
+  }
+
   // ---- Full conversation data (from chat-interceptor + content script parsing) ----
 
   if (message.type === 'STORE_CONVERSATION_MESSAGES') {
