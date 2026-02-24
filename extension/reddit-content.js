@@ -501,6 +501,26 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   function autoScrollSidebar() {
+    // Skip auto-scroll when the user is actively using the page (tab is focused).
+    // Only scroll in background tabs where it won't disrupt the user.
+    if (document.hasFocus()) {
+      console.log('[SuperReddit] Auto-scroll: skipped — tab is focused (user is active)');
+      // Still capture what's currently visible without scrolling
+      var visibleUsernames = scanChatUsernames();
+      var visibleData = classifyConversations();
+      if (visibleUsernames.length > 0) {
+        latestScanData = {
+          usernames: visibleUsernames,
+          youSentTo: visibleData.youSentTo,
+          theyReplied: visibleData.theyReplied,
+          previews: visibleData.previews,
+          chatUrls: visibleData.chatUrls,
+        };
+        storeResults(visibleUsernames, visibleData.youSentTo, visibleData.theyReplied, visibleData.previews, visibleData.chatUrls);
+      }
+      return;
+    }
+
     autoScrollRunning = true;
     lastAutoScrollTime = Date.now();
 
@@ -612,6 +632,22 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     // Randomized scroll speed (800-1600ms) to look human
     const scrollTimer = setInterval(() => {
+      // Stop immediately if the user focuses the tab mid-scroll
+      if (document.hasFocus()) {
+        clearInterval(scrollTimer);
+        console.log('[SuperReddit] Auto-scroll: stopped — user focused the tab');
+        scrollTarget.scrollTop = 0;
+        if (scrollTarget !== sidebarContainer) sidebarContainer.scrollTop = 0;
+        autoScrollRunning = false;
+
+        // Still store whatever we've accumulated so far
+        var partial = Array.from(accumulated.usernames);
+        if (partial.length > 0) {
+          storeResults(partial, Array.from(accumulated.youSentTo), Array.from(accumulated.theyReplied), accumulated.previews, accumulated.chatUrls);
+        }
+        return;
+      }
+
       scrollRound++;
 
       const prevTop = scrollTarget.scrollTop;
