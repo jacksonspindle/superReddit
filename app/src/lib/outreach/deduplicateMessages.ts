@@ -40,22 +40,8 @@ export function deduplicateMessages(
     }))
     .filter((msg) => msg.text.length > 0);
 
-  // Filter out messages from unrelated users (cross-conversation contamination).
-  // Only keep messages authored by either participant or the generic 'them'/'you' tags.
-  const myLower = myUsername?.toLowerCase();
-  const allowedAuthors = new Set<string>([otherLower]);
-  if (myLower) allowedAuthors.add(myLower);
-  if (_myAuthorName) allowedAuthors.add(_myAuthorName);
-
-  const participantFiltered = allowedAuthors.size >= 2
-    ? processed.filter((msg) => {
-        const authorLower = msg.author.toLowerCase();
-        return allowedAuthors.has(authorLower) || authorLower === 'you' || authorLower === 'them';
-      })
-    : processed;
-
   const seen = new Set<string>();
-  const deduped = participantFiltered.filter((msg) => {
+  const deduped = processed.filter((msg) => {
     const key = msg.text.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
