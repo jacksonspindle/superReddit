@@ -1173,10 +1173,13 @@ async function fetchConversationViaNavigation(username) {
     return null;
   }
 
-  // Helper: DOM scrape fallback WITH participant validation.
+  // Helper: DOM scrape fallback WITH strict participant validation.
   // Scrapes the visible thread, then checks that the requested user actually
   // appears as one of the message authors. If not, the scrape is from a
   // different conversation (cross-contamination) and we discard it.
+  // STRICT: only accept when the exact username appears in authors.
+  // Chat display names often differ from usernames, so this will reject
+  // many valid scrapes — but showing nothing is better than wrong data.
   async function validatedDomScrape(tid, user) {
     try {
       const scraped = await new Promise((resolve) => {
@@ -1190,27 +1193,14 @@ async function fetchConversationViaNavigation(username) {
 
       if (scraped.length === 0) return null;
 
-      // Validate: at least one message author must match the requested username.
-      // Authors in scraped data may be Reddit display names (not always exact username),
-      // so also check if the current page URL contains a known chat path for this user.
       const authors = new Set(scraped.map(m => (m.author || '').toLowerCase()));
       const userLower = user.toLowerCase();
 
-      if (authors.has(userLower) || authors.has('them')) {
-        // 'them' is the generic label the scraper uses for the other person —
-        // if the conversation was navigated to for this user, 'them' IS this user.
-        console.log('[SR BG] Validated DOM scrape: ' + scraped.length + ' messages, authors match u/' + user);
-        return await storeScrapedMessages(userLower, scraped);
-      }
-
-      // Extra check: if there are exactly 2 unique authors and one of them is "me",
-      // the other SHOULD be the requested user (we just navigated to their chat).
-      // Accept if the chat URL we navigated to belongs to this user.
-      const chatUrls = await getStoredChatUrls();
-      const expectedPath = chatUrls[userLower];
-      if (expectedPath && authors.size <= 2) {
-        // We navigated to this user's known chat URL — trust the scrape
-        console.log('[SR BG] Validated DOM scrape via chatUrl: ' + scraped.length + ' messages for u/' + user);
+      // Only accept if the exact requested username appears as a message author.
+      // No fallbacks — chat display names ≠ usernames, chatUrl presence doesn't
+      // guarantee the page rendered the correct conversation (SPA timing issues).
+      if (authors.has(userLower)) {
+        console.log('[SR BG] Validated DOM scrape: ' + scraped.length + ' messages, u/' + user + ' found in authors [' + [...authors].join(', ') + ']');
         return await storeScrapedMessages(userLower, scraped);
       }
 
