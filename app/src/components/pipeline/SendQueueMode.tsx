@@ -139,8 +139,10 @@ export function SendQueueMode({
   const currentDm = queue[currentIndex] ?? null;
   const isFinished = started && currentIndex >= queue.length;
 
-  // Seed drafts from DB values, but never overwrite local edits
+  // Seed drafts from DB values, but never overwrite local edits.
+  // For follow-ups, dm_body is the already-sent message — don't pre-fill it.
   useEffect(() => {
+    if (isFollowUp) return;
     setDrafts((prev) => {
       const next = new Map(prev);
       let changed = false;
@@ -152,7 +154,7 @@ export function SendQueueMode({
       }
       return changed ? next : prev;
     });
-  }, [dms]);
+  }, [dms, isFollowUp]);
 
   // Fetch rate limit status
   const fetchRateLimit = useCallback(async () => {
