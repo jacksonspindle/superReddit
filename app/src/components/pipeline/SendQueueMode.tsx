@@ -261,8 +261,9 @@ export function SendQueueMode({
       setLoadingMessages(false);
       return;
     }
-    // Cache miss — show spinner and fetch
+    // Cache miss — clear stale messages from previous card and show spinner
     let cancelled = false;
+    setFullMessages([]);
     setLoadingMessages(true);
     fetchAndCacheConversation(currentDm).then((msgs) => {
       if (!cancelled) {
