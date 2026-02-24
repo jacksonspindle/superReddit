@@ -425,20 +425,26 @@ export function SendQueueMode({
     setManualSendDm(currentDm);
   }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose]);
 
+  // Close the Reddit popup window if it's still open
+  const closeRedditPopup = useCallback(() => {
+    try { redditPopupRef.current?.close(); } catch { /* cross-origin or already closed */ }
+    redditPopupRef.current = null;
+  }, []);
+
   // Confirm the user sent the message in Reddit
   const handleConfirmSent = useCallback(() => {
     if (!manualSendDm) return;
     const draft = drafts.get(manualSendDm.id);
     markSentAndAdvance(manualSendDm.id, draft?.body || '');
     setManualSendDm(null);
-    redditPopupRef.current = null;
-  }, [manualSendDm, drafts, markSentAndAdvance]);
+    closeRedditPopup();
+  }, [manualSendDm, drafts, markSentAndAdvance, closeRedditPopup]);
 
   // Cancel the manual send flow
   const handleCancelSend = useCallback(() => {
     setManualSendDm(null);
-    redditPopupRef.current = null;
-  }, []);
+    closeRedditPopup();
+  }, [closeRedditPopup]);
 
   // Auto-detect when user sends via the Reddit popup (poll extension)
   useEffect(() => {
@@ -449,11 +455,12 @@ export function SendQueueMode({
       try {
         const result = await checkLastSend();
         if (result?.success && result.username?.toLowerCase() === targetUsername) {
-          // Auto-detected send — advance immediately
+          // Auto-detected send — close popup and advance immediately
+          try { redditPopupRef.current?.close(); } catch { /* cross-origin */ }
+          redditPopupRef.current = null;
           const draft = drafts.get(manualSendDm.id);
           markSentAndAdvance(manualSendDm.id, draft?.body || '');
           setManualSendDm(null);
-          redditPopupRef.current = null;
           toast.success('Message sent!');
         }
       } catch { /* silent */ }
