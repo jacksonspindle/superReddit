@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { MessageSquare, Clock, ArrowUpRight } from 'lucide-react';
+import { MessageSquare, Clock, ArrowUpRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/lib/time';
 import type { OutreachDM } from '@/types';
@@ -11,9 +11,10 @@ interface ConversationTimelineProps {
   dm: OutreachDM;
   chatPreview?: ChatPreview;
   fullMessages?: ConversationMessage[];
+  loading?: boolean;
 }
 
-export function ConversationTimeline({ dm, chatPreview, fullMessages }: ConversationTimelineProps) {
+export function ConversationTimeline({ dm, chatPreview, fullMessages, loading }: ConversationTimelineProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const hasComment = !!dm.comment_text;
@@ -34,6 +35,14 @@ export function ConversationTimeline({ dm, chatPreview, fullMessages }: Conversa
   const isEmpty = !hasComment && !hasSentDm && !hasReply && !previewIsNew && !hasFullMessages;
 
   if (isEmpty) {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-xs text-muted-foreground">Loading conversation...</span>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <MessageSquare className="h-8 w-8 text-muted-foreground/40 mb-3" />
@@ -215,6 +224,14 @@ export function ConversationTimeline({ dm, chatPreview, fullMessages }: Conversa
             </div>
             <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{chatPreview.text}</p>
           </div>
+        </div>
+      )}
+
+      {/* Full thread loading indicator */}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-4 px-3 mt-2 rounded-lg border border-dashed border-border/60 bg-muted/20">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <span className="text-xs text-muted-foreground font-medium">Loading full conversation from Reddit...</span>
         </div>
       )}
 

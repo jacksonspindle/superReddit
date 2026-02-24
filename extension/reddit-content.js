@@ -501,6 +501,26 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   }
 
   function autoScrollSidebar() {
+    // Skip auto-scroll when the user is actively using the page (tab is focused).
+    // Only scroll in background tabs where it won't disrupt the user.
+    if (document.hasFocus()) {
+      console.log('[SuperReddit] Auto-scroll: skipped — tab is focused (user is active)');
+      // Still capture what's currently visible without scrolling
+      var visibleUsernames = scanChatUsernames();
+      var visibleData = classifyConversations();
+      if (visibleUsernames.length > 0) {
+        latestScanData = {
+          usernames: visibleUsernames,
+          youSentTo: visibleData.youSentTo,
+          theyReplied: visibleData.theyReplied,
+          previews: visibleData.previews,
+          chatUrls: visibleData.chatUrls,
+        };
+        storeResults(visibleUsernames, visibleData.youSentTo, visibleData.theyReplied, visibleData.previews, visibleData.chatUrls);
+      }
+      return;
+    }
+
     autoScrollRunning = true;
     lastAutoScrollTime = Date.now();
 
@@ -612,6 +632,22 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     // Randomized scroll speed (800-1600ms) to look human
     const scrollTimer = setInterval(() => {
+      // Stop immediately if the user focuses the tab mid-scroll
+      if (document.hasFocus()) {
+        clearInterval(scrollTimer);
+        console.log('[SuperReddit] Auto-scroll: stopped — user focused the tab');
+        scrollTarget.scrollTop = 0;
+        if (scrollTarget !== sidebarContainer) sidebarContainer.scrollTop = 0;
+        autoScrollRunning = false;
+
+        // Still store whatever we've accumulated so far
+        var partial = Array.from(accumulated.usernames);
+        if (partial.length > 0) {
+          storeResults(partial, Array.from(accumulated.youSentTo), Array.from(accumulated.theyReplied), accumulated.previews, accumulated.chatUrls);
+        }
+        return;
+      }
+
       scrollRound++;
 
       const prevTop = scrollTarget.scrollTop;
@@ -724,16 +760,239 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
   // The background service worker uses chrome.tabs.sendMessage() to pull data.
   let latestScanData = { usernames: [], youSentTo: [], theyReplied: [], previews: {}, chatUrls: {} };
 
+  // ---- Fetch target hint ----
+  // A time-limited hint from background.js telling us which user's conversation
+  // we're currently trying to fetch. Used ONLY as a fallback when
+  // identifyConversationUser() returns null (can't determine the partner from
+  // message authors alone). Expires after 15 seconds to prevent leaking to
+  // future conversations.
+  let _fetchTarget = null; // { username: string, setAt: number }
+  const FETCH_TARGET_TTL = 15_000;
+
+  function getActiveFetchTarget() {
+    if (!_fetchTarget) return null;
+    if (Date.now() - _fetchTarget.setAt > FETCH_TARGET_TTL) {
+      _fetchTarget = null;
+      return null;
+    }
+    return _fetchTarget.username;
+  }
+
+  function consumeFetchTarget() {
+    const target = getActiveFetchTarget();
+    _fetchTarget = null; // one-time use
+    return target;
+  }
+
+  // ---- Identify the currently open/active chat conversation partner ----
+  // IMPORTANT: All strategies here MUST depend on actual rendered DOM state,
+  // NOT the URL. The URL changes immediately on navigation but the DOM/SPA
+  // may still be rendering the previous conversation. URL-based checks would
+  // falsely validate stale content, causing cross-contamination.
+  function identifyOpenChatPartner() {
+    const chatLinks = deepQueryAll('a[aria-label*="Direct chat with"]');
+    if (chatLinks.length === 0) return null;
+
+    // Strategy 1: Explicit active/selected state attributes on sidebar links.
+    // These are set by the chat app when it actually renders a conversation.
+    for (const link of chatLinks) {
+      const ariaCurrent = link.getAttribute('aria-current');
+      const ariaSelected = link.getAttribute('aria-selected');
+      const dataActive = link.getAttribute('data-active');
+      if (ariaCurrent === 'true' || ariaCurrent === 'page' ||
+          ariaSelected === 'true' || dataActive === 'true') {
+        const label = link.getAttribute('aria-label') || '';
+        const m = label.match(/Direct chat with\s+(.+)/i);
+        if (m) return m[1].trim().toLowerCase();
+      }
+    }
+
+    // Strategy 2: Visual active state — find the sidebar link with a different
+    // background color than the majority (the "highlighted" one).
+    // This is a rendered DOM property, not URL-dependent.
+    if (chatLinks.length >= 2) {
+      const bgCounts = {};
+      const linkBgs = [];
+      for (const link of chatLinks) {
+        try {
+          const bg = window.getComputedStyle(link).backgroundColor || '';
+          linkBgs.push({ link, bg });
+          bgCounts[bg] = (bgCounts[bg] || 0) + 1;
+        } catch (e) { linkBgs.push({ link, bg: '' }); }
+      }
+      // Find the most common background (the "default" inactive color)
+      let defaultBg = '';
+      let maxCount = 0;
+      for (const [bg, count] of Object.entries(bgCounts)) {
+        if (count > maxCount) { defaultBg = bg; maxCount = count; }
+      }
+      // The active link is the ONE with a different background
+      for (const { link, bg } of linkBgs) {
+        if (bg && bg !== defaultBg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+          const label = link.getAttribute('aria-label') || '';
+          const m = label.match(/Direct chat with\s+(.+)/i);
+          if (m) return m[1].trim().toLowerCase();
+        }
+      }
+    }
+
+    // Strategy 3: Look for the conversation header in the message panel.
+    // Reddit shows the partner's name prominently at the top of the chat.
+    // This text only updates when the conversation actually renders.
+    const headerSelectors = [
+      'h1', 'h2', 'h3',
+      '[data-testid*="conversation-header"]',
+      '[class*="ConversationHeader"]',
+      '[class*="conversation-header"]',
+      '[class*="threadHeader"]',
+    ];
+    for (const sel of headerSelectors) {
+      const headers = document.querySelectorAll(sel);
+      for (const header of headers) {
+        const text = (header.textContent || '').trim();
+        if (text && looksLikeUsername(text) && !isCommonWord(text)) {
+          // Cross-reference with sidebar to confirm it's a real chat partner
+          const textLower = text.toLowerCase();
+          for (const link of chatLinks) {
+            const label = link.getAttribute('aria-label') || '';
+            const m = label.match(/Direct chat with\s+(.+)/i);
+            if (m && m[1].trim().toLowerCase() === textLower) {
+              return textLower;
+            }
+          }
+        }
+      }
+    }
+
+    // Strategy 4: Look for user profile links in the message panel area.
+    // The conversation partner's username often appears as a clickable profile link
+    // (e.g., /user/USERNAME) near the top of the chat panel. Only trust if we find
+    // exactly one unique user link that also appears in the sidebar (cross-reference).
+    const messagePanelLinks = document.querySelectorAll('a[href*="/user/"]');
+    const panelUsernames = new Set();
+    for (const link of messagePanelLinks) {
+      const m = link.href.match(/\/user\/([A-Za-z0-9_-]{3,20})/);
+      if (m && m[1] !== 'me' && !isCommonWord(m[1])) {
+        const uLower = m[1].toLowerCase();
+        // Cross-reference with sidebar
+        for (const sideLink of chatLinks) {
+          const sLabel = sideLink.getAttribute('aria-label') || '';
+          const sm = sLabel.match(/Direct chat with\s+(.+)/i);
+          if (sm && sm[1].trim().toLowerCase() === uLower) {
+            panelUsernames.add(uLower);
+          }
+        }
+      }
+    }
+    if (panelUsernames.size === 1) {
+      return [...panelUsernames][0];
+    }
+
+    // NO URL-based fallback. If we can't determine the active conversation
+    // from rendered DOM state, return null — scrape will be rejected.
+    return null;
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'SET_FETCH_TARGET') {
+      const username = (message.username || '').toLowerCase();
+      if (username) {
+        _fetchTarget = { username, setAt: Date.now() };
+        console.log('[SuperReddit] SET_FETCH_TARGET: ' + username);
+      }
+      sendResponse({ ok: true });
+      return true;
+    }
     if (message.type === 'GET_SCAN_DATA') {
       console.log('[SuperReddit] GET_SCAN_DATA pull request — returning', latestScanData.usernames.length, 'usernames');
       sendResponse(latestScanData);
       return true;
     }
+    if (message.type === 'IDENTIFY_OPEN_CHAT') {
+      // Identify which conversation is currently displayed in the chat panel.
+      // Uses the sidebar aria-label (exact Reddit username) + active/selected state.
+      const partner = identifyOpenChatPartner();
+      console.log('[SuperReddit] IDENTIFY_OPEN_CHAT: ' + (partner || 'unknown'));
+      sendResponse({ username: partner });
+      return true;
+    }
     if (message.type === 'SCRAPE_OPEN_THREAD') {
       // Attempt to scrape messages from the currently visible chat thread DOM
       const threadMessages = scrapeVisibleThread();
-      sendResponse({ messages: threadMessages });
+      // Also identify the open chat partner so background can validate
+      const partner = identifyOpenChatPartner();
+      sendResponse({ messages: threadMessages, chatPartner: partner });
+      return true;
+    }
+    if (message.type === 'PREFILL_CHAT_INPUT') {
+      // Find the chat message input and fill it with the provided text.
+      // Reddit chat UI may be inside shadow DOM, so we use deepQueryAll.
+      var text = message.text || '';
+      if (!text) { sendResponse({ filled: false }); return true; }
+
+      function tryFill() {
+        // Strategy 1: textarea (current Reddit chat uses a textarea with placeholder "Message")
+        var textareas = deepQueryAll('textarea');
+        for (var j = 0; j < textareas.length; j++) {
+          var ta = textareas[j];
+          var ph = (ta.getAttribute('placeholder') || '').toLowerCase();
+          if (ta.offsetHeight > 0 && (ph.indexOf('message') !== -1 || ph.indexOf('type') !== -1 || ph === '')) {
+            ta.focus();
+            var nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+            nativeSetter.call(ta, text);
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled textarea (placeholder="' + ta.getAttribute('placeholder') + '")');
+            return true;
+          }
+        }
+
+        // Strategy 2: contenteditable div (older Reddit chat UI)
+        var editables = deepQueryAll('[contenteditable="true"]');
+        for (var i = 0; i < editables.length; i++) {
+          var el = editables[i];
+          if (el.offsetHeight > 0 && el.offsetWidth > 0) {
+            el.focus();
+            el.textContent = '';
+            document.execCommand('insertText', false, text);
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled contenteditable');
+            return true;
+          }
+        }
+
+        // Strategy 3: input[type=text] with message-like placeholder
+        var inputs = deepQueryAll('input[type="text"]');
+        for (var k = 0; k < inputs.length; k++) {
+          var inp = inputs[k];
+          var inpPh = (inp.getAttribute('placeholder') || '').toLowerCase();
+          if (inp.offsetHeight > 0 && (inpPh.indexOf('message') !== -1 || inpPh.indexOf('type') !== -1)) {
+            inp.focus();
+            var inputSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            inputSetter.call(inp, text);
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            inp.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log('[SuperReddit] PREFILL_CHAT_INPUT: filled input');
+            return true;
+          }
+        }
+
+        console.log('[SuperReddit] PREFILL_CHAT_INPUT: no input found (textareas=' + textareas.length + ', editables=' + editables.length + ', inputs=' + inputs.length + ')');
+        return false;
+      }
+
+      // Try immediately, then retry a few times (SPA input may not be rendered yet)
+      if (tryFill()) {
+        sendResponse({ filled: true });
+      } else {
+        var attempts = 0;
+        var retryInterval = setInterval(function() {
+          attempts++;
+          if (tryFill() || attempts >= 10) {
+            clearInterval(retryInterval);
+            sendResponse({ filled: attempts < 10 });
+          }
+        }, 500);
+      }
       return true;
     }
     if (message.type === 'NAVIGATE_TO_CHAT') {
@@ -1309,8 +1568,20 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
       var conversationUser = identifyConversationUser(wsMessages);
       if (!conversationUser) {
-        console.log('[SuperReddit] WS: intercepted ' + wsMessages.length + ' messages but could not identify conversation partner');
-        return;
+        // Fallback: use fetch target hint if available and messages are 1:1
+        var uniqueAuthors = {};
+        for (var wa = 0; wa < wsMessages.length; wa++) {
+          if (wsMessages[wa].author) uniqueAuthors[wsMessages[wa].author] = true;
+        }
+        var authorCount = Object.keys(uniqueAuthors).length;
+        var target = (authorCount >= 1 && authorCount <= 2) ? getActiveFetchTarget() : null;
+        if (target) {
+          conversationUser = target;
+          console.log('[SuperReddit] WS: used fetch target hint "' + target + '" for ' + wsMessages.length + ' messages (authors: ' + Object.keys(uniqueAuthors).join(', ') + ')');
+        } else {
+          console.log('[SuperReddit] WS: intercepted ' + wsMessages.length + ' messages but could not identify conversation partner (authors: ' + Object.keys(uniqueAuthors).join(', ') + ')');
+          return;
+        }
       }
 
       var tagged = tagMessages(wsMessages, conversationUser);
@@ -1360,8 +1631,20 @@ console.log('[SuperReddit] reddit-content.js v3 loaded');
 
     var conversationUser = identifyConversationUser(messages);
     if (!conversationUser) {
-      console.log('[SuperReddit] Intercepted ' + messages.length + ' messages but could not identify conversation partner');
-      return;
+      // Fallback: use fetch target hint if available
+      var apiUniqueAuthors = {};
+      for (var aa = 0; aa < messages.length; aa++) {
+        if (messages[aa].author) apiUniqueAuthors[messages[aa].author] = true;
+      }
+      var apiAuthorCount = Object.keys(apiUniqueAuthors).length;
+      var apiTarget = (apiAuthorCount >= 1 && apiAuthorCount <= 2) ? getActiveFetchTarget() : null;
+      if (apiTarget) {
+        conversationUser = apiTarget;
+        console.log('[SuperReddit] API: used fetch target hint "' + apiTarget + '" for ' + messages.length + ' messages');
+      } else {
+        console.log('[SuperReddit] Intercepted ' + messages.length + ' messages but could not identify conversation partner');
+        return;
+      }
     }
 
     var tagged = tagMessages(messages, conversationUser);

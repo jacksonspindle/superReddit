@@ -51,9 +51,12 @@ interface SendQueueModeProps {
   }>;
   checkLastSend?: () => Promise<{ success: boolean; username: string | null; error: string | null } | null>;
   prepareDraft?: () => Promise<boolean>;
+  getChatUrl?: (username: string) => Promise<string | null>;
+  openChatAndPrefill?: (username: string, text: string) => Promise<boolean>;
   fetchConversation?: (username: string) => Promise<ConversationMessage[]>;
   chatPreviews?: Record<string, ChatPreview>;
   redditUsername?: string;
+  isFollowUp?: boolean;
 }
 
 const permissionLabels: Record<PermissionType, { label: string; color: string }> = {
@@ -78,9 +81,12 @@ export function SendQueueMode({
   sendDm,
   checkLastSend,
   prepareDraft,
+  getChatUrl,
+  openChatAndPrefill,
   fetchConversation,
   chatPreviews,
   redditUsername,
+  isFollowUp,
 }: SendQueueModeProps) {
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -133,8 +139,10 @@ export function SendQueueMode({
   const currentDm = queue[currentIndex] ?? null;
   const isFinished = started && currentIndex >= queue.length;
 
-  // Seed drafts from DB values, but never overwrite local edits
+  // Seed drafts from DB values, but never overwrite local edits.
+  // For follow-ups, dm_body is the already-sent message — don't pre-fill it.
   useEffect(() => {
+    if (isFollowUp) return;
     setDrafts((prev) => {
       const next = new Map(prev);
       let changed = false;
@@ -146,7 +154,7 @@ export function SendQueueMode({
       }
       return changed ? next : prev;
     });
-  }, [dms]);
+  }, [dms, isFollowUp]);
 
   // Fetch rate limit status
   const fetchRateLimit = useCallback(async () => {
@@ -210,9 +218,24 @@ export function SendQueueMode({
         try {
           const msgs = await fetchConversation(dm.reddit_username);
           const deduped = deduplicateMessages(msgs, dm.reddit_username, redditUsername, dm.dm_body || undefined);
-          // Only cache non-empty results — empty may mean the extension hasn't
-          // loaded this conversation yet, so we want to retry on next view
+          // Safety check: reject messages that don't belong to this conversation.
+          // If none of the message authors match the expected reddit_username,
+          // the extension returned cross-contaminated data.
           if (deduped.length > 0) {
+            const targetLower = dm.reddit_username.toLowerCase();
+            const authors = new Set(deduped.map((m) => m.author.toLowerCase()));
+            const hasTargetUser = authors.has(targetLower) ||
+              // Also accept if the sidebar label "them" was used
+              deduped.some((m) => !m.isFromYou && m.author.toLowerCase() !== 'you');
+            // Strict check: at least one non-"you" message author must match the target
+            const nonYouAuthors = [...authors].filter((a) => a !== 'you' && a !== redditUsername?.toLowerCase());
+            const matchesTarget = nonYouAuthors.includes(targetLower) ||
+              nonYouAuthors.length === 0; // all messages from "you" is fine
+            if (!matchesTarget && nonYouAuthors.length > 0) {
+              console.warn('[SendQueue] Rejected cross-contaminated messages for u/' + dm.reddit_username +
+                ' — authors were: [' + nonYouAuthors.join(', ') + ']');
+              return [];
+            }
             conversationCache.current.set(cacheKey, deduped);
           }
           return deduped;
@@ -240,8 +263,9 @@ export function SendQueueMode({
       setLoadingMessages(false);
       return;
     }
-    // Cache miss — show spinner and fetch
+    // Cache miss — clear stale messages from previous card and show spinner
     let cancelled = false;
+    setFullMessages([]);
     setLoadingMessages(true);
     fetchAndCacheConversation(currentDm).then((msgs) => {
       if (!cancelled) {
@@ -258,30 +282,42 @@ export function SendQueueMode({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDm?.id, fetchConversation, fetchAndCacheConversation]);
 
-  // Prefetch next 3 conversations in background as user views current card
+  // Prefetch next conversations in background as user views current card.
+  // IMPORTANT: Must serialize — the extension uses a single chat tab, so
+  // parallel fetches cause cross-contamination (user A gets user B's messages).
   useEffect(() => {
     if (!started || !fetchConversation || !currentDm) return;
-    const PREFETCH_AHEAD = 3;
-    const startIdx = currentIndex + 1;
-    const endIdx = Math.min(startIdx + PREFETCH_AHEAD, queue.length);
-    for (let i = startIdx; i < endIdx; i++) {
-      const dm = queue[i];
-      if (!dm) continue;
-      if (conversationCache.current.has(dm.reddit_username.toLowerCase())) continue;
-      fetchAndCacheConversation(dm).catch(() => {});
-    }
+    let cancelled = false;
+    (async () => {
+      const PREFETCH_AHEAD = 3;
+      const startIdx = currentIndex + 1;
+      const endIdx = Math.min(startIdx + PREFETCH_AHEAD, queue.length);
+      for (let i = startIdx; i < endIdx; i++) {
+        if (cancelled) break;
+        const dm = queue[i];
+        if (!dm) continue;
+        if (conversationCache.current.has(dm.reddit_username.toLowerCase())) continue;
+        await fetchAndCacheConversation(dm).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, currentIndex, currentDm?.id, fetchConversation, fetchAndCacheConversation]);
 
-  // Prefetch first few conversations on mount (before user clicks Start Sending)
+  // Prefetch first few conversations on mount (serialized).
   useEffect(() => {
     if (!fetchConversation || queue.length === 0 || initialPrefetchDone.current) return;
     initialPrefetchDone.current = true;
-    const INITIAL_PREFETCH = 3;
-    const count = Math.min(INITIAL_PREFETCH, queue.length);
-    for (let i = 0; i < count; i++) {
-      fetchAndCacheConversation(queue[i]).catch(() => {});
-    }
+    let cancelled = false;
+    (async () => {
+      const INITIAL_PREFETCH = 3;
+      const count = Math.min(INITIAL_PREFETCH, queue.length);
+      for (let i = 0; i < count; i++) {
+        if (cancelled) break;
+        await fetchAndCacheConversation(queue[i]).catch(() => {});
+      }
+    })();
+    return () => { cancelled = true; };
   }, [fetchConversation, queue, fetchAndCacheConversation]);
 
   // Count leads that need generation
@@ -404,32 +440,57 @@ export function SendQueueMode({
   // Ref to the Reddit compose popup window
   const redditPopupRef = useRef<Window | null>(null);
 
-  // Open Reddit compose popup for manual send — pre-filled with all fields
-  const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }) => {
-    const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
-
-    // Copy message to clipboard as backup
+  // Open Reddit compose or chat popup for manual send
+  const openRedditCompose = useCallback((dm: OutreachDM, draft: { subject: string; body: string }, chatUrl?: string) => {
+    // Copy message to clipboard
     navigator.clipboard.writeText(draft.body).catch(() => {});
 
     // Tell extension we're about to open a compose window
     prepareDraft?.();
 
-    // Open Reddit compose popup on the right side, pre-filled with to/subject/message
     const popupWidth = 700;
     const left = window.screen.availWidth - popupWidth;
-    const url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+
+    let url: string;
+    if (isFollowUp && chatUrl) {
+      // Open the existing Reddit chat conversation directly
+      url = chatUrl;
+    } else if (isFollowUp) {
+      // No chat URL available — compose page as fallback, pre-fill message
+      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&message=${encodeURIComponent(draft.body)}`;
+    } else {
+      // First touch — full compose with subject + message
+      const subject = draft.subject || draft.body.slice(0, 60).split('\n')[0];
+      url = `https://www.reddit.com/message/compose/?to=${encodeURIComponent(dm.reddit_username)}&subject=${encodeURIComponent(subject)}&message=${encodeURIComponent(draft.body)}`;
+    }
+
     const popup = window.open(url, 'reddit-chat', `width=${popupWidth},height=${window.screen.availHeight},left=${left},top=0`);
     redditPopupRef.current = popup;
-  }, [prepareDraft]);
+  }, [prepareDraft, isFollowUp]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     if (!currentDm || cooldownRemaining > 0 || pauseReason || manualSendDm) return;
     const draft = drafts.get(currentDm.id);
     if (!draft || (!draft.subject && !draft.body)) return;
 
+    // For follow-ups, use extension to open the chat and pre-fill the message
+    if (isFollowUp && openChatAndPrefill) {
+      // Copy to clipboard as backup
+      navigator.clipboard.writeText(draft.body).catch(() => {});
+      setManualSendDm(currentDm);
+      const opened = await openChatAndPrefill(currentDm.reddit_username, draft.body);
+      if (!opened) {
+        // Extension couldn't open popup — fall back to window.open
+        console.warn('[SendQueue] openChatAndPrefill failed, falling back to window.open');
+        openRedditCompose(currentDm, draft);
+      }
+      return;
+    }
+
+    // First touch — open Reddit compose popup
     openRedditCompose(currentDm, draft);
     setManualSendDm(currentDm);
-  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose]);
+  }, [currentDm, drafts, cooldownRemaining, pauseReason, manualSendDm, openRedditCompose, isFollowUp, openChatAndPrefill]);
 
   // Close the Reddit popup window if it's still open
   const closeRedditPopup = useCallback(() => {
@@ -590,14 +651,14 @@ export function SendQueueMode({
                 <p className="text-muted-foreground">
                   {queue.length} lead{queue.length !== 1 ? 's' : ''} ready to message
                 </p>
-                {rateLimit && (
+                {!isFollowUp && rateLimit && (
                   <p className="text-xs text-muted-foreground">
                     Daily: {rateLimit.dailyCount}/{rateLimit.dailyLimit} &middot; Weekly: {rateLimit.weeklyCount}/{rateLimit.weeklyLimit}
                   </p>
                 )}
               </div>
 
-              {rateLimit && (rateLimit.dailyLimit - rateLimit.dailyCount) < queue.length && (rateLimit.dailyLimit - rateLimit.dailyCount) > 0 && (
+              {!isFollowUp && rateLimit && (rateLimit.dailyLimit - rateLimit.dailyCount) < queue.length && (rateLimit.dailyLimit - rateLimit.dailyCount) > 0 && (
                 <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 text-xs text-yellow-700 dark:text-yellow-300">
                   Reddit&apos;s messaging guidelines limit daily sends. You have {rateLimit.dailyLimit - rateLimit.dailyCount} sends remaining today — {queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount)} lead{queue.length - (rateLimit.dailyLimit - rateLimit.dailyCount) !== 1 ? 's' : ''} will need to wait until tomorrow.
                 </div>
@@ -782,6 +843,16 @@ export function SendQueueMode({
             {/* Swipeable card area */}
             {!pauseReason && cooldownRemaining === 0 && (
               <div className="flex-1 w-full max-w-2xl mx-auto flex flex-col px-6 py-6">
+                {/* Hint text — above card */}
+                {!hasDraftContent && (
+                  <p className="text-center text-xs text-yellow-600 dark:text-yellow-400 font-medium pb-1">
+                    Write or generate a message before sending
+                  </p>
+                )}
+                <p className="text-center text-[10px] text-muted-foreground pb-3">
+                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to open Reddit
+                </p>
+
                 {/* Card container */}
                 <div className="relative flex-1 min-h-0">
                   <AnimatePresence mode="wait">
@@ -860,38 +931,32 @@ export function SendQueueMode({
 
                         {/* Card body — conversation history + draft */}
                         <div className="flex-1 overflow-y-auto px-5 py-3">
-                          {/* Conversation history */}
-                          {loadingMessages ? (
-                            <div className="flex items-center justify-center py-6">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                              <span className="ml-2 text-xs text-muted-foreground">Loading conversation...</span>
-                            </div>
-                          ) : (
-                            <ConversationTimeline
-                              dm={currentDm}
-                              chatPreview={chatPreviews?.[currentDm.reddit_username.toLowerCase()]}
-                              fullMessages={fullMessages}
-                            />
-                          )}
+                          {/* Conversation history — show DB/preview data immediately,
+                              upgrade to full messages when they arrive */}
+                          <ConversationTimeline
+                            dm={currentDm}
+                            chatPreview={chatPreviews?.[currentDm.reddit_username.toLowerCase()]}
+                            fullMessages={fullMessages}
+                            loading={loadingMessages}
+                          />
 
                           {/* Draft actions */}
                           {!hasDraftContent && (
-                            <div className="mt-3 pt-3 border-t border-border/40 flex flex-col items-center text-center gap-3 py-4">
-                              <MessageCircle className="h-8 w-8 text-muted-foreground/30" />
-                              <p className="text-sm text-muted-foreground">No draft yet</p>
+                            <div className="mt-3 pt-3 border-t border-border/40 flex justify-center py-2">
                               <Button
                                 variant="outline"
+                                size="sm"
                                 onClick={() => generateDraft(currentDm.id)}
                                 disabled={generating.has(currentDm.id)}
                               >
                                 {generating.has(currentDm.id) ? (
                                   <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                     Generating...
                                   </>
                                 ) : (
                                   <>
-                                    <Sparkles className="mr-2 h-4 w-4" />
+                                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                                     Generate Draft
                                   </>
                                 )}
@@ -936,10 +1001,14 @@ export function SendQueueMode({
                                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                               </div>
                               <p className="text-sm font-medium text-center">
-                                Click send in the Reddit window
+                                {isFollowUp ? 'Paste & send in the Reddit chat' : 'Click send in the Reddit window'}
                               </p>
                               <p className="text-xs text-muted-foreground text-center">
-                                Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send
+                                {isFollowUp ? (
+                                  <>Message copied to clipboard &mdash; paste with <kbd className="inline-flex items-center rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">{typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+V</kbd> in the chat with <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span></>
+                                ) : (
+                                  <>Message to <span className="font-medium text-foreground">u/{manualSendDm.reddit_username}</span> is pre-filled &mdash; just hit send</>
+                                )}
                               </p>
                             </div>
 
@@ -966,15 +1035,20 @@ export function SendQueueMode({
                                   variant="outline"
                                   size="sm"
                                   className="flex-1 text-xs"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     const draft = drafts.get(manualSendDm.id);
                                     if (draft) {
-                                      openRedditCompose(manualSendDm, draft);
+                                      if (isFollowUp && openChatAndPrefill) {
+                                        navigator.clipboard.writeText(draft.body).catch(() => {});
+                                        openChatAndPrefill(manualSendDm.reddit_username, draft.body);
+                                      } else {
+                                        openRedditCompose(manualSendDm, draft);
+                                      }
                                     }
                                   }}
                                 >
                                   <ExternalLink className="mr-1 h-3 w-3" />
-                                  Re-open Window
+                                  {isFollowUp ? 'Re-open Chat' : 'Re-open Window'}
                                 </Button>
                               </div>
 
@@ -1048,20 +1122,6 @@ export function SendQueueMode({
                   </button>
                 </div>
 
-                {/* "Write a message" notice */}
-                {!hasDraftContent && (
-                  <p className="text-center text-xs text-yellow-600 dark:text-yellow-400 font-medium pt-1">
-                    Write or generate a message before sending
-                  </p>
-                )}
-
-                {/* Hint text */}
-                <p className="text-center text-[10px] text-muted-foreground">
-                  Swipe right to send &middot; Swipe left to dismiss &middot; {typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to open Reddit
-                  {rateLimit && (
-                    <span className="ml-1">&middot; {rateLimit.dailyCount}/{rateLimit.dailyLimit} today</span>
-                  )}
-                </p>
               </div>
             )}
           </div>
