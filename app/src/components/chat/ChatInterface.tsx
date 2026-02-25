@@ -227,18 +227,64 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   useEffect(() => {
     if (!userScrolledUp.current) {
-      scrollToBottom();
+      requestAnimationFrame(() => scrollToBottom());
     }
   }, [messages]);
 
+  // Detect user scrolling via wheel/touch — these only fire for real user input,
+  // not programmatic scrollTo calls, which eliminates the scroll-fighting bug.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    function handleWheel(e: WheelEvent) {
+      if (e.deltaY < 0) {
+        userScrolledUp.current = true;
+      } else if (e.deltaY > 0) {
+        requestAnimationFrame(() => {
+          if (!el) return;
+          const { scrollTop, scrollHeight, clientHeight } = el;
+          if (scrollHeight - scrollTop - clientHeight < 50) {
+            userScrolledUp.current = false;
+          }
+        });
+      }
+    }
+
+    function handleTouchStart(e: TouchEvent) {
+      (el as HTMLDivElement & { _lastTouchY?: number })._lastTouchY = e.touches[0].clientY;
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      const lastY = (el as HTMLDivElement & { _lastTouchY?: number })._lastTouchY ?? 0;
+      const currentY = e.touches[0].clientY;
+      if (currentY > lastY) {
+        // Swiping down = scrolling up
+        userScrolledUp.current = true;
+      } else {
+        requestAnimationFrame(() => {
+          if (!el) return;
+          const { scrollTop, scrollHeight, clientHeight } = el;
+          if (scrollHeight - scrollTop - clientHeight < 50) {
+            userScrolledUp.current = false;
+          }
+        });
+      }
+      (el as HTMLDivElement & { _lastTouchY?: number })._lastTouchY = currentY;
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: true });
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
   function scrollToBottom() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }
-
-  function handleChatScroll() {
-    if (!scrollRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    userScrolledUp.current = scrollHeight - scrollTop - clientHeight > 100;
   }
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -504,7 +550,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 min-h-0 overflow-y-auto px-3" ref={scrollRef} onScroll={handleChatScroll}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-3" ref={scrollRef}>
         <div className="py-4 space-y-4">
           {messages.length === 0 ? (
             <motion.div
@@ -566,30 +612,29 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                     animate="visible"
                     className="w-full"
                   >
-                    <div className="rounded-lg border bg-card p-2.5 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[11px] text-blue-500 font-medium">
+                    <div className="rounded-lg border bg-card p-2.5">
+                      <div className="flex items-center gap-1.5 text-[11px] text-blue-500 font-medium mb-2">
                         <Search className="h-3 w-3" />
                         <span>Found {message.searchResultPosts.length} posts</span>
                       </div>
-                      {message.searchResultPosts.map((post, idx) => (
-                        <a
-                          key={idx}
-                          href={`https://reddit.com${post.permalink}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-start gap-2 rounded-md p-1.5 hover:bg-muted transition-colors"
-                        >
-                          <span className="text-[10px] text-muted-foreground mt-0.5 shrink-0 w-4 text-right">{idx + 1}.</span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-medium leading-tight line-clamp-2">{post.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                              <span>r/{post.subreddit}</span>
-                              <span className="flex items-center gap-0.5"><ArrowUp className="h-2.5 w-2.5" />{post.score}</span>
-                              <span className="flex items-center gap-0.5"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {message.searchResultPosts.map((post, idx) => (
+                          <a
+                            key={idx}
+                            href={`https://reddit.com${post.permalink}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border bg-muted/30 p-2 hover:bg-muted transition-colors flex flex-col gap-1"
+                          >
+                            <p className="text-[11px] font-medium leading-tight line-clamp-2 flex-1">{post.title}</p>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                              <span className="truncate">r/{post.subreddit}</span>
+                              <span className="flex items-center gap-0.5 shrink-0 ml-auto"><ArrowUp className="h-2.5 w-2.5" />{post.score >= 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
+                              <span className="flex items-center gap-0.5 shrink-0"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
                             </div>
-                          </div>
-                        </a>
-                      ))}
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   </motion.div>
                 );
