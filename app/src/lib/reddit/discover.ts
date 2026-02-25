@@ -1,4 +1,4 @@
-import { getAnthropicClient, AI_MODEL } from '@/lib/ai/client';
+import { getAnthropicClient, HAIKU_MODEL } from '@/lib/ai/client';
 
 // ---- Constants ----
 const USER_AGENT = 'web:superreddit:v1.0.0 (by /u/superreddit_app)';
@@ -209,7 +209,7 @@ async function expandKeywordsWithLLM(
   try {
     const client = getAnthropicClient();
     const response = await client.messages.create({
-      model: AI_MODEL,
+      model: HAIKU_MODEL,
       max_tokens: 512,
       messages: [
         {
@@ -285,9 +285,18 @@ async function enrichWithEngagement(
     return bCount - aCount;
   });
 
-  // Only fetch about.json for top 25 candidates (rest get data from name search)
-  const toEnrich = sorted.slice(0, 25);
-  const rest = sorted.slice(25);
+  // Only fetch about.json for top 15 candidates that lack subscriber data
+  const needsEnrichment: SubredditAccumulator[] = [];
+  const alreadyHaveData: SubredditAccumulator[] = [];
+  for (const acc of sorted) {
+    if (needsEnrichment.length < 15 && acc.subscribers === 0) {
+      needsEnrichment.push(acc);
+    } else {
+      alreadyHaveData.push(acc);
+    }
+  }
+  const toEnrich = needsEnrichment;
+  const rest = alreadyHaveData;
 
   console.log(`[discover] Signal 7: Enriching ${toEnrich.length} candidates with engagement data (${rest.length} skipped)`);
 
@@ -420,19 +429,13 @@ export async function discoverSubreddits(
   const condensedName = product.name.replace(/\s+/g, '');
   if (condensedName !== product.name) baseTerms.push(condensedName);
 
-  // Run LLM keyword expansion in parallel with name search (which uses base terms only)
-  const [expandedKeywords, nameSearchResults] = await Promise.all([
-    expandKeywordsWithLLM(product.name, product.description, product.audience || null),
-    searchSubredditsByName(baseTerms), // Signal 4: can start immediately with base terms
-  ]);
-
-  const allSearchTerms = [...new Set([...baseTerms, ...expandedKeywords])];
-  console.log(`[discover] ${allSearchTerms.length} total search terms (${baseTerms.length} base + ${expandedKeywords.length} expanded)`);
-
-  // Step 2: Run remaining discovery signals in parallel (these use expanded keywords)
-  const [postSearchHits, similarSubs, sidebarSubs, competitorHits] =
+  // Run ALL discovery signals in a single parallel phase for speed
+  // Post search uses base terms (no need to wait for LLM expansion)
+  const [expandedKeywords, nameSearchResults, postSearchHits, similarSubs, sidebarSubs, competitorHits] =
     await Promise.all([
-      searchPostsForSubreddits(allSearchTerms), // Signal 1
+      expandKeywordsWithLLM(product.name, product.description, product.audience || null),
+      searchSubredditsByName(baseTerms), // Signal 4
+      searchPostsForSubreddits(baseTerms), // Signal 1: uses base terms directly
       fetchSimilarSubreddits(existingSubreddits), // Signal 2
       parseSidebarsForSubreddits(existingSubreddits), // Signal 3
       searchCompetitorSubreddits(competitors), // Signal 6
