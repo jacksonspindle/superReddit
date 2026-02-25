@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus, Search } from 'lucide-react';
+import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus, Search, ExternalLink, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -216,6 +216,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const [input, setInput] = useState('');
   const [pendingImages, setPendingImages] = useState<ImageAttachment[]>([]);
   const [streaming, setStreaming] = useState(false);
+  const [selectedSearchPosts, setSelectedSearchPosts] = useState<Set<number>>(new Set());
+  const [searchResultMessageIdx, setSearchResultMessageIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -443,11 +445,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     if (streaming) return;
     userScrolledUp.current = false;
 
-    // Build full context for the AI (not displayed to user)
+    // Clear any existing selection
+    setSelectedSearchPosts(new Set());
+
+    // Build full context for the AI — ask user to select posts, don't generate drafts yet
     const contextLines = results.posts.slice(0, 10).map((p, i) =>
       `${i + 1}. "${p.title}" (r/${p.subreddit}, ${p.score} upvotes, ${p.numComments} comments)`
     ).join('\n');
-    const fullContent = `[Search results for "${results.query}"${results.subreddit ? ` in r/${results.subreddit}` : ''}]\n\n${contextLines}\n\nAnalyze these top-performing posts and write me 3 post drafts for my product that use similar successful patterns.`;
+    const fullContent = `[Search results for "${results.query}"${results.subreddit ? ` in r/${results.subreddit}` : ''}]\n\n${contextLines}\n\nPresent these results briefly. Tell me which posts stand out and why, then ask which ones I'd like to use as inspiration for my post drafts. Do NOT write any drafts yet.`;
 
     // Display: compact search results card (no text bubble)
     const displayMessage: Message = {
@@ -457,6 +462,114 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     };
 
     const userMessage: Message = { role: 'user', content: fullContent };
+    const newMessages = [...messages, userMessage];
+    const displayMessages = [...messages, displayMessage];
+    setMessages(displayMessages);
+
+    // Store the index of the search results message so we can read from it later
+    setSearchResultMessageIdx(displayMessages.length - 1);
+
+    setStreaming(true);
+
+    const assistantMessage: Message = { role: 'assistant', content: '' };
+    setMessages([...displayMessages, assistantMessage]);
+
+    try {
+      const res = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          project: project
+            ? {
+                id: project.id,
+                name: project.name,
+                productName: project.product_name,
+                productDescription: project.product_description,
+                targetAudience: project.target_audience,
+                tone: project.tone,
+              }
+            : undefined,
+        }),
+      });
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.text) {
+                  accumulated += parsed.text;
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    updated[updated.length - 1] = { role: 'assistant', content: accumulated };
+                    return updated;
+                  });
+                }
+              } catch { /* skip */ }
+            }
+          }
+        }
+      }
+
+      const finalMessages = [...displayMessages, { role: 'assistant' as const, content: accumulated }];
+      setMessages(finalMessages);
+      onMessagesChange?.(finalMessages);
+    } catch {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
+        return updated;
+      });
+    }
+
+    setStreaming(false);
+  }
+
+  async function generateFromSelected() {
+    if (streaming || selectedSearchPosts.size === 0 || searchResultMessageIdx === null) return;
+    userScrolledUp.current = false;
+
+    const searchMsg = messages[searchResultMessageIdx];
+    if (!searchMsg?.searchResultPosts) return;
+
+    const selectedPosts = Array.from(selectedSearchPosts)
+      .sort((a, b) => a - b)
+      .map((idx) => searchMsg.searchResultPosts![idx])
+      .filter(Boolean);
+
+    if (selectedPosts.length === 0) return;
+
+    // Clear selection state
+    setSelectedSearchPosts(new Set());
+    setSearchResultMessageIdx(null);
+
+    // Build context with only selected posts
+    const contextLines = selectedPosts.map((p, i) => {
+      const bodyPreview = p.body ? `\n   Body: ${p.body.slice(0, 300)}${p.body.length > 300 ? '...' : ''}` : '';
+      return `${i + 1}. "${p.title}" (r/${p.subreddit}, ${p.score} upvotes, ${p.numComments} comments)${bodyPreview}`;
+    }).join('\n');
+    const fullContent = `I've selected these ${selectedPosts.length} post(s) as inspiration:\n\n${contextLines}\n\nAnalyze these posts and write me 3 post drafts for my product that use similar successful patterns from these specific posts.`;
+
+    // Display message showing which posts were selected
+    const displayContent = `Generate drafts from ${selectedPosts.length} selected post${selectedPosts.length > 1 ? 's' : ''}`;
+    const userMessage: Message = { role: 'user', content: fullContent };
+    const displayMessage: Message = { role: 'user', content: displayContent };
+
     const newMessages = [...messages, userMessage];
     const displayMessages = [...messages, displayMessage];
     setMessages(displayMessages);
@@ -514,6 +627,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
               } catch { /* skip */ }
             }
           }
+        }
+      }
+
+      // After stream completes, check for search actions
+      const searchActions = extractSearchActions(accumulated);
+      if (searchActions.length > 0 && onSearchAction) {
+        for (const action of searchActions) {
+          onSearchAction(action);
         }
       }
 
@@ -606,6 +727,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
               // Search results message: render as a compact card, not a user bubble
               if (message.role === 'user' && message.searchResultPosts && message.searchResultPosts.length > 0) {
+                const isSelectableResults = i === searchResultMessageIdx;
                 return (
                   <motion.div
                     key={i}
@@ -618,10 +740,72 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                       <div className="flex items-center gap-1.5 text-[11px] text-blue-500 font-medium mb-2">
                         <Search className="h-3 w-3" />
                         <span>Found {message.searchResultPosts.length} posts</span>
+                        {isSelectableResults && (
+                          <span className="text-muted-foreground font-normal ml-1">— click to select</span>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         {message.searchResultPosts.map((post, idx) => {
                           const validThumb = post.thumbnail && !['self', 'default', 'nsfw', 'spoiler', ''].includes(post.thumbnail);
+                          const isSelected = isSelectableResults && selectedSearchPosts.has(idx);
+
+                          if (isSelectableResults) {
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  setSelectedSearchPosts((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(idx)) {
+                                      next.delete(idx);
+                                    } else {
+                                      next.add(idx);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className={`rounded-md border p-2 transition-colors flex gap-2 cursor-pointer relative ${
+                                  isSelected
+                                    ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/30'
+                                    : 'bg-muted/30 hover:bg-muted'
+                                }`}
+                              >
+                                {isSelected && (
+                                  <div className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center">
+                                    <Check className="h-2.5 w-2.5 text-white" />
+                                  </div>
+                                )}
+                                {validThumb && (
+                                  <img
+                                    src={post.thumbnail!}
+                                    alt=""
+                                    className="w-10 h-10 rounded object-cover shrink-0 mt-0.5"
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                                  <p className="text-[11px] font-medium leading-tight line-clamp-2 pr-5">{post.title}</p>
+                                  {post.body && (
+                                    <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{post.body}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-auto">
+                                    <span className="truncate">r/{post.subreddit}</span>
+                                    <a
+                                      href={`https://reddit.com${post.permalink}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="ml-auto shrink-0 hover:text-foreground"
+                                    >
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                    <span className="flex items-center gap-0.5 shrink-0"><ArrowUp className="h-2.5 w-2.5" />{post.score >= 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
+                                    <span className="flex items-center gap-0.5 shrink-0"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <a
                               key={idx}
@@ -810,6 +994,33 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         </div>
       </div>
 
+      {selectedSearchPosts.size > 0 && (
+        <div className="border-t px-3 py-2 shrink-0 flex items-center gap-2 bg-blue-500/5">
+          <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+          <span className="text-xs text-blue-500 font-medium">
+            {selectedSearchPosts.size} post{selectedSearchPosts.size > 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={() => setSelectedSearchPosts(new Set())}
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Clear
+          </button>
+          <Button
+            size="sm"
+            className="h-7 text-[11px] px-4 ml-auto bg-blue-500 hover:bg-blue-600"
+            onClick={generateFromSelected}
+            disabled={streaming}
+          >
+            {streaming ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+            ) : (
+              <Sparkles className="h-3 w-3 mr-1.5" />
+            )}
+            Generate drafts
+          </Button>
+        </div>
+      )}
       <div className="border-t p-2.5 shrink-0">
         {attachments.length > 0 && (
           <div className="flex gap-1.5 mb-2 overflow-x-auto pt-2 pb-1 -mt-0.5">
