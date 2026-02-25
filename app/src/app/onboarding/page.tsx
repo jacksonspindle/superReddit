@@ -33,47 +33,55 @@ interface OnboardingState {
   githubAccessToken: string | null;
 }
 
-function loadSavedState(): Partial<OnboardingState> {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const saved = useRef(loadSavedState());
-
-  const [step, setStep] = useState(saved.current.step ?? 0);
+  const hydrated = useRef(false);
   const directionRef = useRef(1);
   const [userName, setUserName] = useState('');
   const [finishing, setFinishing] = useState(false);
 
-  // Product fields
-  const [productName, setProductName] = useState(saved.current.productName ?? '');
-  const [productDescription, setProductDescription] = useState(saved.current.productDescription ?? '');
-  const [productUrl, setProductUrl] = useState(saved.current.productUrl ?? '');
-  const [targetAudience, setTargetAudience] = useState(saved.current.targetAudience ?? '');
-  const [redditUsername, setRedditUsername] = useState(saved.current.redditUsername ?? '');
-
-  // Subreddits (lifted from SubredditsStep for persistence)
-  const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>(saved.current.addedSubreddits ?? []);
-  const [aiSuggestions, setAiSuggestions] = useState<SuggestedSubreddit[]>(saved.current.aiSuggestions ?? []);
-  const [aiFetched, setAiFetched] = useState(saved.current.aiFetched ?? false);
+  const [step, setStep] = useState(0);
+  const [productName, setProductName] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productUrl, setProductUrl] = useState('');
+  const [targetAudience, setTargetAudience] = useState('');
+  const [redditUsername, setRedditUsername] = useState('');
+  const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<SuggestedSubreddit[]>([]);
+  const [aiFetched, setAiFetched] = useState(false);
   const selectedSubreddits = new Set(addedSubreddits.map((s) => s.name));
-
-  // GitHub repo (selected during ProductStep)
-  const [selectedRepoUrl, setSelectedRepoUrl] = useState<string | null>(saved.current.selectedRepoUrl ?? null);
-  const [githubAccessToken, setGithubAccessToken] = useState<string | null>(saved.current.githubAccessToken ?? null);
+  const [selectedRepoUrl, setSelectedRepoUrl] = useState<string | null>(null);
+  const [githubAccessToken, setGithubAccessToken] = useState<string | null>(null);
 
   const tone = 'Adaptive';
 
-  // Persist state to sessionStorage on every change
+  // Restore from sessionStorage after mount (avoids hydration mismatch)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved: Partial<OnboardingState> = JSON.parse(raw);
+        if (saved.step != null) setStep(saved.step);
+        if (saved.productName != null) setProductName(saved.productName);
+        if (saved.productDescription != null) setProductDescription(saved.productDescription);
+        if (saved.productUrl != null) setProductUrl(saved.productUrl);
+        if (saved.targetAudience != null) setTargetAudience(saved.targetAudience);
+        if (saved.redditUsername != null) setRedditUsername(saved.redditUsername);
+        if (saved.addedSubreddits != null) setAddedSubreddits(saved.addedSubreddits);
+        if (saved.aiSuggestions != null) setAiSuggestions(saved.aiSuggestions);
+        if (saved.aiFetched != null) setAiFetched(saved.aiFetched);
+        if (saved.selectedRepoUrl !== undefined) setSelectedRepoUrl(saved.selectedRepoUrl);
+        if (saved.githubAccessToken !== undefined) setGithubAccessToken(saved.githubAccessToken);
+      }
+    } catch { /* ok */ }
+    hydrated.current = true;
+  }, []);
+
+  // Persist state to sessionStorage on every change (skip until hydrated)
   const persist = useCallback(() => {
+    if (!hydrated.current) return;
     const state: OnboardingState = {
       step, productName, productDescription, productUrl, targetAudience,
       redditUsername, addedSubreddits, aiSuggestions, aiFetched,
