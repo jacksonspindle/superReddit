@@ -19,11 +19,20 @@ interface ImageAttachment {
   name: string;
 }
 
+export interface SearchResultPost {
+  title: string;
+  subreddit: string;
+  score: number;
+  numComments: number;
+  permalink: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   images?: ImageAttachment[];
   references?: ReferencePost[];
+  searchResultPosts?: SearchResultPost[];
 }
 
 interface PostDraft {
@@ -181,7 +190,7 @@ function MarkdownMessage({ content }: { content: string }) {
 }
 
 export interface ChatInterfaceHandle {
-  sendFollowUp: (content: string) => void;
+  sendSearchResults: (results: { query: string; subreddit?: string; posts: SearchResultPost[] }) => void;
 }
 
 export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({
@@ -208,21 +217,28 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userScrolledUp = useRef(false);
 
   useImperativeHandle(ref, () => ({
-    sendFollowUp: (content: string) => { doSend(content); },
+    sendSearchResults: (results) => { sendSearchResults(results); },
   }));
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (!userScrolledUp.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   function scrollToBottom() {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }
+
+  function handleChatScroll() {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    userScrolledUp.current = scrollHeight - scrollTop - clientHeight > 100;
   }
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -249,6 +265,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   async function doSend(content: string) {
     if ((!content.trim() && pendingImages.length === 0) || streaming) return;
+    userScrolledUp.current = false;
 
     // Capture and clear pending images
     const imagesToSend = [...pendingImages];
@@ -374,6 +391,98 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     setStreaming(false);
   }
 
+  async function sendSearchResults(results: { query: string; subreddit?: string; posts: SearchResultPost[] }) {
+    if (streaming) return;
+    userScrolledUp.current = false;
+
+    // Build full context for the AI (not displayed to user)
+    const contextLines = results.posts.slice(0, 10).map((p, i) =>
+      `${i + 1}. "${p.title}" (r/${p.subreddit}, ${p.score} upvotes, ${p.numComments} comments)`
+    ).join('\n');
+    const fullContent = `[Search results for "${results.query}"${results.subreddit ? ` in r/${results.subreddit}` : ''}]\n\n${contextLines}\n\nAnalyze these top-performing posts and write me 3 post drafts for my product that use similar successful patterns.`;
+
+    // Display: compact search results card (no text bubble)
+    const displayMessage: Message = {
+      role: 'user',
+      content: '',
+      searchResultPosts: results.posts.slice(0, 8),
+    };
+
+    const userMessage: Message = { role: 'user', content: fullContent };
+    const newMessages = [...messages, userMessage];
+    const displayMessages = [...messages, displayMessage];
+    setMessages(displayMessages);
+    setStreaming(true);
+
+    const assistantMessage: Message = { role: 'assistant', content: '' };
+    setMessages([...displayMessages, assistantMessage]);
+
+    try {
+      const res = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          project: project
+            ? {
+                id: project.id,
+                name: project.name,
+                productName: project.product_name,
+                productDescription: project.product_description,
+                targetAudience: project.target_audience,
+                tone: project.tone,
+              }
+            : undefined,
+        }),
+      });
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.text) {
+                  accumulated += parsed.text;
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    updated[updated.length - 1] = { role: 'assistant', content: accumulated };
+                    return updated;
+                  });
+                }
+              } catch { /* skip */ }
+            }
+          }
+        }
+      }
+
+      const finalMessages = [...displayMessages, { role: 'assistant' as const, content: accumulated }];
+      setMessages(finalMessages);
+      onMessagesChange?.(finalMessages);
+    } catch {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
+        return updated;
+      });
+    }
+
+    setStreaming(false);
+  }
+
   async function handleSend() {
     await doSend(input);
   }
@@ -395,7 +504,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 min-h-0 overflow-y-auto px-3" ref={scrollRef}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-3" ref={scrollRef} onScroll={handleChatScroll}>
         <div className="py-4 space-y-4">
           {messages.length === 0 ? (
             <motion.div
@@ -446,6 +555,45 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
               const displayContent = message.role === 'assistant'
                 ? stripSearchBlock(stripPostBlock(message.content, isLastAssistant), isLastAssistant)
                 : message.content;
+
+              // Search results message: render as a compact card, not a user bubble
+              if (message.role === 'user' && message.searchResultPosts && message.searchResultPosts.length > 0) {
+                return (
+                  <motion.div
+                    key={i}
+                    variants={fadeUpVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="w-full"
+                  >
+                    <div className="rounded-lg border bg-card p-2.5 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-[11px] text-blue-500 font-medium">
+                        <Search className="h-3 w-3" />
+                        <span>Found {message.searchResultPosts.length} posts</span>
+                      </div>
+                      {message.searchResultPosts.map((post, idx) => (
+                        <a
+                          key={idx}
+                          href={`https://reddit.com${post.permalink}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-start gap-2 rounded-md p-1.5 hover:bg-muted transition-colors"
+                        >
+                          <span className="text-[10px] text-muted-foreground mt-0.5 shrink-0 w-4 text-right">{idx + 1}.</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-medium leading-tight line-clamp-2">{post.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                              <span>r/{post.subreddit}</span>
+                              <span className="flex items-center gap-0.5"><ArrowUp className="h-2.5 w-2.5" />{post.score}</span>
+                              <span className="flex items-center gap-0.5"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </motion.div>
+                );
+              }
 
               return (
                 <motion.div
