@@ -1,29 +1,35 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import { Loader2, Wifi, Hash, Mail, Send, Unplug } from 'lucide-react';
+import { Loader2, Wifi, Hash, Mail, Send, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { DiscordConnect } from '@/components/outreach/DiscordConnect';
 import { SlackConnect } from '@/components/outreach/SlackConnect';
 import { EmailConnect } from '@/components/outreach/EmailConnect';
 import { TelegramConnect } from '@/components/outreach/TelegramConnect';
-import { KeywordManager } from '@/components/outreach/KeywordManager';
+import { KeywordCards } from '@/components/outreach/KeywordCards';
+import { ManageKeywordsDialog } from '@/components/outreach/ManageKeywordsDialog';
+import { PostGrid } from '@/components/outreach/PostGrid';
 import { MonitoredSubreddits } from '@/components/outreach/MonitoredSubreddits';
-import { AlertHistory } from '@/components/outreach/AlertHistory';
 import { useOutreachStore } from '@/stores/outreach-store';
 import { toast } from 'sonner';
 import type { AlertChannel } from '@/types';
 
-const channelMeta: Record<AlertChannel, { icon: React.ComponentType<{ className?: string }>; label: string; description: string }> = {
-  discord: { icon: Wifi, label: 'Discord', description: 'Get alerts in a private Discord channel' },
-  slack: { icon: Hash, label: 'Slack', description: 'Send alerts to a Slack channel' },
-  email: { icon: Mail, label: 'Email', description: 'Receive alerts in your inbox' },
-  telegram: { icon: Send, label: 'Telegram', description: 'Instant alerts via Telegram bot' },
+const channelMeta: Record<AlertChannel, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
+  discord: { icon: Wifi, label: 'Discord' },
+  slack: { icon: Hash, label: 'Slack' },
+  email: { icon: Mail, label: 'Email' },
+  telegram: { icon: Send, label: 'Telegram' },
 };
 
 export default function OutreachAlertsPage() {
@@ -41,7 +47,6 @@ export default function OutreachAlertsPage() {
     fetchAlertDeliveries,
     addKeyword,
     removeKeyword,
-    toggleKeyword,
     addMonitoredSub,
     removeMonitoredSub,
     toggleMonitoredSub,
@@ -49,7 +54,10 @@ export default function OutreachAlertsPage() {
     disconnectChannel,
   } = useOutreachStore();
 
-  const [expandedChannel, setExpandedChannel] = useState<AlertChannel | null>(null);
+  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [channelsDialogOpen, setChannelsDialogOpen] = useState(false);
+  const [subsExpanded, setSubsExpanded] = useState(false);
 
   useEffect(() => {
     fetchConfig(project.id);
@@ -58,29 +66,14 @@ export default function OutreachAlertsPage() {
     fetchAlertDeliveries(project.id);
   }, [project.id, fetchConfig, fetchKeywords, fetchMonitoredSubs, fetchAlertDeliveries]);
 
-  const anyConnected =
-    config?.discord_connected ||
-    config?.slack_connected ||
-    config?.email_connected ||
-    config?.telegram_connected;
-
-  const isChannelConnected = (ch: AlertChannel): boolean => {
+  const connectedChannels: AlertChannel[] = (['discord', 'slack', 'email', 'telegram'] as AlertChannel[]).filter((ch) => {
     switch (ch) {
       case 'discord': return !!config?.discord_connected;
       case 'slack': return !!config?.slack_connected;
       case 'email': return !!config?.email_connected;
       case 'telegram': return !!config?.telegram_connected;
     }
-  };
-
-  const getChannelDetail = (ch: AlertChannel): string | null => {
-    switch (ch) {
-      case 'discord': return config?.discord_guild_name || null;
-      case 'slack': return config?.slack_team_name ? `${config.slack_team_name}` : null;
-      case 'email': return config?.email_address || null;
-      case 'telegram': return config?.telegram_username ? `@${config.telegram_username}` : null;
-    }
-  };
+  });
 
   const handleDisconnect = useCallback(
     (channel: AlertChannel) => {
@@ -90,12 +83,19 @@ export default function OutreachAlertsPage() {
     [disconnectChannel, project.id]
   );
 
-  const handleDeliveryFilter = useCallback(
-    (channel: AlertChannel | 'all') => {
-      fetchAlertDeliveries(project.id, channel === 'all' ? undefined : channel);
-    },
-    [fetchAlertDeliveries, project.id]
-  );
+  // Compute filter context line
+  const filteredCount = activeKeyword
+    ? alertDeliveries.filter((d) => {
+        const kw = keywords.find((k) => k.id === activeKeyword);
+        if (!kw) return false;
+        const phrases = kw.phrases.map((p) => p.toLowerCase());
+        return d.signal?.matched_keywords?.some((mk) => phrases.includes(mk.toLowerCase()));
+      }).length
+    : alertDeliveries.length;
+
+  const activeLabel = activeKeyword
+    ? keywords.find((k) => k.id === activeKeyword)?.phrases.join(', ') || 'keyword'
+    : null;
 
   if (configLoading) {
     return (
@@ -105,139 +105,146 @@ export default function OutreachAlertsPage() {
     );
   }
 
-  const channels: AlertChannel[] = ['discord', 'slack', 'email', 'telegram'];
-
   return (
     <PageTransition>
       <div className="flex h-full flex-col">
-        <Header title="Alert Channels" />
+        <Header title="Alerts" />
         <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-3xl p-6 flex flex-col gap-3 min-h-full justify-center">
-            {/* Header text */}
-            <div className="text-center space-y-1">
-              <h2 className="text-lg font-semibold">Connect a channel to receive keyword alerts</h2>
-              <p className="text-sm text-muted-foreground">
-                Choose where you want to be notified when Reddit posts match your keywords.
-              </p>
-            </div>
-
-            {/* Channel cards — 2x2 grid filling available space */}
-            <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-3 max-h-[65vh]">
-            {channels.map((ch) => {
-              const meta = channelMeta[ch];
-              const Icon = meta.icon;
-              const connected = isChannelConnected(ch);
-              const detail = getChannelDetail(ch);
-              const isExpanded = expandedChannel === ch;
-
-              return (
-                <Card
-                  key={ch}
-                  className={`cursor-pointer transition-colors ${
-                    isExpanded ? 'ring-2 ring-primary' : 'hover:bg-muted/30'
-                  }`}
-                  onClick={() => setExpandedChannel(isExpanded ? null : ch)}
+          <div className="mx-auto max-w-6xl p-6 space-y-5">
+            {/* Top bar: title + channel indicator */}
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-semibold">Keyword Alerts</h1>
+              <div className="flex items-center gap-1.5">
+                {connectedChannels.length > 0 ? (
+                  <button
+                    onClick={() => setChannelsDialogOpen(true)}
+                    className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted/50 transition-colors"
+                  >
+                    {connectedChannels.map((ch) => {
+                      const Icon = channelMeta[ch].icon;
+                      return (
+                        <Icon
+                          key={ch}
+                          className="h-3 w-3 text-green-500"
+                        />
+                      );
+                    })}
+                    <span className="text-muted-foreground ml-0.5">
+                      {connectedChannels.length} connected
+                    </span>
+                  </button>
+                ) : (
+                  <Badge variant="outline" className="text-[11px] text-muted-foreground">
+                    No channels
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setChannelsDialogOpen(true)}
                 >
-                  <CardContent className="p-0 h-full flex flex-col items-center justify-center text-center gap-2">
-                    <div className={`rounded-full p-2.5 ${
-                      connected
-                        ? 'bg-green-500/10 text-green-500'
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{meta.label}</p>
-                      {connected && detail ? (
-                        <p className="text-xs text-muted-foreground mt-0.5">{detail}</p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-0.5">{meta.description}</p>
-                      )}
-                    </div>
-                    <Badge
-                      variant="secondary"
-                      className={`text-[10px] px-2 py-0.5 ${
-                        connected
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                          : ''
-                      }`}
-                    >
-                      {connected ? 'Connected' : 'Not connected'}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
-            {/* Expanded channel config */}
-            {expandedChannel && (
-              <div>
-                {expandedChannel === 'discord' && (
-                  <DiscordConnect
-                    config={config}
-                    projectId={project.id}
-                    onDisconnect={() => handleDisconnect('discord')}
-                  />
-                )}
-                {expandedChannel === 'slack' && (
-                  <SlackConnect
-                    config={config}
-                    projectId={project.id}
-                    onDisconnect={() => handleDisconnect('slack')}
-                  />
-                )}
-                {expandedChannel === 'email' && (
-                  <EmailConnect
-                    config={config}
-                    projectId={project.id}
-                    onDisconnect={() => handleDisconnect('email')}
-                  />
-                )}
-                {expandedChannel === 'telegram' && (
-                  <TelegramConnect
-                    config={config}
-                    projectId={project.id}
-                    onDisconnect={() => handleDisconnect('telegram')}
-                  />
-                )}
-              </div>
-            )}
+            {/* Keyword cards strip */}
+            <KeywordCards
+              keywords={keywords}
+              deliveries={alertDeliveries}
+              activeKeyword={activeKeyword}
+              onSelect={setActiveKeyword}
+              onManageOpen={() => setManageOpen(true)}
+            />
 
-            {/* Show config sections when any channel is connected */}
-            {anyConnected && (
-              <>
-                {/* Keywords */}
-                <KeywordManager
-                  keywords={keywords}
-                  onAdd={(phrases) => addKeyword(project.id, phrases)}
-                  onRemove={removeKeyword}
-                  onToggle={toggleKeyword}
-                />
+            {/* Filter context line */}
+            <p className="text-xs text-muted-foreground">
+              {activeLabel
+                ? `Showing ${filteredCount} posts matching "${activeLabel}"`
+                : `Showing all ${filteredCount} posts`}
+            </p>
 
-                {/* Monitored subreddits */}
-                <MonitoredSubreddits
-                  subs={monitoredSubs}
-                  onAdd={(name) => addMonitoredSub(project.id, name)}
-                  onRemove={removeMonitoredSub}
-                  onToggle={toggleMonitoredSub}
-                  onSync={() => {
-                    syncSubsFromProject(project.id);
-                    toast.success('Subreddits synced from project');
-                  }}
-                />
+            {/* Post grid */}
+            <PostGrid
+              deliveries={alertDeliveries}
+              keywords={keywords}
+              filterKeywordId={activeKeyword}
+              loading={deliveriesLoading}
+            />
 
-                {/* Alert history - multi-channel */}
-                <AlertHistory
-                  deliveries={alertDeliveries}
-                  loading={deliveriesLoading}
-                  onFilterChange={handleDeliveryFilter}
-                />
-              </>
-            )}
+            {/* Monitored Subreddits — collapsible */}
+            <div className="border rounded-lg">
+              <button
+                onClick={() => setSubsExpanded(!subsExpanded)}
+                className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
+              >
+                <span>Monitored Subreddits ({monitoredSubs.length})</span>
+                {subsExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {subsExpanded && (
+                <div className="px-1 pb-1">
+                  <MonitoredSubreddits
+                    subs={monitoredSubs}
+                    onAdd={(name) => addMonitoredSub(project.id, name)}
+                    onRemove={removeMonitoredSub}
+                    onToggle={toggleMonitoredSub}
+                    onSync={() => {
+                      syncSubsFromProject(project.id);
+                      toast.success('Subreddits synced from project');
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Manage Keywords Dialog */}
+      <ManageKeywordsDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        keywords={keywords}
+        deliveries={alertDeliveries}
+        onAdd={(phrases) => addKeyword(project.id, phrases)}
+        onRemove={removeKeyword}
+      />
+
+      {/* Channels Dialog */}
+      <Dialog open={channelsDialogOpen} onOpenChange={setChannelsDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Alert Channels</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <DiscordConnect
+              config={config}
+              projectId={project.id}
+              onDisconnect={() => handleDisconnect('discord')}
+            />
+            <SlackConnect
+              config={config}
+              projectId={project.id}
+              onDisconnect={() => handleDisconnect('slack')}
+            />
+            <EmailConnect
+              config={config}
+              projectId={project.id}
+              onDisconnect={() => handleDisconnect('email')}
+            />
+            <TelegramConnect
+              config={config}
+              projectId={project.id}
+              onDisconnect={() => handleDisconnect('telegram')}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 }

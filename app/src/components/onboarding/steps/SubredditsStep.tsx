@@ -94,7 +94,7 @@ export function SubredditsStep({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  // Debounced search — tries server API first, falls back to client-side Reddit fetch
   useEffect(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
 
@@ -107,16 +107,43 @@ export function SubredditsStep({
 
     searchTimeoutRef.current = setTimeout(async () => {
       setSearchLoading(true);
+      let results: SearchResult[] = [];
+
+      // 1. Try our server-side API
       try {
         const res = await fetch(`/api/reddit/search-subreddits?q=${encodeURIComponent(query)}`);
         const json = await res.json();
-        if (json.subreddits) {
-          setSearchResults(json.subreddits);
-          setShowDropdown(true);
+        if (json.subreddits && json.subreddits.length > 0) {
+          results = json.subreddits;
         }
       } catch {
-        setSearchResults([]);
+        // server route failed
       }
+
+      // 2. Fallback: call Reddit directly from the browser (user's IP won't be blocked)
+      if (results.length === 0) {
+        try {
+          const res = await fetch(
+            `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=8&raw_json=1`,
+            { headers: { Accept: 'application/json' } }
+          );
+          if (res.ok) {
+            const json = await res.json();
+            results = (json?.data?.children || []).map(
+              (c: { data: Record<string, unknown> }) => ({
+                name: c.data.display_name as string,
+                subscribers: (c.data.subscribers as number) || 0,
+                description: ((c.data.public_description as string) || '').slice(0, 120),
+              })
+            );
+          }
+        } catch {
+          // client-side fallback also failed
+        }
+      }
+
+      setSearchResults(results);
+      if (results.length > 0) setShowDropdown(true);
       setSearchLoading(false);
     }, 300);
 
