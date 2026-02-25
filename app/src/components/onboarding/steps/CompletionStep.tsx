@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Loader2, Megaphone, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Megaphone, MessageSquare, Target, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 
@@ -41,7 +41,7 @@ export function CompletionStep({
         transition={{ delay: 0.15, duration: 0.4 }}
       >
         <h2 className="text-2xl font-bold tracking-tight">
-          Hey {firstName}!
+          You&apos;re ready to find your first users, {firstName}.
         </h2>
       </motion.div>
 
@@ -49,28 +49,30 @@ export function CompletionStep({
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.25, duration: 0.4 }}
-        className="mt-3 space-y-3"
+        className="mt-3"
       >
         <p className="text-base text-muted-foreground leading-relaxed">
-          You&apos;re all set up and ready to grow. This is just the beginning of
-          your journey to reaching the right people on Reddit.
+          Every day, people in {selectedSubreddits.size === 1 ? 'this subreddit' : `these ${selectedSubreddits.size} subreddits`} are
+          asking for exactly what <span className="font-medium text-foreground">{productName}</span> does.
+          SuperReddit helps you show up in those conversations with posts that feel native,
+          drive clicks, and turn Redditors into users.
         </p>
       </motion.div>
 
-      {/* Stats / what they set up */}
+      {/* Value props */}
       <motion.div
         initial={{ y: 15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.4 }}
-        className="mt-8 grid grid-cols-2 gap-3"
+        className="mt-8 grid grid-cols-3 gap-3"
       >
         <div className="rounded-xl border bg-card p-4">
           <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10">
-            <Megaphone className="h-4.5 w-4.5 text-orange-500" />
+            <Target className="h-4.5 w-4.5 text-orange-500" />
           </div>
           <p className="text-2xl font-bold">{selectedSubreddits.size}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedSubreddits.size === 1 ? 'Subreddit' : 'Subreddits'}
+            {selectedSubreddits.size === 1 ? 'Community' : 'Communities'}
           </p>
         </div>
 
@@ -80,20 +82,40 @@ export function CompletionStep({
           </div>
           <p className="text-2xl font-bold">AI</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Powered Posts
+            Post Generation
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+            <MessageSquare className="h-4.5 w-4.5 text-blue-500" />
+          </div>
+          <p className="text-2xl font-bold">DM</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Outreach
           </p>
         </div>
       </motion.div>
 
-      <motion.p
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.55, duration: 0.4 }}
-        className="mt-6 text-sm text-muted-foreground"
+        className="mt-6 space-y-2 text-sm text-muted-foreground text-left"
       >
-        We&apos;ll help you craft authentic posts for <span className="font-medium text-foreground">{productName}</span> that
-        blend into each community naturally.
-      </motion.p>
+        <p className="flex items-start gap-2">
+          <span className="mt-0.5 text-orange-500">&#10003;</span>
+          Generate Reddit posts tailored to each subreddit&apos;s tone and rules
+        </p>
+        <p className="flex items-start gap-2">
+          <span className="mt-0.5 text-orange-500">&#10003;</span>
+          Reach high-intent users already searching for solutions like yours
+        </p>
+        <p className="flex items-start gap-2">
+          <span className="mt-0.5 text-orange-500">&#10003;</span>
+          Auto-DM interested Redditors to convert engagement into leads
+        </p>
+      </motion.div>
 
       {/* CTA */}
       <motion.div
@@ -111,7 +133,7 @@ export function CompletionStep({
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
-          Start Growing on Reddit
+          Start Getting Leads
         </Button>
       </motion.div>
 
