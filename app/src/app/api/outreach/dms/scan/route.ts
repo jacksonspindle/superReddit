@@ -90,13 +90,9 @@ async function runScan(
     // Get outreach config for reddit username
     const { data: config } = await supabase
       .from('outreach_configs')
-      .select('reddit_username, setup_completed')
+      .select('reddit_username')
       .eq('project_id', project_id)
       .maybeSingle();
-
-    if (!config?.setup_completed) {
-      return { body: { message: 'Outreach setup not completed', scanned: false }, status: 200 };
-    }
 
     if (!config?.reddit_username) {
       return { body: { message: 'Reddit username not configured. Set it in your project Profile.', scanned: false }, status: 200 };
