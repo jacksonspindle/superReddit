@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Tooltip,
@@ -16,6 +16,9 @@ interface ActivityHeatmapProps {
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAY_LABELS: [number, string][] = [[1, 'Mon'], [3, 'Wed'], [5, 'Fri']];
+const GAP = 3;
+const DAY_LABEL_WIDTH = 32;
+const LEGEND_CELL = 11;
 
 function getColor(count: number, quartiles: [number, number, number, number]): string {
   if (count === 0) return 'bg-muted/40';
@@ -60,6 +63,8 @@ interface Cell {
 
 export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
   const quartiles = useMemo(() => computeQuartiles(activityDays), [activityDays]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cellSize, setCellSize] = useState(11);
 
   const { cells, monthPositions, totalActivities, totalCols, year } = useMemo(() => {
     const today = new Date();
@@ -120,9 +125,20 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
     };
   }, [activityDays]);
 
-  const DAY_LABEL_WIDTH = 32;
-  const GAP = 3;
-  const LEGEND_CELL = 11;
+  // Dynamically size cells to fill container width
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || totalCols === 0) return;
+    const compute = () => {
+      const availableWidth = el.clientWidth - DAY_LABEL_WIDTH;
+      const size = Math.floor((availableWidth + GAP) / totalCols - GAP);
+      setCellSize(Math.max(size, 4));
+    };
+    compute();
+    const observer = new ResizeObserver(compute);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [totalCols]);
 
   return (
     <Card className="gap-3 py-4">
@@ -135,30 +151,37 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
       </CardHeader>
       <CardContent>
         <TooltipProvider delayDuration={100}>
-          <div>
+          <div ref={containerRef}>
             {/* Month labels row */}
-            <div className="relative" style={{ height: 16, marginLeft: DAY_LABEL_WIDTH }}>
+            <div
+              className="relative"
+              style={{
+                height: 16,
+                marginLeft: DAY_LABEL_WIDTH,
+                width: totalCols * (cellSize + GAP) - GAP,
+              }}
+            >
               {monthPositions.map(({ label, col }) => (
                 <span
                   key={`${label}-${col}`}
                   className="absolute text-[11px] text-muted-foreground"
-                  style={{ left: `${(col / totalCols) * 100}%` }}
+                  style={{ left: col * (cellSize + GAP) }}
                 >
                   {label}
                 </span>
               ))}
             </div>
 
-            <div className="flex" style={{ gap: GAP }}>
+            <div className="flex">
               {/* Day labels (Mon, Wed, Fri) */}
-              <div className="flex shrink-0 flex-col" style={{ width: DAY_LABEL_WIDTH - GAP }}>
+              <div className="flex flex-col" style={{ width: DAY_LABEL_WIDTH }}>
                 {Array.from({ length: 7 }).map((_, i) => {
                   const entry = DAY_LABELS.find(([row]) => row === i);
                   return (
                     <div
                       key={i}
                       className="flex items-center text-[11px] text-muted-foreground"
-                      style={{ aspectRatio: 'auto', marginBottom: i < 6 ? GAP : 0, flex: '1 1 0%' }}
+                      style={{ height: cellSize, marginBottom: i < 6 ? GAP : 0 }}
                     >
                       {entry ? entry[1] : ''}
                     </div>
@@ -166,25 +189,34 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
                 })}
               </div>
 
-              {/* Contribution grid — fluid columns fill container */}
+              {/* Contribution grid — same column-major layout, dynamic cell size */}
               <div
-                className="grid flex-1"
+                className="grid"
                 style={{
-                  gridTemplateRows: 'repeat(7, 1fr)',
-                  gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
+                  gridTemplateRows: `repeat(7, ${cellSize}px)`,
+                  gridAutoFlow: 'column',
+                  gridAutoColumns: `${cellSize}px`,
                   gap: GAP,
                 }}
               >
                 {cells.map(({ dateKey, date, count, isFuture, isOutOfYear }) => {
                   if (isOutOfYear) {
-                    return <div key={dateKey} />;
+                    return (
+                      <div
+                        key={dateKey}
+                        style={{ width: cellSize, height: cellSize }}
+                      />
+                    );
                   }
 
                   if (isFuture) {
                     return (
                       <Tooltip key={dateKey}>
                         <TooltipTrigger asChild>
-                          <div className="rounded-[2px] bg-muted/30" style={{ aspectRatio: '1' }} />
+                          <div
+                            className="rounded-[2px] bg-muted/30"
+                            style={{ width: cellSize, height: cellSize }}
+                          />
                         </TooltipTrigger>
                         <TooltipContent>
                           No activities on {formatDate(date)}
@@ -198,7 +230,7 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
                       <TooltipTrigger asChild>
                         <div
                           className={`rounded-[2px] ${getColor(count, quartiles)}`}
-                          style={{ aspectRatio: '1' }}
+                          style={{ width: cellSize, height: cellSize }}
                         />
                       </TooltipTrigger>
                       <TooltipContent>
