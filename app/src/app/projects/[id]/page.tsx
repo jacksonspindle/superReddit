@@ -16,10 +16,10 @@ interface SparklineData {
 }
 
 interface DashboardData {
-  postsDrafted: SparklineData;
   postsPublished: SparklineData;
-  totalUpvotes: SparklineData;
-  totalComments: SparklineData;
+  totalLeads: SparklineData;
+  dmsSent: SparklineData;
+  opportunitiesFound: SparklineData;
   hasSubreddits: boolean;
   hasResearch: boolean;
   hasDrafts: boolean;
@@ -67,7 +67,7 @@ export default function ProjectDashboardPage() {
     async function load() {
       const supabase = createClient();
 
-      const [subredditsRes, genPostsRes, discoveredRes, chatRes] = await Promise.all([
+      const [subredditsRes, genPostsRes, discoveredRes, chatRes, signalsRes, dmsRes] = await Promise.all([
         supabase
           .from('subreddits')
           .select('id', { count: 'exact', head: true })
@@ -85,29 +85,58 @@ export default function ProjectDashboardPage() {
           .select('created_at')
           .eq('project_id', project.id)
           .eq('role', 'user'),
+        supabase
+          .from('outreach_signals')
+          .select('id, fetched_at')
+          .eq('project_id', project.id),
+        supabase
+          .from('outreach_dms')
+          .select('pipeline_stage, dm_sent_at, created_at')
+          .eq('project_id', project.id),
       ]);
 
       const subredditCount = subredditsRes.count ?? 0;
       const genPosts = genPostsRes.data ?? [];
       const discovered = discoveredRes.data ?? [];
       const chatMessages = chatRes.data ?? [];
+      const signals = signalsRes.data ?? [];
+      const dms = dmsRes.data ?? [];
 
       const published = genPosts.filter((p) => p.status === 'posted');
       const hasEdited = genPosts.some((p) => p.status === 'edited' || p.status === 'posted');
-      const emptyDaily = new Array(SPARKLINE_DAYS).fill(0);
 
-      // Build sparkline data
-      const postsDrafted: SparklineData = {
-        total: genPosts.length,
-        daily: buildDailyBuckets(genPosts.map((p) => p.created_at)),
-      };
+      // Posts Published
       const postsPublished: SparklineData = {
         total: published.length,
         daily: buildDailyBuckets(published.map((p) => p.created_at)),
       };
-      // Engagement metrics — populated once post tracking is added
-      const totalUpvotes: SparklineData = { total: 0, daily: emptyDaily };
-      const totalComments: SparklineData = { total: 0, daily: emptyDaily };
+
+      // Total Leads = ready-to-DM pipeline items + all signals
+      const readyToDm = dms.filter((d) =>
+        ['detected', 'dm_ready', 'draft_generated'].includes(d.pipeline_stage)
+      );
+      const totalLeads: SparklineData = {
+        total: readyToDm.length + signals.length,
+        daily: buildDailyBuckets([
+          ...readyToDm.map((d) => d.created_at),
+          ...signals.map((s) => s.fetched_at),
+        ]),
+      };
+
+      // DMs Sent = dm_sent + responded + converted (all sent states)
+      const sentDms = dms.filter((d) =>
+        ['dm_sent', 'responded', 'converted'].includes(d.pipeline_stage)
+      );
+      const dmsSent: SparklineData = {
+        total: sentDms.length,
+        daily: buildDailyBuckets(sentDms.map((d) => d.dm_sent_at || d.created_at)),
+      };
+
+      // Opportunities Found = all signals (alerts + signals posts)
+      const opportunitiesFound: SparklineData = {
+        total: signals.length,
+        daily: buildDailyBuckets(signals.map((s) => s.fetched_at)),
+      };
 
       // Build activity map
       const activityDays: Record<string, number> = {};
@@ -119,12 +148,13 @@ export default function ProjectDashboardPage() {
       genPosts.forEach((p) => addActivity(p.created_at));
       discovered.forEach((p) => addActivity(p.fetched_at));
       chatMessages.forEach((m) => addActivity(m.created_at));
+      signals.forEach((s) => addActivity(s.fetched_at));
 
       setData({
-        postsDrafted,
         postsPublished,
-        totalUpvotes,
-        totalComments,
+        totalLeads,
+        dmsSent,
+        opportunitiesFound,
         hasSubreddits: subredditCount > 0,
         hasResearch: discovered.length > 0,
         hasDrafts: genPosts.length > 0,
@@ -160,10 +190,10 @@ export default function ProjectDashboardPage() {
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2">
           <AnalyticsCards
-            postsDrafted={data.postsDrafted}
             postsPublished={data.postsPublished}
-            totalUpvotes={data.totalUpvotes}
-            totalComments={data.totalComments}
+            totalLeads={data.totalLeads}
+            dmsSent={data.dmsSent}
+            opportunitiesFound={data.opportunitiesFound}
           />
         </div>
         <PlanProgress
