@@ -24,6 +24,7 @@ import { useRedditBridge } from '@/hooks/useRedditBridge';
 import type { ChatPreview } from '@/hooks/useRedditBridge';
 import type { OutreachDM, DmPipelineStage, MonitoredPost } from '@/types';
 import { deduplicateMessages } from '@/lib/outreach/deduplicateMessages';
+import { createClient } from '@/lib/supabase/client';
 
 type KanbanStage = 'ready' | 'sent' | 'followup' | 'converted';
 
@@ -254,21 +255,23 @@ export default function DmPipelinePage() {
     }
   }, [project.id]);
 
-  // Derive tracked subreddits from project's monitored subs only, apply saved prefs
+  // Derive tracked subreddits from the project's subreddits table (chosen during onboarding)
   useEffect(() => {
     if (loading) return;
 
     (async () => {
       const projectSubs = new Set<string>();
 
-      // Only use project-specific monitored subreddits (not all user post history)
+      // Fetch subreddits from the project's subreddits table (set during onboarding/project setup)
       try {
-        const subsRes = await fetch(`/api/outreach/monitored-subs?project_id=${project.id}`);
-        const subsJson = await subsRes.json();
-        const fromSubs: string[] = (subsJson.subs || [])
-          .filter((s: { is_active?: boolean | null }) => s.is_active !== false)
-          .map((s: { name: string }) => s.name.toLowerCase());
-        for (const s of fromSubs) projectSubs.add(s);
+        const supabase = createClient();
+        const { data: subs } = await supabase
+          .from('subreddits')
+          .select('name')
+          .eq('project_id', project.id);
+        if (subs) {
+          for (const s of subs) projectSubs.add(s.name.toLowerCase());
+        }
       } catch { /* silent */ }
 
       const allTracked = Array.from(projectSubs).sort();
