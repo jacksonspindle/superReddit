@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const REDDIT_BASE = 'https://www.reddit.com';
 const USER_AGENT = 'web:superreddit:v1.0.0 (by /u/superreddit_app)';
 
 export async function GET(request: NextRequest) {
@@ -11,13 +10,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await fetch(
-      `${REDDIT_BASE}/subreddits/search.json?q=${encodeURIComponent(query)}&limit=8&raw_json=1`,
+      `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=8&raw_json=1`,
       {
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
       }
     );
 
     if (!res.ok) {
+      console.error(`Reddit search failed: ${res.status} ${res.statusText}`);
       return NextResponse.json({ subreddits: [] });
     }
 
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ subreddits });
-  } catch {
+  } catch (err) {
+    console.error('Reddit subreddit search error:', err);
     return NextResponse.json({ subreddits: [] });
   }
 }
