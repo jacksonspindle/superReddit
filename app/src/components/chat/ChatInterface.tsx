@@ -25,6 +25,8 @@ export interface SearchResultPost {
   score: number;
   numComments: number;
   permalink: string;
+  body?: string | null;
+  thumbnail?: string | null;
 }
 
 interface Message {
@@ -618,22 +620,37 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                         <span>Found {message.searchResultPosts.length} posts</span>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
-                        {message.searchResultPosts.map((post, idx) => (
-                          <a
-                            key={idx}
-                            href={`https://reddit.com${post.permalink}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded-md border bg-muted/30 p-2 hover:bg-muted transition-colors flex flex-col gap-1"
-                          >
-                            <p className="text-[11px] font-medium leading-tight line-clamp-2 flex-1">{post.title}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <span className="truncate">r/{post.subreddit}</span>
-                              <span className="flex items-center gap-0.5 shrink-0 ml-auto"><ArrowUp className="h-2.5 w-2.5" />{post.score >= 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
-                              <span className="flex items-center gap-0.5 shrink-0"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
-                            </div>
-                          </a>
-                        ))}
+                        {message.searchResultPosts.map((post, idx) => {
+                          const validThumb = post.thumbnail && !['self', 'default', 'nsfw', 'spoiler', ''].includes(post.thumbnail);
+                          return (
+                            <a
+                              key={idx}
+                              href={`https://reddit.com${post.permalink}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-md border bg-muted/30 p-2 hover:bg-muted transition-colors flex gap-2"
+                            >
+                              {validThumb && (
+                                <img
+                                  src={post.thumbnail!}
+                                  alt=""
+                                  className="w-10 h-10 rounded object-cover shrink-0 mt-0.5"
+                                />
+                              )}
+                              <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                                <p className="text-[11px] font-medium leading-tight line-clamp-2">{post.title}</p>
+                                {post.body && (
+                                  <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{post.body}</p>
+                                )}
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-auto">
+                                  <span className="truncate">r/{post.subreddit}</span>
+                                  <span className="flex items-center gap-0.5 shrink-0 ml-auto"><ArrowUp className="h-2.5 w-2.5" />{post.score >= 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
+                                  <span className="flex items-center gap-0.5 shrink-0"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
+                                </div>
+                              </div>
+                            </a>
+                          );
+                        })}
                       </div>
                     </div>
                   </motion.div>

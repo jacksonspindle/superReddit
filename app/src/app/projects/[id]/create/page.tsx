@@ -52,13 +52,18 @@ export default function CreatePage() {
       const { query, subreddit, posts } = state.aiSearchResults;
       state.setAISearchResults(null);
 
-      const searchResultPosts: SearchResultPost[] = posts.slice(0, 10).map((p) => ({
-        title: p.title,
-        subreddit: p.subreddit,
-        score: p.score,
-        numComments: p.num_comments,
-        permalink: p.permalink,
-      }));
+      const searchResultPosts: SearchResultPost[] = posts.slice(0, 10).map((p) => {
+        const thumb = p.preview_url || p.thumbnail;
+        return {
+          title: p.title,
+          subreddit: p.subreddit,
+          score: p.score,
+          numComments: p.num_comments,
+          permalink: p.permalink,
+          body: p.selftext ? p.selftext.slice(0, 200) : null,
+          thumbnail: thumb && !['self', 'default', 'nsfw', 'spoiler', ''].includes(thumb) ? thumb : null,
+        };
+      });
 
       chatRef.current?.sendSearchResults({ query, subreddit, posts: searchResultPosts });
     });
