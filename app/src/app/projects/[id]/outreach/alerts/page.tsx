@@ -191,21 +191,6 @@ export default function OutreachAlertsPage() {
                   onManageOpen={() => setManageOpen(true)}
                 />
 
-                {/* Filter context line */}
-                <p className="text-xs text-muted-foreground">
-                  {activeLabel
-                    ? `Showing ${filteredCount} posts matching "${activeLabel}"`
-                    : `Showing all ${filteredCount} posts`}
-                </p>
-
-                {/* Post grid */}
-                <PostGrid
-                  deliveries={alertDeliveries}
-                  keywords={keywords}
-                  filterKeywordId={activeKeyword}
-                  loading={deliveriesLoading}
-                />
-
                 {/* Monitored Subreddits — collapsible */}
                 <div className="border rounded-lg">
                   <button
@@ -234,6 +219,21 @@ export default function OutreachAlertsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Filter context line */}
+                <p className="text-xs text-muted-foreground">
+                  {activeLabel
+                    ? `Showing ${filteredCount} posts matching "${activeLabel}"`
+                    : `Showing all ${filteredCount} posts`}
+                </p>
+
+                {/* Post grid */}
+                <PostGrid
+                  deliveries={alertDeliveries}
+                  keywords={keywords}
+                  filterKeywordId={activeKeyword}
+                  loading={deliveriesLoading}
+                />
               </>
             )}
           </div>
