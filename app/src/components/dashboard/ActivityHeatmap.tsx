@@ -132,7 +132,7 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
   const gridWidth = totalCols * (CELL_SIZE + GAP) - GAP;
 
   return (
-    <Card className="gap-3 py-4">
+    <Card className="mx-auto w-fit gap-3 py-4">
       <CardHeader className="pb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm">
