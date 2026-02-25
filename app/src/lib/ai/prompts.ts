@@ -418,6 +418,8 @@ export interface SuggestedSubreddit {
   reason: string;
   approach: string;
   match: 'best' | 'good' | 'relevant';
+  subscribers?: number;
+  activeUsers?: number | null;
 }
 
 // ---- Subreddit Analysis ----

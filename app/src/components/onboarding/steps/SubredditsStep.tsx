@@ -204,6 +204,7 @@ export function SubredditsStep({
   function handleAddAiSuggestion(suggestion: SuggestedSubreddit) {
     const newSub: AddedSubreddit = {
       name: suggestion.name,
+      subscribers: suggestion.subscribers,
       match: suggestion.match,
       fromAI: true,
       reason: suggestion.reason,
@@ -374,11 +375,22 @@ export function SubredditsStep({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">r/{sub.name}</span>
                             <Badge variant="outline" className={`text-[10px] h-5 ${matchColors[sub.match]}`}>
                               {matchLabels[sub.match]}
                             </Badge>
+                            {sub.subscribers != null && sub.subscribers > 0 && (
+                              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <Users className="h-2.5 w-2.5" />
+                                {formatSubscribers(sub.subscribers)}
+                              </span>
+                            )}
+                            {sub.activeUsers != null && sub.activeUsers > 0 && (
+                              <span className="text-[10px] text-green-500">
+                                {formatSubscribers(sub.activeUsers)} online
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">{sub.reason}</p>
                           {sub.approach && (
