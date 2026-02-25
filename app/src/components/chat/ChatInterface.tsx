@@ -441,15 +441,9 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     setStreaming(false);
   }
 
-  async function sendSearchResults(results: { query: string; subreddit?: string; posts: SearchResultPost[] }) {
+  function sendSearchResults(results: { query: string; subreddit?: string; posts: SearchResultPost[] }) {
     if (streaming) return;
     userScrolledUp.current = false;
-
-    // Build full context for the AI — ask user to pick posts, don't generate drafts yet
-    const contextLines = results.posts.slice(0, 10).map((p, i) =>
-      `${i + 1}. "${p.title}" (r/${p.subreddit}, ${p.score} upvotes, ${p.numComments} comments)`
-    ).join('\n');
-    const fullContent = `[Search results for "${results.query}"${results.subreddit ? ` in r/${results.subreddit}` : ''}]\n\n${contextLines}\n\nPresent these results briefly. Tell me which posts stand out and why, then ask which ones I'd like to use as inspiration for my post drafts. The user can click "Use" on any result card to add it as a reference. Do NOT write any drafts yet.`;
 
     // Display: compact search results card (no text bubble)
     const displayMessage: Message = {
@@ -458,79 +452,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       searchResultPosts: results.posts.slice(0, 8),
     };
 
-    const userMessage: Message = { role: 'user', content: fullContent };
-    const newMessages = [...messages, userMessage];
-    const displayMessages = [...messages, displayMessage];
-    setMessages(displayMessages);
-    setStreaming(true);
+    // Short, direct assistant prompt — no AI call needed
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: `I found ${results.posts.length} posts${results.subreddit ? ` in r/${results.subreddit}` : ''}. Click **Use** on the ones that catch your eye, then tell me to write drafts and I'll use them as inspiration.`,
+    };
 
-    const assistantMessage: Message = { role: 'assistant', content: '' };
-    setMessages([...displayMessages, assistantMessage]);
-
-    try {
-      const res = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          project: project
-            ? {
-                id: project.id,
-                name: project.name,
-                productName: project.product_name,
-                productDescription: project.product_description,
-                targetAudience: project.target_audience,
-                tone: project.tone,
-              }
-            : undefined,
-        }),
-      });
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') break;
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.text) {
-                  accumulated += parsed.text;
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    updated[updated.length - 1] = { role: 'assistant', content: accumulated };
-                    return updated;
-                  });
-                }
-              } catch { /* skip */ }
-            }
-          }
-        }
-      }
-
-      const finalMessages = [...displayMessages, { role: 'assistant' as const, content: accumulated }];
-      setMessages(finalMessages);
-      onMessagesChange?.(finalMessages);
-    } catch {
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1] = { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' };
-        return updated;
-      });
-    }
-
-    setStreaming(false);
+    const finalMessages = [...messages, displayMessage, assistantMessage];
+    setMessages(finalMessages);
+    onMessagesChange?.(finalMessages);
   }
 
   async function handleSend() {
@@ -630,7 +560,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                             <div
                               key={idx}
                               className={`rounded-md border p-2 flex gap-2 transition-colors ${
-                                isUsed ? 'border-blue-500/40 bg-blue-500/5' : 'bg-muted/30'
+                                isUsed ? 'border-orange-500/40 bg-orange-500/5' : 'bg-muted/30'
                               }`}
                             >
                               {validThumb && (
@@ -662,8 +592,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                                       disabled={isUsed}
                                       className={`shrink-0 ml-1 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
                                         isUsed
-                                          ? 'bg-blue-500/10 text-blue-500 cursor-default'
-                                          : 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
+                                          ? 'bg-orange-500/10 text-orange-500 cursor-default'
+                                          : 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer'
                                       }`}
                                     >
                                       {isUsed ? (
