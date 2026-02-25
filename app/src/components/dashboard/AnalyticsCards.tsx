@@ -11,10 +11,10 @@ interface Metric {
 }
 
 interface AnalyticsCardsProps {
-  postsDrafted: { total: number; daily: number[] };
   postsPublished: { total: number; daily: number[] };
-  totalUpvotes: { total: number; daily: number[] };
-  totalComments: { total: number; daily: number[] };
+  totalLeads: { total: number; daily: number[] };
+  dmsSent: { total: number; daily: number[] };
+  opportunitiesFound: { total: number; daily: number[] };
 }
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -59,16 +59,16 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 }
 
 export function AnalyticsCards({
-  postsDrafted,
   postsPublished,
-  totalUpvotes,
-  totalComments,
+  totalLeads,
+  dmsSent,
+  opportunitiesFound,
 }: AnalyticsCardsProps) {
   const metrics: Metric[] = [
-    { label: 'POSTS DRAFTED', total: postsDrafted.total, sparkline: postsDrafted.daily, color: '#a855f7' },
     { label: 'POSTS PUBLISHED', total: postsPublished.total, sparkline: postsPublished.daily, color: '#22c55e' },
-    { label: 'TOTAL UPVOTES', total: totalUpvotes.total, sparkline: totalUpvotes.daily, color: '#f97316' },
-    { label: 'TOTAL COMMENTS', total: totalComments.total, sparkline: totalComments.daily, color: '#3b82f6' },
+    { label: 'TOTAL LEADS', total: totalLeads.total, sparkline: totalLeads.daily, color: '#a855f7' },
+    { label: 'DMS SENT', total: dmsSent.total, sparkline: dmsSent.daily, color: '#3b82f6' },
+    { label: 'OPPORTUNITIES FOUND', total: opportunitiesFound.total, sparkline: opportunitiesFound.daily, color: '#f97316' },
   ];
 
   return (
