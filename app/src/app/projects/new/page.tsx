@@ -318,6 +318,7 @@ export default function NewProjectPage() {
                 userName={userName}
                 productName={productName}
                 selectedSubreddits={selectedSubreddits}
+                addedSubreddits={addedSubreddits}
                 loading={finishing}
                 onBack={() => goToStep(1)}
                 onFinish={handleFinish}

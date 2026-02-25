@@ -326,6 +326,7 @@ export default function OnboardingPage() {
                 userName={userName}
                 productName={productName}
                 selectedSubreddits={selectedSubreddits}
+                addedSubreddits={addedSubreddits}
                 loading={finishing}
                 onBack={() => goToStep(2)}
                 onFinish={handleFinish}

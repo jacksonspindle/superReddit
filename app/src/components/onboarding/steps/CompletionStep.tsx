@@ -1,13 +1,21 @@
 'use client';
 
-import { ArrowLeft, Loader2, Megaphone, MessageSquare, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Eye, Loader2, Megaphone, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
+import type { AddedSubreddit } from './SubredditsStep';
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
+  return n.toString();
+}
 
 interface CompletionStepProps {
   userName: string;
   productName: string;
   selectedSubreddits: Set<string>;
+  addedSubreddits: AddedSubreddit[];
   loading: boolean;
   onBack: () => void;
   onFinish: () => void;
@@ -17,11 +25,13 @@ export function CompletionStep({
   userName,
   productName,
   selectedSubreddits,
+  addedSubreddits,
   loading,
   onBack,
   onFinish,
 }: CompletionStepProps) {
   const firstName = userName.split(' ')[0] || userName;
+  const totalMembers = addedSubreddits.reduce((sum, s) => sum + (s.subscribers || 0), 0);
 
   return (
     <div className="w-full max-w-lg mx-auto text-center">
@@ -59,7 +69,7 @@ export function CompletionStep({
         </p>
       </motion.div>
 
-      {/* Value props */}
+      {/* Pipeline stats */}
       <motion.div
         initial={{ y: 15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -68,31 +78,31 @@ export function CompletionStep({
       >
         <div className="rounded-xl border bg-card p-4">
           <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10">
-            <Target className="h-4.5 w-4.5 text-orange-500" />
+            <Megaphone className="h-4.5 w-4.5 text-orange-500" />
           </div>
           <p className="text-2xl font-bold">{selectedSubreddits.size}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedSubreddits.size === 1 ? 'Community' : 'Communities'}
+            {selectedSubreddits.size === 1 ? 'Subreddit' : 'Subreddits'}
           </p>
         </div>
 
         <div className="rounded-xl border bg-card p-4">
           <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-green-500/10">
-            <TrendingUp className="h-4.5 w-4.5 text-green-500" />
+            <Users className="h-4.5 w-4.5 text-green-500" />
           </div>
-          <p className="text-2xl font-bold">AI</p>
+          <p className="text-2xl font-bold">{totalMembers > 0 ? `~${formatNumber(totalMembers)}` : '--'}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Post Generation
+            Members
           </p>
         </div>
 
         <div className="rounded-xl border bg-card p-4">
           <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
-            <MessageSquare className="h-4.5 w-4.5 text-blue-500" />
+            <Eye className="h-4.5 w-4.5 text-blue-500" />
           </div>
-          <p className="text-2xl font-bold">DM</p>
+          <p className="text-2xl font-bold">24/7</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Outreach
+            Monitoring
           </p>
         </div>
       </motion.div>
@@ -101,18 +111,18 @@ export function CompletionStep({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.55, duration: 0.4 }}
-        className="mt-6 space-y-2 text-sm text-muted-foreground text-left"
+        className="mt-6 space-y-2 text-sm text-muted-foreground"
       >
-        <p className="flex items-start gap-2">
-          <span className="mt-0.5 text-orange-500">&#10003;</span>
+        <p className="flex items-center justify-center gap-2">
+          <span className="text-orange-500">&#10003;</span>
           Generate Reddit posts tailored to each subreddit&apos;s tone and rules
         </p>
-        <p className="flex items-start gap-2">
-          <span className="mt-0.5 text-orange-500">&#10003;</span>
+        <p className="flex items-center justify-center gap-2">
+          <span className="text-orange-500">&#10003;</span>
           Reach high-intent users already searching for solutions like yours
         </p>
-        <p className="flex items-start gap-2">
-          <span className="mt-0.5 text-orange-500">&#10003;</span>
+        <p className="flex items-center justify-center gap-2">
+          <span className="text-orange-500">&#10003;</span>
           Auto-DM interested Redditors to convert engagement into leads
         </p>
       </motion.div>
