@@ -221,7 +221,7 @@ export default function OnboardingPage() {
     <div className="flex h-screen bg-background">
       <OnboardingSidebar currentStep={step} onCancel={() => router.push('/projects')} />
 
-      <main className="flex flex-1 items-center justify-center overflow-y-auto p-8">
+      <main className="flex flex-1 justify-center overflow-y-auto p-8">
         <AnimatePresence mode="wait" custom={directionRef.current}>
           <motion.div
             key={step}
@@ -230,7 +230,7 @@ export default function OnboardingPage() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full max-w-2xl"
+            className="my-auto w-full max-w-2xl"
           >
             {step === 0 && (
               <WelcomeStep userName={userName} onNext={() => goToStep(1)} />
