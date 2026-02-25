@@ -254,25 +254,24 @@ export default function DmPipelinePage() {
     }
   }, [project.id]);
 
-  // Derive tracked subreddits from monitored posts + monitored subs, apply saved prefs
+  // Derive tracked subreddits from project's monitored subs only, apply saved prefs
   useEffect(() => {
     if (loading) return;
 
-    // Derive unique subreddits from monitoredPosts (these are what actually show in pipeline)
-    const fromPosts = new Set(monitoredPosts.map((mp) => mp.subreddit.toLowerCase()));
-
-    // Also fetch from monitored_subs table as additional source
     (async () => {
+      const projectSubs = new Set<string>();
+
+      // Only use project-specific monitored subreddits (not all user post history)
       try {
         const subsRes = await fetch(`/api/outreach/monitored-subs?project_id=${project.id}`);
         const subsJson = await subsRes.json();
         const fromSubs: string[] = (subsJson.subs || [])
           .filter((s: { is_active?: boolean | null }) => s.is_active !== false)
           .map((s: { name: string }) => s.name.toLowerCase());
-        for (const s of fromSubs) fromPosts.add(s);
+        for (const s of fromSubs) projectSubs.add(s);
       } catch { /* silent */ }
 
-      const allTracked = Array.from(fromPosts).sort();
+      const allTracked = Array.from(projectSubs).sort();
       if (allTracked.length === 0) return;
 
       setTrackedSubreddits(allTracked);
