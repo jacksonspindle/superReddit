@@ -10,10 +10,15 @@ export async function POST(request: NextRequest) {
   }
 
   // Get project's existing subreddits
-  const { data: projectSubs } = await supabase
+  const { data: projectSubs, error: fetchError } = await supabase
     .from('subreddits')
     .select('name')
     .eq('project_id', project_id);
+
+  if (fetchError) {
+    console.error('Sync: failed to fetch project subreddits:', fetchError.message);
+    return NextResponse.json({ subs: [] });
+  }
 
   if (!projectSubs?.length) {
     return NextResponse.json({ subs: [] });
@@ -27,9 +32,25 @@ export async function POST(request: NextRequest) {
     safety_level: 'caution',
   }));
 
-  await supabase
+  const { error: upsertError } = await supabase
     .from('outreach_monitored_subs')
     .upsert(monitoredSubs, { onConflict: 'project_id,name' });
+
+  if (upsertError) {
+    console.error('Sync: failed to upsert monitored subs:', upsertError.message);
+    // Fallback: return project subreddits directly as if they were monitored
+    const fallbackSubs = projectSubs.map((s) => ({
+      id: `fallback-${s.name}`,
+      project_id,
+      name: s.name.toLowerCase().replace(/^r\//, ''),
+      is_active: true,
+      safety_level: 'caution',
+      last_polled_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+    return NextResponse.json({ subs: fallbackSubs });
+  }
 
   // Return all monitored subs
   const { data: subs } = await supabase
