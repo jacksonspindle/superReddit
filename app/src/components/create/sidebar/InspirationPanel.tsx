@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, Users, ArrowLeft, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -40,8 +40,9 @@ export function InspirationPanel() {
   const [isGlobalSearch, setIsGlobalSearch] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
-  const { usePost, referencePosts, pendingSearch, setPendingSearch } = useCreateStore();
+  const { usePost, referencePosts, pendingSearch, setPendingSearch, setAISearchResults } = useCreateStore();
   const usedIds = new Set(referencePosts.map((r) => r.id));
+  const aiTriggeredRef = useRef<{ query: string; subreddit?: string } | null>(null);
 
   // Watch for pending search actions from the AI chat
   useEffect(() => {
@@ -49,6 +50,7 @@ export function InspirationPanel() {
 
     const search = pendingSearch;
     setPendingSearch(null);
+    aiTriggeredRef.current = { query: search.query, subreddit: search.subreddit };
 
     if (search.subreddit) {
       // Search within a specific subreddit
@@ -77,6 +79,7 @@ export function InspirationPanel() {
     if (sortParam) params.set('sort', sortParam);
     if (timeFilter) params.set('t', timeFilter);
 
+    let resultPosts: RedditPost[] = [];
     try {
       const res = await fetch(`/api/reddit/search?${params}`);
       const json = await res.json();
@@ -84,8 +87,9 @@ export function InspirationPanel() {
         toast.error(json.error);
         setPosts([]);
       } else {
-        setPosts(json.posts || []);
-        if ((json.posts || []).length === 0) {
+        resultPosts = json.posts || [];
+        setPosts(resultPosts);
+        if (resultPosts.length === 0) {
           toast.info('No posts found for that search');
         }
       }
@@ -94,12 +98,19 @@ export function InspirationPanel() {
       setPosts([]);
     }
 
+    // If this was an AI-triggered search, send results back
+    if (aiTriggeredRef.current) {
+      setAISearchResults({ query: aiTriggeredRef.current.query, subreddit: aiTriggeredRef.current.subreddit, posts: resultPosts });
+      aiTriggeredRef.current = null;
+    }
+
     setLoadingPosts(false);
   }
 
   async function executeSubredditSearch(sub: SubredditResult, q: string, sortParam: string, timeFilter: string) {
     setLoadingPosts(true);
 
+    let resultPosts: RedditPost[] = [];
     try {
       const res = await fetch(
         `/api/reddit?subreddit=${sub.name}&q=${encodeURIComponent(q)}&sort=${sortParam}&t=${timeFilter}&limit=20`
@@ -109,11 +120,18 @@ export function InspirationPanel() {
         toast.error(json.error);
         setPosts([]);
       } else {
-        setPosts(json.posts || []);
+        resultPosts = json.posts || [];
+        setPosts(resultPosts);
       }
     } catch {
       toast.error('Failed to load posts');
       setPosts([]);
+    }
+
+    // If this was an AI-triggered search, send results back
+    if (aiTriggeredRef.current) {
+      setAISearchResults({ query: aiTriggeredRef.current.query, subreddit: sub.name, posts: resultPosts });
+      aiTriggeredRef.current = null;
     }
 
     setLoadingPosts(false);

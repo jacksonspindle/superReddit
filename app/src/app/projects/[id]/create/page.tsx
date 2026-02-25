@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { SearchAction } from '@/stores/create-store';
-import type { SuggestedPrompt } from '@/components/chat/ChatInterface';
+import type { SuggestedPrompt, ChatInterfaceHandle } from '@/components/chat/ChatInterface';
 import { GripHorizontal, GripVertical, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
@@ -36,6 +36,7 @@ export default function CreatePage() {
   const outerRef = useRef<HTMLDivElement>(null);
 
   const { draftId } = useCreateStore();
+  const chatRef = useRef<ChatInterfaceHandle>(null);
 
   useEffect(() => {
     // Don't reset if navigating here with a loaded draft
@@ -43,6 +44,31 @@ export default function CreatePage() {
     reset();
     setTone(project.tone || 'Adaptive');
   }, [project.id]);
+
+  // Watch for AI search results and send them back to chat as a follow-up
+  useEffect(() => {
+    const unsub = useCreateStore.subscribe((state) => {
+      if (!state.aiSearchResults) return;
+      const { query, subreddit, posts } = state.aiSearchResults;
+      state.setAISearchResults(null);
+
+      if (posts.length === 0) {
+        chatRef.current?.sendFollowUp(
+          `[Search complete] No results found for "${query}"${subreddit ? ` in r/${subreddit}` : ''}. Can you try a different search or suggest posts based on what you know?`
+        );
+        return;
+      }
+
+      const summary = posts.slice(0, 10).map((p, i) =>
+        `${i + 1}. **${p.title}** (r/${p.subreddit}, ${p.score} upvotes, ${p.num_comments} comments)${p.selftext ? `\n   ${p.selftext.slice(0, 150)}${p.selftext.length > 150 ? '...' : ''}` : ''}`
+      ).join('\n');
+
+      chatRef.current?.sendFollowUp(
+        `[Search results for "${query}"${subreddit ? ` in r/${subreddit}` : ''}]\n\n${summary}\n\nNow analyze these posts and write me 3 post drafts for my product that use similar successful patterns.`
+      );
+    });
+    return unsub;
+  }, []);
 
   // Handle drag for editor/chat vertical split
   const handleEditorDragStart = useCallback(() => {
@@ -187,6 +213,7 @@ export default function CreatePage() {
           {/* Chat section */}
           <div className="flex-1 overflow-hidden min-h-0">
             <ChatInterface
+              ref={chatRef}
               project={project}
               onApplyDraft={handleApplyDraft}
               onSearchAction={handleSearchAction}

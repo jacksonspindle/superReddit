@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus, Search } from 'lucide-react';
@@ -180,7 +180,11 @@ function MarkdownMessage({ content }: { content: string }) {
   );
 }
 
-export function ChatInterface({
+export interface ChatInterfaceHandle {
+  sendFollowUp: (content: string) => void;
+}
+
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({
   project,
   initialMessages = [],
   onMessagesChange,
@@ -195,7 +199,7 @@ export function ChatInterface({
   suggestedPrompts: suggestedPromptsProp,
   emptyTitle = 'SuperReddit AI',
   emptyDescription = 'Your Reddit marketing strategist. Ask about subreddit targeting, post writing, engagement strategies, and avoiding bans.',
-}: ChatInterfaceProps) {
+}, ref) {
   const { avatarUrl: profileAvatarUrl, fetchProfile } = useProfileStore();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
@@ -204,6 +208,10 @@ export function ChatInterface({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    sendFollowUp: (content: string) => { doSend(content); },
+  }));
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
@@ -704,4 +712,4 @@ export function ChatInterface({
       </div>
     </div>
   );
-}
+});
