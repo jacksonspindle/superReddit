@@ -307,7 +307,7 @@ export function AlertsSetupWizard({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-2xl w-[95vw] max-h-[85vh]"
+        className="sm:max-w-2xl w-[95vw] max-h-[85vh] overflow-hidden flex flex-col"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">Alerts Setup Wizard</DialogTitle>
@@ -401,7 +401,7 @@ export function AlertsSetupWizard({
               initial="enter"
               animate="center"
               exit="exit"
-              className="space-y-4"
+              className="flex flex-col gap-4 min-h-0"
             >
               <div>
                 <h2 className="text-lg font-bold">What should we monitor?</h2>
@@ -410,7 +410,7 @@ export function AlertsSetupWizard({
                 </p>
               </div>
 
-              <ScrollArea className="max-h-[50vh] pr-2">
+              <ScrollArea className="flex-1 min-h-0 max-h-[50vh] pr-2">
                 <div className="space-y-4">
                   {/* Suggestions extracted from product context */}
                   {suggestions.length > 0 && (
@@ -537,7 +537,7 @@ export function AlertsSetupWizard({
                 </div>
               </ScrollArea>
 
-              <div className="flex justify-between">
+              <div className="flex justify-between shrink-0">
                 <Button variant="ghost" onClick={() => goToStep(0)} className="gap-1.5">
                   <ArrowLeft className="h-3.5 w-3.5" /> Back
                 </Button>
