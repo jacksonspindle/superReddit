@@ -74,7 +74,7 @@ export function ProductStep({
   const [editingSuggestion, setEditingSuggestion] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
 
-  const canContinue = productName.trim() && productDescription.trim() && targetAudience.trim();
+  const canContinue = productName.trim() && productDescription.trim() && targetAudience.trim() && redditUsername.trim();
 
   useEffect(() => {
     loadGitHubStatus();
@@ -126,6 +126,7 @@ export function ProductStep({
       }
       if (data.productName) onProductNameChange(data.productName);
       if (data.productUrl) onProductUrlChange(data.productUrl);
+      if (data.targetAudience) onTargetAudienceChange(data.targetAudience);
       setSuggestion(data);
       setEditedDescription(data.productDescription || '');
       onRepoSelected?.(repo.url, githubToken);
@@ -154,6 +155,7 @@ export function ProductStep({
       }
       if (data.productName) onProductNameChange(data.productName);
       if (data.productUrl) onProductUrlChange(data.productUrl);
+      if (data.targetAudience) onTargetAudienceChange(data.targetAudience);
       setSuggestion(data);
       setEditedDescription(data.productDescription || '');
       onRepoSelected?.(repoUrl, githubToken);
@@ -425,7 +427,7 @@ export function ProductStep({
 
         <div className="space-y-2">
           <Label htmlFor="ob-reddit-username" className="text-xs">
-            Reddit Username (optional)
+            Reddit Username <span className="text-destructive">*</span>
           </Label>
           <Input
             id="ob-reddit-username"

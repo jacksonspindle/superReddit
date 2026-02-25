@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
@@ -22,33 +22,74 @@ const NEW_PROJECT_STEPS = [
   { label: 'All Set' },
 ];
 
+const STORAGE_KEY = 'sr_new_project_state';
+
+interface NewProjectState {
+  step: number;
+  productName: string;
+  productDescription: string;
+  productUrl: string;
+  targetAudience: string;
+  redditUsername: string;
+  addedSubreddits: AddedSubreddit[];
+  aiSuggestions: SuggestedSubreddit[];
+  aiFetched: boolean;
+  selectedRepoUrl: string | null;
+  githubAccessToken: string | null;
+}
+
+function loadSavedState(): Partial<NewProjectState> {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function NewProjectPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [step, setStep] = useState(0);
+  const saved = useRef(loadSavedState());
+
+  const [step, setStep] = useState(saved.current.step ?? 0);
   const directionRef = useRef(1);
   const [userName, setUserName] = useState('');
   const [finishing, setFinishing] = useState(false);
 
   // Product fields
-  const [productName, setProductName] = useState('');
-  const [productDescription, setProductDescription] = useState('');
-  const [productUrl, setProductUrl] = useState('');
-  const [targetAudience, setTargetAudience] = useState('');
-  const [redditUsername, setRedditUsername] = useState('');
+  const [productName, setProductName] = useState(saved.current.productName ?? '');
+  const [productDescription, setProductDescription] = useState(saved.current.productDescription ?? '');
+  const [productUrl, setProductUrl] = useState(saved.current.productUrl ?? '');
+  const [targetAudience, setTargetAudience] = useState(saved.current.targetAudience ?? '');
+  const [redditUsername, setRedditUsername] = useState(saved.current.redditUsername ?? '');
 
   // Subreddits
-  const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>([]);
-  const [aiSuggestions, setAiSuggestions] = useState<SuggestedSubreddit[]>([]);
-  const [aiFetched, setAiFetched] = useState(false);
+  const [addedSubreddits, setAddedSubreddits] = useState<AddedSubreddit[]>(saved.current.addedSubreddits ?? []);
+  const [aiSuggestions, setAiSuggestions] = useState<SuggestedSubreddit[]>(saved.current.aiSuggestions ?? []);
+  const [aiFetched, setAiFetched] = useState(saved.current.aiFetched ?? false);
   const selectedSubreddits = new Set(addedSubreddits.map((s) => s.name));
 
   // GitHub repo (selected during ProductStep)
-  const [selectedRepoUrl, setSelectedRepoUrl] = useState<string | null>(null);
-  const [githubAccessToken, setGithubAccessToken] = useState<string | null>(null);
+  const [selectedRepoUrl, setSelectedRepoUrl] = useState<string | null>(saved.current.selectedRepoUrl ?? null);
+  const [githubAccessToken, setGithubAccessToken] = useState<string | null>(saved.current.githubAccessToken ?? null);
 
   const tone = 'Adaptive';
+
+  // Persist state to sessionStorage on every change
+  const persist = useCallback(() => {
+    const state: NewProjectState = {
+      step, productName, productDescription, productUrl, targetAudience,
+      redditUsername, addedSubreddits, aiSuggestions, aiFetched,
+      selectedRepoUrl, githubAccessToken,
+    };
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* quota */ }
+  }, [step, productName, productDescription, productUrl, targetAudience,
+      redditUsername, addedSubreddits, aiSuggestions, aiFetched,
+      selectedRepoUrl, githubAccessToken]);
+
+  useEffect(() => { persist(); }, [persist]);
 
   useEffect(() => {
     loadUser();
@@ -203,7 +244,8 @@ export default function NewProjectPage() {
         }
       }
 
-      // 7. Redirect to the new project
+      // 7. Clear saved state and redirect to the new project
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ok */ }
       router.replace(`/projects/${project.id}`);
     } catch (err) {
       console.error('New project finish error:', err);
@@ -216,7 +258,7 @@ export default function NewProjectPage() {
     <div className="flex h-screen bg-background">
       <OnboardingSidebar currentStep={step} steps={NEW_PROJECT_STEPS} onCancel={() => router.push('/projects')} />
 
-      <main className="flex flex-1 items-center justify-center overflow-y-auto p-8">
+      <main className="flex flex-1 justify-center overflow-y-auto p-8">
         <AnimatePresence mode="wait" custom={directionRef.current}>
           <motion.div
             key={step}
@@ -225,7 +267,7 @@ export default function NewProjectPage() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full max-w-2xl"
+            className="my-auto w-full max-w-2xl"
           >
             {step === 0 && (
               <ProductStep

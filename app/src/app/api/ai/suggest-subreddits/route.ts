@@ -139,6 +139,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Step 6: Enrich suggestions with subscriber + active user counts from discovery data
+    const candidateMap = new Map(
+      discovery.candidates.map((c) => [c.name.toLowerCase(), c])
+    );
+
+    const enrichedSubreddits = await Promise.all(
+      (parsed.subreddits || []).map(async (s: { name: string; reason: string; approach: string; match: string }) => {
+        const candidate = candidateMap.get(s.name.toLowerCase());
+        if (candidate) {
+          return {
+            ...s,
+            subscribers: candidate.subscribers,
+            activeUsers: candidate.activeUsers,
+          };
+        }
+        // Fetch from Reddit for AI-suggested subs not in discovery
+        const info = await fetchSubredditInfo(s.name);
+        return {
+          ...s,
+          subscribers: info?.subscribers || 0,
+          activeUsers: info?.active_user_count || null,
+        };
+      })
+    );
+
+    parsed.subreddits = enrichedSubreddits;
+
     return NextResponse.json(parsed);
   } catch (error) {
     console.error('AI suggest-subreddits error:', error);
