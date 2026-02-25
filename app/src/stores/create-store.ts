@@ -55,6 +55,7 @@ interface CreateStore {
   setActiveTab: (tab: SidebarTab) => void;
   setPendingSearch: (search: SearchAction | null) => void;
   setAISearchResults: (results: AISearchResult | null) => void;
+  setStatus: (status: 'draft' | 'edited' | 'posted') => void;
   setGenerating: (generating: boolean) => void;
   setDraftId: (id: string | null) => void;
   setLinkUrl: (url: string) => void;
@@ -93,6 +94,7 @@ export const useCreateStore = create<CreateStore>((set, get) => ({
   setActiveTab: (activeTab) => set({ activeTab }),
   setPendingSearch: (pendingSearch) => set({ pendingSearch }),
   setAISearchResults: (aiSearchResults) => set({ aiSearchResults }),
+  setStatus: (status) => set({ status }),
   setGenerating: (generating) => set({ generating }),
   setDraftId: (draftId) => set({ draftId }),
   setLinkUrl: (linkUrl) => set({ linkUrl }),

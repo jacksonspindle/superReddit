@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import type { SearchAction } from '@/stores/create-store';
 import type { SuggestedPrompt, ChatInterfaceHandle, SearchResultPost } from '@/components/chat/ChatInterface';
-import { GripHorizontal, GripVertical, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { GripHorizontal, GripVertical, PanelRightClose, PanelRightOpen, CheckCircle2, ExternalLink, PenLine, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { PostEditor } from '@/components/create/PostEditor';
@@ -15,9 +16,10 @@ import { useProject } from '@/contexts/project-context';
 import { toast } from 'sonner';
 
 export default function CreatePage() {
+  const router = useRouter();
   const { project } = useProject();
   const {
-    setTone, setTitle, setBody, reset,
+    setTone, setTitle, setBody, reset, status,
     title, body, targetSubreddit, referencePosts, removeReference, clearReferences,
   } = useCreateStore();
 
@@ -251,10 +253,49 @@ export default function CreatePage() {
         <div ref={containerRef} className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Editor section */}
           <div
-            className="overflow-hidden shrink-0"
+            className="overflow-hidden shrink-0 relative"
             style={{ height: `${editorPercent}%` }}
           >
             <PostEditor />
+
+            {/* Posted success overlay */}
+            {status === 'posted' && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/95 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-3 text-center max-w-xs">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10">
+                    <CheckCircle2 className="h-7 w-7 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">Post sent to Reddit</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Your post to r/{targetSubreddit || 'Reddit'} has been opened. Finish submitting it on Reddit, then come back here.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                      onClick={() => {
+                        reset();
+                        setTone(project.tone || 'Adaptive');
+                      }}
+                    >
+                      <PenLine className="h-3 w-3 mr-1.5" />
+                      New Post
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => router.push(`/projects/${project.id}/drafts`)}
+                    >
+                      <FileText className="h-3 w-3 mr-1.5" />
+                      View Drafts
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Drag handle */}

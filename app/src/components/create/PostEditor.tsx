@@ -15,9 +15,9 @@ import { toast } from 'sonner';
 export function PostEditor() {
   const { project } = useProject();
   const {
-    title, body, targetSubreddit, tone, referencePosts, draftId,
+    title, body, targetSubreddit, tone, referencePosts, draftId, status,
     images, linkUrl,
-    setTitle, setBody, setTargetSubreddit, setDraftId,
+    setTitle, setBody, setTargetSubreddit, setDraftId, setStatus,
     setLinkUrl, addImages, removeImage,
     removeReference,
   } = useCreateStore();
@@ -250,6 +250,37 @@ export function PostEditor() {
     });
   }
 
+  async function saveAsPosted() {
+    const supabase = createClient();
+    const imagesJson = images.map((img) => ({ id: img.id, dataUrl: img.dataUrl, name: img.name }));
+
+    if (draftId) {
+      await supabase
+        .from('generated_posts')
+        .update({
+          title, body, tone, status: 'posted',
+          images: imagesJson,
+          link_url: linkUrl || null,
+          based_on_post_ids: referencePosts.map((r) => r.id),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', draftId);
+    } else {
+      const { data } = await supabase
+        .from('generated_posts')
+        .insert({
+          project_id: project.id,
+          title, body, tone, status: 'posted',
+          images: imagesJson,
+          link_url: linkUrl || null,
+          based_on_post_ids: referencePosts.map((r) => r.id),
+        })
+        .select()
+        .single();
+      if (data) setDraftId(data.id);
+    }
+  }
+
   async function handlePostToReddit() {
     const sub = targetSubreddit.replace(/^r\//, '').trim();
     if (!sub) {
@@ -270,6 +301,8 @@ export function PostEditor() {
 
     if (result?.success) {
       toast.success('Opening Reddit — fields will be auto-filled', { duration: 3000 });
+      setStatus('posted');
+      saveAsPosted();
       return;
     }
 
@@ -284,6 +317,9 @@ export function PostEditor() {
     if (images.length > 0) {
       toast.info('Install the SuperReddit extension to auto-fill images', { duration: 5000 });
     }
+
+    setStatus('posted');
+    saveAsPosted();
   }
 
   return (
