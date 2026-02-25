@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Tooltip,
@@ -16,12 +16,9 @@ interface ActivityHeatmapProps {
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAY_LABELS: [number, string][] = [[1, 'Mon'], [3, 'Wed'], [5, 'Fri']];
-const GAP = 3;
-const DAY_LABEL_WIDTH = 32;
-const LEGEND_CELL = 11;
 
 function getColor(count: number, quartiles: [number, number, number, number]): string {
-  if (count === 0) return 'bg-muted/40';
+  if (count === 0) return 'bg-[#161b22] dark:bg-[#161b22] bg-muted/40';
   if (count <= quartiles[0]) return 'bg-orange-900/60';
   if (count <= quartiles[1]) return 'bg-orange-600/70';
   if (count <= quartiles[2]) return 'bg-orange-500/85';
@@ -63,23 +60,25 @@ interface Cell {
 
 export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
   const quartiles = useMemo(() => computeQuartiles(activityDays), [activityDays]);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [cellSize, setCellSize] = useState(11);
 
   const { cells, monthPositions, totalActivities, totalCols, year } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const currentYear = today.getFullYear();
 
+    // Start from Jan 1 of the current year
     const jan1 = new Date(currentYear, 0, 1);
-    const startPad = jan1.getDay();
+    // Pad back to the nearest Sunday so the grid starts on a Sunday row
+    const startPad = jan1.getDay(); // 0=Sun, 1=Mon, etc.
     const gridStart = new Date(jan1);
     if (startPad !== 0) {
       gridStart.setDate(gridStart.getDate() - startPad);
     }
 
+    // End on Dec 31 of the current year
     const dec31 = new Date(currentYear, 11, 31);
-    const endPad = dec31.getDay();
+    // Pad forward to the nearest Saturday so the grid ends on a full week
+    const endPad = dec31.getDay(); // 0=Sun ... 6=Sat
     const gridEnd = new Date(dec31);
     if (endPad !== 6) {
       gridEnd.setDate(gridEnd.getDate() + (6 - endPad));
@@ -107,6 +106,7 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
 
       cellList.push({ date: d, dateKey, count, col, row, isFuture, isOutOfYear });
 
+      // Track month label positions — first occurrence of each month
       const month = d.getMonth();
       if (d.getFullYear() === currentYear && month !== lastMonth && d.getDate() <= 7) {
         months.push({ label: MONTH_LABELS[month], col });
@@ -125,20 +125,11 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
     };
   }, [activityDays]);
 
-  // Dynamically size cells to fill container width
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || totalCols === 0) return;
-    const compute = () => {
-      const availableWidth = el.clientWidth - DAY_LABEL_WIDTH;
-      const size = Math.floor((availableWidth + GAP) / totalCols - GAP);
-      setCellSize(Math.max(size, 4));
-    };
-    compute();
-    const observer = new ResizeObserver(compute);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [totalCols]);
+  // Size constants matching GitHub
+  const CELL_SIZE = 11;
+  const GAP = 3;
+  const DAY_LABEL_WIDTH = 32;
+  const gridWidth = totalCols * (CELL_SIZE + GAP) - GAP;
 
   return (
     <Card className="gap-3 py-4">
@@ -151,21 +142,14 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
       </CardHeader>
       <CardContent>
         <TooltipProvider delayDuration={100}>
-          <div ref={containerRef}>
+          <div className="overflow-x-auto">
             {/* Month labels row */}
-            <div
-              className="relative"
-              style={{
-                height: 16,
-                marginLeft: DAY_LABEL_WIDTH,
-                width: totalCols * (cellSize + GAP) - GAP,
-              }}
-            >
+            <div className="relative" style={{ height: 16, marginLeft: DAY_LABEL_WIDTH, width: gridWidth }}>
               {monthPositions.map(({ label, col }) => (
                 <span
                   key={`${label}-${col}`}
                   className="absolute text-[11px] text-muted-foreground"
-                  style={{ left: col * (cellSize + GAP) }}
+                  style={{ left: col * (CELL_SIZE + GAP) }}
                 >
                   {label}
                 </span>
@@ -181,7 +165,7 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
                     <div
                       key={i}
                       className="flex items-center text-[11px] text-muted-foreground"
-                      style={{ height: cellSize, marginBottom: i < 6 ? GAP : 0 }}
+                      style={{ height: CELL_SIZE, marginBottom: GAP }}
                     >
                       {entry ? entry[1] : ''}
                     </div>
@@ -189,33 +173,35 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
                 })}
               </div>
 
-              {/* Contribution grid — same column-major layout, dynamic cell size */}
+              {/* Contribution grid */}
               <div
                 className="grid"
                 style={{
-                  gridTemplateRows: `repeat(7, ${cellSize}px)`,
+                  gridTemplateRows: `repeat(7, ${CELL_SIZE}px)`,
                   gridAutoFlow: 'column',
-                  gridAutoColumns: `${cellSize}px`,
+                  gridAutoColumns: `${CELL_SIZE}px`,
                   gap: GAP,
                 }}
               >
                 {cells.map(({ dateKey, date, count, isFuture, isOutOfYear }) => {
+                  // Out-of-year cells (padding from prev/next year) are invisible
                   if (isOutOfYear) {
                     return (
                       <div
                         key={dateKey}
-                        style={{ width: cellSize, height: cellSize }}
+                        style={{ width: CELL_SIZE, height: CELL_SIZE }}
                       />
                     );
                   }
 
+                  // Future cells render as empty squares
                   if (isFuture) {
                     return (
                       <Tooltip key={dateKey}>
                         <TooltipTrigger asChild>
                           <div
                             className="rounded-[2px] bg-muted/30"
-                            style={{ width: cellSize, height: cellSize }}
+                            style={{ width: CELL_SIZE, height: CELL_SIZE }}
                           />
                         </TooltipTrigger>
                         <TooltipContent>
@@ -230,7 +216,7 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
                       <TooltipTrigger asChild>
                         <div
                           className={`rounded-[2px] ${getColor(count, quartiles)}`}
-                          style={{ width: cellSize, height: cellSize }}
+                          style={{ width: CELL_SIZE, height: CELL_SIZE }}
                         />
                       </TooltipTrigger>
                       <TooltipContent>
@@ -247,11 +233,11 @@ export function ActivityHeatmap({ activityDays }: ActivityHeatmapProps) {
             {/* Legend */}
             <div className="mt-2 flex items-center justify-end gap-1.5">
               <span className="text-[11px] text-muted-foreground">Less</span>
-              <div className="rounded-[2px] bg-muted/40" style={{ width: LEGEND_CELL, height: LEGEND_CELL }} />
-              <div className="rounded-[2px] bg-orange-900/60" style={{ width: LEGEND_CELL, height: LEGEND_CELL }} />
-              <div className="rounded-[2px] bg-orange-600/70" style={{ width: LEGEND_CELL, height: LEGEND_CELL }} />
-              <div className="rounded-[2px] bg-orange-500/85" style={{ width: LEGEND_CELL, height: LEGEND_CELL }} />
-              <div className="rounded-[2px] bg-orange-500" style={{ width: LEGEND_CELL, height: LEGEND_CELL }} />
+              <div className="rounded-[2px] bg-muted/40" style={{ width: CELL_SIZE, height: CELL_SIZE }} />
+              <div className="rounded-[2px] bg-orange-900/60" style={{ width: CELL_SIZE, height: CELL_SIZE }} />
+              <div className="rounded-[2px] bg-orange-600/70" style={{ width: CELL_SIZE, height: CELL_SIZE }} />
+              <div className="rounded-[2px] bg-orange-500/85" style={{ width: CELL_SIZE, height: CELL_SIZE }} />
+              <div className="rounded-[2px] bg-orange-500" style={{ width: CELL_SIZE, height: CELL_SIZE }} />
               <span className="text-[11px] text-muted-foreground">More</span>
             </div>
           </div>
