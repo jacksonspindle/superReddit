@@ -111,13 +111,13 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const createChildren = [
     { href: `${base}/create`, label: 'Create', icon: PenLine },
     { href: `${base}/drafts`, label: 'Drafts', icon: FileText },
-    { href: `${base}/subreddits`, label: 'Subreddits', icon: Globe },
   ];
 
   const outreachChildren = [
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
     { href: `${base}/outreach/alerts`, label: 'Alerts', icon: Bell },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
+    { href: `${base}/outreach/search`, label: 'Search', icon: Globe },
   ];
 
   const dmsChildren = [
