@@ -144,6 +144,29 @@ export default function CreatePage() {
     useCreateStore.getState().setPendingSearch(search);
   }, [sidebarOpen]);
 
+  // Add a search result post as a reference (same as "Use" in feed)
+  const handleUseSearchResult = useCallback((post: SearchResultPost) => {
+    const store = useCreateStore.getState();
+    const existing = store.referencePosts;
+    // Dedupe by permalink since search results don't have a stable id
+    if (existing.some((r) => r.permalink === post.permalink)) return;
+
+    const ref = {
+      id: post.permalink, // Use permalink as stable id
+      title: post.title,
+      body: post.body || null,
+      score: post.score,
+      subreddit: post.subreddit,
+      numComments: post.numComments,
+      thumbnail: post.thumbnail || null,
+      permalink: post.permalink,
+    };
+    useCreateStore.setState({
+      referencePosts: [...existing, ref],
+      targetSubreddit: store.targetSubreddit || post.subreddit,
+    });
+  }, []);
+
   // Apply draft from chat to editor
   function handleApplyDraft(draft: { title: string; body: string }) {
     setTitle(draft.title);
@@ -217,6 +240,7 @@ export default function CreatePage() {
               project={project}
               onApplyDraft={handleApplyDraft}
               onSearchAction={handleSearchAction}
+              onUseSearchResult={handleUseSearchResult}
               editorContent={title || body ? { title, body } : null}
               suggestedPrompts={suggestedPrompts}
               attachments={referencePosts}
