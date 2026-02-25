@@ -19,6 +19,7 @@ let lastTabOpenTime = 0;
 let lastSendDmTime = 0;
 let pendingSendDm = null; // { resolve, tabId, timer }
 let composeTabId = null;
+let popupWindowIds = {}; // tabId -> windowId mapping for auto-close
 
 const CHAT_URLS_KEY = 'sr_chat_urls';
 const CONVERSATION_CACHE_TTL = 30 * 60 * 1000;
@@ -568,6 +569,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           top: 0,
         });
         const tab = win.tabs[0];
+        // Track this popup so content script can request auto-close after send
+        popupWindowIds[tab.id] = win.id;
 
         // Wait for the page to load
         await new Promise((resolve) => {
@@ -599,13 +602,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await new Promise((r) => setTimeout(r, 1500));
         }
 
-        // Pre-fill the chat input
+        // Pre-fill the chat input — retry from background side too,
+        // since content script may not be ready immediately in new popup
         if (text) {
-          chrome.tabs.sendMessage(tab.id, { type: 'PREFILL_CHAT_INPUT', text }, () => {
-            if (chrome.runtime.lastError) {
-              console.log('[SR BG] PREFILL_CHAT_INPUT failed:', chrome.runtime.lastError.message);
+          let filled = false;
+          for (let attempt = 0; attempt < 15 && !filled; attempt++) {
+            try {
+              const result = await new Promise((resolve) => {
+                const timer = setTimeout(() => resolve(null), 2000);
+                chrome.tabs.sendMessage(tab.id, { type: 'PREFILL_CHAT_INPUT', text }, (resp) => {
+                  clearTimeout(timer);
+                  if (chrome.runtime.lastError) {
+                    resolve(null);
+                    return;
+                  }
+                  resolve(resp);
+                });
+              });
+              if (result && result.filled) {
+                filled = true;
+                console.log('[SR BG] PREFILL_CHAT_INPUT succeeded on attempt ' + (attempt + 1));
+              } else {
+                await new Promise((r) => setTimeout(r, 800));
+              }
+            } catch (_) {
+              await new Promise((r) => setTimeout(r, 800));
             }
-          });
+          }
+          if (!filled) {
+            console.log('[SR BG] PREFILL_CHAT_INPUT: all attempts failed, message is on clipboard');
+          }
         }
 
         sendResponse({ success: true });
@@ -615,6 +641,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
     return true;
+  }
+
+  // Auto-close popup window after message is sent
+  if (message.type === 'CLOSE_POPUP') {
+    const tabId = sender.tab?.id;
+    const windowId = tabId ? popupWindowIds[tabId] : null;
+    if (windowId) {
+      delete popupWindowIds[tabId];
+      console.log('[SR BG] CLOSE_POPUP: closing popup window', windowId);
+      chrome.windows.remove(windowId).catch(() => {});
+    }
+    sendResponse({ closed: !!windowId });
+    return false;
   }
 
   if (message.type === 'GET_CHAT_URL') {
@@ -796,6 +835,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === chatTabId) {
     chatTabId = null;
   }
+  // Clean up popup window tracking
+  delete popupWindowIds[tabId];
   // If compose tab closed prematurely, resolve pending send with error
   if (tabId === composeTabId) {
     composeTabId = null;
