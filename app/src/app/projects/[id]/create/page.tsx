@@ -10,6 +10,7 @@ import { PostEditor } from '@/components/create/PostEditor';
 import { ReferenceSidebar } from '@/components/create/ReferenceSidebar';
 import { ChatInterface } from '@/components/chat/ChatInterface';
 import { useCreateStore } from '@/stores/create-store';
+import { useBookmarkStore } from '@/stores/bookmark-store';
 import { useProject } from '@/contexts/project-context';
 import { toast } from 'sonner';
 
@@ -167,6 +168,37 @@ export default function CreatePage() {
     });
   }, []);
 
+  // Bookmark a search result post
+  const { addBookmark, removeBookmark, isBookmarked, fetchBookmarks } = useBookmarkStore();
+  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
+
+  const handleBookmarkSearchResult = useCallback((post: SearchResultPost) => {
+    // Use permalink as a stable ID for search results
+    const redditId = post.permalink;
+    if (isBookmarked(redditId)) {
+      removeBookmark(redditId);
+      return;
+    }
+    // Build a minimal RedditPost-compatible object for the bookmark store
+    addBookmark({
+      id: redditId,
+      title: post.title,
+      subreddit: post.subreddit,
+      score: post.score,
+      num_comments: post.numComments,
+      permalink: post.permalink,
+      selftext: post.body || '',
+      author: '',
+      url: `https://reddit.com${post.permalink}`,
+      created_utc: 0,
+      thumbnail: post.thumbnail || '',
+    } as any);
+  }, [addBookmark, removeBookmark, isBookmarked]);
+
+  const isSearchResultBookmarked = useCallback((permalink: string) => {
+    return isBookmarked(permalink);
+  }, [isBookmarked]);
+
   // Apply draft from chat to editor
   function handleApplyDraft(draft: { title: string; body: string }) {
     setTitle(draft.title);
@@ -241,6 +273,8 @@ export default function CreatePage() {
               onApplyDraft={handleApplyDraft}
               onSearchAction={handleSearchAction}
               onUseSearchResult={handleUseSearchResult}
+              onBookmarkSearchResult={handleBookmarkSearchResult}
+              isSearchResultBookmarked={isSearchResultBookmarked}
               editorContent={title || body ? { title, body } : null}
               suggestedPrompts={suggestedPrompts}
               attachments={referencePosts}

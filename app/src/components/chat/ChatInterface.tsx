@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus, Search, Plus } from 'lucide-react';
+import { Send, Loader2, Bot, User, FileText, X, ArrowUp, MessageSquare, Check, PenLine, ImagePlus, Search, Plus, Bookmark } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,6 +55,8 @@ interface ChatInterfaceProps {
   onApplyDraft?: (draft: PostDraft) => void;
   onSearchAction?: (search: SearchAction) => void;
   onUseSearchResult?: (post: SearchResultPost) => void;
+  onBookmarkSearchResult?: (post: SearchResultPost) => void;
+  isSearchResultBookmarked?: (permalink: string) => boolean;
   editorContent?: { title: string; body: string } | null;
   attachments?: ReferencePost[];
   onRemoveAttachment?: (id: string) => void;
@@ -203,6 +205,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   onApplyDraft,
   onSearchAction,
   onUseSearchResult,
+  onBookmarkSearchResult,
+  isSearchResultBookmarked,
   editorContent,
   attachments = [],
   onRemoveAttachment,
@@ -445,10 +449,16 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     if (streaming) return;
     userScrolledUp.current = false;
 
-    // Display: compact search results card (no text bubble)
+    // Build text summary of search results for AI context in conversation history
+    const postSummaries = results.posts.slice(0, 8).map((p, i) =>
+      `${i + 1}. "${p.title}" (r/${p.subreddit}, ${p.score} upvotes, ${p.numComments} comments)`
+    ).join('\n');
+    const searchSummaryContent = `[Search results for "${results.query}"${results.subreddit ? ` in r/${results.subreddit}` : ''}]\n${postSummaries}`;
+
+    // Display: compact search results card (visual only — the content field carries context for the AI)
     const displayMessage: Message = {
       role: 'user',
-      content: '',
+      content: searchSummaryContent,
       searchResultPosts: results.posts.slice(0, 8),
     };
 
@@ -586,6 +596,14 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                                   <span className="truncate">r/{post.subreddit}</span>
                                   <span className="flex items-center gap-0.5 shrink-0 ml-auto"><ArrowUp className="h-2.5 w-2.5" />{post.score >= 1000 ? `${(post.score / 1000).toFixed(1)}k` : post.score}</span>
                                   <span className="flex items-center gap-0.5 shrink-0"><MessageSquare className="h-2.5 w-2.5" />{post.numComments}</span>
+                                  {onBookmarkSearchResult && (
+                                    <button
+                                      onClick={() => onBookmarkSearchResult(post)}
+                                      className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+                                    >
+                                      <Bookmark className={`h-3 w-3 ${isSearchResultBookmarked?.(post.permalink) ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
+                                    </button>
+                                  )}
                                   {onUseSearchResult && (
                                     <button
                                       onClick={() => onUseSearchResult(post)}
