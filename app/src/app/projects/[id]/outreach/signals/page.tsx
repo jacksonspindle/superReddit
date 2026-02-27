@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Search, Flame, Sun, Eye, Radio, Settings2 } from 'lucide-react';
+import { Loader2, Search, Flame, Sun, Eye, Radio, Settings2, Star } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition, StaggerList, StaggerItem } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -33,7 +33,7 @@ export default function OutreachSignalsPage() {
   const [lastScanned, setLastScanned] = useState<string | null>(null);
 
   const [subFilter, setSubFilter] = useState<string | null>(null);
-  const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'unseen' | null>(null);
+  const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'unseen' | 'favorites' | null>(null);
   const [intentFilter, setIntentFilter] = useState<BuyerIntent | null>(null);
 
   // Wizard & modal state
@@ -253,7 +253,9 @@ export default function OutreachSignalsPage() {
   const filteredSignals = signals.filter((s) => {
     // Tier filter
     if (tierFilter) {
-      if (tierFilter === 'unseen') {
+      if (tierFilter === 'favorites') {
+        if (!s.is_favorited) return false;
+      } else if (tierFilter === 'unseen') {
         if (!s.is_unseen) return false;
       } else {
         let tier = s.lead_tier;
@@ -279,7 +281,7 @@ export default function OutreachSignalsPage() {
           <div className="mx-auto max-w-[1280px] p-6 space-y-6">
 
             {/* Analytics Row */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <Card
                 className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
                   tierFilter === 'hot' ? 'ring-2 ring-red-500 bg-red-500/5' : 'hover:bg-accent/50'
@@ -314,6 +316,18 @@ export default function OutreachSignalsPage() {
                 <span className="text-3xl font-bold text-blue-500">{analytics?.unseenCount ?? '-'}</span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Eye className="h-3 w-3 text-blue-500" /> needs review
+                </span>
+              </Card>
+              <Card
+                className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
+                  tierFilter === 'favorites' ? 'ring-2 ring-yellow-500 bg-yellow-500/5' : 'hover:bg-accent/50'
+                }`}
+                onClick={() => setTierFilter(tierFilter === 'favorites' ? null : 'favorites')}
+              >
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Favorites</span>
+                <span className="text-3xl font-bold text-yellow-500">{signals.filter((s) => s.is_favorited).length}</span>
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Star className="h-3 w-3 text-yellow-500" /> starred leads
                 </span>
               </Card>
               <Card
