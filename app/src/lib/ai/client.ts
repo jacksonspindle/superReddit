@@ -18,6 +18,6 @@ export function getAnthropicClient(): Anthropic {
   return client;
 }
 
-export const AI_MODEL = 'claude-sonnet-4-5-20250929';
+export const AI_MODEL = 'claude-opus-4-6';
 export const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 export const MAX_TOKENS = 4096;

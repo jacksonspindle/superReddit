@@ -21,6 +21,7 @@ const statusConfig: Record<string, { icon: React.ComponentType<{ className?: str
 
 const channelConfig: Record<AlertChannel, { icon: React.ComponentType<{ className?: string }>; label: string; color: string }> = {
   discord: { icon: MessageSquare, label: 'Discord', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300' },
+  discord_dm: { icon: MessageSquare, label: 'Discord DM', color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300' },
   slack: { icon: Hash, label: 'Slack', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
   email: { icon: Mail, label: 'Email', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
   telegram: { icon: Send, label: 'Telegram', color: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300' },
@@ -29,6 +30,7 @@ const channelConfig: Record<AlertChannel, { icon: React.ComponentType<{ classNam
 const filterOptions: { value: AlertChannel | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'discord', label: 'Discord' },
+  { value: 'discord_dm', label: 'Discord DM' },
   { value: 'slack', label: 'Slack' },
   { value: 'email', label: 'Email' },
   { value: 'telegram', label: 'Telegram' },

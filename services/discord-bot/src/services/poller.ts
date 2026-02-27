@@ -47,7 +47,7 @@ async function pollAllProjects() {
       .from('outreach_configs')
       .select('*')
       .eq('polling_enabled', true)
-      .or('discord_connected.eq.true,slack_connected.eq.true,email_connected.eq.true,telegram_connected.eq.true');
+      .or('discord_connected.eq.true,discord_dm_connected.eq.true,slack_connected.eq.true,email_connected.eq.true,telegram_connected.eq.true');
 
     if (error || !configs?.length) return;
 
@@ -70,6 +70,8 @@ async function pollProject(config: {
   project_id: string;
   discord_webhook_url: string;
   discord_connected: boolean;
+  discord_dm_connected: boolean;
+  discord_dm_user_id: string | null;
   slack_connected: boolean;
   slack_webhook_url: string | null;
   email_connected: boolean;
@@ -163,6 +165,7 @@ async function pollProject(config: {
           // Create alert_deliveries for each connected channel
           const channels: string[] = [];
           if (config.discord_connected && config.discord_webhook_url) channels.push('discord');
+          if (config.discord_dm_connected && config.discord_dm_user_id) channels.push('discord_dm');
           if (config.slack_connected && config.slack_webhook_url) channels.push('slack');
           if (config.email_connected && config.email_address) channels.push('email');
           if (config.telegram_connected && config.telegram_chat_id) channels.push('telegram');

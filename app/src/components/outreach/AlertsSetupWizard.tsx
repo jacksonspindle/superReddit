@@ -21,6 +21,7 @@ import { slideHorizontalVariants } from '@/lib/motion';
 import { useOutreachStore } from '@/stores/outreach-store';
 import { useProject } from '@/contexts/project-context';
 import { DiscordConnect } from '@/components/outreach/DiscordConnect';
+import { DiscordDmConnect } from '@/components/outreach/DiscordDmConnect';
 import { SlackConnect } from '@/components/outreach/SlackConnect';
 import { EmailConnect } from '@/components/outreach/EmailConnect';
 import { TelegramConnect } from '@/components/outreach/TelegramConnect';
@@ -154,10 +155,11 @@ export function AlertsSetupWizard({
 
   // Channel helpers
   const connectedChannels: AlertChannel[] = (
-    ['discord', 'slack', 'email', 'telegram'] as AlertChannel[]
+    ['discord', 'discord_dm', 'slack', 'email', 'telegram'] as AlertChannel[]
   ).filter((ch) => {
     switch (ch) {
       case 'discord': return !!config?.discord_connected;
+      case 'discord_dm': return !!config?.discord_dm_connected;
       case 'slack': return !!config?.slack_connected;
       case 'email': return !!config?.email_connected;
       case 'telegram': return !!config?.telegram_connected;
@@ -352,6 +354,11 @@ export function AlertsSetupWizard({
                     config={config}
                     projectId={projectId}
                     onDisconnect={() => disconnectChannel(projectId, 'discord')}
+                  />
+                  <DiscordDmConnect
+                    config={config}
+                    projectId={projectId}
+                    onDisconnect={() => disconnectChannel(projectId, 'discord_dm')}
                   />
                   <SlackConnect
                     config={config}

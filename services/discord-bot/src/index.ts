@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { Client } from 'discord.js';
 import { createBot } from './bot/client.js';
 import { startPoller } from './services/poller.js';
 
@@ -8,12 +9,20 @@ if (!token) {
   throw new Error('Missing DISCORD_BOT_TOKEN environment variable');
 }
 
+/** Shared bot client instance, available after login. */
+let botClient: Client | null = null;
+
+export function getBotClient(): Client | null {
+  return botClient;
+}
+
 async function main() {
   console.log('Starting SuperReddit Discord Bot...');
 
   // Start the Discord bot
   const bot = createBot();
   await bot.login(token);
+  botClient = bot;
 
   // Start the Reddit polling service
   startPoller();

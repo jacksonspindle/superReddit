@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import { Loader2, Wifi, Hash, Mail, Send, Plus, ChevronDown, ChevronUp, Settings } from 'lucide-react';
+import { Loader2, Wifi, Hash, Mail, Send, Plus, ChevronDown, ChevronUp, Settings, MessageCircle } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DiscordConnect } from '@/components/outreach/DiscordConnect';
+import { DiscordDmConnect } from '@/components/outreach/DiscordDmConnect';
 import { SlackConnect } from '@/components/outreach/SlackConnect';
 import { EmailConnect } from '@/components/outreach/EmailConnect';
 import { TelegramConnect } from '@/components/outreach/TelegramConnect';
@@ -28,6 +29,7 @@ import type { AlertChannel } from '@/types';
 
 const channelMeta: Record<AlertChannel, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   discord: { icon: Wifi, label: 'Discord' },
+  discord_dm: { icon: MessageCircle, label: 'Discord DM' },
   slack: { icon: Hash, label: 'Slack' },
   email: { icon: Mail, label: 'Email' },
   telegram: { icon: Send, label: 'Telegram' },
@@ -68,9 +70,10 @@ export default function OutreachAlertsPage() {
     fetchAlertDeliveries(project.id);
   }, [project.id, fetchConfig, fetchKeywords, fetchMonitoredSubs, fetchAlertDeliveries]);
 
-  const connectedChannels: AlertChannel[] = (['discord', 'slack', 'email', 'telegram'] as AlertChannel[]).filter((ch) => {
+  const connectedChannels: AlertChannel[] = (['discord', 'discord_dm', 'slack', 'email', 'telegram'] as AlertChannel[]).filter((ch) => {
     switch (ch) {
       case 'discord': return !!config?.discord_connected;
+      case 'discord_dm': return !!config?.discord_dm_connected;
       case 'slack': return !!config?.slack_connected;
       case 'email': return !!config?.email_connected;
       case 'telegram': return !!config?.telegram_connected;
@@ -269,6 +272,11 @@ export default function OutreachAlertsPage() {
               config={config}
               projectId={project.id}
               onDisconnect={() => handleDisconnect('discord')}
+            />
+            <DiscordDmConnect
+              config={config}
+              projectId={project.id}
+              onDisconnect={() => handleDisconnect('discord_dm')}
             />
             <SlackConnect
               config={config}
