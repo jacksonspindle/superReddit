@@ -568,7 +568,32 @@ loader.load('./scene.gltf', (gltf) => {
 
   console.log('GLTF loaded. Head groups:', headGroups.length);
 
+  // Push top rows of heads outward to clear space for text
+  const headsByY = headGroups
+    .map(g => ({ group: g, y: g.getWorldPosition(new THREE.Vector3()).y }))
+    .sort((a, b) => b.y - a.y); // highest first
 
+  // Find Y thresholds for top 2 rows by clustering Y values
+  const yValues = headsByY.map(h => h.y);
+  const yMax = yValues[0];
+  const rowHeight = 2.5; // approximate gap between rows
+  const row1Threshold = yMax - rowHeight * 0.5;  // top row
+  const row2Threshold = yMax - rowHeight * 1.5;  // second row
+
+  headsByY.forEach(({ group, y }) => {
+    const worldPos = group.getWorldPosition(new THREE.Vector3());
+    const xDir = worldPos.x >= 0 ? 1 : -1;
+
+    if (y > row1Threshold) {
+      // Top row — push out the most
+      group.position.x += xDir * 3.5;
+    } else if (y > row2Threshold) {
+      // Second row — push out moderately
+      group.position.x += xDir * 2.0;
+    }
+  });
+
+  console.log('Top rows spread outward for text clearance');
 
   // Collect eyelids for animation
   model.traverse((node) => {
