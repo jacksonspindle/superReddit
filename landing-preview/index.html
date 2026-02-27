@@ -120,7 +120,6 @@
 
 <section class="hero">
   <div class="hero-3d-container" id="three-container"></div>
-  <!-- HERO TEXT HIDDEN FOR SCENE EDITING
   <div class="hero-overlay">
     <h1>People are looking for<br><span class="accent">your product</span></h1>
     <p>We help you find them.</p>
@@ -130,7 +129,6 @@
     </div>
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
-  END HERO TEXT -->
 </section>
 
 <section class="stats">
@@ -537,7 +535,7 @@ loader.load('./scene.gltf', (gltf) => {
         });
       } else {
         node.material = new THREE.MeshStandardMaterial({
-          color: 0x333340, roughness: 0.5, metalness: 0.3,
+          color: 0x888898, roughness: 0.5, metalness: 0.3,
           envMapIntensity: 0.8,
         });
       }
@@ -597,7 +595,7 @@ function animate() {
   smoothMouse.x += (mouse.x - smoothMouse.x) * 0.4;
   smoothMouse.y += (mouse.y - smoothMouse.y) * 0.4;
 
-  const MAX_ROT = 0.38; // ~22 degrees — never show back of head
+  const MAX_ROT = 0.5; // ~29 degrees
   const tempVec = new THREE.Vector3();
 
   headGroups.forEach((group) => {
@@ -615,15 +613,15 @@ function animate() {
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     // Rotation scales with direction — further cursor = more rotation
-    let targetRotY = dx * 0.25;
-    let targetRotX = -dy * 0.2;
+    let targetRotY = dx * 0.5;
+    let targetRotX = -dy * 0.4;
 
     // Clamp so we never see back of head
     targetRotY = Math.max(-MAX_ROT, Math.min(MAX_ROT, targetRotY));
     targetRotX = Math.max(-MAX_ROT, Math.min(MAX_ROT, targetRotX));
 
     // Wave effect: closer heads react faster, distant heads lag
-    const lerpSpeed = 0.08 + (1.0 / (1.0 + dist * 1.5)) * 0.25;
+    const lerpSpeed = 0.15 + (1.0 / (1.0 + dist * 1.5)) * 0.35;
 
     group.rotation.y += (targetRotY - group.rotation.y) * lerpSpeed;
     group.rotation.x += (targetRotX - group.rotation.x) * lerpSpeed;
