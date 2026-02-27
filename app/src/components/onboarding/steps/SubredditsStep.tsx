@@ -120,11 +120,11 @@ export function SubredditsStep({
         // server route failed
       }
 
-      // 2. Fallback: call Reddit directly from the browser (user's IP won't be blocked)
+      // 2. Fallback: call Reddit via old.reddit.com (www.reddit.com blocks CORS)
       if (results.length === 0) {
         try {
           const res = await fetch(
-            `https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=8&raw_json=1`,
+            `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=8&raw_json=1`,
             { headers: { Accept: 'application/json' } }
           );
           if (res.ok) {
@@ -143,7 +143,7 @@ export function SubredditsStep({
       }
 
       setSearchResults(results);
-      if (results.length > 0) setShowDropdown(true);
+      setShowDropdown(results.length > 0);
       setSearchLoading(false);
     }, 300);
 
@@ -244,7 +244,7 @@ export function SubredditsStep({
         </div>
 
         {showDropdown && searchResults.length > 0 && (
-          <div className="absolute z-10 mt-1 w-full rounded-xl border bg-card shadow-lg overflow-hidden">
+          <div className="absolute z-50 mt-1 w-full rounded-xl border bg-card shadow-lg overflow-hidden">
             {searchResults.map((result) => {
               const alreadyAdded = addedSubs.some((s) => s.name.toLowerCase() === result.name.toLowerCase());
               return (

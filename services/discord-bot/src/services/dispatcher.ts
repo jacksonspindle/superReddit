@@ -2,6 +2,8 @@ import { supabase } from '../db/supabase.js';
 import { sendSlackAlert } from './slack-dispatcher.js';
 import { sendEmailAlert } from './email-dispatcher.js';
 import { sendTelegramAlert } from './telegram-dispatcher.js';
+import { sendDmAlert } from './dm-dispatcher.js';
+import { getBotClient } from '../index.js';
 
 interface SignalEmbed {
   signalId: string;
@@ -257,6 +259,16 @@ export async function dispatchMultiChannelAlerts(projectId: string, config: any)
             });
           }
           break;
+        case 'discord_dm': {
+          const client = getBotClient();
+          if (client && config.discord_dm_user_id) {
+            success = await sendDmAlert(client, config.discord_dm_user_id, {
+              ...payload,
+              detectedAt: signal.fetched_at || signal.created_at,
+            });
+          }
+          break;
+        }
         case 'slack':
           if (config.slack_webhook_url) {
             success = await sendSlackAlert(config.slack_webhook_url, payload);

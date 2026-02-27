@@ -115,39 +115,75 @@ export default function OutreachSignalsPage() {
 
   async function handleScanNow() {
     setScanning(true);
+    const beforeCount = signals.length;
     try {
-      // Fetch current config to get scan params
-      let scanParams = '';
+      // Get scan params from config
+      let scanBody: Record<string, unknown> = { project_id: project.id };
       try {
         const configRes = await fetch(`/api/outreach/config?project_id=${project.id}`);
         const configJson = await configRes.json();
         if (configJson.config) {
           const c = configJson.config;
-          const p = new URLSearchParams();
-          if (c.time_filter) p.set('time_filter', c.time_filter);
-          if (c.max_results) p.set('max_results', String(c.max_results));
-          if (c.include_comments !== undefined) p.set('include_comments', String(c.include_comments));
-          scanParams = p.toString();
+          if (c.time_filter) scanBody.time_filter = c.time_filter;
+          if (c.max_results) scanBody.max_results = c.max_results;
+          if (c.include_comments !== undefined) scanBody.include_comments = c.include_comments;
         }
       } catch {
         // Use defaults
       }
 
-      const url = `/api/outreach/signals?project_id=${project.id}&force=true${scanParams ? `&${scanParams}` : ''}`;
-      const res = await fetch(url);
+      // Fire off background scan — returns immediately
+      const res = await fetch('/api/outreach/signals/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scanBody),
+      });
       const json = await res.json();
       if (json.error) {
         toast.error(json.error);
-      } else {
-        toast.success(`Found ${json.signals?.length || 0} signals`);
-        setSignals(json.signals || []);
-        setLastScanned(new Date().toISOString());
-        fetchAnalytics();
+        setScanning(false);
+        return;
       }
+
+      toast('Scanning in background...', { duration: 3000 });
+
+      // Poll for new results every 3s for up to 2 minutes
+      let polls = 0;
+      const maxPolls = 40;
+      const pollInterval = setInterval(async () => {
+        polls++;
+        try {
+          const params = new URLSearchParams({ project_id: project.id, status: 'new' });
+          if (subFilter) params.set('subreddit', subFilter);
+          const pollRes = await fetch(`/api/outreach/signals?${params}`);
+          const pollJson = await pollRes.json();
+          const newSignals = pollJson.signals || [];
+
+          if (newSignals.length > beforeCount) {
+            setSignals(newSignals);
+            setLastScanned(new Date().toISOString());
+            fetchAnalytics();
+            toast.success(`Found ${newSignals.length} signals`);
+            clearInterval(pollInterval);
+            setScanning(false);
+          } else if (polls >= maxPolls) {
+            // Timed out — show whatever we have
+            setSignals(newSignals);
+            fetchAnalytics();
+            clearInterval(pollInterval);
+            setScanning(false);
+            if (newSignals.length === beforeCount) {
+              toast('No new signals found', { duration: 3000 });
+            }
+          }
+        } catch {
+          // Keep polling
+        }
+      }, 3000);
     } catch {
       toast.error('Scan failed');
+      setScanning(false);
     }
-    setScanning(false);
   }
 
   async function handleStatusChange(signalId: string, status: string) {

@@ -5,12 +5,10 @@ import {
   ArrowUpRight, MessageSquare, Clock, ExternalLink, X, Bell,
   Star, Flame, Sun, Pencil,
 } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cardHover, cardTap } from '@/lib/motion';
 import { ReplyBuilder } from '@/components/outreach/ReplyBuilder';
 import { toast } from 'sonner';
 import type { OutreachSignal, SignalType, LeadTier, BuyerIntent } from '@/types';
@@ -178,7 +176,7 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
   }
 
   return (
-    <motion.div whileHover={cardHover} whileTap={cardTap} className="h-full" onClick={handleCardClick}>
+    <div className="h-full" onClick={handleCardClick}>
       <Card className={`transition-shadow hover:shadow-md h-full flex flex-col relative overflow-hidden ${
         tier === 'hot'
           ? 'border-red-500/60 border-[1.5px]'
@@ -404,6 +402,6 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
           )}
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   );
 }

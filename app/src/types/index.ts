@@ -268,6 +268,10 @@ export interface OutreachConfig {
   email_digest_enabled: boolean;
   email_digest_frequency: 'daily' | 'weekly' | null;
   email_last_digest_at: string | null;
+  // Discord DM integration
+  discord_dm_user_id: string | null;
+  discord_dm_username: string | null;
+  discord_dm_connected: boolean;
   // Telegram integration
   telegram_chat_id: string | null;
   telegram_username: string | null;
@@ -353,7 +357,7 @@ export type Urgency = 'none' | 'low' | 'medium' | 'high';
 
 export type DiscoverySource = 'subreddit_browse' | 'keyword_search' | 'comment_search' | 'both';
 
-export type AlertChannel = 'discord' | 'slack' | 'email' | 'telegram';
+export type AlertChannel = 'discord' | 'discord_dm' | 'slack' | 'email' | 'telegram';
 
 export interface AlertDelivery {
   id: string;

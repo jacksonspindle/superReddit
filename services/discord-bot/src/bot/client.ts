@@ -24,7 +24,7 @@ commands.set(addCommand.data.name, addCommand);
 
 export function createBot(): Client {
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages],
   });
 
   client.once(Events.ClientReady, async (readyClient) => {

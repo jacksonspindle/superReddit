@@ -9,9 +9,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
     }
 
-    if (!channel || !['discord', 'slack', 'email', 'telegram'].includes(channel)) {
+    if (!channel || !['discord', 'discord_dm', 'slack', 'email', 'telegram'].includes(channel)) {
       return NextResponse.json(
-        { error: 'channel must be one of: discord, slack, email, telegram' },
+        { error: 'channel must be one of: discord, discord_dm, slack, email, telegram' },
         { status: 400 }
       );
     }
@@ -50,6 +50,13 @@ export async function POST(request: NextRequest) {
           discord_guild_name: null,
           discord_channel_id: null,
           discord_webhook_url: null,
+        };
+        break;
+      case 'discord_dm':
+        clearData = {
+          discord_dm_connected: false,
+          discord_dm_user_id: null,
+          discord_dm_username: null,
         };
         break;
       case 'slack':
