@@ -325,6 +325,38 @@ const orangeBack = new THREE.PointLight(0xff6b35, 8.0, 40, 1.0);
 orangeBack.position.set(0, 3.0, -4.0);
 scene.add(orangeBack);
 
+// 10. Orange gradient backdrop — glowing disc behind the group
+const glowGeo = new THREE.PlaneGeometry(30, 25);
+const glowMat = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  uniforms: {
+    color: { value: new THREE.Color(0xff6b35) },
+    opacity: { value: 0.55 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 color;
+    uniform float opacity;
+    varying vec2 vUv;
+    void main() {
+      vec2 center = vUv - 0.5;
+      float dist = length(center) * 2.0;
+      float alpha = opacity * smoothstep(1.0, 0.0, dist);
+      gl_FragColor = vec4(color, alpha);
+    }
+  `,
+});
+const glowPlane = new THREE.Mesh(glowGeo, glowMat);
+glowPlane.position.set(0, 3.0, -6.0);
+scene.add(glowPlane);
+
 // ── Skin palette — matched to Spline reference screenshot ──
 const skinColors = [
   0x8888bb, // light blue-lavender (teapot head)
@@ -489,11 +521,8 @@ loader.load('./scene.gltf', (gltf) => {
           envMapIntensity: 0.8,
         });
       } else if (verts > 10000) {
-        // Teapot
-        node.material = new THREE.MeshStandardMaterial({
-          color: 0xccccdd, roughness: 0.4, metalness: 0.05,
-          envMapIntensity: 0.8,
-        });
+        // Teapot — hide it
+        node.visible = false;
       } else {
         node.material = new THREE.MeshStandardMaterial({
           color: skin, roughness: 0.5, metalness: 0.0,
