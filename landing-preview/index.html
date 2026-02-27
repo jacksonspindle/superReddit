@@ -37,7 +37,7 @@
 
   .hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: #1a1050; }
   .hero-3d-container { position: absolute; inset: 0; z-index: 1; }
-  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -15vh; }
+  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -5vh; }
   .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 4px 40px rgba(0,0,0,0.5); }
   .hero-overlay h1 .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .hero-overlay p { font-size: 22px; color: rgba(255,255,255,0.6); font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 20px rgba(0,0,0,0.4); }
@@ -222,8 +222,8 @@ scene.fog = new THREE.FogExp2(0x1a1050, 0.035);
 
 // ── Camera ──
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 200);
-camera.position.set(0, 3.0, 14);
-camera.lookAt(0, 2.0, 0);
+camera.position.set(0, 1.5, 14);
+camera.lookAt(0, 3.0, 0);
 
 // ── Environment Map — soft purple studio HDRI (procedural) ──
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
