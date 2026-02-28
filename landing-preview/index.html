@@ -929,13 +929,13 @@ function setupStepCharacters() {
     miniScene.add(up);
     miniScene.add(character);
 
-    // Orange radial glow backdrop (same as hero section)
-    const bgGlowGeo = new THREE.PlaneGeometry(6, 6);
+    // Orange radial glow backdrop — tight center glow, fades before edges
+    const bgGlowGeo = new THREE.PlaneGeometry(8, 8);
     const bgGlowMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: {
-        color: { value: new THREE.Color(0xff6b35) },
-        opacity: { value: 0.4 },
+        color: { value: new THREE.Color(0xcc4a1a) },
+        opacity: { value: 0.35 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -945,7 +945,7 @@ function setupStepCharacters() {
         uniform vec3 color; uniform float opacity; varying vec2 vUv;
         void main() {
           vec2 c = vUv - 0.5; float d = length(c) * 2.0;
-          float alpha = opacity * smoothstep(1.0, 0.0, d);
+          float alpha = opacity * pow(smoothstep(1.0, 0.0, d), 3.0);
           gl_FragColor = vec4(color, alpha);
         }
       `,
