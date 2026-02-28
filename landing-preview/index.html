@@ -1019,9 +1019,9 @@ function animate() {
       // Animate themed context
       const ctx = stepContextObjects[i];
       if (ctx && i === 0) {
-        // Magnifying glass: gentle hover bob
-        ctx.glass.position.y = ctx.baseY + Math.sin(t * 1.0) * 0.08;
-        ctx.glass.rotation.z = -0.15 + Math.sin(t * 0.7) * 0.04;
+        // Magnifying glass: sync float with character
+        const charFloat = Math.sin(t * 0.8 + i * 2.0) * 0.12;
+        ctx.glass.position.y = ctx.baseY + charFloat;
       }
       if (ctx && i === 1) {
         // AI: sparkle particles drift upward + reset
