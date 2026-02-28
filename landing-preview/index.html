@@ -649,27 +649,14 @@ const stepCharHeads = [];
 let stepsVisible = false;
 
 function setupStepCharacters() {
+  console.log('setupStepCharacters called, headGroups:', headGroups.length);
   if (headGroups.length < 3) return;
 
-  // Filter to only head groups whose main head mesh is visible
-  // (excludes teapot heads where the big mesh was hidden)
-  const visibleHeads = headGroups.filter(g => {
-    let hasVisible = false;
-    g.traverse(n => {
-      if (n.isMesh && n.visible) {
-        const v = n.geometry?.attributes?.position?.count || 0;
-        if (v === 3968 || v === 28792) hasVisible = true;
-      }
-    });
-    return hasVisible;
-  });
-
-  if (visibleHeads.length < 3) return;
-  console.log('Visible heads for steps:', visibleHeads.length);
-
-  // Pick 3 visually distinct heads (spread across the filtered array)
-  const stride = Math.floor(visibleHeads.length / 3);
-  const picks = [visibleHeads[0], visibleHeads[stride], visibleHeads[stride * 2]];
+  // Skip index 0 (teapot head with huge hidden geometry).
+  // Pick 3 spread across the rest.
+  const pool = headGroups.slice(1);
+  const stride = Math.floor(pool.length / 3);
+  const picks = [pool[0], pool[stride], pool[stride * 2]];
 
   picks.forEach((srcHead, i) => {
     const el = document.getElementById(`step-char-${i + 1}`);
@@ -678,37 +665,53 @@ function setupStepCharacters() {
     const w = el.clientWidth || 300;
     const h = el.clientHeight || 200;
 
-    // Clone the head group and reset transforms
+    // Clone and fully reset all transforms
     const head = srcHead.clone(true);
     head.position.set(0, 0, 0);
     head.rotation.set(0, 0, 0);
+    head.scale.set(1, 1, 1);
 
-    // Bounding box from VISIBLE meshes only (invisible geometry can be huge)
+    // CRITICAL: recompute world matrices from scratch for the clone
+    // (cloned matrixWorld is stale from the hero scene position)
+    head.updateMatrixWorld(true);
+
+    // Compute bounding box from LOCAL geometry only (avoids stale world matrix issues)
     const box = new THREE.Box3();
     head.traverse(n => {
-      if (n.isMesh && n.visible) {
+      if (n.isMesh && n.visible && n.geometry) {
         n.geometry.computeBoundingBox();
-        const meshBox = n.geometry.boundingBox.clone();
-        meshBox.applyMatrix4(n.matrixWorld);
-        box.union(meshBox);
+        if (n.geometry.boundingBox) {
+          const mb = n.geometry.boundingBox.clone();
+          mb.applyMatrix4(n.matrixWorld);
+          box.union(mb);
+        }
       }
     });
 
+    if (box.isEmpty()) {
+      console.warn(`Step char ${i}: empty bounding box, skipping`);
+      return;
+    }
+
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
-    head.position.sub(center);
     const maxDim = Math.max(size.x, size.y, size.z);
+
+    // Center the head at origin, then scale to fit ~2 units
+    head.position.set(-center.x, -center.y, -center.z);
     if (maxDim > 0) {
-      head.scale.setScalar(1.8 / maxDim);
+      const s = 2.0 / maxDim;
+      head.scale.set(s, s, s);
+      // Re-apply centering after scale
+      head.position.set(-center.x * s, -center.y * s, -center.z * s);
     }
 
     head.userData.baseY = head.position.y;
-    console.log(`Step char ${i}: visible bbox size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)}`);
+    console.log(`Step char ${i}: size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)} maxDim=${maxDim.toFixed(1)}`);
 
     // Mini scene with clean lighting
     const miniScene = new THREE.Scene();
-    const hemi = new THREE.HemisphereLight(0xddeeff, 0x404060, 1.4);
-    miniScene.add(hemi);
+    miniScene.add(new THREE.HemisphereLight(0xddeeff, 0x404060, 1.4));
     const key = new THREE.DirectionalLight(0xffffff, 2.0);
     key.position.set(3, 4, 6);
     miniScene.add(key);
@@ -720,12 +723,12 @@ function setupStepCharacters() {
     miniScene.add(back);
     miniScene.add(head);
 
-    // Camera — wide FOV, pulled back to see the full head
-    const cam = new THREE.PerspectiveCamera(45, w / h, 0.01, 100);
-    cam.position.set(0, 0.2, 4.5);
+    // Camera — zoomed out to see the full head
+    const cam = new THREE.PerspectiveCamera(40, w / h, 0.01, 100);
+    cam.position.set(0, 0.2, 5);
     cam.lookAt(0, 0, 0);
 
-    // Renderer (small canvas, lower pixel ratio)
+    // Renderer
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     r.setSize(w, h);
@@ -734,6 +737,9 @@ function setupStepCharacters() {
     r.toneMappingExposure = 1.5;
     r.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(r.domElement);
+
+    // Force an immediate render so we see something right away
+    r.render(miniScene, cam);
 
     stepCharRenderers.push(r);
     stepCharScenes.push(miniScene);
@@ -745,11 +751,18 @@ function setupStepCharacters() {
 }
 
 // IntersectionObserver — only render step characters when visible
+let stepsObsTriggered = false;
 const stepsSection = document.getElementById('how-it-works');
 if (stepsSection) {
   new IntersectionObserver((entries) => {
-    entries.forEach(e => { stepsVisible = e.isIntersecting; });
-  }, { threshold: 0.05 }).observe(stepsSection);
+    entries.forEach(e => {
+      stepsVisible = e.isIntersecting;
+      if (e.isIntersecting && !stepsObsTriggered) {
+        stepsObsTriggered = true;
+        console.log('Steps section visible, rendering characters');
+      }
+    });
+  }, { threshold: 0.01 }).observe(stepsSection);
 }
 
 function animate() {
