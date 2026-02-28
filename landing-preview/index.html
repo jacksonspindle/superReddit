@@ -907,21 +907,21 @@ function setupStepCharacters() {
     const miniScene = new THREE.Scene();
     miniScene.fog = new THREE.FogExp2(0x1a1050, 0.08);
 
-    // 1. Hemisphere — same as hero: soft neutral sky, dark purple ground
-    miniScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
+    // 1. Hemisphere — soft neutral sky, dark purple ground
+    miniScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.8));
 
     // 2. Top key — soft purple-white from above
-    const key = new THREE.DirectionalLight(0xeeddff, 3.0);
+    const key = new THREE.DirectionalLight(0xeeddff, 5.0);
     key.position.set(0, 6, 4);
     miniScene.add(key);
 
     // 3. Blue uplight — dramatic blue on chins (like laptop glow)
-    const blueUp = new THREE.PointLight(0x3366ee, 6.0, 15, 1.0);
+    const blueUp = new THREE.PointLight(0x3366ee, 8.0, 15, 1.0);
     blueUp.position.set(0, -2, 2);
     miniScene.add(blueUp);
 
     // 4. Blue fill — wider wash
-    const blueFill = new THREE.PointLight(0x3355dd, 2.0, 15, 1.0);
+    const blueFill = new THREE.PointLight(0x3355dd, 3.0, 15, 1.0);
     blueFill.position.set(0, 0, 3);
     miniScene.add(blueFill);
 
@@ -936,12 +936,12 @@ function setupStepCharacters() {
     miniScene.add(rightRim);
 
     // 7. Front fill — keeps faces from going full black
-    const frontFill = new THREE.DirectionalLight(0x998acc, 0.6);
+    const frontFill = new THREE.DirectionalLight(0x998acc, 1.5);
     frontFill.position.set(0, 1, 6);
     miniScene.add(frontFill);
 
-    // 8. Ambient — very low, lifts absolute blacks
-    miniScene.add(new THREE.AmbientLight(0x221838, 0.8));
+    // 8. Ambient — lifts blacks
+    miniScene.add(new THREE.AmbientLight(0x332848, 1.5));
 
     // 9. Orange backlight — warm glow behind
     const orangeBack = new THREE.PointLight(0xff6b35, 5.0, 15, 1.0);
