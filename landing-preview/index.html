@@ -1011,6 +1011,9 @@ function animate() {
     const t = clock.getElapsedTime();
     stepCharHeads.forEach((head, i) => {
       const ctx = stepContextObjects[i];
+      if (ctx && i === 0) {
+        ctx.glass.position.y = ctx.baseY + Math.sin(t * 1.2) * 0.04;
+      }
       if (ctx && i === 1) {
         // AI: sparkle particles drift upward + reset
         const pos = ctx.sparkles.geometry.attributes.position;
