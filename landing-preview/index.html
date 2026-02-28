@@ -56,23 +56,18 @@
   .stat-label { font-size: 14px; color: var(--gray-400); font-weight: 500; margin-top: 4px; }
   .stat-divider { width: 1px; height: 48px; background: var(--gray-200); }
 
-  .how-it-works { padding: 100px 0; position: relative; overflow: hidden; }
-  #steps-3d-container { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-  #steps-3d-container canvas { display: block; width: 100%; height: 100%; }
-  .how-it-works > .container { position: relative; z-index: 1; }
+  .how-it-works { padding: 100px 0; }
   .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
   .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
+  .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
-  .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
-  .step-card { position: relative; background: rgba(255,255,255,0.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(229,231,235,0.8); border-radius: 20px; padding: 40px 32px; text-align: center; transition: all 0.3s ease; overflow: hidden; }
-  .step-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.08); border-color: var(--gray-300); }
-  .step-number { position: absolute; top: -10px; right: 16px; font-size: 100px; font-weight: 800; color: var(--orange); opacity: 0.06; line-height: 1; pointer-events: none; }
-  .step-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
-  .step-icon.blue { background: #EFF6FF; color: #3B82F6; }
-  .step-icon.green { background: #F0FDF4; color: #22C55E; }
-  .step-icon.purple { background: #FAF5FF; color: #A855F7; }
-  .step-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-  .step-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+  .steps-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 24px; display: grid; grid-template-columns: repeat(3, 1fr); box-shadow: 0 4px 40px rgba(0,0,0,0.04); }
+  .step { padding: 48px 36px; }
+  .step:not(:last-child) { border-right: 1px solid var(--gray-100); }
+  .step-character { width: 100%; height: 200px; margin-bottom: 24px; }
+  .step-character canvas { width: 100% !important; height: 100% !important; display: block; }
+  .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: var(--gray-900); }
+  .step p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -108,7 +103,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .stats .container { flex-wrap: wrap; gap: 32px; } .stat-divider { display: none; } .stat { flex: 1 1 40%; } .steps-grid { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .stats .container { flex-wrap: wrap; gap: 32px; } .stat-divider { display: none; } .stat { flex: 1 1 40%; } .steps-card { grid-template-columns: 1fr; } .step:not(:last-child) { border-right: none; border-bottom: 1px solid var(--gray-100); } .step-character { height: 160px; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } }
 </style>
 </head>
 <body>
@@ -147,15 +142,25 @@
 </section>
 
 <section class="how-it-works" id="how-it-works">
-  <div id="steps-3d-container"></div>
   <div class="container">
-    <div class="section-label fade-in">How it works</div>
-    <h2 class="section-title fade-in delay-1">Three steps to Reddit growth</h2>
-    <p class="section-subtitle fade-in delay-2">Stop guessing. Start with data, generate with AI, grow with confidence.</p>
-    <div class="steps-grid">
-      <div class="step-card fade-in delay-2"><div class="step-number">1</div><div class="step-icon blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div><h3>Find winning posts</h3><p>Browse any subreddit and discover top-performing posts in your niche. See what gets upvotes and engagement.</p></div>
-      <div class="step-card fade-in delay-3"><div class="step-number">2</div><div class="step-icon green"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div><h3>Generate with AI</h3><p>Select successful example posts. Our AI creates tailored content for your product that matches the winning style.</p></div>
-      <div class="step-card fade-in delay-4"><div class="step-number">3</div><div class="step-icon purple"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Post & grow</h3><p>Edit, rewrite with different tones, and publish. Content that sounds authentic, not like marketing.</p></div>
+    <h2 class="section-title fade-in">How <span class="accent">SuperReddit</span> works</h2>
+    <p class="section-subtitle fade-in delay-1">Get from zero to growth in three simple steps</p>
+    <div class="steps-card fade-in delay-2">
+      <div class="step">
+        <div class="step-character" id="step-char-1"></div>
+        <h3>01. Find winning posts</h3>
+        <p>Browse any subreddit and discover top-performing posts in your niche. See what actually gets upvotes and real engagement.</p>
+      </div>
+      <div class="step">
+        <div class="step-character" id="step-char-2"></div>
+        <h3>02. Generate with AI</h3>
+        <p>Select successful example posts. Our AI creates tailored content for your product that matches the winning style.</p>
+      </div>
+      <div class="step">
+        <div class="step-character" id="step-char-3"></div>
+        <h3>03. Post &amp; grow</h3>
+        <p>Edit, rewrite with different tones, and publish. Content that sounds authentic, not like marketing.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -625,6 +630,9 @@ loader.load('./scene.gltf', (gltf) => {
     }
   });
   console.log('Eyelids found:', eyelids.length);
+
+  // Set up step character canvases using cloned heads
+  setupStepCharacters();
 }, undefined, (err) => {
   console.error('GLTF load error:', err);
 });
@@ -632,6 +640,79 @@ loader.load('./scene.gltf', (gltf) => {
 // ── Animation ──
 const clock = new THREE.Clock();
 const eyelids = [];
+
+// ── Step Characters — clone GLTF heads into per-step canvases ──
+const stepCharRenderers = [];
+const stepCharScenes = [];
+const stepCharCameras = [];
+const stepCharHeads = [];
+let stepsVisible = false;
+
+function setupStepCharacters() {
+  if (headGroups.length < 3) return;
+
+  // Pick 3 visually distinct heads (spread across the array)
+  const stride = Math.floor(headGroups.length / 3);
+  const indices = [0, stride, stride * 2];
+
+  indices.forEach((headIdx, i) => {
+    const el = document.getElementById(`step-char-${i + 1}`);
+    if (!el) return;
+
+    const w = el.clientWidth || 300;
+    const h = el.clientHeight || 200;
+
+    // Clone the head group and reset its position
+    const head = headGroups[headIdx].clone(true);
+    head.position.set(0, -0.3, 0);
+    head.rotation.set(0, 0, 0);
+
+    // Mini scene with clean lighting
+    const miniScene = new THREE.Scene();
+    const hemi = new THREE.HemisphereLight(0xddeeff, 0x404060, 1.4);
+    miniScene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffffff, 2.0);
+    key.position.set(3, 4, 6);
+    miniScene.add(key);
+    const fill = new THREE.DirectionalLight(0x8899cc, 0.8);
+    fill.position.set(-3, 1, 4);
+    miniScene.add(fill);
+    const back = new THREE.PointLight(0xff6b35, 3.0, 20);
+    back.position.set(0, 2, -3);
+    miniScene.add(back);
+    miniScene.add(head);
+
+    // Camera
+    const cam = new THREE.PerspectiveCamera(28, w / h, 0.01, 50);
+    cam.position.set(0, 0.5, 6);
+    cam.lookAt(0, 0, 0);
+
+    // Renderer (small canvas, lower pixel ratio)
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    r.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    r.setSize(w, h);
+    r.setClearColor(0x000000, 0);
+    r.toneMapping = THREE.ACESFilmicToneMapping;
+    r.toneMappingExposure = 1.5;
+    r.outputColorSpace = THREE.SRGBColorSpace;
+    el.appendChild(r.domElement);
+
+    stepCharRenderers.push(r);
+    stepCharScenes.push(miniScene);
+    stepCharCameras.push(cam);
+    stepCharHeads.push(head);
+  });
+
+  console.log('Step characters set up:', stepCharRenderers.length);
+}
+
+// IntersectionObserver — only render step characters when visible
+const stepsSection = document.getElementById('how-it-works');
+if (stepsSection) {
+  new IntersectionObserver((entries) => {
+    entries.forEach(e => { stepsVisible = e.isIntersecting; });
+  }, { threshold: 0.05 }).observe(stepsSection);
+}
 
 function animate() {
   requestAnimationFrame(animate);
@@ -679,6 +760,20 @@ function animate() {
 
   // Render through post-processing pipeline
   composer.render();
+
+  // Render step character canvases
+  if (stepsVisible && stepCharRenderers.length > 0) {
+    const t = clock.getElapsedTime();
+    stepCharHeads.forEach((head, i) => {
+      // Gentle float
+      head.position.y = -0.3 + Math.sin(t * 0.8 + i * 2.0) * 0.12;
+      // Mouse-reactive rotation
+      head.rotation.y += (smoothMouse.x * 0.5 - head.rotation.y) * 0.06;
+      head.rotation.x += (-smoothMouse.y * 0.3 - head.rotation.x) * 0.06;
+      // Render
+      stepCharRenderers[i].render(stepCharScenes[i], stepCharCameras[i]);
+    });
+  }
 }
 
 animate();
@@ -689,213 +784,22 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+
+  // Resize step character canvases
+  stepCharRenderers.forEach((r, i) => {
+    const el = document.getElementById(`step-char-${i + 1}`);
+    if (el) {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      r.setSize(w, h);
+      stepCharCameras[i].aspect = w / h;
+      stepCharCameras[i].updateProjectionMatrix();
+    }
+  });
 });
 
 // ── Prevent scroll zoom ──
 container.addEventListener('wheel', (e) => e.stopPropagation());
-
-// ══════════════════════════════════════════════════════════════
-// ── Steps 3D Scene — geometric objects behind "How it works" ──
-// ══════════════════════════════════════════════════════════════
-
-const stepsContainer = document.getElementById('steps-3d-container');
-const stepsRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-stepsRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-stepsRenderer.setClearColor(0x000000, 0);
-stepsRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-stepsRenderer.toneMappingExposure = 1.2;
-stepsRenderer.outputColorSpace = THREE.SRGBColorSpace;
-stepsContainer.appendChild(stepsRenderer.domElement);
-
-const stepsScene = new THREE.Scene();
-const stepsCamera = new THREE.PerspectiveCamera(50, 2, 0.1, 100);
-stepsCamera.position.set(0, 0, 12);
-stepsCamera.lookAt(0, 0, 0);
-
-// Post-processing for steps scene
-const stepsComposer = new EffectComposer(stepsRenderer);
-stepsComposer.addPass(new RenderPass(stepsScene, stepsCamera));
-const stepsBloom = new UnrealBloomPass(new THREE.Vector2(800, 400), 0.6, 0.8, 0.4);
-stepsComposer.addPass(stepsBloom);
-stepsComposer.addPass(new OutputPass());
-
-// Lighting
-const stepsAmbient = new THREE.AmbientLight(0x334455, 0.6);
-stepsScene.add(stepsAmbient);
-
-const stepsKeyLight = new THREE.DirectionalLight(0xeeeeff, 1.2);
-stepsKeyLight.position.set(3, 5, 8);
-stepsScene.add(stepsKeyLight);
-
-const stepsFillLight = new THREE.PointLight(0x6644bb, 3.0, 30);
-stepsFillLight.position.set(-5, 2, 4);
-stepsScene.add(stepsFillLight);
-
-// ── Three geometric objects ──
-const stepColors = {
-  blue: new THREE.Color(0x3B82F6),
-  green: new THREE.Color(0x22C55E),
-  purple: new THREE.Color(0xA855F7),
-};
-
-// Step 1: Icosahedron (blue) — discovery
-const icoGeo = new THREE.IcosahedronGeometry(1.4, 1);
-const icoSolid = new THREE.Mesh(icoGeo, new THREE.MeshStandardMaterial({
-  color: 0x1e3a6e, roughness: 0.35, metalness: 0.2,
-  emissive: 0x3B82F6, emissiveIntensity: 0.15,
-}));
-const icoWire = new THREE.Mesh(icoGeo, new THREE.MeshBasicMaterial({
-  color: 0x3B82F6, wireframe: true, transparent: true, opacity: 0.3,
-}));
-icoWire.scale.setScalar(1.15);
-const icoGroup = new THREE.Group();
-icoGroup.add(icoSolid);
-icoGroup.add(icoWire);
-icoGroup.position.set(-4.5, 0, 0);
-stepsScene.add(icoGroup);
-
-// Point light near icosahedron
-const icoLight = new THREE.PointLight(0x3B82F6, 4.0, 10, 1.5);
-icoLight.position.set(-4.5, 0, 2);
-stepsScene.add(icoLight);
-
-// Step 2: Octahedron (green) — AI generation
-const octaGeo = new THREE.OctahedronGeometry(1.3, 0);
-const octaSolid = new THREE.Mesh(octaGeo, new THREE.MeshStandardMaterial({
-  color: 0x14532d, roughness: 0.35, metalness: 0.2,
-  emissive: 0x22C55E, emissiveIntensity: 0.15,
-}));
-const octaWire = new THREE.Mesh(octaGeo, new THREE.MeshBasicMaterial({
-  color: 0x22C55E, wireframe: true, transparent: true, opacity: 0.3,
-}));
-octaWire.scale.setScalar(1.2);
-const octaGroup = new THREE.Group();
-octaGroup.add(octaSolid);
-octaGroup.add(octaWire);
-octaGroup.position.set(0, 0, 0);
-stepsScene.add(octaGroup);
-
-const octaLight = new THREE.PointLight(0x22C55E, 4.0, 10, 1.5);
-octaLight.position.set(0, 0, 2);
-stepsScene.add(octaLight);
-
-// Step 3: TorusKnot (purple) — growth/momentum
-const torusGeo = new THREE.TorusKnotGeometry(0.9, 0.3, 80, 12, 2, 3);
-const torusSolid = new THREE.Mesh(torusGeo, new THREE.MeshStandardMaterial({
-  color: 0x3b1a6e, roughness: 0.35, metalness: 0.2,
-  emissive: 0xA855F7, emissiveIntensity: 0.15,
-}));
-const torusWire = new THREE.Mesh(torusGeo, new THREE.MeshBasicMaterial({
-  color: 0xA855F7, wireframe: true, transparent: true, opacity: 0.25,
-}));
-torusWire.scale.setScalar(1.12);
-const torusGroup = new THREE.Group();
-torusGroup.add(torusSolid);
-torusGroup.add(torusWire);
-torusGroup.position.set(4.5, 0, 0);
-stepsScene.add(torusGroup);
-
-const torusLight = new THREE.PointLight(0xA855F7, 4.0, 10, 1.5);
-torusLight.position.set(4.5, 0, 2);
-stepsScene.add(torusLight);
-
-// ── Floating particles between objects ──
-const particleCount = 120;
-const particlePositions = new Float32Array(particleCount * 3);
-const particleSpeeds = new Float32Array(particleCount);
-for (let i = 0; i < particleCount; i++) {
-  particlePositions[i * 3] = (Math.random() - 0.5) * 14;
-  particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 6;
-  particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 6;
-  particleSpeeds[i] = 0.3 + Math.random() * 0.7;
-}
-const particleGeo = new THREE.BufferGeometry();
-particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-
-const particleMat = new THREE.PointsMaterial({
-  color: 0x8888cc,
-  size: 0.06,
-  transparent: true,
-  opacity: 0.5,
-  sizeAttenuation: true,
-});
-const particles = new THREE.Points(particleGeo, particleMat);
-stepsScene.add(particles);
-
-// ── Connection lines between objects (subtle) ──
-const lineMat = new THREE.LineBasicMaterial({ color: 0x555588, transparent: true, opacity: 0.12 });
-const lineGeo1 = new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(-4.5, 0, 0), new THREE.Vector3(0, 0, 0)
-]);
-const lineGeo2 = new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(0, 0, 0), new THREE.Vector3(4.5, 0, 0)
-]);
-stepsScene.add(new THREE.Line(lineGeo1, lineMat));
-stepsScene.add(new THREE.Line(lineGeo2, lineMat));
-
-// ── Steps animation with IntersectionObserver ──
-let stepsVisible = false;
-const stepsClock = new THREE.Clock();
-const stepsObjects = [icoGroup, octaGroup, torusGroup];
-
-const stepsObserver = new IntersectionObserver((entries) => {
-  entries.forEach(e => { stepsVisible = e.isIntersecting; });
-}, { threshold: 0.05 });
-stepsObserver.observe(document.getElementById('how-it-works'));
-
-function updateStepsSize() {
-  const rect = stepsContainer.getBoundingClientRect();
-  const w = rect.width || stepsContainer.clientWidth || 800;
-  const h = rect.height || stepsContainer.clientHeight || 400;
-  stepsRenderer.setSize(w, h);
-  stepsComposer.setSize(w, h);
-  stepsCamera.aspect = w / h;
-  stepsCamera.updateProjectionMatrix();
-}
-updateStepsSize();
-
-function animateSteps() {
-  requestAnimationFrame(animateSteps);
-  if (!stepsVisible) return;
-
-  const t = stepsClock.getElapsedTime();
-
-  // Rotate objects
-  icoGroup.rotation.y = t * 0.25;
-  icoGroup.rotation.x = t * 0.15;
-  icoGroup.position.y = Math.sin(t * 0.8) * 0.35;
-
-  octaGroup.rotation.y = t * 0.3;
-  octaGroup.rotation.z = t * 0.2;
-  octaGroup.position.y = Math.sin(t * 0.8 + 2.0) * 0.35;
-
-  torusGroup.rotation.y = t * 0.2;
-  torusGroup.rotation.x = t * 0.25;
-  torusGroup.position.y = Math.sin(t * 0.8 + 4.0) * 0.35;
-
-  // Mouse parallax on objects (reuse smoothMouse from hero)
-  stepsObjects.forEach((obj, i) => {
-    const baseX = (i - 1) * 4.5;
-    obj.position.x = baseX + smoothMouse.x * 0.4;
-  });
-
-  // Animate particles
-  const pos = particleGeo.attributes.position;
-  for (let i = 0; i < particleCount; i++) {
-    const speed = particleSpeeds[i];
-    pos.array[i * 3 + 1] += Math.sin(t * speed + i) * 0.002;
-    pos.array[i * 3] += Math.cos(t * speed * 0.5 + i * 0.3) * 0.001;
-  }
-  pos.needsUpdate = true;
-
-  stepsComposer.render();
-}
-
-animateSteps();
-
-window.addEventListener('resize', () => {
-  updateStepsSize();
-});
 </script>
 
 <script>
