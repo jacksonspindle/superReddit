@@ -903,32 +903,50 @@ function setupStepCharacters() {
       return;
     }
 
-    // Mini scene with studio lighting
+    // Mini scene — lighting matched to hero section
     const miniScene = new THREE.Scene();
+    miniScene.fog = new THREE.FogExp2(0x1a1050, 0.08);
 
-    // Soft ambient base
-    miniScene.add(new THREE.HemisphereLight(0xeef2ff, 0x404060, 1.6));
-    miniScene.add(new THREE.AmbientLight(0xffffff, 0.3));
+    // 1. Hemisphere — same as hero: soft neutral sky, dark purple ground
+    miniScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
 
-    // Key light — warm top-right
-    const key = new THREE.DirectionalLight(0xfff5ee, 2.5);
-    key.position.set(3, 5, 5);
+    // 2. Top key — soft purple-white from above
+    const key = new THREE.DirectionalLight(0xeeddff, 3.0);
+    key.position.set(0, 6, 4);
     miniScene.add(key);
 
-    // Fill light — cool left
-    const fill = new THREE.DirectionalLight(0x99aadd, 1.2);
-    fill.position.set(-4, 2, 3);
-    miniScene.add(fill);
+    // 3. Blue uplight — dramatic blue on chins (like laptop glow)
+    const blueUp = new THREE.PointLight(0x3366ee, 6.0, 15, 1.0);
+    blueUp.position.set(0, -2, 2);
+    miniScene.add(blueUp);
 
-    // Rim light — subtle edge definition from behind
-    const rim = new THREE.PointLight(0xaabbee, 2.0, 15);
-    rim.position.set(0, 1, -4);
-    miniScene.add(rim);
+    // 4. Blue fill — wider wash
+    const blueFill = new THREE.PointLight(0x3355dd, 2.0, 15, 1.0);
+    blueFill.position.set(0, 0, 3);
+    miniScene.add(blueFill);
 
-    // Warm accent from below — lifts shadows on chin/body
-    const up = new THREE.PointLight(0xff8855, 1.5, 12);
-    up.position.set(0, -2, 3);
-    miniScene.add(up);
+    // 5. Left rim — blue edge
+    const leftRim = new THREE.PointLight(0x4477cc, 3.0, 15);
+    leftRim.position.set(-4, 1, 0);
+    miniScene.add(leftRim);
+
+    // 6. Right rim — purple edge
+    const rightRim = new THREE.PointLight(0x6644bb, 2.5, 15);
+    rightRim.position.set(4, 1, 0);
+    miniScene.add(rightRim);
+
+    // 7. Front fill — keeps faces from going full black
+    const frontFill = new THREE.DirectionalLight(0x998acc, 0.6);
+    frontFill.position.set(0, 1, 6);
+    miniScene.add(frontFill);
+
+    // 8. Ambient — very low, lifts absolute blacks
+    miniScene.add(new THREE.AmbientLight(0x221838, 0.8));
+
+    // 9. Orange backlight — warm glow behind
+    const orangeBack = new THREE.PointLight(0xff6b35, 5.0, 15, 1.0);
+    orangeBack.position.set(0, 1, -3);
+    miniScene.add(orangeBack);
     miniScene.add(character);
 
     // Orange radial glow backdrop — matching hero section
