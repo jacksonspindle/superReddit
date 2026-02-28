@@ -581,24 +581,59 @@ loader.load('./scene.gltf', (gltf) => {
   // Force world matrix computation before reading positions
   model.updateMatrixWorld(true);
 
-  // Collect body meshes with their world positions (before heads get spread)
-  model.traverse((node) => {
-    if (!node.isMesh) return;
-    const pName = node.parent?.name || '';
-    const gpName = node.parent?.parent?.name || '';
-    if (pName === 'Bodies' || gpName === 'Bodies') {
-      const wp = new THREE.Vector3();
-      node.getWorldPosition(wp);
-      bodyMeshes.push({ mesh: node, worldPos: wp.clone() });
-    }
-  });
+  // Collect body meshes with world matrices + positions (before heads get spread)
+  let bodiesGroup = null;
+  model.traverse(n => { if (n.name === 'Bodies') bodiesGroup = n; });
+  if (bodiesGroup) {
+    bodiesGroup.children.forEach((child) => {
+      if (child.isMesh) {
+        const wp = new THREE.Vector3();
+        child.getWorldPosition(wp);
+        bodyMeshes.push({ mesh: child, worldMatrix: child.matrixWorld.clone(), worldPos: wp.clone() });
+      } else {
+        child.traverse(n => {
+          if (n.isMesh) {
+            const wp = new THREE.Vector3();
+            n.getWorldPosition(wp);
+            bodyMeshes.push({ mesh: n, worldMatrix: n.matrixWorld.clone(), worldPos: wp.clone() });
+          }
+        });
+      }
+    });
+  }
   console.log('Body meshes collected:', bodyMeshes.length);
 
-  // Also store original head world positions (before spreading)
-  headGroups.forEach(g => {
+  // Save head world matrices and positions BEFORE spreading
+  headGroups.forEach((g) => {
     const wp = new THREE.Vector3();
     g.getWorldPosition(wp);
-    g.userData.originalWorldPos = wp.clone();
+    g.userData.headWorldPos = wp.clone();
+    // Save world matrices for all child meshes
+    g.traverse(n => {
+      if (n.isMesh) n.userData.savedWorldMatrix = n.matrixWorld.clone();
+    });
+  });
+
+  // Compute 1:1 head→body matching using XZ-plane distance (head is directly above body)
+  const matchPairs = [];
+  headGroups.forEach((head, hi) => {
+    const hp = head.userData.headWorldPos;
+    bodyMeshes.forEach((body, bi) => {
+      const bp = body.worldPos;
+      const xzDist = Math.sqrt((bp.x - hp.x) ** 2 + (bp.z - hp.z) ** 2);
+      const yOff = hp.y - bp.y; // positive = head above body
+      if (yOff > -0.5) matchPairs.push({ xzDist, hi, bi, yOff });
+    });
+  });
+  matchPairs.sort((a, b) => a.xzDist - b.xzDist);
+
+  const usedHeads = new Set(), usedBodies = new Set();
+  matchPairs.forEach(({ xzDist, hi, bi }) => {
+    if (usedHeads.has(hi) || usedBodies.has(bi)) return;
+    headGroups[hi].userData.matchedBody = bodyMeshes[bi];
+    usedHeads.add(hi);
+    usedBodies.add(bi);
+    console.log(`Matched Head[${hi}] → Body[${bi}] xzDist=${xzDist.toFixed(2)}`);
   });
 
   // Push top rows of heads outward to clear space for text
@@ -670,38 +705,32 @@ const stepCharHeads = [];
 const stepContextObjects = []; // per-step animated context elements
 let stepsVisible = false;
 
-// Helper: build a full character by baking head + body geometry into world space
-// This bypasses all coordinate-space issues between the Heads/Bodies groups.
+// Helper: build a full character by baking head + body geometry into world space.
+// Uses saved (pre-spreading) world matrices and XZ-plane matched body.
 function buildCharacter(srcHead) {
   const meshGroup = new THREE.Group();
 
-  // Bake each visible head mesh into world-space geometry
+  // Bake each visible head mesh using SAVED world matrix (pre-spreading)
   srcHead.traverse(n => {
     if (!n.isMesh || !n.visible) return;
+    const wm = n.userData.savedWorldMatrix;
+    if (!wm) return;
     const geo = n.geometry.clone();
-    geo.applyMatrix4(n.matrixWorld); // bake world transform into vertices
-    meshGroup.add(new THREE.Mesh(geo, n.material));
+    geo.applyMatrix4(wm);
+    meshGroup.add(new THREE.Mesh(geo, n.material.clone()));
   });
 
-  // Find the nearest body mesh and bake it too
-  const headPos = srcHead.userData.originalWorldPos;
-  if (headPos && bodyMeshes.length > 0) {
-    let best = null, bestDist = Infinity;
-    bodyMeshes.forEach(({ mesh, worldPos }) => {
-      const d = headPos.distanceTo(worldPos);
-      if (d < bestDist) { bestDist = d; best = mesh; }
-    });
-    if (best && bestDist < 10) {
-      const geo = best.geometry.clone();
-      geo.applyMatrix4(best.matrixWorld);
-      meshGroup.add(new THREE.Mesh(geo, best.material));
-      console.log(`Matched body at dist=${bestDist.toFixed(1)}`);
-    }
+  // Use pre-computed XZ-matched body
+  const bodyEntry = srcHead.userData.matchedBody;
+  if (bodyEntry) {
+    const geo = bodyEntry.mesh.geometry.clone();
+    geo.applyMatrix4(bodyEntry.worldMatrix);
+    meshGroup.add(new THREE.Mesh(geo, bodyEntry.mesh.material.clone()));
   }
 
   if (meshGroup.children.length === 0) return null;
 
-  // Everything is in world space now — recenter at origin
+  // Everything is in world space — recenter at origin
   const box = new THREE.Box3().setFromObject(meshGroup);
   if (box.isEmpty()) return null;
 
@@ -712,14 +741,14 @@ function buildCharacter(srcHead) {
   // Offset meshGroup to center content at origin
   meshGroup.position.set(-center.x, -center.y, -center.z);
 
-  // Wrap in a scaled outer group
+  // Scale to fit canvas
   const s = maxDim > 0 ? 2.8 / maxDim : 1;
   const wrapper = new THREE.Group();
   wrapper.add(meshGroup);
   wrapper.scale.set(s, s, s);
   wrapper.userData.baseY = 0;
 
-  console.log(`Character: ${meshGroup.children.length} meshes, size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)}`);
+  console.log(`Character: ${meshGroup.children.length} meshes, size=${size.x.toFixed(2)},${size.y.toFixed(2)},${size.z.toFixed(2)}`);
   return wrapper;
 }
 
@@ -849,10 +878,11 @@ function setupStepCharacters() {
   console.log('setupStepCharacters called, headGroups:', headGroups.length);
   if (headGroups.length < 3) return;
 
-  // Skip index 0 (teapot head). Pick 3 spread across the rest.
-  const pool = headGroups.slice(1);
+  // Skip index 0 (teapot head). Pick 3 with good body matches, spread across the rest.
+  const pool = headGroups.filter((g, i) => i > 0 && g.userData.matchedBody);
   const stride = Math.floor(pool.length / 3);
-  const picks = [pool[0], pool[stride], pool[stride * 2]];
+  const picks = [pool[0], pool[Math.min(stride, pool.length - 1)], pool[Math.min(stride * 2, pool.length - 1)]];
+  console.log('Step character picks:', picks.map(p => headGroups.indexOf(p)));
   const contextCreators = [createSearchContext, createAIContext, createGrowthContext];
 
   picks.forEach((srcHead, i) => {
