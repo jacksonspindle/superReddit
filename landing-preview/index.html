@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperReddit — Landing Page</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --orange: #FF6B35; --orange-hover: #E85D2C;
+    --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB; --gray-400: #9CA3AF; --gray-500: #6B7280;
+    --gray-700: #374151; --gray-900: #111827; --white: #FFFFFF;
+  }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--white); color: var(--gray-900); line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 16px 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid transparent; transition: all 0.3s ease; }
+  .nav.scrolled { background: rgba(255,255,255,0.95); border-bottom-color: var(--gray-200); }
+  .nav .container { display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--gray-900); }
+  .nav-logo-icon { width: 36px; height: 36px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 14px; }
+  .nav-logo span { font-weight: 700; font-size: 18px; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a { text-decoration: none; color: var(--gray-500); font-size: 14px; font-weight: 500; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--gray-900); }
+  .nav-actions { display: flex; align-items: center; gap: 12px; }
+  .btn-ghost { background: none; border: none; color: var(--gray-500); font-size: 14px; font-weight: 500; cursor: pointer; padding: 8px 16px; border-radius: 10px; transition: all 0.2s; text-decoration: none; }
+  .btn-ghost:hover { color: var(--gray-900); background: var(--gray-50); }
+  .btn-primary { background: var(--orange); color: white; border: none; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary:hover { background: var(--orange-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
+  .btn-primary-lg { padding: 16px 36px; font-size: 16px; border-radius: 14px; }
+  .btn-secondary { background: var(--white); color: var(--gray-700); border: 1px solid var(--gray-200); font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-secondary:hover { background: var(--gray-50); border-color: var(--gray-300); }
+  .btn-secondary-lg { padding: 16px 36px; font-size: 16px; border-radius: 14px; }
+
+  .hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: #1a1050; }
+  .hero-3d-container { position: absolute; inset: 0; z-index: 1; }
+  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -5vh; }
+  .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 4px 40px rgba(0,0,0,0.5); }
+  .hero-overlay h1 .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .hero-overlay p { font-size: 22px; color: rgba(255,255,255,0.6); font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 20px rgba(0,0,0,0.4); }
+  .hero-buttons { display: flex; gap: 16px; justify-content: center; pointer-events: all; }
+  .hero-buttons .btn-primary { box-shadow: 0 8px 32px rgba(255,107,53,0.4); }
+  .hero-buttons .btn-secondary { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: white; backdrop-filter: blur(12px); }
+  .hero-buttons .btn-secondary:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
+  .hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px; background: linear-gradient(to top, #1a1050 0%, transparent 100%); z-index: 2; pointer-events: none; }
+  .hero-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 3; color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: bounce 2s infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
+
+  .stats { padding: 48px 0; background: var(--white); border-bottom: 1px solid var(--gray-100); }
+  .stats .container { display: flex; align-items: center; justify-content: center; gap: 64px; }
+  .stat { text-align: center; }
+  .stat-number { font-size: 36px; font-weight: 800; color: var(--gray-900); letter-spacing: -0.02em; }
+  .stat-label { font-size: 14px; color: var(--gray-400); font-weight: 500; margin-top: 4px; }
+  .stat-divider { width: 1px; height: 48px; background: var(--gray-200); }
+
+  .how-it-works { padding: 100px 0; }
+  .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+  .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
+  .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
+  .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .step-card { position: relative; background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border: 1px solid var(--gray-200); border-radius: 20px; padding: 40px 32px; text-align: center; transition: all 0.3s ease; overflow: hidden; }
+  .step-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.06); border-color: var(--gray-300); }
+  .step-number { position: absolute; top: -10px; right: 16px; font-size: 100px; font-weight: 800; color: var(--orange); opacity: 0.06; line-height: 1; pointer-events: none; }
+  .step-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .step-icon.blue { background: #EFF6FF; color: #3B82F6; }
+  .step-icon.green { background: #F0FDF4; color: #22C55E; }
+  .step-icon.purple { background: #FAF5FF; color: #A855F7; }
+  .step-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .step-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+
+  .features { padding: 100px 0; background: var(--gray-50); }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .feature-card { position: relative; background: var(--white); border: 1px solid var(--gray-200); border-radius: 20px; padding: 32px; transition: all 0.3s ease; }
+  .feature-card::before { content: ''; position: absolute; inset: -1px; border-radius: 21px; padding: 1px; background: linear-gradient(135deg, transparent 40%, rgba(255,107,53,0.2) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .feature-card:hover::before { opacity: 1; }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.06); }
+  .feature-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+  .feature-icon.orange { background: #FFF3ED; color: var(--orange); }
+  .feature-icon.blue { background: #EFF6FF; color: #3B82F6; }
+  .feature-icon.purple { background: #FAF5FF; color: #A855F7; }
+  .feature-icon.green { background: #F0FDF4; color: #22C55E; }
+  .feature-icon.yellow { background: #FFFBEB; color: #F59E0B; }
+  .feature-icon.red { background: #FEF2F2; color: #EF4444; }
+  .feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .feature-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+
+  .cta { padding: 100px 0; background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%); }
+  .cta-card { max-width: 720px; margin: 0 auto; text-align: center; background: var(--white); border: 1px solid var(--gray-200); border-radius: 28px; padding: 72px 48px; box-shadow: 0 24px 80px rgba(0,0,0,0.06); position: relative; overflow: hidden; }
+  .cta-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at center, rgba(255,107,53,0.04) 0%, transparent 50%); pointer-events: none; }
+  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; }
+  .cta-card p { font-size: 16px; color: var(--gray-400); margin-bottom: 32px; position: relative; }
+
+  .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
+  .footer .container { display: flex; align-items: center; justify-content: space-between; }
+  .footer-brand { display: flex; align-items: center; gap: 8px; }
+  .footer-brand-icon { width: 28px; height: 28px; background: var(--orange); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 11px; }
+  .footer-brand span { font-weight: 600; font-size: 14px; color: var(--gray-700); }
+  .footer-note { font-size: 13px; color: var(--gray-400); }
+
+  .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+  .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
+
+  @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .stats .container { flex-wrap: wrap; gap: 32px; } .stat-divider { display: none; } .stat { flex: 1 1 40%; } .steps-grid { grid-template-columns: 1fr; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="container">
+    <a href="#" class="nav-logo"><div class="nav-logo-icon">SR</div><span>SuperReddit</span></a>
+    <div class="nav-links"><a href="#how-it-works">How it works</a><a href="#features">Features</a></div>
+    <div class="nav-actions"><a href="#" class="btn-ghost">Log in</a><a href="#" class="btn-primary">Get Started Free</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-3d-container" id="three-container"></div>
+  <div class="hero-overlay">
+    <h1>People are looking for<br><span class="accent">your product</span></h1>
+    <p>We help you find them.</p>
+    <div class="hero-buttons">
+      <a href="#" class="btn-primary btn-primary-lg">Start for free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      <a href="#" class="btn-secondary btn-secondary-lg">Learn more</a>
+    </div>
+  </div>
+  <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+</section>
+
+<section class="stats">
+  <div class="container">
+    <div class="stat fade-in"><div class="stat-number">2M+</div><div class="stat-label">Subreddits</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat fade-in delay-1"><div class="stat-number">52M</div><div class="stat-label">Daily Active Users</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat fade-in delay-2"><div class="stat-number">100K+</div><div class="stat-label">Communities</div></div>
+    <div class="stat-divider"></div>
+    <div class="stat fade-in delay-3"><div class="stat-number">430M</div><div class="stat-label">Monthly Visitors</div></div>
+  </div>
+</section>
+
+<section class="how-it-works" id="how-it-works">
+  <div class="container">
+    <div class="section-label fade-in">How it works</div>
+    <h2 class="section-title fade-in delay-1">Three steps to Reddit growth</h2>
+    <p class="section-subtitle fade-in delay-2">Stop guessing. Start with data, generate with AI, grow with confidence.</p>
+    <div class="steps-grid">
+      <div class="step-card fade-in delay-2"><div class="step-number">1</div><div class="step-icon blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div><h3>Find winning posts</h3><p>Browse any subreddit and discover top-performing posts in your niche. See what gets upvotes and engagement.</p></div>
+      <div class="step-card fade-in delay-3"><div class="step-number">2</div><div class="step-icon green"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div><h3>Generate with AI</h3><p>Select successful example posts. Our AI creates tailored content for your product that matches the winning style.</p></div>
+      <div class="step-card fade-in delay-4"><div class="step-number">3</div><div class="step-icon purple"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Post & grow</h3><p>Edit, rewrite with different tones, and publish. Content that sounds authentic, not like marketing.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-label fade-in">Features</div>
+    <h2 class="section-title fade-in delay-1">Everything you need</h2>
+    <p class="section-subtitle fade-in delay-2">A complete toolkit for Reddit-powered growth.</p>
+    <div class="features-grid">
+      <div class="feature-card fade-in delay-2"><div class="feature-icon orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div><h3>Visual Canvas</h3><p>A node-based whiteboard to map your Reddit strategy. Connect products to subreddits to examples to generated posts.</p></div>
+      <div class="feature-card fade-in delay-3"><div class="feature-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Inspiration Engine</h3><p>Browse top posts from any subreddit with filters for Hot, Top, Rising. Find what works in your niche.</p></div>
+      <div class="feature-card fade-in delay-4"><div class="feature-icon purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div><h3>AI Generation</h3><p>Claude AI analyzes winning posts and generates Reddit-native content for your product. No marketing speak.</p></div>
+      <div class="feature-card fade-in delay-2"><div class="feature-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>AI Chat Mode</h3><p>Chat with an AI Reddit strategist. Get advice on subreddit targeting, timing, and engagement strategies.</p></div>
+      <div class="feature-card fade-in delay-3"><div class="feature-icon yellow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Smart Rewrite</h3><p>Rewrite generated content in different tones — Humorous, Engaging, Sarcastic, Concise, and more.</p></div>
+      <div class="feature-card fade-in delay-4"><div class="feature-icon red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div><h3>Ban Prevention</h3><p>Built-in knowledge about Reddit policies. Our AI avoids patterns that get flagged as spam.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="container">
+    <div class="cta-card fade-in">
+      <h2>Ready to grow on Reddit?</h2>
+      <p>Join the beta and start creating Reddit content that actually works.</p>
+      <a href="#" class="btn-primary btn-primary-lg">Get Started Free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-brand"><div class="footer-brand-icon">SR</div><span>SuperReddit</span></div>
+    <div class="footer-note">Built with AI. Not affiliated with Reddit.</div>
+  </div>
+</footer>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ── Renderer — ACES Filmic, shadows, physically correct ──
+const container = document.getElementById('three-container');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.3;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// ── Scene ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1050);
+scene.fog = new THREE.FogExp2(0x1a1050, 0.035);
+
+// ── Camera ──
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 200);
+camera.position.set(0, 1.5, 14);
+camera.lookAt(0, 3.0, 0);
+
+// ── Environment Map — soft purple studio HDRI (procedural) ──
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+
+// Create a simple studio environment scene
+const envScene = new THREE.Scene();
+envScene.background = new THREE.Color(0x1a1050);
+// Soft colored lights to fake studio reflections
+const envLight1 = new THREE.PointLight(0x4466cc, 50, 100);
+envLight1.position.set(5, 5, 5);
+envScene.add(envLight1);
+const envLight2 = new THREE.PointLight(0x6644aa, 40, 100);
+envLight2.position.set(-5, 3, -5);
+envScene.add(envLight2);
+const envLight3 = new THREE.PointLight(0x3355dd, 30, 100);
+envLight3.position.set(0, -3, 5);
+envScene.add(envLight3);
+const envLight4 = new THREE.PointLight(0xddddff, 20, 100);
+envLight4.position.set(0, 8, 0);
+envScene.add(envLight4);
+// White sphere as a reflection source
+const envSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(20, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0x1a1050, side: THREE.BackSide })
+);
+envScene.add(envSphere);
+
+const envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
+scene.environment = envMap;
+pmremGenerator.dispose();
+
+// ── Post Processing — subtle bloom ──
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.25,  // strength — subtle
+  0.6,   // radius
+  0.8    // threshold
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+// ── Lighting ──
+
+// 1. Hemisphere — soft neutral sky, dark purple ground
+const hemiLight = new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0);
+scene.add(hemiLight);
+
+// 2. Top key light — main illumination, casts shadows
+const topSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+topSpot.position.set(0, 16, 6);
+topSpot.target.position.set(0, 0, -2);
+topSpot.castShadow = true;
+topSpot.shadow.mapSize.width = 2048;
+topSpot.shadow.mapSize.height = 2048;
+topSpot.shadow.camera.near = 1;
+topSpot.shadow.camera.far = 40;
+topSpot.shadow.radius = 4;
+scene.add(topSpot);
+scene.add(topSpot.target);
+
+// 3. Laptop blue uplight — strong, dramatic blue on chins
+const laptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
+laptopSpot.position.set(0, -1.8, 2.0);
+laptopSpot.target.position.set(0, 4, -1);
+scene.add(laptopSpot);
+scene.add(laptopSpot.target);
+
+// 4. Laptop fill — wider blue wash
+const laptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+laptopFill.position.set(0, -0.5, 3.5);
+scene.add(laptopFill);
+
+// 5. Left rim — blue edge light
+const leftLight = new THREE.PointLight(0x4477cc, 4.0, 50);
+leftLight.position.set(-12, 4, 0);
+scene.add(leftLight);
+
+// 6. Right rim — purple edge light
+const rightLight = new THREE.PointLight(0x6644bb, 3.0, 50);
+rightLight.position.set(12, 4, 0);
+scene.add(rightLight);
+
+// 7. Front fill — subtle, keeps faces from going full black
+const fillLight = new THREE.DirectionalLight(0x998acc, 0.6);
+fillLight.position.set(0, 2, 10);
+scene.add(fillLight);
+
+// 8. Ambient — very low, just lifts the absolute blacks
+const ambientLight = new THREE.AmbientLight(0x221838, 0.8);
+scene.add(ambientLight);
+
+// 9. Orange backlight — warm glow behind the characters
+const orangeBack = new THREE.PointLight(0xff6b35, 8.0, 40, 1.0);
+orangeBack.position.set(0, 3.0, -4.0);
+scene.add(orangeBack);
+
+// 10. Orange gradient backdrop — glowing disc behind the group
+const glowGeo = new THREE.PlaneGeometry(30, 25);
+const glowMat = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  uniforms: {
+    color: { value: new THREE.Color(0xff6b35) },
+    opacity: { value: 0.55 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 color;
+    uniform float opacity;
+    varying vec2 vUv;
+    void main() {
+      vec2 center = vUv - 0.5;
+      float dist = length(center) * 2.0;
+      float alpha = opacity * smoothstep(1.0, 0.0, dist);
+      gl_FragColor = vec4(color, alpha);
+    }
+  `,
+});
+const glowPlane = new THREE.Mesh(glowGeo, glowMat);
+glowPlane.position.set(0, 3.0, -6.0);
+scene.add(glowPlane);
+
+// ── Skin palette — matched to Spline reference screenshot ──
+const skinColors = [
+  0x8888bb, // light blue-lavender (teapot head)
+  0x8a6650, // warm brown (X face)
+  0xbb6633, // orange-brown
+  0x2a2222, // very dark brown/black
+  0x8855aa, // purple
+  0x33aa55, // bright green
+  0x9a7050, // brown/tan
+  0xcc7733, // orange (cone hat)
+  0xdd88aa, // pink
+  0xc09888, // beige/tan (mohawk)
+  0x4477dd, // bright blue
+  0x339988, // teal-green
+  0x9988bb, // lavender (sleepy eyes)
+  0xcc3355, // red-magenta
+  0xc09070, // tan/beige (glasses)
+  0x5577cc, // blue
+  0xccaa44, // gold/amber
+  0x8855cc, // purple
+  0x7a5544, // dark brown
+  0x6688bb, // steel blue
+  0xbb5588, // rose
+  0x55bb77, // green
+  0xaa7744, // warm amber
+  0x7788cc, // periwinkle
+];
+
+const bodyColor = 0x0a0a14;
+
+// ── Mouse tracking ──
+const mouse = new THREE.Vector2(0, 0);
+const smoothMouse = new THREE.Vector2(0, 0);
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+
+// ── Load GLTF and apply materials ──
+const loader = new GLTFLoader();
+const headGroups = [];
+let colorIndex = 0;
+
+loader.load('./scene.gltf', (gltf) => {
+  const model = gltf.scene;
+
+  function isInHeadGroup(node) {
+    let p = node.parent;
+    while (p) {
+      if (p.name === 'Heads') return true;
+      p = p.parent;
+    }
+    return false;
+  }
+
+  function getHeadGroup(node) {
+    let p = node.parent;
+    while (p && p.parent) {
+      if (p.parent.name === 'Heads') return p;
+      p = p.parent;
+    }
+    return null;
+  }
+
+  // First pass: assign skin colors
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    if (!isInHeadGroup(node)) return;
+    const verts = node.geometry?.attributes?.position?.count || 0;
+    if (verts === 3968 || verts === 28792) {
+      const headGroup = getHeadGroup(node);
+      if (headGroup && !headGroup.userData.skinAssigned) {
+        headGroup.userData.skinColor = skinColors[colorIndex % skinColors.length];
+        headGroup.userData.skinAssigned = true;
+        colorIndex++;
+        if (!headGroups.includes(headGroup)) headGroups.push(headGroup);
+      }
+    }
+  });
+
+  // Second pass: apply PBR materials
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+
+    const name = node.name || '';
+    const parentName = node.parent?.name || '';
+    const gpName = node.parent?.parent?.name || '';
+
+    const isBody = parentName === 'Bodies' || gpName === 'Bodies';
+    const isHead = isInHeadGroup(node);
+    const isLaptop = parentName.includes('Laptop') || gpName.includes('Laptop');
+    const isTable = name.includes('Table');
+    const isBgCircle = name.includes('Background');
+
+    // Enable shadows on all meshes
+    node.castShadow = true;
+    node.receiveShadow = true;
+
+    if (isBody) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: bodyColor, roughness: 0.85, metalness: 0.0,
+        envMapIntensity: 0.3,
+      });
+    } else if (isHead) {
+      const headGroup = getHeadGroup(node);
+      const skin = headGroup?.userData?.skinColor || 0xcccccc;
+      const verts = node.geometry?.attributes?.position?.count || 0;
+
+      if (verts === 3968) {
+        // Head sphere — clay/plastic: roughness 0.5 for nice light wrap
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 28792) {
+        // Glasses character head+frame
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 4225) {
+        // Glass lenses
+        node.material = new THREE.MeshPhysicalMaterial({
+          color: 0xaaddff,
+          roughness: 0.05,
+          metalness: 0.0,
+          transmission: 0.9,
+          thickness: 0.3,
+          ior: 1.5,
+          transparent: true,
+          envMapIntensity: 2.0,
+        });
+        node.renderOrder = 1;
+      } else if (verts === 294) {
+        // Eye whites — BRIGHT, glossy, slight emissive glow
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.1,
+          metalness: 0.05,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.15,
+          envMapIntensity: 1.0,
+        });
+      } else if (verts === 147) {
+        // Pupils — glossy dark orbs with specular catchlight
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x050508,
+          roughness: 0.08,
+          metalness: 0.15,
+          envMapIntensity: 1.5,
+        });
+      } else if (verts === 598) {
+        // All cylinders — skin colored (safe)
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 563) {
+        // EYEBROWS — dark glossy capsules
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1,
+          envMapIntensity: 0.8,
+        });
+      } else if (verts > 10000) {
+        // Teapot — hide it
+        node.visible = false;
+      } else {
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      }
+    } else if (isLaptop) {
+      if (name.includes('light') || name.includes('Logo')) {
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x6688cc, roughness: 0.15, metalness: 0.0,
+          emissive: 0x3355bb, emissiveIntensity: 1.5,
+        });
+      } else {
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x888898, roughness: 0.5, metalness: 0.3,
+          envMapIntensity: 0.8,
+        });
+      }
+    } else if (isTable) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0x080814, roughness: 0.3, metalness: 0.6,
+        envMapIntensity: 0.5,
+      });
+    } else if (isBgCircle) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0x1a1050, roughness: 1, metalness: 0,
+        emissive: 0x151040, emissiveIntensity: 0.5,
+      });
+    } else {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0x2a2a3a, roughness: 0.6, metalness: 0.0,
+        envMapIntensity: 0.3,
+      });
+    }
+  });
+
+  // Raise laptop
+  model.traverse((node) => {
+    if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+      node.position.y += 80;
+    }
+  });
+
+  scene.add(model);
+
+  console.log('GLTF loaded. Head groups:', headGroups.length);
+
+  // Force world matrix computation before reading positions
+  model.updateMatrixWorld(true);
+
+  // Push top rows of heads outward to clear space for text
+  const headsByY = headGroups
+    .map(g => {
+      const wp = new THREE.Vector3();
+      g.getWorldPosition(wp);
+      return { group: g, y: wp.y, x: wp.x };
+    })
+    .sort((a, b) => b.y - a.y); // highest first
+
+  // Debug: log all head positions
+  console.log('Head Y positions:', headsByY.map(h => `y=${h.y.toFixed(1)} x=${h.x.toFixed(1)}`));
+
+  // Find Y thresholds for top 2 rows
+  const yMax = headsByY[0].y;
+  const rowHeight = 2.5;
+  const row1Threshold = yMax - rowHeight * 0.5;
+  const row2Threshold = yMax - rowHeight * 1.5;
+
+  console.log(`Thresholds: row1>${row1Threshold.toFixed(1)}, row2>${row2Threshold.toFixed(1)}, yMax=${yMax.toFixed(1)}`);
+
+  let moved = 0;
+  headsByY.forEach(({ group, y, x }) => {
+    const xDir = x >= 0 ? 1 : -1;
+
+    if (y > row1Threshold) {
+      group.position.x += xDir * 8.0;
+      group.position.y -= 2.5;
+      moved++;
+      console.log(`Row1: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
+    } else if (y > row2Threshold) {
+      group.position.x += xDir * 5.0;
+      group.position.y -= 1.5;
+      moved++;
+      console.log(`Row2: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
+    }
+  });
+
+  console.log(`Moved ${moved} heads outward`);
+
+  // Collect eyelids for animation
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    const verts = node.geometry?.attributes?.position?.count || 0;
+    if (verts === 147 && isInHeadGroup(node)) {
+      node.userData.isEyelid = true;
+      node.userData.basePosition = node.position.clone();
+      eyelids.push(node);
+    }
+  });
+  console.log('Eyelids found:', eyelids.length);
+}, undefined, (err) => {
+  console.error('GLTF load error:', err);
+});
+
+// ── Animation ──
+const clock = new THREE.Clock();
+const eyelids = [];
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  smoothMouse.x += (mouse.x - smoothMouse.x) * 0.4;
+  smoothMouse.y += (mouse.y - smoothMouse.y) * 0.4;
+
+  const MAX_ROT = 0.5; // ~29 degrees
+  const tempVec = new THREE.Vector3();
+
+  headGroups.forEach((group) => {
+    // Get this head's screen-space position
+    tempVec.setFromMatrixPosition(group.matrixWorld);
+    tempVec.project(camera);
+    const headScreenX = tempVec.x; // -1 to 1
+    const headScreenY = tempVec.y; // -1 to 1
+
+    // Direction from this head to the cursor
+    const dx = smoothMouse.x - headScreenX;
+    const dy = smoothMouse.y - headScreenY;
+
+    // Distance from head to cursor (0 = on top, ~2.8 = max diagonal)
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Rotation scales with direction — further cursor = more rotation
+    let targetRotY = dx * 0.5;
+    let targetRotX = -dy * 0.4;
+
+    // Clamp so we never see back of head
+    targetRotY = Math.max(-MAX_ROT, Math.min(MAX_ROT, targetRotY));
+    targetRotX = Math.max(-MAX_ROT, Math.min(MAX_ROT, targetRotX));
+
+    // Wave effect: closer heads react faster, distant heads lag
+    const lerpSpeed = 0.15 + (1.0 / (1.0 + dist * 1.5)) * 0.35;
+
+    group.rotation.y += (targetRotY - group.rotation.y) * lerpSpeed;
+    group.rotation.x += (targetRotX - group.rotation.x) * lerpSpeed;
+  });
+
+  eyelids.forEach((lid) => {
+    if (!lid.userData.basePosition) return;
+    const base = lid.userData.basePosition;
+    lid.position.y = base.y + smoothMouse.y * 2.0;
+  });
+
+  // Render through post-processing pipeline
+  composer.render();
+}
+
+animate();
+
+// ── Resize ──
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Prevent scroll zoom ──
+container.addEventListener('wheel', (e) => e.stopPropagation());
+</script>
+
+<script>
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => { nav.classList.toggle('scrolled', window.scrollY > 50); });
+const fadeObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
+</script>
+
+</body>
+</html>
