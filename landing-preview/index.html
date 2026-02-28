@@ -651,11 +651,27 @@ let stepsVisible = false;
 function setupStepCharacters() {
   if (headGroups.length < 3) return;
 
-  // Pick 3 visually distinct heads (spread across the array)
-  const stride = Math.floor(headGroups.length / 3);
-  const indices = [0, stride, stride * 2];
+  // Filter to only head groups whose main head mesh is visible
+  // (excludes teapot heads where the big mesh was hidden)
+  const visibleHeads = headGroups.filter(g => {
+    let hasVisible = false;
+    g.traverse(n => {
+      if (n.isMesh && n.visible) {
+        const v = n.geometry?.attributes?.position?.count || 0;
+        if (v === 3968 || v === 28792) hasVisible = true;
+      }
+    });
+    return hasVisible;
+  });
 
-  indices.forEach((headIdx, i) => {
+  if (visibleHeads.length < 3) return;
+  console.log('Visible heads for steps:', visibleHeads.length);
+
+  // Pick 3 visually distinct heads (spread across the filtered array)
+  const stride = Math.floor(visibleHeads.length / 3);
+  const picks = [visibleHeads[0], visibleHeads[stride], visibleHeads[stride * 2]];
+
+  picks.forEach((srcHead, i) => {
     const el = document.getElementById(`step-char-${i + 1}`);
     if (!el) return;
 
@@ -663,23 +679,31 @@ function setupStepCharacters() {
     const h = el.clientHeight || 200;
 
     // Clone the head group and reset transforms
-    const head = headGroups[headIdx].clone(true);
+    const head = srcHead.clone(true);
     head.position.set(0, 0, 0);
     head.rotation.set(0, 0, 0);
 
-    // Auto-frame: compute bounding box, center, and scale to fit
-    const box = new THREE.Box3().setFromObject(head);
+    // Bounding box from VISIBLE meshes only (invisible geometry can be huge)
+    const box = new THREE.Box3();
+    head.traverse(n => {
+      if (n.isMesh && n.visible) {
+        n.geometry.computeBoundingBox();
+        const meshBox = n.geometry.boundingBox.clone();
+        meshBox.applyMatrix4(n.matrixWorld);
+        box.union(meshBox);
+      }
+    });
+
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
-    head.position.sub(center); // center the head at origin
+    head.position.sub(center);
     const maxDim = Math.max(size.x, size.y, size.z);
     if (maxDim > 0) {
-      const scale = 2.5 / maxDim;
-      head.scale.setScalar(scale);
+      head.scale.setScalar(1.8 / maxDim);
     }
 
     head.userData.baseY = head.position.y;
-    console.log(`Step char ${i}: bbox size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)} center=${center.x.toFixed(1)},${center.y.toFixed(1)},${center.z.toFixed(1)}`);
+    console.log(`Step char ${i}: visible bbox size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)}`);
 
     // Mini scene with clean lighting
     const miniScene = new THREE.Scene();
@@ -696,9 +720,9 @@ function setupStepCharacters() {
     miniScene.add(back);
     miniScene.add(head);
 
-    // Camera — positioned to frame the normalized head
-    const cam = new THREE.PerspectiveCamera(35, w / h, 0.01, 50);
-    cam.position.set(0, 0.3, 5);
+    // Camera — wide FOV, pulled back to see the full head
+    const cam = new THREE.PerspectiveCamera(45, w / h, 0.01, 100);
+    cam.position.set(0, 0.2, 4.5);
     cam.lookAt(0, 0, 0);
 
     // Renderer (small canvas, lower pixel ratio)
