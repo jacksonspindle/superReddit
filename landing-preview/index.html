@@ -934,8 +934,8 @@ function setupStepCharacters() {
     const bgGlowMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: {
-        color: { value: new THREE.Color(0xcc4a1a) },
-        opacity: { value: 0.35 },
+        color: { value: new THREE.Color(0xff6b35) },
+        opacity: { value: 0.4 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -968,11 +968,11 @@ function setupStepCharacters() {
       cam.lookAt(0, 0, 0);
     }
 
-    // Renderer
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Renderer — solid white background, no gaps
+    const r = new THREE.WebGLRenderer({ antialias: true });
     r.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     r.setSize(w, h);
-    r.setClearColor(0x000000, 0);
+    r.setClearColor(0xffffff, 1);
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.5;
     r.outputColorSpace = THREE.SRGBColorSpace;
