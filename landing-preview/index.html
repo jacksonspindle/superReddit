@@ -929,6 +929,31 @@ function setupStepCharacters() {
     miniScene.add(up);
     miniScene.add(character);
 
+    // Orange radial glow backdrop (same as hero section)
+    const bgGlowGeo = new THREE.PlaneGeometry(6, 6);
+    const bgGlowMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: {
+        color: { value: new THREE.Color(0xff6b35) },
+        opacity: { value: 0.4 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+      `,
+      fragmentShader: `
+        uniform vec3 color; uniform float opacity; varying vec2 vUv;
+        void main() {
+          vec2 c = vUv - 0.5; float d = length(c) * 2.0;
+          float alpha = opacity * smoothstep(1.0, 0.0, d);
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+    });
+    const bgGlow = new THREE.Mesh(bgGlowGeo, bgGlowMat);
+    bgGlow.position.set(0, 0.5, -2);
+    miniScene.add(bgGlow);
+
     // Add themed context elements
     const ctx = contextCreators[i](miniScene, character);
     stepContextObjects.push(ctx);
