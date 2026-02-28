@@ -1010,19 +1010,7 @@ function animate() {
   if (stepsVisible && stepCharRenderers.length > 0) {
     const t = clock.getElapsedTime();
     stepCharHeads.forEach((head, i) => {
-      // Gentle float
-      head.position.y = head.userData.baseY + Math.sin(t * 0.8 + i * 2.0) * 0.12;
-      // Mouse-reactive rotation
-      head.rotation.y += (smoothMouse.x * 0.5 - head.rotation.y) * 0.06;
-      head.rotation.x += (-smoothMouse.y * 0.3 - head.rotation.x) * 0.06;
-
-      // Animate themed context
       const ctx = stepContextObjects[i];
-      if (ctx && i === 0) {
-        // Magnifying glass: sync float with character
-        const charFloat = Math.sin(t * 0.8 + i * 2.0) * 0.12;
-        ctx.glass.position.y = ctx.baseY + charFloat;
-      }
       if (ctx && i === 1) {
         // AI: sparkle particles drift upward + reset
         const pos = ctx.sparkles.geometry.attributes.position;
