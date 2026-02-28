@@ -670,75 +670,57 @@ const stepCharHeads = [];
 const stepContextObjects = []; // per-step animated context elements
 let stepsVisible = false;
 
-// Helper: build a full character (cloned head + procedural body)
+// Helper: build a full character by baking head + body geometry into world space
+// This bypasses all coordinate-space issues between the Heads/Bodies groups.
 function buildCharacter(srcHead) {
-  const charGroup = new THREE.Group();
+  const meshGroup = new THREE.Group();
 
-  // Clone head, reset to origin
-  const head = srcHead.clone(true);
-  head.position.set(0, 0, 0);
-  head.rotation.set(0, 0, 0);
-  head.scale.set(1, 1, 1);
-  head.updateMatrixWorld(true);
+  // Bake each visible head mesh into world-space geometry
+  srcHead.traverse(n => {
+    if (!n.isMesh || !n.visible) return;
+    const geo = n.geometry.clone();
+    geo.applyMatrix4(n.matrixWorld); // bake world transform into vertices
+    meshGroup.add(new THREE.Mesh(geo, n.material));
+  });
 
-  // Measure just the head
-  const headBox = new THREE.Box3();
-  head.traverse(n => {
-    if (n.isMesh && n.visible && n.geometry) {
-      n.geometry.computeBoundingBox();
-      if (n.geometry.boundingBox) {
-        const mb = n.geometry.boundingBox.clone();
-        mb.applyMatrix4(n.matrixWorld);
-        headBox.union(mb);
-      }
+  // Find the nearest body mesh and bake it too
+  const headPos = srcHead.userData.originalWorldPos;
+  if (headPos && bodyMeshes.length > 0) {
+    let best = null, bestDist = Infinity;
+    bodyMeshes.forEach(({ mesh, worldPos }) => {
+      const d = headPos.distanceTo(worldPos);
+      if (d < bestDist) { bestDist = d; best = mesh; }
+    });
+    if (best && bestDist < 10) {
+      const geo = best.geometry.clone();
+      geo.applyMatrix4(best.matrixWorld);
+      meshGroup.add(new THREE.Mesh(geo, best.material));
+      console.log(`Matched body at dist=${bestDist.toFixed(1)}`);
     }
-  });
-  if (headBox.isEmpty()) return null;
+  }
 
-  // Center head at origin
-  const headCenter = headBox.getCenter(new THREE.Vector3());
-  const headSize = headBox.getSize(new THREE.Vector3());
-  head.position.set(-headCenter.x, -headCenter.y, -headCenter.z);
-  charGroup.add(head);
+  if (meshGroup.children.length === 0) return null;
 
-  // Procedural body: dark capsule below the head
-  const headR = Math.max(headSize.x, headSize.z) * 0.5;
-  const bodyW = headR * 1.1;
-  const bodyH = headR * 2.2;
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a14, roughness: 0.85, metalness: 0.0,
-  });
+  // Everything is in world space now — recenter at origin
+  const box = new THREE.Box3().setFromObject(meshGroup);
+  if (box.isEmpty()) return null;
 
-  // Torso — rounded cylinder
-  const torsoGeo = new THREE.CapsuleGeometry(bodyW, bodyH, 8, 12);
-  const torso = new THREE.Mesh(torsoGeo, bodyMat);
-  torso.position.set(0, -(headR * 0.6 + bodyH * 0.5 + bodyW), 0);
-  charGroup.add(torso);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
 
-  // Now scale the whole character to fit
-  charGroup.updateMatrixWorld(true);
-  const fullBox = new THREE.Box3();
-  charGroup.traverse(n => {
-    if (n.isMesh && n.visible && n.geometry) {
-      n.geometry.computeBoundingBox();
-      if (n.geometry.boundingBox) {
-        const mb = n.geometry.boundingBox.clone();
-        mb.applyMatrix4(n.matrixWorld);
-        fullBox.union(mb);
-      }
-    }
-  });
+  // Offset meshGroup to center content at origin
+  meshGroup.position.set(-center.x, -center.y, -center.z);
 
-  const fullCenter = fullBox.getCenter(new THREE.Vector3());
-  const fullSize = fullBox.getSize(new THREE.Vector3());
-  const maxDim = Math.max(fullSize.x, fullSize.y, fullSize.z);
+  // Wrap in a scaled outer group
   const s = maxDim > 0 ? 2.8 / maxDim : 1;
-  charGroup.scale.set(s, s, s);
-  charGroup.position.set(-fullCenter.x * s, -fullCenter.y * s, -fullCenter.z * s);
-  charGroup.userData.baseY = charGroup.position.y;
+  const wrapper = new THREE.Group();
+  wrapper.add(meshGroup);
+  wrapper.scale.set(s, s, s);
+  wrapper.userData.baseY = 0;
 
-  console.log(`Character: headR=${headR.toFixed(1)} bodyH=${bodyH.toFixed(1)} fullSize=${fullSize.y.toFixed(1)}`);
-  return charGroup;
+  console.log(`Character: ${meshGroup.children.length} meshes, size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)}`);
+  return wrapper;
 }
 
 // Step 1 context: orbiting ring + scanning dots (discovery)
