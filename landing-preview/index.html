@@ -662,10 +662,24 @@ function setupStepCharacters() {
     const w = el.clientWidth || 300;
     const h = el.clientHeight || 200;
 
-    // Clone the head group and reset its position
+    // Clone the head group and reset transforms
     const head = headGroups[headIdx].clone(true);
-    head.position.set(0, -0.3, 0);
+    head.position.set(0, 0, 0);
     head.rotation.set(0, 0, 0);
+
+    // Auto-frame: compute bounding box, center, and scale to fit
+    const box = new THREE.Box3().setFromObject(head);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    head.position.sub(center); // center the head at origin
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0) {
+      const scale = 2.5 / maxDim;
+      head.scale.setScalar(scale);
+    }
+
+    head.userData.baseY = head.position.y;
+    console.log(`Step char ${i}: bbox size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)} center=${center.x.toFixed(1)},${center.y.toFixed(1)},${center.z.toFixed(1)}`);
 
     // Mini scene with clean lighting
     const miniScene = new THREE.Scene();
@@ -682,9 +696,9 @@ function setupStepCharacters() {
     miniScene.add(back);
     miniScene.add(head);
 
-    // Camera
-    const cam = new THREE.PerspectiveCamera(28, w / h, 0.01, 50);
-    cam.position.set(0, 0.5, 6);
+    // Camera — positioned to frame the normalized head
+    const cam = new THREE.PerspectiveCamera(35, w / h, 0.01, 50);
+    cam.position.set(0, 0.3, 5);
     cam.lookAt(0, 0, 0);
 
     // Renderer (small canvas, lower pixel ratio)
@@ -765,8 +779,8 @@ function animate() {
   if (stepsVisible && stepCharRenderers.length > 0) {
     const t = clock.getElapsedTime();
     stepCharHeads.forEach((head, i) => {
-      // Gentle float
-      head.position.y = -0.3 + Math.sin(t * 0.8 + i * 2.0) * 0.12;
+      // Gentle float (heads are centered at origin via bounding box)
+      head.position.y = head.userData.baseY + Math.sin(t * 0.8 + i * 2.0) * 0.12;
       // Mouse-reactive rotation
       head.rotation.y += (smoothMouse.x * 0.5 - head.rotation.y) * 0.06;
       head.rotation.x += (-smoothMouse.y * 0.3 - head.rotation.x) * 0.06;
