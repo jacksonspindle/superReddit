@@ -670,72 +670,74 @@ const stepCharHeads = [];
 const stepContextObjects = []; // per-step animated context elements
 let stepsVisible = false;
 
-// Helper: find nearest body mesh to a head's original world position
-function findNearestBody(headGroup) {
-  const headPos = headGroup.userData.originalWorldPos;
-  if (!headPos || bodyMeshes.length === 0) return null;
-  let best = null, bestDist = Infinity;
-  bodyMeshes.forEach(({ mesh, worldPos }) => {
-    const d = headPos.distanceTo(worldPos);
-    if (d < bestDist) { bestDist = d; best = mesh; }
-  });
-  return bestDist < 10 ? best : null; // only match if reasonably close
-}
-
-// Helper: build a full character (head + body), center and scale to fit
+// Helper: build a full character (cloned head + procedural body)
 function buildCharacter(srcHead) {
   const charGroup = new THREE.Group();
 
-  // Clone head
+  // Clone head, reset to origin
   const head = srcHead.clone(true);
   head.position.set(0, 0, 0);
   head.rotation.set(0, 0, 0);
   head.scale.set(1, 1, 1);
+  head.updateMatrixWorld(true);
+
+  // Measure just the head
+  const headBox = new THREE.Box3();
+  head.traverse(n => {
+    if (n.isMesh && n.visible && n.geometry) {
+      n.geometry.computeBoundingBox();
+      if (n.geometry.boundingBox) {
+        const mb = n.geometry.boundingBox.clone();
+        mb.applyMatrix4(n.matrixWorld);
+        headBox.union(mb);
+      }
+    }
+  });
+  if (headBox.isEmpty()) return null;
+
+  // Center head at origin
+  const headCenter = headBox.getCenter(new THREE.Vector3());
+  const headSize = headBox.getSize(new THREE.Vector3());
+  head.position.set(-headCenter.x, -headCenter.y, -headCenter.z);
   charGroup.add(head);
 
-  // Clone matched body
-  const bodyMesh = findNearestBody(srcHead);
-  if (bodyMesh) {
-    const body = bodyMesh.clone(true);
-    // Position body relative to head: body is typically below the head
-    // Use the original offset between them
-    const headWP = srcHead.userData.originalWorldPos;
-    const bodyEntry = bodyMeshes.find(b => b.mesh === bodyMesh);
-    if (headWP && bodyEntry) {
-      const offset = bodyEntry.worldPos.clone().sub(headWP);
-      body.position.copy(offset);
-    } else {
-      body.position.set(0, -1.5, 0);
-    }
-    body.rotation.set(0, 0, 0);
-    charGroup.add(body);
-  }
+  // Procedural body: dark capsule below the head
+  const headR = Math.max(headSize.x, headSize.z) * 0.5;
+  const bodyW = headR * 1.1;
+  const bodyH = headR * 2.2;
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0a14, roughness: 0.85, metalness: 0.0,
+  });
 
+  // Torso — rounded cylinder
+  const torsoGeo = new THREE.CapsuleGeometry(bodyW, bodyH, 8, 12);
+  const torso = new THREE.Mesh(torsoGeo, bodyMat);
+  torso.position.set(0, -(headR * 0.6 + bodyH * 0.5 + bodyW), 0);
+  charGroup.add(torso);
+
+  // Now scale the whole character to fit
   charGroup.updateMatrixWorld(true);
-
-  // Compute bounding box from visible meshes
-  const box = new THREE.Box3();
+  const fullBox = new THREE.Box3();
   charGroup.traverse(n => {
     if (n.isMesh && n.visible && n.geometry) {
       n.geometry.computeBoundingBox();
       if (n.geometry.boundingBox) {
         const mb = n.geometry.boundingBox.clone();
         mb.applyMatrix4(n.matrixWorld);
-        box.union(mb);
+        fullBox.union(mb);
       }
     }
   });
-  if (box.isEmpty()) return null;
 
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const s = maxDim > 0 ? 2.2 / maxDim : 1;
+  const fullCenter = fullBox.getCenter(new THREE.Vector3());
+  const fullSize = fullBox.getSize(new THREE.Vector3());
+  const maxDim = Math.max(fullSize.x, fullSize.y, fullSize.z);
+  const s = maxDim > 0 ? 2.8 / maxDim : 1;
   charGroup.scale.set(s, s, s);
-  charGroup.position.set(-center.x * s, -center.y * s, -center.z * s);
+  charGroup.position.set(-fullCenter.x * s, -fullCenter.y * s, -fullCenter.z * s);
   charGroup.userData.baseY = charGroup.position.y;
 
-  console.log(`Character built: size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)} hasBody=${!!bodyMesh}`);
+  console.log(`Character: headR=${headR.toFixed(1)} bodyH=${bodyH.toFixed(1)} fullSize=${fullSize.y.toFixed(1)}`);
   return charGroup;
 }
 
