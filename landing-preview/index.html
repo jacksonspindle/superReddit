@@ -641,22 +641,174 @@ loader.load('./scene.gltf', (gltf) => {
 const clock = new THREE.Clock();
 const eyelids = [];
 
-// ── Step Characters — clone GLTF heads into per-step canvases ──
+// ── Step Characters — clone GLTF heads + themed context per step ──
 const stepCharRenderers = [];
 const stepCharScenes = [];
 const stepCharCameras = [];
 const stepCharHeads = [];
+const stepContextObjects = []; // per-step animated context elements
 let stepsVisible = false;
+
+// Helper: center and scale a cloned head to fit in view
+function frameHead(head) {
+  head.position.set(0, 0, 0);
+  head.rotation.set(0, 0, 0);
+  head.scale.set(1, 1, 1);
+  head.updateMatrixWorld(true);
+
+  const box = new THREE.Box3();
+  head.traverse(n => {
+    if (n.isMesh && n.visible && n.geometry) {
+      n.geometry.computeBoundingBox();
+      if (n.geometry.boundingBox) {
+        const mb = n.geometry.boundingBox.clone();
+        mb.applyMatrix4(n.matrixWorld);
+        box.union(mb);
+      }
+    }
+  });
+  if (box.isEmpty()) return false;
+
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(...box.getSize(new THREE.Vector3()).toArray());
+  const s = maxDim > 0 ? 1.6 / maxDim : 1;
+  head.scale.set(s, s, s);
+  head.position.set(-center.x * s, -center.y * s, -center.z * s);
+  head.userData.baseY = head.position.y;
+  return true;
+}
+
+// Step 1 context: orbiting ring + scanning dots (discovery)
+function createSearchContext(scene) {
+  const ctx = { ring: null, dots: [] };
+
+  // Orbiting wireframe torus ring
+  const ringGeo = new THREE.TorusGeometry(1.8, 0.03, 8, 48);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.5 });
+  ctx.ring = new THREE.Mesh(ringGeo, ringMat);
+  ctx.ring.rotation.x = Math.PI / 3;
+  scene.add(ctx.ring);
+
+  // Small orbiting dots
+  const dotGeo = new THREE.SphereGeometry(0.08, 8, 8);
+  const dotMat = new THREE.MeshBasicMaterial({ color: 0x60A5FA });
+  for (let j = 0; j < 5; j++) {
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    scene.add(dot);
+    ctx.dots.push(dot);
+  }
+
+  // Magnifying glass shape (circle + line)
+  const lensCurve = new THREE.EllipseCurve(0, 0, 0.5, 0.5, 0, Math.PI * 2, false, 0);
+  const lensGeo = new THREE.BufferGeometry().setFromPoints(lensCurve.getPoints(32));
+  const lensMat = new THREE.LineBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.7 });
+  const lens = new THREE.LineLoop(lensGeo, lensMat);
+  lens.position.set(1.2, 0.8, 0.5);
+  scene.add(lens);
+  ctx.lens = lens;
+
+  // Handle
+  const handleGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0.35, -0.35, 0), new THREE.Vector3(0.75, -0.75, 0)
+  ]);
+  const handle = new THREE.Line(handleGeo, lensMat);
+  handle.position.copy(lens.position);
+  scene.add(handle);
+  ctx.handle = handle;
+
+  return ctx;
+}
+
+// Step 2 context: sparkle particles + glowing aura (AI creation)
+function createAIContext(scene) {
+  const ctx = { sparkles: null, aura: null, stars: [] };
+
+  // Sparkle particles rising upward
+  const count = 40;
+  const positions = new Float32Array(count * 3);
+  for (let j = 0; j < count; j++) {
+    positions[j * 3] = (Math.random() - 0.5) * 3;
+    positions[j * 3 + 1] = (Math.random() - 0.5) * 3;
+    positions[j * 3 + 2] = (Math.random() - 0.5) * 2;
+  }
+  const sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  ctx.sparkles = new THREE.Points(sparkGeo, new THREE.PointsMaterial({
+    color: 0x22C55E, size: 0.08, transparent: true, opacity: 0.7, sizeAttenuation: true,
+  }));
+  scene.add(ctx.sparkles);
+
+  // Glowing aura ring
+  const auraGeo = new THREE.RingGeometry(1.3, 1.5, 32);
+  const auraMat = new THREE.MeshBasicMaterial({
+    color: 0x22C55E, transparent: true, opacity: 0.15, side: THREE.DoubleSide,
+  });
+  ctx.aura = new THREE.Mesh(auraGeo, auraMat);
+  scene.add(ctx.aura);
+
+  // Small floating diamond shapes
+  const diamondGeo = new THREE.OctahedronGeometry(0.12, 0);
+  const diamondMat = new THREE.MeshBasicMaterial({ color: 0x4ADE80, transparent: true, opacity: 0.6 });
+  for (let j = 0; j < 4; j++) {
+    const d = new THREE.Mesh(diamondGeo, diamondMat);
+    scene.add(d);
+    ctx.stars.push(d);
+  }
+
+  return ctx;
+}
+
+// Step 3 context: rising particles + expanding rings (growth)
+function createGrowthContext(scene) {
+  const ctx = { arrows: [], rings: [], particles: null };
+
+  // Rising arrow shapes (small cones pointing up)
+  const arrowGeo = new THREE.ConeGeometry(0.08, 0.25, 4);
+  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xA855F7, transparent: true, opacity: 0.6 });
+  for (let j = 0; j < 6; j++) {
+    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+    scene.add(arrow);
+    ctx.arrows.push(arrow);
+  }
+
+  // Expanding pulse rings
+  for (let j = 0; j < 2; j++) {
+    const ringGeo = new THREE.RingGeometry(0.8, 0.85, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xC084FC, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    scene.add(ring);
+    ctx.rings.push(ring);
+  }
+
+  // Upward particle stream
+  const count = 30;
+  const positions = new Float32Array(count * 3);
+  for (let j = 0; j < count; j++) {
+    positions[j * 3] = (Math.random() - 0.5) * 2.5;
+    positions[j * 3 + 1] = Math.random() * 3 - 1;
+    positions[j * 3 + 2] = (Math.random() - 0.5) * 1.5;
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  ctx.particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    color: 0xC084FC, size: 0.06, transparent: true, opacity: 0.5, sizeAttenuation: true,
+  }));
+  scene.add(ctx.particles);
+
+  return ctx;
+}
 
 function setupStepCharacters() {
   console.log('setupStepCharacters called, headGroups:', headGroups.length);
   if (headGroups.length < 3) return;
 
-  // Skip index 0 (teapot head with huge hidden geometry).
-  // Pick 3 spread across the rest.
+  // Skip index 0 (teapot head). Pick 3 spread across the rest.
   const pool = headGroups.slice(1);
   const stride = Math.floor(pool.length / 3);
   const picks = [pool[0], pool[stride], pool[stride * 2]];
+  const contextCreators = [createSearchContext, createAIContext, createGrowthContext];
 
   picks.forEach((srcHead, i) => {
     const el = document.getElementById(`step-char-${i + 1}`);
@@ -665,51 +817,13 @@ function setupStepCharacters() {
     const w = el.clientWidth || 300;
     const h = el.clientHeight || 200;
 
-    // Clone and fully reset all transforms
     const head = srcHead.clone(true);
-    head.position.set(0, 0, 0);
-    head.rotation.set(0, 0, 0);
-    head.scale.set(1, 1, 1);
-
-    // CRITICAL: recompute world matrices from scratch for the clone
-    // (cloned matrixWorld is stale from the hero scene position)
-    head.updateMatrixWorld(true);
-
-    // Compute bounding box from LOCAL geometry only (avoids stale world matrix issues)
-    const box = new THREE.Box3();
-    head.traverse(n => {
-      if (n.isMesh && n.visible && n.geometry) {
-        n.geometry.computeBoundingBox();
-        if (n.geometry.boundingBox) {
-          const mb = n.geometry.boundingBox.clone();
-          mb.applyMatrix4(n.matrixWorld);
-          box.union(mb);
-        }
-      }
-    });
-
-    if (box.isEmpty()) {
-      console.warn(`Step char ${i}: empty bounding box, skipping`);
+    if (!frameHead(head)) {
+      console.warn(`Step char ${i}: could not frame head`);
       return;
     }
 
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-
-    // Center the head at origin, then scale to fit ~2 units
-    head.position.set(-center.x, -center.y, -center.z);
-    if (maxDim > 0) {
-      const s = 2.0 / maxDim;
-      head.scale.set(s, s, s);
-      // Re-apply centering after scale
-      head.position.set(-center.x * s, -center.y * s, -center.z * s);
-    }
-
-    head.userData.baseY = head.position.y;
-    console.log(`Step char ${i}: size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)} maxDim=${maxDim.toFixed(1)}`);
-
-    // Mini scene with clean lighting
+    // Mini scene
     const miniScene = new THREE.Scene();
     miniScene.add(new THREE.HemisphereLight(0xddeeff, 0x404060, 1.4));
     const key = new THREE.DirectionalLight(0xffffff, 2.0);
@@ -723,7 +837,11 @@ function setupStepCharacters() {
     miniScene.add(back);
     miniScene.add(head);
 
-    // Camera — zoomed out to see the full head
+    // Add themed context elements
+    const ctx = contextCreators[i](miniScene);
+    stepContextObjects.push(ctx);
+
+    // Camera
     const cam = new THREE.PerspectiveCamera(40, w / h, 0.01, 100);
     cam.position.set(0, 0.2, 5);
     cam.lookAt(0, 0, 0);
@@ -738,7 +856,7 @@ function setupStepCharacters() {
     r.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(r.domElement);
 
-    // Force an immediate render so we see something right away
+    // Force immediate render
     r.render(miniScene, cam);
 
     stepCharRenderers.push(r);
@@ -750,18 +868,11 @@ function setupStepCharacters() {
   console.log('Step characters set up:', stepCharRenderers.length);
 }
 
-// IntersectionObserver — only render step characters when visible
-let stepsObsTriggered = false;
+// IntersectionObserver
 const stepsSection = document.getElementById('how-it-works');
 if (stepsSection) {
   new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      stepsVisible = e.isIntersecting;
-      if (e.isIntersecting && !stepsObsTriggered) {
-        stepsObsTriggered = true;
-        console.log('Steps section visible, rendering characters');
-      }
-    });
+    entries.forEach(e => { stepsVisible = e.isIntersecting; });
   }, { threshold: 0.01 }).observe(stepsSection);
 }
 
@@ -812,16 +923,82 @@ function animate() {
   // Render through post-processing pipeline
   composer.render();
 
-  // Render step character canvases
+  // Render step character canvases + animated context
   if (stepsVisible && stepCharRenderers.length > 0) {
     const t = clock.getElapsedTime();
     stepCharHeads.forEach((head, i) => {
-      // Gentle float (heads are centered at origin via bounding box)
+      // Gentle float
       head.position.y = head.userData.baseY + Math.sin(t * 0.8 + i * 2.0) * 0.12;
       // Mouse-reactive rotation
       head.rotation.y += (smoothMouse.x * 0.5 - head.rotation.y) * 0.06;
       head.rotation.x += (-smoothMouse.y * 0.3 - head.rotation.x) * 0.06;
-      // Render
+
+      // Animate themed context
+      const ctx = stepContextObjects[i];
+      if (ctx && i === 0) {
+        // Search: orbiting ring + dots
+        ctx.ring.rotation.z = t * 0.4;
+        ctx.ring.rotation.y = t * 0.2;
+        ctx.dots.forEach((dot, j) => {
+          const angle = t * 0.8 + (j / ctx.dots.length) * Math.PI * 2;
+          dot.position.set(Math.cos(angle) * 1.8, Math.sin(angle) * 0.8, Math.sin(angle) * 1.2);
+          dot.scale.setScalar(0.6 + Math.sin(t * 2 + j) * 0.3);
+        });
+        // Bobbing magnifying glass
+        ctx.lens.position.y = 0.8 + Math.sin(t * 1.2) * 0.15;
+        ctx.handle.position.y = ctx.lens.position.y;
+      }
+      if (ctx && i === 1) {
+        // AI: sparkle particles drift upward + reset
+        const pos = ctx.sparkles.geometry.attributes.position;
+        for (let j = 0; j < pos.count; j++) {
+          pos.array[j * 3 + 1] += 0.008;
+          if (pos.array[j * 3 + 1] > 2.0) {
+            pos.array[j * 3 + 1] = -1.5;
+            pos.array[j * 3] = (Math.random() - 0.5) * 3;
+          }
+        }
+        pos.needsUpdate = true;
+        // Pulsing aura
+        ctx.aura.scale.setScalar(1.0 + Math.sin(t * 1.5) * 0.15);
+        ctx.aura.material.opacity = 0.1 + Math.sin(t * 1.5) * 0.08;
+        ctx.aura.rotation.z = t * 0.1;
+        // Floating diamonds orbit
+        ctx.stars.forEach((star, j) => {
+          const angle = t * 0.6 + (j / ctx.stars.length) * Math.PI * 2;
+          const r = 1.5 + Math.sin(t + j) * 0.3;
+          star.position.set(Math.cos(angle) * r, Math.sin(t * 0.8 + j * 1.5) * 0.5, Math.sin(angle) * r);
+          star.rotation.y = t * 2;
+          star.rotation.z = t * 1.5;
+        });
+      }
+      if (ctx && i === 2) {
+        // Growth: rising arrows + pulse rings + particles
+        ctx.arrows.forEach((arrow, j) => {
+          const phase = (t * 0.5 + j * 0.4) % 2.5;
+          const x = (j - 2.5) * 0.5;
+          arrow.position.set(x, -1.2 + phase * 1.2, (j % 2 - 0.5) * 0.5);
+          arrow.material.opacity = phase < 2.0 ? 0.6 : 0.6 * (2.5 - phase) * 2;
+        });
+        // Expanding pulse rings
+        ctx.rings.forEach((ring, j) => {
+          const phase = (t * 0.6 + j * 1.5) % 3.0;
+          ring.scale.setScalar(0.5 + phase * 0.5);
+          ring.material.opacity = 0.3 * Math.max(0, 1 - phase / 3.0);
+          ring.position.y = -0.2;
+        });
+        // Rising particles
+        const pp = ctx.particles.geometry.attributes.position;
+        for (let j = 0; j < pp.count; j++) {
+          pp.array[j * 3 + 1] += 0.012;
+          if (pp.array[j * 3 + 1] > 2.5) {
+            pp.array[j * 3 + 1] = -1.0;
+            pp.array[j * 3] = (Math.random() - 0.5) * 2.5;
+          }
+        }
+        pp.needsUpdate = true;
+      }
+
       stepCharRenderers[i].render(stepCharScenes[i], stepCharCameras[i]);
     });
   }
