@@ -120,6 +120,7 @@
 
 <section class="hero">
   <div class="hero-3d-container" id="three-container"></div>
+  <!-- HERO TEXT HIDDEN FOR SCENE EDITING
   <div class="hero-overlay">
     <h1>People are looking for<br><span class="accent">your product</span></h1>
     <p>We help you find them.</p>
@@ -129,6 +130,7 @@
     </div>
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+  END HERO TEXT -->
 </section>
 
 <section class="stats">
@@ -202,6 +204,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+// DragControls removed — using custom drag logic for group movement
 
 // ── Renderer — ACES Filmic, shadows, physically correct ──
 const container = document.getElementById('three-container');
@@ -519,8 +522,11 @@ loader.load('./scene.gltf', (gltf) => {
           envMapIntensity: 0.8,
         });
       } else if (verts > 10000) {
-        // Teapot — hide it
-        node.visible = false;
+        // Teapot
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0xccccdd, roughness: 0.4, metalness: 0.05,
+          envMapIntensity: 0.8,
+        });
       } else {
         node.material = new THREE.MeshStandardMaterial({
           color: skin, roughness: 0.5, metalness: 0.0,
@@ -568,47 +574,191 @@ loader.load('./scene.gltf', (gltf) => {
 
   console.log('GLTF loaded. Head groups:', headGroups.length);
 
-  // Force world matrix computation before reading positions
+  // All characters in their original GLTF positions
+  // Hide characters #10 and #11
+  headGroups[10].visible = false;
   model.updateMatrixWorld(true);
 
-  // Push top rows of heads outward to clear space for text
-  const headsByY = headGroups
-    .map(g => {
-      const wp = new THREE.Vector3();
-      g.getWorldPosition(wp);
-      return { group: g, y: wp.y, x: wp.x };
-    })
-    .sort((a, b) => b.y - a.y); // highest first
+  // DEBUG: Add numbered labels on each character
+  const labelContainer = document.createElement('div');
+  labelContainer.id = 'head-labels';
+  labelContainer.style.cssText = 'position:absolute;inset:0;z-index:50;pointer-events:none;';
+  document.getElementById('three-container').appendChild(labelContainer);
 
-  // Debug: log all head positions
-  console.log('Head Y positions:', headsByY.map(h => `y=${h.y.toFixed(1)} x=${h.x.toFixed(1)}`));
+  function updateLabels() {
+    labelContainer.innerHTML = '';
+    headGroups.forEach((group, i) => {
+      const pos = new THREE.Vector3();
+      group.getWorldPosition(pos);
+      pos.project(camera);
+      const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-pos.y * 0.5 + 0.5) * window.innerHeight;
+      const colorHex = group.userData.skinColor ? '#' + group.userData.skinColor.toString(16).padStart(6, '0') : '#fff';
+      const label = document.createElement('div');
+      label.style.cssText = `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:2px 8px;border-radius:4px;font:bold 14px monospace;border:2px solid ${colorHex};`;
+      label.textContent = `#${i}`;
+      labelContainer.appendChild(label);
+    });
+  }
+  // Update labels every frame in animate loop
+  window._updateLabels = updateLabels;
 
-  // Find Y thresholds for top 2 rows
-  const yMax = headsByY[0].y;
-  const rowHeight = 2.5;
-  const row1Threshold = yMax - rowHeight * 0.5;
-  const row2Threshold = yMax - rowHeight * 1.5;
+  // ── DRAG MODE: click and drag entire character head groups ──
+  window._isDragging = false;
+  let _dragGroup = null;
+  let _dragPlane = new THREE.Plane();
+  let _dragOffset = new THREE.Vector3();
+  let _dragIntersection = new THREE.Vector3();
+  const _raycaster = new THREE.Raycaster();
+  const _pointer = new THREE.Vector2();
 
-  console.log(`Thresholds: row1>${row1Threshold.toFixed(1)}, row2>${row2Threshold.toFixed(1)}, yMax=${yMax.toFixed(1)}`);
+  // Collect all head meshes and map to their parent group
+  const headMeshes = [];
+  headGroups.forEach((group) => {
+    group.traverse((child) => {
+      if (child.isMesh) {
+        child.userData._headGroup = group;
+        headMeshes.push(child);
+      }
+    });
+  });
 
-  let moved = 0;
-  headsByY.forEach(({ group, y, x }) => {
-    const xDir = x >= 0 ? 1 : -1;
-
-    if (y > row1Threshold) {
-      group.position.x += xDir * 8.0;
-      group.position.y -= 2.5;
-      moved++;
-      console.log(`Row1: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
-    } else if (y > row2Threshold) {
-      group.position.x += xDir * 5.0;
-      group.position.y -= 1.5;
-      moved++;
-      console.log(`Row2: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
+  // Pair each body with its nearest head group
+  const bodyMeshes = [];
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    const pName = node.parent?.name || '';
+    const gpName = node.parent?.parent?.name || '';
+    if (pName === 'Bodies' || gpName === 'Bodies') {
+      bodyMeshes.push(node);
     }
   });
 
-  console.log(`Moved ${moved} heads outward`);
+  model.updateMatrixWorld(true);
+  const bodyToHead = new Map();
+  bodyMeshes.forEach((body) => {
+    const bodyPos = new THREE.Vector3();
+    body.getWorldPosition(bodyPos);
+    let closestGroup = null;
+    let closestDist = Infinity;
+    headGroups.forEach((group) => {
+      const headPos = new THREE.Vector3();
+      group.getWorldPosition(headPos);
+      const d = bodyPos.distanceTo(headPos);
+      if (d < closestDist) {
+        closestDist = d;
+        closestGroup = group;
+      }
+    });
+    if (closestGroup) {
+      bodyToHead.set(body, closestGroup);
+      // Also make body meshes clickable for dragging
+      body.userData._headGroup = closestGroup;
+      headMeshes.push(body);
+      // Store body's offset from its head group
+      const headPos = new THREE.Vector3();
+      closestGroup.getWorldPosition(headPos);
+      body.userData._bodyOffset = bodyPos.clone().sub(headPos);
+    }
+  });
+  console.log(`Paired ${bodyToHead.size} bodies with head groups`);
+
+  // Hide bodies belonging to removed characters #10 and #11
+  bodyMeshes.forEach((body) => {
+    const pairedHead = bodyToHead.get(body);
+    if (pairedHead === headGroups[10] || pairedHead === headGroups[11]) {
+      body.visible = false;
+    }
+  });
+
+  // All draggable meshes: head meshes + body meshes (independently)
+  const allDraggable = [...headMeshes, ...bodyMeshes];
+
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    _pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    _pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    _raycaster.setFromCamera(_pointer, camera);
+    const hits = _raycaster.intersectObjects(allDraggable, false);
+    if (hits.length > 0) {
+      const hitObj = hits[0].object;
+      // Check if it's a body mesh (direct drag) or head mesh (drag group)
+      const isBody = bodyMeshes.includes(hitObj);
+
+      if (isBody) {
+        _dragGroup = hitObj; // drag the body mesh directly
+        _dragGroup.userData._isBodyDrag = true;
+      } else {
+        const group = hitObj.userData._headGroup;
+        if (!group) return;
+        _dragGroup = group;
+        _dragGroup.userData._isBodyDrag = false;
+      }
+
+      window._isDragging = true;
+      const objWorld = new THREE.Vector3();
+      if (_dragGroup.isMesh) {
+        _dragGroup.getWorldPosition(objWorld);
+      } else {
+        _dragGroup.getWorldPosition(objWorld);
+      }
+      _dragPlane.setFromNormalAndCoplanarPoint(
+        camera.getWorldDirection(new THREE.Vector3()).negate(),
+        objWorld
+      );
+      _raycaster.ray.intersectPlane(_dragPlane, _dragOffset);
+      _dragOffset.sub(objWorld);
+
+      const idx = headGroups.indexOf(_dragGroup);
+      console.log(`Dragging ${isBody ? 'body' : '#' + idx}`);
+      renderer.domElement.style.cursor = 'grabbing';
+    }
+  });
+
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (!_dragGroup) return;
+    _pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    _pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    _raycaster.setFromCamera(_pointer, camera);
+    if (_raycaster.ray.intersectPlane(_dragPlane, _dragIntersection)) {
+      const newWorld = _dragIntersection.sub(_dragOffset);
+      const localPos = _dragGroup.parent.worldToLocal(newWorld.clone());
+      _dragGroup.position.copy(localPos);
+    }
+  });
+
+  renderer.domElement.addEventListener('pointerup', () => {
+    if (_dragGroup) {
+      const idx = headGroups.indexOf(_dragGroup);
+      const pos = _dragGroup.position;
+      console.log(`${idx >= 0 ? '#' + idx : 'body'} dropped at local: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)})`);
+      _dragGroup = null;
+      window._isDragging = false;
+      renderer.domElement.style.cursor = 'grab';
+    }
+  });
+
+  renderer.domElement.style.cursor = 'grab';
+
+  // Export button — logs all positions to console for hardcoding
+  const exportBtn = document.createElement('button');
+  exportBtn.textContent = 'Export Positions';
+  exportBtn.style.cssText = 'position:fixed;top:80px;right:20px;z-index:999;padding:12px 24px;background:#FF6B35;color:white;border:none;border-radius:10px;font:bold 14px Inter,sans-serif;cursor:pointer;';
+  exportBtn.onclick = () => {
+    model.updateMatrixWorld(true);
+    const positions = headGroups.map((g, i) => {
+      const wp = new THREE.Vector3();
+      g.getWorldPosition(wp);
+      return `  // #${i} (color: 0x${(g.userData.skinColor || 0).toString(16).padStart(6,'0')})\n  // world: (${wp.x.toFixed(2)}, ${wp.y.toFixed(2)}, ${wp.z.toFixed(2)})\n  // local: (${g.position.x.toFixed(2)}, ${g.position.y.toFixed(2)}, ${g.position.z.toFixed(2)})`;
+    });
+    const output = `// ── Head positions export ──\n${positions.join('\n\n')}`;
+    console.log(output);
+    // Also copy to clipboard
+    navigator.clipboard.writeText(output).then(() => {
+      exportBtn.textContent = 'Copied to clipboard!';
+      setTimeout(() => exportBtn.textContent = 'Export Positions', 2000);
+    });
+  };
+  document.body.appendChild(exportBtn);
 
   // Collect eyelids for animation
   model.traverse((node) => {
@@ -638,7 +788,8 @@ function animate() {
   const MAX_ROT = 0.5; // ~29 degrees
   const tempVec = new THREE.Vector3();
 
-  headGroups.forEach((group) => {
+  // Skip head tracking while dragging
+  if (!window._isDragging) headGroups.forEach((group) => {
     // Get this head's screen-space position
     tempVec.setFromMatrixPosition(group.matrixWorld);
     tempVec.project(camera);
@@ -675,6 +826,7 @@ function animate() {
 
   // Render through post-processing pipeline
   composer.render();
+  if (window._updateLabels) window._updateLabels();
 }
 
 animate();
