@@ -901,18 +901,32 @@ function setupStepCharacters() {
       return;
     }
 
-    // Mini scene
+    // Mini scene with studio lighting
     const miniScene = new THREE.Scene();
-    miniScene.add(new THREE.HemisphereLight(0xddeeff, 0x404060, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 2.0);
-    key.position.set(3, 4, 6);
+
+    // Soft ambient base
+    miniScene.add(new THREE.HemisphereLight(0xeef2ff, 0x404060, 1.6));
+    miniScene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+    // Key light — warm top-right
+    const key = new THREE.DirectionalLight(0xfff5ee, 2.5);
+    key.position.set(3, 5, 5);
     miniScene.add(key);
-    const fill = new THREE.DirectionalLight(0x8899cc, 0.8);
-    fill.position.set(-3, 1, 4);
+
+    // Fill light — cool left
+    const fill = new THREE.DirectionalLight(0x99aadd, 1.2);
+    fill.position.set(-4, 2, 3);
     miniScene.add(fill);
-    const back = new THREE.PointLight(0xff6b35, 3.0, 20);
-    back.position.set(0, 2, -3);
-    miniScene.add(back);
+
+    // Rim light — subtle edge definition from behind
+    const rim = new THREE.PointLight(0xaabbee, 2.0, 15);
+    rim.position.set(0, 1, -4);
+    miniScene.add(rim);
+
+    // Warm accent from below — lifts shadows on chin/body
+    const up = new THREE.PointLight(0xff8855, 1.5, 12);
+    up.position.set(0, -2, 3);
+    miniScene.add(up);
     miniScene.add(character);
 
     // Add themed context elements
@@ -922,7 +936,7 @@ function setupStepCharacters() {
     // Camera — step 1 zooms into head, others show full character
     const cam = new THREE.PerspectiveCamera(40, w / h, 0.01, 100);
     if (i === 0) {
-      cam.position.set(0, 1.0, 2.0);
+      cam.position.set(0, 1.0, 1.7);
       cam.lookAt(0, 1.0, 0);
     } else {
       cam.position.set(0, 0.2, 5);
