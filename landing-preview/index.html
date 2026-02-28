@@ -785,9 +785,9 @@ function createSearchContext(scene, character) {
   glassGroup.add(handle);
 
   // Position over character's right eye area (zoomed-in head view)
-  glassGroup.position.set(0.35, 0.85, 0.8);
-  glassGroup.rotation.set(0.1, -0.2, -0.15);
-  glassGroup.scale.setScalar(0.7);
+  glassGroup.position.set(0.22, 0.55, 0.6);
+  glassGroup.rotation.set(0.1, -0.15, -0.1);
+  glassGroup.scale.setScalar(0.3);
 
   scene.add(glassGroup);
   ctx.glass = glassGroup;
@@ -922,8 +922,8 @@ function setupStepCharacters() {
     // Camera — step 1 zooms into head, others show full character
     const cam = new THREE.PerspectiveCamera(40, w / h, 0.01, 100);
     if (i === 0) {
-      cam.position.set(0, 0.75, 1.6);
-      cam.lookAt(0, 0.75, 0);
+      cam.position.set(0, 0.45, 1.6);
+      cam.lookAt(0, 0.45, 0);
     } else {
       cam.position.set(0, 0.2, 5);
       cam.lookAt(0, 0, 0);
