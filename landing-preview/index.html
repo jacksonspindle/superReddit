@@ -752,43 +752,46 @@ function buildCharacter(srcHead) {
   return wrapper;
 }
 
-// Step 1 context: orbiting ring + scanning dots (discovery)
-function createSearchContext(scene) {
-  const ctx = { ring: null, dots: [] };
+// Step 1 context: 3D magnifying glass hovering over character's eye
+function createSearchContext(scene, character) {
+  const ctx = { glass: null };
 
-  // Orbiting wireframe torus ring
-  const ringGeo = new THREE.TorusGeometry(1.8, 0.03, 8, 48);
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.5 });
-  ctx.ring = new THREE.Mesh(ringGeo, ringMat);
-  ctx.ring.rotation.x = Math.PI / 3;
-  scene.add(ctx.ring);
+  // Build a 3D magnifying glass
+  const glassGroup = new THREE.Group();
 
-  // Small orbiting dots
-  const dotGeo = new THREE.SphereGeometry(0.08, 8, 8);
-  const dotMat = new THREE.MeshBasicMaterial({ color: 0x60A5FA });
-  for (let j = 0; j < 5; j++) {
-    const dot = new THREE.Mesh(dotGeo, dotMat);
-    scene.add(dot);
-    ctx.dots.push(dot);
-  }
+  // Lens ring (torus)
+  const ringGeo = new THREE.TorusGeometry(0.35, 0.04, 12, 32);
+  const ringMat = new THREE.MeshStandardMaterial({ color: 0x3B82F6, roughness: 0.2, metalness: 0.6 });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  glassGroup.add(ring);
 
-  // Magnifying glass shape (circle + line)
-  const lensCurve = new THREE.EllipseCurve(0, 0, 0.5, 0.5, 0, Math.PI * 2, false, 0);
-  const lensGeo = new THREE.BufferGeometry().setFromPoints(lensCurve.getPoints(32));
-  const lensMat = new THREE.LineBasicMaterial({ color: 0x3B82F6, transparent: true, opacity: 0.7 });
-  const lens = new THREE.LineLoop(lensGeo, lensMat);
-  lens.position.set(1.2, 0.8, 0.5);
-  scene.add(lens);
-  ctx.lens = lens;
+  // Glass lens (transparent disc)
+  const lensGeo = new THREE.CircleGeometry(0.34, 32);
+  const lensMat = new THREE.MeshPhysicalMaterial({
+    color: 0xaaddff, roughness: 0.05, metalness: 0.0,
+    transmission: 0.85, thickness: 0.1, ior: 1.5,
+    transparent: true, opacity: 0.4, side: THREE.DoubleSide,
+  });
+  const lens = new THREE.Mesh(lensGeo, lensMat);
+  lens.renderOrder = 1;
+  glassGroup.add(lens);
 
-  // Handle
-  const handleGeo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0.35, -0.35, 0), new THREE.Vector3(0.75, -0.75, 0)
-  ]);
-  const handle = new THREE.Line(handleGeo, lensMat);
-  handle.position.copy(lens.position);
-  scene.add(handle);
-  ctx.handle = handle;
+  // Handle (cylinder)
+  const handleGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.7, 8);
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x2563EB, roughness: 0.3, metalness: 0.5 });
+  const handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.set(0.25, -0.55, 0);
+  handle.rotation.z = Math.PI / 6;
+  glassGroup.add(handle);
+
+  // Position over character's right eye area
+  glassGroup.position.set(0.5, 0.55, 1.2);
+  glassGroup.rotation.set(0.1, -0.2, -0.15);
+  glassGroup.scale.setScalar(1.0);
+
+  scene.add(glassGroup);
+  ctx.glass = glassGroup;
+  ctx.baseY = glassGroup.position.y;
 
   return ctx;
 }
@@ -913,7 +916,7 @@ function setupStepCharacters() {
     miniScene.add(character);
 
     // Add themed context elements
-    const ctx = contextCreators[i](miniScene);
+    const ctx = contextCreators[i](miniScene, character);
     stepContextObjects.push(ctx);
 
     // Camera
@@ -1011,17 +1014,9 @@ function animate() {
       // Animate themed context
       const ctx = stepContextObjects[i];
       if (ctx && i === 0) {
-        // Search: orbiting ring + dots
-        ctx.ring.rotation.z = t * 0.4;
-        ctx.ring.rotation.y = t * 0.2;
-        ctx.dots.forEach((dot, j) => {
-          const angle = t * 0.8 + (j / ctx.dots.length) * Math.PI * 2;
-          dot.position.set(Math.cos(angle) * 1.8, Math.sin(angle) * 0.8, Math.sin(angle) * 1.2);
-          dot.scale.setScalar(0.6 + Math.sin(t * 2 + j) * 0.3);
-        });
-        // Bobbing magnifying glass
-        ctx.lens.position.y = 0.8 + Math.sin(t * 1.2) * 0.15;
-        ctx.handle.position.y = ctx.lens.position.y;
+        // Magnifying glass: gentle hover bob
+        ctx.glass.position.y = ctx.baseY + Math.sin(t * 1.0) * 0.08;
+        ctx.glass.rotation.z = -0.15 + Math.sin(t * 0.7) * 0.04;
       }
       if (ctx && i === 1) {
         // AI: sparkle particles drift upward + reset
