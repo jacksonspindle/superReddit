@@ -568,32 +568,47 @@ loader.load('./scene.gltf', (gltf) => {
 
   console.log('GLTF loaded. Head groups:', headGroups.length);
 
+  // Force world matrix computation before reading positions
+  model.updateMatrixWorld(true);
+
   // Push top rows of heads outward to clear space for text
   const headsByY = headGroups
-    .map(g => ({ group: g, y: g.getWorldPosition(new THREE.Vector3()).y }))
+    .map(g => {
+      const wp = new THREE.Vector3();
+      g.getWorldPosition(wp);
+      return { group: g, y: wp.y, x: wp.x };
+    })
     .sort((a, b) => b.y - a.y); // highest first
 
-  // Find Y thresholds for top 2 rows by clustering Y values
-  const yValues = headsByY.map(h => h.y);
-  const yMax = yValues[0];
-  const rowHeight = 2.5; // approximate gap between rows
-  const row1Threshold = yMax - rowHeight * 0.5;  // top row
-  const row2Threshold = yMax - rowHeight * 1.5;  // second row
+  // Debug: log all head positions
+  console.log('Head Y positions:', headsByY.map(h => `y=${h.y.toFixed(1)} x=${h.x.toFixed(1)}`));
 
-  headsByY.forEach(({ group, y }) => {
-    const worldPos = group.getWorldPosition(new THREE.Vector3());
-    const xDir = worldPos.x >= 0 ? 1 : -1;
+  // Find Y thresholds for top 2 rows
+  const yMax = headsByY[0].y;
+  const rowHeight = 2.5;
+  const row1Threshold = yMax - rowHeight * 0.5;
+  const row2Threshold = yMax - rowHeight * 1.5;
+
+  console.log(`Thresholds: row1>${row1Threshold.toFixed(1)}, row2>${row2Threshold.toFixed(1)}, yMax=${yMax.toFixed(1)}`);
+
+  let moved = 0;
+  headsByY.forEach(({ group, y, x }) => {
+    const xDir = x >= 0 ? 1 : -1;
 
     if (y > row1Threshold) {
-      // Top row — push out the most
-      group.position.x += xDir * 3.5;
+      group.position.x += xDir * 8.0;
+      group.position.y -= 2.5;
+      moved++;
+      console.log(`Row1: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
     } else if (y > row2Threshold) {
-      // Second row — push out moderately
-      group.position.x += xDir * 2.0;
+      group.position.x += xDir * 5.0;
+      group.position.y -= 1.5;
+      moved++;
+      console.log(`Row2: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
     }
   });
 
-  console.log('Top rows spread outward for text clearance');
+  console.log(`Moved ${moved} heads outward`);
 
   // Collect eyelids for animation
   model.traverse((node) => {
