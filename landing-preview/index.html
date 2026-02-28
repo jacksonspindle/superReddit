@@ -405,6 +405,7 @@ window.addEventListener('mousemove', (e) => {
 // ── Load GLTF and apply materials ──
 const loader = new GLTFLoader();
 const headGroups = [];
+const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
 let colorIndex = 0;
 
 loader.load('./scene.gltf', (gltf) => {
@@ -580,6 +581,26 @@ loader.load('./scene.gltf', (gltf) => {
   // Force world matrix computation before reading positions
   model.updateMatrixWorld(true);
 
+  // Collect body meshes with their world positions (before heads get spread)
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    const pName = node.parent?.name || '';
+    const gpName = node.parent?.parent?.name || '';
+    if (pName === 'Bodies' || gpName === 'Bodies') {
+      const wp = new THREE.Vector3();
+      node.getWorldPosition(wp);
+      bodyMeshes.push({ mesh: node, worldPos: wp.clone() });
+    }
+  });
+  console.log('Body meshes collected:', bodyMeshes.length);
+
+  // Also store original head world positions (before spreading)
+  headGroups.forEach(g => {
+    const wp = new THREE.Vector3();
+    g.getWorldPosition(wp);
+    g.userData.originalWorldPos = wp.clone();
+  });
+
   // Push top rows of heads outward to clear space for text
   const headsByY = headGroups
     .map(g => {
@@ -649,15 +670,52 @@ const stepCharHeads = [];
 const stepContextObjects = []; // per-step animated context elements
 let stepsVisible = false;
 
-// Helper: center and scale a cloned head to fit in view
-function frameHead(head) {
+// Helper: find nearest body mesh to a head's original world position
+function findNearestBody(headGroup) {
+  const headPos = headGroup.userData.originalWorldPos;
+  if (!headPos || bodyMeshes.length === 0) return null;
+  let best = null, bestDist = Infinity;
+  bodyMeshes.forEach(({ mesh, worldPos }) => {
+    const d = headPos.distanceTo(worldPos);
+    if (d < bestDist) { bestDist = d; best = mesh; }
+  });
+  return bestDist < 10 ? best : null; // only match if reasonably close
+}
+
+// Helper: build a full character (head + body), center and scale to fit
+function buildCharacter(srcHead) {
+  const charGroup = new THREE.Group();
+
+  // Clone head
+  const head = srcHead.clone(true);
   head.position.set(0, 0, 0);
   head.rotation.set(0, 0, 0);
   head.scale.set(1, 1, 1);
-  head.updateMatrixWorld(true);
+  charGroup.add(head);
 
+  // Clone matched body
+  const bodyMesh = findNearestBody(srcHead);
+  if (bodyMesh) {
+    const body = bodyMesh.clone(true);
+    // Position body relative to head: body is typically below the head
+    // Use the original offset between them
+    const headWP = srcHead.userData.originalWorldPos;
+    const bodyEntry = bodyMeshes.find(b => b.mesh === bodyMesh);
+    if (headWP && bodyEntry) {
+      const offset = bodyEntry.worldPos.clone().sub(headWP);
+      body.position.copy(offset);
+    } else {
+      body.position.set(0, -1.5, 0);
+    }
+    body.rotation.set(0, 0, 0);
+    charGroup.add(body);
+  }
+
+  charGroup.updateMatrixWorld(true);
+
+  // Compute bounding box from visible meshes
   const box = new THREE.Box3();
-  head.traverse(n => {
+  charGroup.traverse(n => {
     if (n.isMesh && n.visible && n.geometry) {
       n.geometry.computeBoundingBox();
       if (n.geometry.boundingBox) {
@@ -667,15 +725,18 @@ function frameHead(head) {
       }
     }
   });
-  if (box.isEmpty()) return false;
+  if (box.isEmpty()) return null;
 
   const center = box.getCenter(new THREE.Vector3());
-  const maxDim = Math.max(...box.getSize(new THREE.Vector3()).toArray());
-  const s = maxDim > 0 ? 1.6 / maxDim : 1;
-  head.scale.set(s, s, s);
-  head.position.set(-center.x * s, -center.y * s, -center.z * s);
-  head.userData.baseY = head.position.y;
-  return true;
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const s = maxDim > 0 ? 2.2 / maxDim : 1;
+  charGroup.scale.set(s, s, s);
+  charGroup.position.set(-center.x * s, -center.y * s, -center.z * s);
+  charGroup.userData.baseY = charGroup.position.y;
+
+  console.log(`Character built: size=${size.x.toFixed(1)},${size.y.toFixed(1)},${size.z.toFixed(1)} hasBody=${!!bodyMesh}`);
+  return charGroup;
 }
 
 // Step 1 context: orbiting ring + scanning dots (discovery)
@@ -817,9 +878,9 @@ function setupStepCharacters() {
     const w = el.clientWidth || 300;
     const h = el.clientHeight || 200;
 
-    const head = srcHead.clone(true);
-    if (!frameHead(head)) {
-      console.warn(`Step char ${i}: could not frame head`);
+    const character = buildCharacter(srcHead);
+    if (!character) {
+      console.warn(`Step char ${i}: could not build character`);
       return;
     }
 
@@ -835,7 +896,7 @@ function setupStepCharacters() {
     const back = new THREE.PointLight(0xff6b35, 3.0, 20);
     back.position.set(0, 2, -3);
     miniScene.add(back);
-    miniScene.add(head);
+    miniScene.add(character);
 
     // Add themed context elements
     const ctx = contextCreators[i](miniScene);
@@ -862,7 +923,7 @@ function setupStepCharacters() {
     stepCharRenderers.push(r);
     stepCharScenes.push(miniScene);
     stepCharCameras.push(cam);
-    stepCharHeads.push(head);
+    stepCharHeads.push(character);
   });
 
   console.log('Step characters set up:', stepCharRenderers.length);
