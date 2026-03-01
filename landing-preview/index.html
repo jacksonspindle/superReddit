@@ -120,6 +120,7 @@
 
 <section class="hero">
   <div class="hero-3d-container" id="three-container"></div>
+  <!-- HERO TEXT HIDDEN FOR SCENE EDITING
   <div class="hero-overlay">
     <h1>People are looking for<br><span class="accent">your product</span></h1>
     <p>We help you find them.</p>
@@ -129,6 +130,7 @@
     </div>
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+  END HERO TEXT -->
 </section>
 
 <section class="stats">
@@ -690,6 +692,126 @@ loader.load('./scene.gltf', (gltf) => {
   });
   console.log('Eyelids found:', eyelids.length);
 
+  // ── NUMBERED LABELS on each character head ──
+  const labelContainer = document.createElement('div');
+  labelContainer.id = 'head-labels';
+  labelContainer.style.cssText = 'position:absolute;inset:0;z-index:50;pointer-events:none;';
+  document.getElementById('three-container').appendChild(labelContainer);
+
+  function updateLabels() {
+    labelContainer.innerHTML = '';
+    headGroups.forEach((group, i) => {
+      if (!group.visible) return;
+      const pos = new THREE.Vector3();
+      group.getWorldPosition(pos);
+      pos.project(camera);
+      const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-pos.y * 0.5 + 0.5) * window.innerHeight;
+      const label = document.createElement('div');
+      label.style.cssText = `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:2px 8px;border-radius:4px;font:bold 14px monospace;border:2px solid #FF6B35;`;
+      label.textContent = `#${i}`;
+      labelContainer.appendChild(label);
+    });
+  }
+  window._updateLabels = updateLabels;
+
+  // ── DRAG SYSTEM: drag entire head groups (face+features stay together) ──
+  window._isDragging = false;
+  let _dragGroup = null;
+  let _dragPlane = new THREE.Plane();
+  let _dragOffset = new THREE.Vector3();
+  let _dragIntersection = new THREE.Vector3();
+  const _raycaster = new THREE.Raycaster();
+  const _pointer = new THREE.Vector2();
+
+  // Collect all head child meshes and map to parent group
+  const headMeshes = [];
+  headGroups.forEach((group) => {
+    group.traverse((child) => {
+      if (child.isMesh) {
+        child.userData._headGroup = group;
+        headMeshes.push(child);
+      }
+    });
+  });
+
+  // Collect body meshes for independent dragging
+  const draggableBodyMeshes = bodyMeshes.map(b => b.mesh);
+
+  // All draggable: head meshes + body meshes
+  const allDraggable = [...headMeshes, ...draggableBodyMeshes];
+
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    _pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    _pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    _raycaster.setFromCamera(_pointer, camera);
+    const hits = _raycaster.intersectObjects(allDraggable, false);
+    if (hits.length > 0) {
+      const hitObj = hits[0].object;
+      const isBodyMesh = draggableBodyMeshes.includes(hitObj);
+
+      if (isBodyMesh) {
+        _dragGroup = hitObj;
+        _dragGroup.userData._isBodyDrag = true;
+      } else {
+        const group = hitObj.userData._headGroup;
+        if (!group) return;
+        _dragGroup = group;
+        _dragGroup.userData._isBodyDrag = false;
+      }
+
+      window._isDragging = true;
+      const objWorld = new THREE.Vector3();
+      if (_dragGroup.isMesh) {
+        _dragGroup.getWorldPosition(objWorld);
+      } else {
+        _dragGroup.getWorldPosition(objWorld);
+      }
+      _dragPlane.setFromNormalAndCoplanarPoint(
+        camera.getWorldDirection(new THREE.Vector3()).negate(),
+        objWorld
+      );
+      _raycaster.ray.intersectPlane(_dragPlane, _dragOffset);
+      _dragOffset.sub(objWorld);
+    }
+  });
+
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (!_dragGroup) return;
+    _pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+    _pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    _raycaster.setFromCamera(_pointer, camera);
+    if (_raycaster.ray.intersectPlane(_dragPlane, _dragIntersection)) {
+      const newWorld = _dragIntersection.sub(_dragOffset);
+      const localPos = _dragGroup.parent.worldToLocal(newWorld.clone());
+      _dragGroup.position.copy(localPos);
+    }
+  });
+
+  renderer.domElement.addEventListener('pointerup', () => {
+    if (_dragGroup) {
+      _dragGroup = null;
+      window._isDragging = false;
+    }
+  });
+
+  // ── EXPORT POSITIONS BUTTON ──
+  const exportBtn = document.createElement('button');
+  exportBtn.textContent = 'Export Positions';
+  exportBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;background:#FF6B35;color:white;border:none;padding:10px 20px;border-radius:8px;font:bold 14px Inter,sans-serif;cursor:pointer;';
+  document.body.appendChild(exportBtn);
+  exportBtn.addEventListener('click', () => {
+    const positions = headGroups.map((g, i) => {
+      if (!g.visible) return `  null, // #${i} — hidden`;
+      const p = g.position;
+      return `  { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }, // #${i}`;
+    });
+    const text = `[\n${positions.join('\n')}\n]`;
+    navigator.clipboard.writeText(text);
+    exportBtn.textContent = 'Copied!';
+    setTimeout(() => exportBtn.textContent = 'Export Positions', 2000);
+  });
+
   // Set up step character canvases using cloned heads
   setupStepCharacters();
 }, undefined, (err) => {
@@ -1028,7 +1150,7 @@ function animate() {
   const MAX_ROT = 0.5; // ~29 degrees
   const tempVec = new THREE.Vector3();
 
-  headGroups.forEach((group) => {
+  if (!window._isDragging) headGroups.forEach((group) => {
     // Get this head's screen-space position
     tempVec.setFromMatrixPosition(group.matrixWorld);
     tempVec.project(camera);
@@ -1065,6 +1187,9 @@ function animate() {
 
   // Render through post-processing pipeline
   composer.render();
+
+  // Update numbered labels
+  if (window._updateLabels) window._updateLabels();
 
   // Render step character canvases + animated context
   if (stepsVisible && stepCharRenderers.length > 0) {
