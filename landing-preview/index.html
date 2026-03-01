@@ -38,14 +38,18 @@
   .hero { position: relative; min-height: 115vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: radial-gradient(ellipse 70% 60% at 50% 65%, #4a2040 0%, #2a1648 25%, #1e1350 45%, #1a1050 70%); }
   .hero-3d-container { position: absolute; inset: 0; z-index: 1; transform: translateY(12%); }
   .hero-gap-fill { position: absolute; top: 0; left: 0; width: 100%; height: 14%; z-index: 1; pointer-events: none; }
-  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -5vh; }
-  .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 4px 40px rgba(0,0,0,0.5); }
-  .hero-overlay h1 .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero-overlay p { font-size: 22px; color: rgba(255,255,255,0.6); font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 20px rgba(0,0,0,0.4); }
-  .hero-buttons { display: flex; gap: 16px; justify-content: center; pointer-events: all; }
-  .hero-buttons .btn-primary { box-shadow: 0 8px 32px rgba(255,107,53,0.4); }
-  .hero-buttons .btn-secondary { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: white; backdrop-filter: blur(12px); }
-  .hero-buttons .btn-secondary:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
+  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -20vh; }
+  .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
+  .hero-overlay h1 .accent { color: white; -webkit-text-fill-color: white; }
+  .hero-overlay p { font-size: 22px; color: white; font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
+  .hero-cta { display: flex; flex-direction: column; align-items: center; gap: 16px; pointer-events: all; }
+  .hero-input-wrap { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 14px; padding: 14px 20px; width: 420px; max-width: 100%; backdrop-filter: blur(12px); }
+  .hero-input-wrap svg { flex-shrink: 0; color: rgba(255,255,255,0.4); }
+  .hero-input-wrap input { background: none; border: none; outline: none; color: white; font-size: 16px; font-family: inherit; width: 100%; }
+  .hero-input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
+  .hero-cta-btn { background: var(--orange); color: white; border: none; font-size: 16px; font-weight: 700; padding: 16px 36px; border-radius: 14px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; width: 420px; max-width: 100%; justify-content: center; }
+  .hero-cta-btn:hover { background: var(--orange-hover); transform: translateY(-1px); box-shadow: 0 8px 32px rgba(255,107,53,0.4); }
+  .hero-cta-note { font-size: 14px; color: rgba(255,255,255,0.45); font-weight: 400; }
   .hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px; background: linear-gradient(to top, #1a1050 0%, transparent 100%); z-index: 2; pointer-events: none; }
   .hero-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 3; color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: bounce 2s infinite; }
   @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
@@ -122,17 +126,18 @@
 <section class="hero">
   <canvas class="hero-gap-fill" id="gap-fill"></canvas>
   <div class="hero-3d-container" id="three-container"></div>
-  <!-- HERO TEXT HIDDEN FOR SCENE EDITING
   <div class="hero-overlay">
     <h1>People are looking for<br><span class="accent">your product</span></h1>
     <p>We help you find them.</p>
-    <div class="hero-buttons">
-      <a href="#" class="btn-primary btn-primary-lg">Start for free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
-      <a href="#" class="btn-secondary btn-secondary-lg">Learn more</a>
+    <div class="hero-cta">
+      <div class="hero-input-wrap">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <input type="text" placeholder="website.com (Optional)">
+      </div>
+      <button class="hero-cta-btn">Find My Leads <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
     </div>
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
-  END HERO TEXT -->
 </section>
 
 <section class="stats">
