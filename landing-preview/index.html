@@ -626,6 +626,48 @@ loader.load('./scene.gltf', (gltf) => {
     });
   }
 
+  // Head #13 — cone with orange-white-orange stripes
+  const hg13 = headGroups[13];
+  if (hg13) {
+    let mi = 0;
+    hg13.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi === 1) {
+        // Cone mesh — striped shader (orange / white / orange by height)
+        n.geometry.computeBoundingBox();
+        const bb = n.geometry.boundingBox;
+        n.material = new THREE.ShaderMaterial({
+          uniforms: {
+            minY: { value: bb.min.y },
+            maxY: { value: bb.max.y },
+            orange: { value: new THREE.Color(0xff6b35) },
+            white: { value: new THREE.Color(0xffffff) },
+          },
+          vertexShader: `
+            varying vec3 vPos;
+            void main() {
+              vPos = position;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform float minY;
+            uniform float maxY;
+            uniform vec3 orange;
+            uniform vec3 white;
+            varying vec3 vPos;
+            void main() {
+              float t = (vPos.y - minY) / (maxY - minY);
+              vec3 col = (t < 0.333) ? orange : (t < 0.666) ? white : orange;
+              gl_FragColor = vec4(col, 1.0);
+            }
+          `,
+        });
+      }
+      mi++;
+    });
+  }
+
   // Head #19 — metallic silver
   const hg19 = headGroups[19];
   if (hg19) {
