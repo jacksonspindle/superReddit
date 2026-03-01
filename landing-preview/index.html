@@ -595,15 +595,14 @@ loader.load('./scene.gltf', (gltf) => {
     console.log(dbg);
   }
 
-  // Head #14 — bright white skin, glowing orange pupils
+  // Head #14 — bright white head, glowing orange eyes
   const hg14 = headGroups[14];
   if (hg14) {
+    let mi14 = 0;
     hg14.traverse(n => {
       if (!n.isMesh) return;
-      const name = n.name || '';
-      const verts = n.geometry?.attributes?.position?.count || 0;
-      // Pupils — small spheres named Sphere_6_*
-      if (name.startsWith('Sphere_6') || verts === 147) {
+      if (mi14 <= 1) {
+        // Eyes — glowing orange
         n.material = new THREE.MeshStandardMaterial({
           color: 0xff6b35,
           roughness: 0.1,
@@ -613,7 +612,7 @@ loader.load('./scene.gltf', (gltf) => {
           envMapIntensity: 1.0,
         });
       } else {
-        // Everything else — bright white
+        // Head — bright white
         n.material = new THREE.MeshStandardMaterial({
           color: 0xffffff,
           roughness: 0.4,
@@ -623,6 +622,7 @@ loader.load('./scene.gltf', (gltf) => {
           envMapIntensity: 0.5,
         });
       }
+      mi14++;
     });
   }
 
@@ -633,35 +633,27 @@ loader.load('./scene.gltf', (gltf) => {
     hg13.traverse(n => {
       if (!n.isMesh) return;
       if (mi === 1) {
-        // Cone mesh — striped shader (orange / white / orange by height)
+        // Cone mesh — orange/white/orange stripes via vertex colors
         n.geometry.computeBoundingBox();
         const bb = n.geometry.boundingBox;
-        n.material = new THREE.ShaderMaterial({
-          uniforms: {
-            minY: { value: bb.min.y },
-            maxY: { value: bb.max.y },
-            orange: { value: new THREE.Color(0xff6b35) },
-            white: { value: new THREE.Color(0xffffff) },
-          },
-          vertexShader: `
-            varying vec3 vPos;
-            void main() {
-              vPos = position;
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `,
-          fragmentShader: `
-            uniform float minY;
-            uniform float maxY;
-            uniform vec3 orange;
-            uniform vec3 white;
-            varying vec3 vPos;
-            void main() {
-              float t = (vPos.y - minY) / (maxY - minY);
-              vec3 col = (t < 0.333) ? orange : (t < 0.666) ? white : orange;
-              gl_FragColor = vec4(col, 1.0);
-            }
-          `,
+        const posAttr = n.geometry.attributes.position;
+        const colors = new Float32Array(posAttr.count * 3);
+        const orange = new THREE.Color(0xff6b35);
+        const white = new THREE.Color(0xffffff);
+        for (let v = 0; v < posAttr.count; v++) {
+          const y = posAttr.getY(v);
+          const t = (y - bb.min.y) / (bb.max.y - bb.min.y);
+          const c = (t < 0.333) ? orange : (t < 0.666) ? white : orange;
+          colors[v * 3] = c.r;
+          colors[v * 3 + 1] = c.g;
+          colors[v * 3 + 2] = c.b;
+        }
+        n.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        n.material = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.5,
+          metalness: 0.0,
+          envMapIntensity: 0.5,
         });
       }
       mi++;
