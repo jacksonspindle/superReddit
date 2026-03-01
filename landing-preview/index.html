@@ -493,16 +493,17 @@ loader.load('./scene.gltf', (gltf) => {
           envMapIntensity: 0.5,
         });
       } else if (verts === 4225) {
-        // Glass lenses
+        // Glass lenses — fake glass (transmission doesn't work through EffectComposer)
         node.material = new THREE.MeshPhysicalMaterial({
-          color: 0xaaddff,
+          color: 0xffffff,
           roughness: 0.05,
-          metalness: 0.0,
-          transmission: 0.9,
-          thickness: 0.3,
-          ior: 1.5,
+          metalness: 0.1,
           transparent: true,
+          opacity: 0.15,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.05,
           envMapIntensity: 2.0,
+          depthWrite: false,
         });
         node.renderOrder = 1;
       } else if (verts === 294) {
@@ -584,6 +585,92 @@ loader.load('./scene.gltf', (gltf) => {
   scene.add(model);
 
   console.log('GLTF loaded. Head groups:', headGroups.length);
+
+  // Fix Head #17 cylinders — they're the glasses lenses, not skin
+  // Labels are 0-indexed, so #17 on screen = headGroups[17]
+  const hg17 = headGroups[17];
+  if (hg17) {
+    let dbg = 'Head #17 (idx 17) meshes: ';
+    hg17.traverse(n => { if (n.isMesh) dbg += `[${n.name} v=${n.geometry?.attributes?.position?.count}] `; });
+    console.log(dbg);
+
+  // Head #19 — all skin-colored parts translucent
+  const hg19 = headGroups[19];
+  if (hg19) {
+    const skinVerts = new Set([3968, 598]); // head sphere + ears/cylinders
+    hg19.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      // Make all skin-colored meshes translucent (skip eyes, eyebrows, pupils)
+      if (skinVerts.has(verts) || (verts !== 294 && verts !== 147 && verts !== 563 && verts <= 10000 && verts !== 3968 && verts !== 598)) {
+        // catch anything that's not eyes/brows
+      }
+      if (verts === 3968 || verts === 598) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xcccccc,
+          roughness: 0.15,
+          metalness: 0.9,
+          envMapIntensity: 2.0,
+        });
+      }
+    });
+  }
+
+  // Head #0 — show upside-down teapot on top
+  const hg0 = headGroups[0];
+  if (hg0) {
+    hg0.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts > 10000) {
+        n.visible = true;
+        n.rotation.z = Math.PI; // flip upside down
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xd4a843,
+          roughness: 0.2,
+          metalness: 0.9,
+          envMapIntensity: 1.5,
+        });
+      }
+    });
+  }
+    const skin17 = 0xc09888; // tan, same as #9
+    hg17.userData.skinColor = skin17;
+    hg17.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 3968 || verts === 598) {
+        // Head sphere + ears — tan skin
+        n.material = new THREE.MeshStandardMaterial({
+          color: skin17, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 60) {
+        // Lenses — transparent glass
+        n.material = new THREE.MeshPhysicalMaterial({
+          color: 0xaaccff,
+          roughness: 0.0,
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.12,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.0,
+          envMapIntensity: 3.0,
+          emissive: 0x4466aa,
+          emissiveIntensity: 0.1,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        n.renderOrder = 1;
+      } else if (verts === 250 || verts === 1071) {
+        // Glasses frame + rims — black
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1,
+          envMapIntensity: 0.8,
+        });
+      }
+    });
+  }
 
   // Force world matrix computation before reading positions
   model.updateMatrixWorld(true);
