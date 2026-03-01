@@ -626,13 +626,48 @@ loader.load('./scene.gltf', (gltf) => {
     });
   }
 
+  // Head #4 — pupils match skin tone, whites stay white
+  const hg4 = headGroups[4];
+  if (hg4) {
+    const skin4 = hg4.userData.skinColor || 0x8855aa;
+    hg4.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 147) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: skin4, roughness: 0.3, metalness: 0.0, envMapIntensity: 0.5,
+        });
+      }
+    });
+  }
+
+  // Head #9 — make eyebrow + eye rings black
+  const hg9 = headGroups[9];
+  if (hg9) {
+    let mi9 = 0;
+    hg9.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi9 === 0 || mi9 === 1 || mi9 === 2 || mi9 === 3) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8,
+        });
+      }
+      mi9++;
+    });
+  }
+
   // Head #13 — cone with orange-white-orange stripes
   const hg13 = headGroups[13];
   if (hg13) {
     let mi = 0;
     hg13.traverse(n => {
       if (!n.isMesh) return;
-      if (mi === 1) {
+      if (mi === 0) {
+        // Brim — orange to match cone
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xff6b35, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5,
+        });
+      } else if (mi === 1) {
         // Cone mesh — orange/white/orange stripes via vertex colors
         n.geometry.computeBoundingBox();
         const bb = n.geometry.boundingBox;
@@ -655,6 +690,14 @@ loader.load('./scene.gltf', (gltf) => {
           metalness: 0.0,
           envMapIntensity: 0.5,
         });
+      } else {
+        // All other skin-colored parts — tan (same as #17)
+        const verts = n.geometry?.attributes?.position?.count || 0;
+        if (verts !== 294 && verts !== 147 && verts !== 563) {
+          n.material = new THREE.MeshStandardMaterial({
+            color: 0xc09888, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5,
+          });
+        }
       }
       mi++;
     });
