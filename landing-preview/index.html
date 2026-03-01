@@ -735,10 +735,8 @@ loader.load('./scene.gltf', (gltf) => {
     });
   });
 
-  // Collect body meshes for independent dragging
+  // Body meshes are independently draggable
   const draggableBodyMeshes = bodyMeshes.map(b => b.mesh);
-
-  // All draggable: head meshes + body meshes
   const allDraggable = [...headMeshes, ...draggableBodyMeshes];
 
   renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -748,25 +746,19 @@ loader.load('./scene.gltf', (gltf) => {
     const hits = _raycaster.intersectObjects(allDraggable, false);
     if (hits.length > 0) {
       const hitObj = hits[0].object;
-      const isBodyMesh = draggableBodyMeshes.includes(hitObj);
+      const isBody = draggableBodyMeshes.includes(hitObj);
 
-      if (isBodyMesh) {
-        _dragGroup = hitObj;
-        _dragGroup.userData._isBodyDrag = true;
+      if (isBody) {
+        _dragGroup = hitObj; // drag body mesh directly
       } else {
         const group = hitObj.userData._headGroup;
         if (!group) return;
-        _dragGroup = group;
-        _dragGroup.userData._isBodyDrag = false;
+        _dragGroup = group; // drag head group (face+features)
       }
 
       window._isDragging = true;
       const objWorld = new THREE.Vector3();
-      if (_dragGroup.isMesh) {
-        _dragGroup.getWorldPosition(objWorld);
-      } else {
-        _dragGroup.getWorldPosition(objWorld);
-      }
+      _dragGroup.getWorldPosition(objWorld);
       _dragPlane.setFromNormalAndCoplanarPoint(
         camera.getWorldDirection(new THREE.Vector3()).negate(),
         objWorld
@@ -801,12 +793,16 @@ loader.load('./scene.gltf', (gltf) => {
   exportBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;background:#FF6B35;color:white;border:none;padding:10px 20px;border-radius:8px;font:bold 14px Inter,sans-serif;cursor:pointer;';
   document.body.appendChild(exportBtn);
   exportBtn.addEventListener('click', () => {
-    const positions = headGroups.map((g, i) => {
+    const headPos = headGroups.map((g, i) => {
       if (!g.visible) return `  null, // #${i} — hidden`;
       const p = g.position;
       return `  { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }, // #${i}`;
     });
-    const text = `[\n${positions.join('\n')}\n]`;
+    const bodyPos = bodyMeshes.map((b, i) => {
+      const p = b.mesh.position;
+      return `  { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }, // body ${i}`;
+    });
+    const text = `// HEADS\n[\n${headPos.join('\n')}\n]\n\n// BODIES\n[\n${bodyPos.join('\n')}\n]`;
     navigator.clipboard.writeText(text);
     exportBtn.textContent = 'Copied!';
     setTimeout(() => exportBtn.textContent = 'Export Positions', 2000);
