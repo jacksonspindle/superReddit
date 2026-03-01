@@ -902,17 +902,50 @@ loader.load('./scene.gltf', (gltf) => {
   });
   model.updateMatrixWorld(true);
 
-  // Collect eyelids for animation
+  // Collect eyelids for animation (exclude pupils — both are 147 verts)
   model.traverse((node) => {
     if (!node.isMesh) return;
     const verts = node.geometry?.attributes?.position?.count || 0;
-    if (verts === 147 && isInHeadGroup(node)) {
+    if (verts === 147 && isInHeadGroup(node) && !node.userData.isPupil) {
       node.userData.isEyelid = true;
       node.userData.basePosition = node.position.clone();
       eyelids.push(node);
     }
   });
   console.log('Eyelids found:', eyelids.length);
+
+  // Collect pupils — 147-vert meshes that overlap with 294-vert eye whites
+  headGroups.forEach(group => {
+    const eyeWhites = [];
+    const candidates = [];
+    group.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 294) eyeWhites.push(n);
+      if (verts === 147) candidates.push(n);
+    });
+    candidates.forEach(c => {
+      const cPos = new THREE.Vector3();
+      c.getWorldPosition(cPos);
+      for (const ew of eyeWhites) {
+        const ewPos = new THREE.Vector3();
+        ew.getWorldPosition(ewPos);
+        if (cPos.distanceTo(ewPos) < 0.15) {
+          c.userData.isPupil = true;
+          c.userData.basePosition = c.position.clone();
+          c.userData.parentEyeWhite = ew;
+          pupils.push(c);
+          break;
+        }
+      }
+    });
+  });
+  console.log('Pupils found:', pupils.length);
+
+  // Remove pupils from eyelids array to avoid conflicting position updates
+  for (let i = eyelids.length - 1; i >= 0; i--) {
+    if (eyelids[i].userData.isPupil) eyelids.splice(i, 1);
+  }
 
   // Labels removed — no longer needed
   window._updateLabels = null;
@@ -926,6 +959,7 @@ loader.load('./scene.gltf', (gltf) => {
 // ── Animation ──
 const clock = new THREE.Clock();
 const eyelids = [];
+const pupils = [];
 
 // ── Step Characters — clone GLTF heads + themed context per step ──
 const stepCharRenderers = [];
@@ -1288,6 +1322,22 @@ function animate() {
     if (!lid.userData.basePosition) return;
     const base = lid.userData.basePosition;
     lid.position.y = base.y + smoothMouse.y * 2.0;
+  });
+
+  // Animate pupils — horizontal cursor tracking + vertical eyelid motion
+  const PUPIL_MAX_OFFSET = 3.0;
+  pupils.forEach(pupil => {
+    if (!pupil.userData.basePosition) return;
+    const base = pupil.userData.basePosition;
+    // Horizontal + vertical cursor tracking (clamped to circle)
+    const offsetX = smoothMouse.x * PUPIL_MAX_OFFSET;
+    const offsetY = smoothMouse.y * PUPIL_MAX_OFFSET;
+    const len = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    const clampedLen = Math.min(len, PUPIL_MAX_OFFSET);
+    const scale = len > 0 ? clampedLen / len : 0;
+    pupil.position.x = base.x + offsetX * scale;
+    // Combine: eyelid vertical motion (same as eyelids array used) + pupil Y tracking
+    pupil.position.y = base.y + smoothMouse.y * 2.0 + offsetY * scale;
   });
 
   // Render through post-processing pipeline
