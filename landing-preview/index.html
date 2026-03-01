@@ -593,8 +593,39 @@ loader.load('./scene.gltf', (gltf) => {
     let dbg = 'Head #17 (idx 17) meshes: ';
     hg17.traverse(n => { if (n.isMesh) dbg += `[${n.name} v=${n.geometry?.attributes?.position?.count}] `; });
     console.log(dbg);
+  }
 
-  // Head #19 — all skin-colored parts translucent
+  // Head #14 — bright white skin, glowing orange pupils
+  const hg14 = headGroups[14];
+  if (hg14) {
+    hg14.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 147) {
+        // Pupils — glowing orange
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xff6b35,
+          roughness: 0.1,
+          metalness: 0.0,
+          emissive: 0xff6b35,
+          emissiveIntensity: 1.5,
+          envMapIntensity: 1.0,
+        });
+      } else if (verts === 3968 || verts === 598) {
+        // Head + ears — bright white
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.4,
+          metalness: 0.0,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.1,
+          envMapIntensity: 0.5,
+        });
+      }
+    });
+  }
+
+  // Head #19 — metallic silver
   const hg19 = headGroups[19];
   if (hg19) {
     const skinVerts = new Set([3968, 598]); // head sphere + ears/cylinders
@@ -634,6 +665,7 @@ loader.load('./scene.gltf', (gltf) => {
       }
     });
   }
+  if (hg17) {
     const skin17 = 0xc09888; // tan, same as #9
     hg17.userData.skinColor = skin17;
     hg17.traverse(n => {
