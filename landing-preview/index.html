@@ -600,9 +600,10 @@ loader.load('./scene.gltf', (gltf) => {
   if (hg14) {
     hg14.traverse(n => {
       if (!n.isMesh) return;
+      const name = n.name || '';
       const verts = n.geometry?.attributes?.position?.count || 0;
-      if (verts === 147) {
-        // Pupils — glowing orange
+      // Pupils — small spheres named Sphere_6_*
+      if (name.startsWith('Sphere_6') || verts === 147) {
         n.material = new THREE.MeshStandardMaterial({
           color: 0xff6b35,
           roughness: 0.1,
@@ -611,8 +612,8 @@ loader.load('./scene.gltf', (gltf) => {
           emissiveIntensity: 1.5,
           envMapIntensity: 1.0,
         });
-      } else if (verts === 3968 || verts === 598) {
-        // Head + ears — bright white
+      } else {
+        // Everything else — bright white
         n.material = new THREE.MeshStandardMaterial({
           color: 0xffffff,
           roughness: 0.4,
