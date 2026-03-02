@@ -1030,6 +1030,17 @@ function setupOverlayCanvas() {
     });
 
     overlayScene.add(model);
+
+    // ── Compute laptop's TRUE geometric center via bounding box ──
+    // This guarantees we know exactly where the laptop is — no guessing.
+    model.updateMatrixWorld(true); // ensure all transforms are applied
+    const laptopBox = new THREE.Box3().setFromObject(overlayLaptopNode);
+    const laptopCenterWorld = new THREE.Vector3();
+    laptopBox.getCenter(laptopCenterWorld);
+    // Store for use in updateLaptopAnimation
+    window._laptopCenter = laptopCenterWorld;
+    console.log('Laptop bounding box center (world):', laptopCenterWorld);
+
     overlayReady = true;
     console.log('Overlay canvas: laptop ready');
   });
@@ -1116,13 +1127,13 @@ function updateLaptopAnimation() {
     : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
   // ── Camera end state: laptop perfectly centered vertically ──
-  // The overlay camera at Z=8, looking straight ahead at the laptop.
-  // We DON'T use getWorldPosition for the end Y because that gives
-  // the laptop's anchor point which isn't its visual center on screen.
-  // Instead we use fixed values tuned so the laptop sits at dead center.
-  const endCamY = 3.0;   // camera Y at end — level with laptop visual center
-  const endLookY = 3.0;  // look at same Y — keeps laptop centered
-  const endCamZ = 8;     // zoom in
+  // Uses the COMPUTED bounding box center — mathematically guaranteed
+  // to place the laptop at the dead center of the viewport.
+  const center = window._laptopCenter;
+  if (!center) return; // not computed yet
+  const endCamY = center.y;    // camera at laptop's exact vertical center
+  const endLookY = center.y;   // look at the same point
+  const endCamZ = 8;           // zoom in
 
   // ── Camera start state: match hero camera exactly ──
   // Hero camera: position(0, 1.5, 14) lookAt(0, 3.0, 0)
