@@ -59,13 +59,28 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 600vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 4%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
-  .laptop-demo-text.visible { opacity: 1; }
+  .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); overflow: hidden; }
+  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 32px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
+  #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
+  #flat-video-container { width: 100%; height: 100%; background: #111; border-radius: 8px; overflow: hidden; cursor: pointer; }
+  #flat-video-container video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #flat-video-container .unmute-prompt { position: absolute; bottom: 16px; right: 16px; background: rgba(0,0,0,0.7); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; z-index: 2; }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
+  #laptop-light-rays {
+    position: fixed;
+    bottom: 5%; left: 50%;
+    transform: translateX(-50%);
+    width: 55vw; height: 28vh;
+    z-index: 49;
+    pointer-events: none;
+    display: none;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,107,53,0.18) 0%, transparent 70%);
+    filter: blur(16px);
+  }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -131,7 +146,19 @@
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
 </section>
 
+
+<div id="laptop-light-rays"></div>
+
 <section class="laptop-demo" id="laptop-demo">
+  <div id="flat-video-wrap">
+    <div id="flat-video-container">
+      <video id="demo-video-player" muted loop playsinline preload="auto">
+        <!-- Replace src with your demo video file -->
+        <!-- <source src="./demo.mp4" type="video/mp4"> -->
+      </video>
+      <span class="unmute-prompt" id="unmute-prompt" onclick="toggleMute()">Click to unmute</span>
+    </div>
+  </div>
   <div class="laptop-demo-text" id="laptop-demo-text">
     <h2>See it in action</h2>
     <p>Watch how SuperReddit finds your leads in seconds</p>
@@ -981,6 +1008,14 @@ function setupOverlayCanvas() {
   const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
   overlayScene.add(oAmbient);
 
+  // Orange spotlight — real 3D light, intensity driven by scroll
+  const oOrangeSpot = new THREE.SpotLight(0xFF6B35, 0, 60, Math.PI / 4, 0.6, 0.8);
+  oOrangeSpot.position.set(0, 18, 4);
+  oOrangeSpot.target.position.set(0, 3, 0);
+  overlayScene.add(oOrangeSpot);
+  overlayScene.add(oOrangeSpot.target);
+  window._orangeSpotlight = oOrangeSpot;
+
   // Load same GLTF, extract only laptop
   const oLoader = new GLTFLoader();
   oLoader.load('./scene.gltf', (gltf) => {
@@ -1021,6 +1056,71 @@ function setupOverlayCanvas() {
       }
     });
 
+    // Split Cube 3 into screen face vs lid face using face normals.
+    // Triangles are sorted into two material groups by their normal's Y component:
+    //   ny < 0 → screen (inner face, points down toward keyboard)
+    //   ny >= 0 → lid (outer face, points up/outward)
+    // DEBUG: RED = screen, GREEN = lid (will be black + gray in final)
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      const pName = node.parent?.name || '';
+      const gpName = node.parent?.parent?.name || '';
+      const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      // Store base mesh for fading during zoom
+      if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube2')) {
+        node.material = node.material.clone();
+        node.material.transparent = true;
+        window._overlayBaseMesh = node;
+      }
+      // Store logo for fading
+      if (isLaptop && node.name && (node.name.includes('Logo') || node.name.includes('logo'))) {
+        node.material = node.material.clone();
+        node.material.transparent = true;
+        window._overlayLogoMesh = node;
+      }
+      if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube3')) {
+        const geo = node.geometry;
+        const idx = geo.index;
+        const norms = geo.attributes.normal;
+        const screenTris = [];
+        const lidTris = [];
+
+        for (let i = 0; i < idx.count; i += 3) {
+          const a = idx.getX(i), b = idx.getX(i + 1), c = idx.getX(i + 2);
+          const ny = (norms.getY(a) + norms.getY(b) + norms.getY(c)) / 3;
+          if (ny < 0) {
+            screenTris.push(a, b, c);
+          } else {
+            lidTris.push(a, b, c);
+          }
+        }
+
+        const newIndex = [...screenTris, ...lidTris];
+        geo.setIndex(newIndex);
+        geo.clearGroups();
+        geo.addGroup(0, screenTris.length, 0);
+        geo.addGroup(screenTris.length, lidTris.length, 1);
+
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const lidMat = new THREE.MeshStandardMaterial({
+          color: 0x888898, roughness: 0.5, metalness: 0.3, envMapIntensity: 0.8,
+          transparent: true,
+        });
+        node.material = [screenMat, lidMat];
+        window._overlayScreenMesh = node;
+        window._overlayScreenMat = screenMat;
+
+        // Collect unique screen-face vertex positions for projection
+        const pos = geo.attributes.position;
+        const screenVertSet = new Set(screenTris);
+        const screenPositions = [];
+        screenVertSet.forEach(vi => {
+          screenPositions.push(new THREE.Vector3(pos.getX(vi), pos.getY(vi), pos.getZ(vi)));
+        });
+        window._screenFaceVerts = screenPositions;
+      }
+    });
+
     // Apply the same laptop Y raise as the hero scene
     model.traverse((node) => {
       if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
@@ -1046,13 +1146,186 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll-driven laptop animation ──
-// Pure native scrolling — no wheel interception, no scroll queue.
-// The 600vh section IS the speed control. Browser handles all scrolling
-// natively for buttery-smooth feel. Animation maps directly to scroll position.
-let laptopProgress = 0;
+// ── Video mute toggle ──
+function toggleMute() {
+  const video = document.getElementById('demo-video-player');
+  const prompt = document.getElementById('unmute-prompt');
+  if (!video) return;
+  video.muted = !video.muted;
+  if (prompt) prompt.textContent = video.muted ? 'Click to unmute' : 'Mute';
+}
 
-// ── Scroll listener — reads actual position, sets progress directly ──
+// ── Scroll-driven laptop animation ──
+// Phase 1 (spin): page scrolls normally, laptopProgress 0→0.7 drives rotation.
+// Phase 2 (zoom): laptopProgress 0.7→1.0 drives camera zoom + tilt + crossfade.
+// Phase 3 (video): 3D canvas hides, flat 16:9 video in normal page flow.
+let laptopProgress = 0;
+let zoomProgress = 0;
+let flatVideoShown = false;
+
+// ── Project a laptop-local screen point into viewport coords each frame ──
+function updateFlatVideoPlacement() {
+  if (!overlayLaptopNode || !overlayReady || !overlayCamera) return;
+  const wrap = document.getElementById('flat-video-wrap');
+  if (!wrap || flatVideoShown) return;
+
+  const screenVerts = window._screenFaceVerts;
+  const sMesh = window._overlayScreenMesh;
+  if (!screenVerts || !sMesh) return;
+
+  sMesh.updateMatrixWorld(true);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const projected = new THREE.Vector3();
+  for (const localV of screenVerts) {
+    projected.copy(localV).applyMatrix4(sMesh.matrixWorld);
+    projected.project(overlayCamera);
+    const sx = (projected.x * 0.5 + 0.5) * vw;
+    const sy = (1 - (projected.y * 0.5 + 0.5)) * vh;
+    if (sx < minX) minX = sx;
+    if (sx > maxX) maxX = sx;
+    if (sy < minY) minY = sy;
+    if (sy > maxY) maxY = sy;
+  }
+  const scrW = maxX - minX;
+  const scrH = maxY - minY;
+  const scrCX = (minX + maxX) / 2;
+  const scrCY = (minY + maxY) / 2;
+
+  // Account for canvas CSS transform offset
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  let dx = 0, dy = 0;
+  if (overlayCanvas) {
+    const t = overlayCanvas.style.transform;
+    const m = t.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    if (m) { dx = parseFloat(m[1]); dy = parseFloat(m[2]); }
+  }
+
+  if (zoomProgress > 0.5) {
+    wrap.style.display = 'block';
+    wrap.style.position = 'fixed';
+    wrap.style.left = (scrCX + dx) + 'px';
+    wrap.style.top = (scrCY + dy) + 'px';
+    wrap.style.width = scrW + 'px';
+    wrap.style.height = scrH + 'px';
+    wrap.style.transform = 'translate(-50%, -50%)';
+    wrap.style.padding = '0';
+    wrap.style.opacity = '1';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function showFlatVideo() {
+  flatVideoShown = true;
+  overlayActive = false;
+
+  // Hide overlay canvas
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) {
+    canvas.style.display = 'none';
+    canvas.style.opacity = '0';
+    canvas.style.transform = 'none';
+  }
+
+  // Hide spotlight + floor glow
+  if (window._orangeSpotlight) window._orangeSpotlight.intensity = 0;
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
+  // Place video at the user's current scroll position within the demo section
+  const wrap = document.getElementById('flat-video-wrap');
+  const demoSection = document.getElementById('laptop-demo');
+  if (wrap && demoSection) {
+    const demoTop = demoSection.offsetTop;
+    const viewH = window.innerHeight;
+    const sr = window._screenRect;
+    const videoW = sr ? sr.width : viewH * 0.6 * (16/9);
+    const videoH = sr ? sr.height : viewH * 0.6;
+
+    // Place video at the Y position within the demo section that aligns
+    // with the center of the viewport at the current scroll position
+    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+
+    wrap.style.cssText = `
+      display: block;
+      position: absolute;
+      top: ${videoCenterY - (videoH / 2)}px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: ${videoW}px;
+      height: ${videoH}px;
+      z-index: 10;
+      pointer-events: auto;
+    `;
+
+    // Trim empty space below the video+text so there's no white gap before Features
+    const textHeight = 120; // approximate height for "See it in action" text block
+    const sectionEnd = videoCenterY + (videoH / 2) + 32 + textHeight + 64;
+    demoSection.style.minHeight = sectionEnd + 'px';
+  }
+
+  // Autoplay video
+  const video = document.getElementById('demo-video-player');
+  if (video) video.play().catch(() => {});
+
+  // Show demo text below the video
+  const text = document.getElementById('laptop-demo-text');
+  if (text && demoSection) {
+    const demoTop = demoSection.offsetTop;
+    const viewH = window.innerHeight;
+    const sr = window._screenRect;
+    const videoH = sr ? sr.height : viewH * 0.6;
+    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+
+    text.style.position = 'absolute';
+    text.style.top = (videoCenterY + videoH / 2 + 32) + 'px';
+    text.style.left = '0';
+    text.style.right = '0';
+    text.style.opacity = '1';
+    text.style.pointerEvents = 'auto';
+  }
+}
+
+function hideFlatVideo() {
+  flatVideoShown = false;
+  overlayActive = true;
+
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) { canvas.style.display = 'block'; canvas.style.opacity = '1'; }
+
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap) {
+    wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
+  }
+
+  // Restore 200vh and scroll to a position where laptopProgress ≈ 0.95
+  // (zoom phase, canvas fully opaque) so the animation can reverse smoothly.
+  // Without this, progress is still 1.0 after hideFlatVideo, which immediately
+  // re-triggers showFlatVideo on the next scroll event (infinite flip-flop).
+  // The overlay canvas covers the viewport, so the scroll jump is invisible.
+  const demoSection = document.getElementById('laptop-demo');
+  if (demoSection) {
+    demoSection.style.minHeight = '200vh';
+    const viewH = window.innerHeight;
+    // progress = (0.8*viewH - demoRect.top) / (0.8*viewH)
+    // demoRect.top = demoSection.offsetTop - scrollY
+    // Solve for scrollY at progress=0.95:
+    // scrollY = demoSection.offsetTop - viewH * 0.8 * (1 - 0.95)
+    const targetScrollY = demoSection.offsetTop - viewH * 0.8 * 0.05;
+    window.scrollTo(0, targetScrollY);
+  }
+
+  const video = document.getElementById('demo-video-player');
+  if (video) video.pause();
+
+  const text = document.getElementById('laptop-demo-text');
+  if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
+}
+
+// ── Scroll listener ──
+let prevScrollY = 0;
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1063,64 +1336,99 @@ window.addEventListener('scroll', () => {
   const viewH = window.innerHeight;
   const heroBottomRatio = heroRect.bottom / viewH;
 
-  // Fade hero text/hint on scroll
-  const heroOverlay = document.querySelector('.hero-overlay');
+  // Hide scroll hint
   const heroHint = document.querySelector('.hero-scroll-hint');
-  if (heroOverlay) {
-    const fadeProgress = Math.max(0, Math.min(1, (1.05 - heroBottomRatio) / 0.2));
-    heroOverlay.style.opacity = 1 - fadeProgress;
-  }
   if (heroHint) {
     const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // ── Progress: direct from scroll position (no lerp) ──
-  // Animation completes within ~1.5 viewport heights of scrolling.
+  // If flat video is showing, scrolling back up reverses to 3D
+  if (flatVideoShown) {
+    if (window.scrollY < prevScrollY && demoRect.top >= -viewH * 0.5) {
+      hideFlatVideo();
+    }
+    prevScrollY = window.scrollY;
+    return;
+  }
+  prevScrollY = window.scrollY;
+
+  // ── Laptop progress: drives both spin (0→0.7) and zoom (0.7→1.0) ──
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
-  const scrollDistance = viewH * 1.5;
+  const scrollDistance = viewH * 0.8;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
-  // Cross-fade: hero laptop stays visible and scrolls away naturally.
-  // Overlay fades in gradually — no hard switch, no visual jump.
-  const shouldShowOverlay = laptopProgress > 0.05;
+  // Compute zoom from the tail end of laptopProgress
+  // Zoom starts at laptopProgress 0.7 and reaches 1.0 at laptopProgress 1.0
+  if (laptopProgress > 0.7) {
+    zoomProgress = Math.min(1, (laptopProgress - 0.7) / 0.3);
+  } else {
+    zoomProgress = 0;
+  }
 
-  // Instant swap: hero laptop hides, overlay laptop appears
-  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay;
+  // Orange spotlight — drive real Three.js light + CSS floor glow
+  const spotIntensityMax = 40;
+  let spotT = 0;
+  if (laptopProgress > 0.25 && laptopProgress < 1.0 && !flatVideoShown) {
+    spotT = 1;
+    if (laptopProgress < 0.4) {
+      spotT = (laptopProgress - 0.25) / 0.15;
+    } else if (laptopProgress > 0.7) {
+      spotT = 1 - zoomProgress;
+    }
+  }
+  if (window._orangeSpotlight) {
+    window._orangeSpotlight.intensity = spotT * spotIntensityMax;
+  }
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) {
+    if (spotT > 0) {
+      rays.style.display = 'block';
+      rays.style.opacity = String(spotT);
+    } else {
+      rays.style.display = 'none';
+      rays.style.opacity = '0';
+    }
+  }
+
+  // Overlay visibility
+  const shouldShowOverlay = laptopProgress > 0.05 && !flatVideoShown;
+  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay && !flatVideoShown;
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
-  if (overlayCanvas) {
-    if (shouldShowOverlay && demoRect.bottom >= 0) {
+  if (overlayCanvas && !flatVideoShown) {
+    if (shouldShowOverlay) {
       overlayCanvas.style.display = 'block';
-      overlayCanvas.style.opacity = 1;
-    } else {
-      overlayCanvas.style.display = 'none';
-      overlayCanvas.style.opacity = 0;
-    }
-
-    // Sticky: keep laptop pinned in center after animation completes.
-    // Only scroll it away when the section BOTTOM reaches the viewport bottom.
-    if (laptopProgress >= 0.99) {
-      const distFromBottom = demoRect.bottom - viewH;
-      if (distFromBottom < 0) {
-        // Section leaving viewport — scroll canvas away with it
-        overlayCanvas.style.transform = `translateY(${distFromBottom}px)`;
+      // Crossfade window: zoomProgress 0.85 → 1.0 fades out canvas
+      if (zoomProgress > 0.85) {
+        const crossfade = (zoomProgress - 0.85) / 0.15;
+        overlayCanvas.style.opacity = String(1 - crossfade);
       } else {
-        // Section still has room — laptop stays pinned in center
-        overlayCanvas.style.transform = 'none';
+        overlayCanvas.style.opacity = '1';
       }
     } else {
-      overlayCanvas.style.transform = 'none';
+      overlayCanvas.style.display = 'none';
+      overlayCanvas.style.opacity = '0';
     }
   }
-  overlayActive = shouldShowOverlay && demoRect.bottom >= 0;
 
-  const demoText = document.getElementById('laptop-demo-text');
-  if (demoText) {
-    demoText.classList.toggle('visible', laptopProgress > 0.85);
+  // Crossfade: show flat video wrap during crossfade window
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap && !flatVideoShown) {
+    if (zoomProgress > 0.85) {
+      const crossfade = (zoomProgress - 0.85) / 0.15;
+      wrap.style.opacity = String(crossfade);
+    }
   }
+
+  // Transition complete → hand off to flat video
+  if (zoomProgress >= 1.0 && !flatVideoShown) {
+    showFlatVideo();
+  }
+
+  overlayActive = !flatVideoShown && shouldShowOverlay && demoRect.bottom >= 0;
 }, { passive: true });
 
 // Called every frame from animate()
@@ -1130,24 +1438,85 @@ function updateLaptopAnimation() {
   const center = window._laptopCenter;
   if (!center) return;
 
-  const eased = laptopProgress < 0.5
-    ? 2 * laptopProgress * laptopProgress
-    : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
+  // ── Split progress: spin uses 0→0.7, zoom uses 0.7→1.0 ──
+  const spinProgress = Math.min(1, laptopProgress / 0.7);
 
-  // Camera Y is ALWAYS at the laptop's bounding box center.
-  // The laptop is always dead center vertically — no Y interpolation.
-  // Only zoom (Z) and rotation animate.
+  // Ease functions
+  const eased = spinProgress < 0.5
+    ? 2 * spinProgress * spinProgress
+    : 1 - Math.pow(-2 * spinProgress + 2, 2) / 2;
+
+  const zE = zoomProgress < 0.5
+    ? 2 * zoomProgress * zoomProgress
+    : 1 - Math.pow(-2 * zoomProgress + 2, 2) / 2;
+
+  // Spin: camera pulls from Z=14 to Z=8
+  const spinCamZ = 14 + (8 - 14) * eased;
+
+  // Zoom: blend toward target Z=5 using zoomProgress
+  const zoomCamZ = 5;
+  const camZ = spinCamZ + (zoomCamZ - spinCamZ) * zE;
   const camY = center.y;
   const lookY = center.y;
-  const startCamZ = 14;
-  const endCamZ = 8;
-  const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
   overlayCamera.position.set(0, camY, camZ);
   overlayCamera.lookAt(0, lookY, 0);
 
-  // Rotate: 0 at start (back facing), PI at end (screen facing)
+  // Y rotation: spin 0→PI (driven by spinProgress)
+  // X rotation: tilt screen FORWARD toward camera (+0.5 rad) during zoom
   overlayLaptopNode.rotation.y = eased * Math.PI;
+  overlayLaptopNode.rotation.x = 0.5 * zE;
+
+  // Fade out base, lid back, and logo during zoom (0% → 50% of zoom)
+  const fadeOut = Math.min(1, zE / 0.5);
+  const baseMesh = window._overlayBaseMesh;
+  const logoMesh = window._overlayLogoMesh;
+  const screenMesh = window._overlayScreenMesh;
+  if (baseMesh) baseMesh.material.opacity = 1 - fadeOut;
+  if (logoMesh) logoMesh.material.opacity = 1 - fadeOut;
+  if (screenMesh && Array.isArray(screenMesh.material)) {
+    screenMesh.material[1].opacity = 1 - fadeOut; // lid
+  }
+
+  // ── Project screen face vertices → compute pixel rect ──
+  const screenVerts = window._screenFaceVerts;
+  const sMesh = window._overlayScreenMesh;
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  if (screenVerts && sMesh) {
+    sMesh.updateMatrixWorld(true);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const projected = new THREE.Vector3();
+    for (const localV of screenVerts) {
+      projected.copy(localV).applyMatrix4(sMesh.matrixWorld);
+      projected.project(overlayCamera);
+      const sx = (projected.x * 0.5 + 0.5) * vw;
+      const sy = (1 - (projected.y * 0.5 + 0.5)) * vh;
+      if (sx < minX) minX = sx;
+      if (sx > maxX) maxX = sx;
+      if (sy < minY) minY = sy;
+      if (sy > maxY) maxY = sy;
+    }
+    const scrW = maxX - minX;
+    const scrH = maxY - minY;
+    const scrCX = (minX + maxX) / 2;
+    const scrCY = (minY + maxY) / 2;
+    window._screenRect = { left: minX, top: minY, width: scrW, height: scrH };
+
+    // ── CSS transform: shift canvas so screen center = viewport center ──
+    if (zoomProgress > 0 && overlayCanvas && !flatVideoShown) {
+      const dx = (vw / 2) - scrCX;
+      const dy = (vh / 2) - scrCY;
+      overlayCanvas.style.transform = `translate(${dx}px, ${dy}px)`;
+    } else if (overlayCanvas) {
+      overlayCanvas.style.transform = 'none';
+    }
+  }
+
+  // ── Position 2D video to track 3D screen (only while overlay is active) ──
+  updateFlatVideoPlacement();
 }
 
 function animate() {
