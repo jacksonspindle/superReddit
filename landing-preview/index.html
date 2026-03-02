@@ -1027,21 +1027,46 @@ function setupOverlayCanvas() {
       }
     });
 
-    // Add a black inner-screen face by cloning Cube 3 with BackSide rendering.
-    // Original Cube 3 keeps gray material (FrontSide = outer lid).
-    // Clone renders black on BackSide (= inner screen face).
-    // At every angle, only the correct side is visible to the camera.
+    // Split Cube 3 into screen face vs lid face using face normals.
+    // Triangles are sorted into two material groups by their normal's Y component:
+    //   ny < 0 → screen (inner face, points down toward keyboard)
+    //   ny >= 0 → lid (outer face, points up/outward)
+    // DEBUG: RED = screen, GREEN = lid (will be black + gray in final)
     model.traverse((node) => {
       if (!node.isMesh) return;
       const pName = node.parent?.name || '';
       const gpName = node.parent?.parent?.name || '';
       const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
       if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube3')) {
-        const screenInner = node.clone();
-        screenInner.material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
-        screenInner.name = 'ScreenInner';
-        node.parent.add(screenInner);
-        window._overlayScreenMesh = screenInner;
+        const geo = node.geometry;
+        const idx = geo.index;
+        const norms = geo.attributes.normal;
+        const screenTris = [];
+        const lidTris = [];
+
+        for (let i = 0; i < idx.count; i += 3) {
+          const a = idx.getX(i), b = idx.getX(i + 1), c = idx.getX(i + 2);
+          const ny = (norms.getY(a) + norms.getY(b) + norms.getY(c)) / 3;
+          if (ny < 0) {
+            screenTris.push(a, b, c);
+          } else {
+            lidTris.push(a, b, c);
+          }
+        }
+
+        const newIndex = [...screenTris, ...lidTris];
+        geo.setIndex(newIndex);
+        geo.clearGroups();
+        geo.addGroup(0, screenTris.length, 0);
+        geo.addGroup(screenTris.length, lidTris.length, 1);
+
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const lidMat = new THREE.MeshStandardMaterial({
+          color: 0x888898, roughness: 0.5, metalness: 0.3, envMapIntensity: 0.8,
+        });
+        node.material = [screenMat, lidMat];
+        window._overlayScreenMesh = node;
+        window._overlayScreenMat = screenMat;
       }
     });
 
