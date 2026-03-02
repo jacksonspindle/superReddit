@@ -1035,11 +1035,12 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll handler — seamless laptop transition ──
-// Strategy: The overlay is ALWAYS rendered (when loaded), but starts invisible.
-// We track where the hero laptop WOULD be on screen, and position the overlay
-// laptop there, then smoothly animate it to the center of the viewport.
-// The handoff is invisible because both laptops are at the exact same pixel position.
+// ── Scroll-driven laptop animation with smooth interpolation ──
+// The scroll handler sets a TARGET progress. The animate() loop smoothly
+// interpolates toward it each frame, so fast scrolling can't skip the animation.
+let laptopTargetProgress = 0;
+let laptopCurrentProgress = 0;
+const LAPTOP_LERP_SPEED = 0.06; // lower = smoother/slower, higher = snappier
 
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
@@ -1063,20 +1064,14 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // ── Animation progress: 0 = hero laptop in original position, 1 = laptop centered in demo section ──
-  // The animation starts when the hero bottom reaches ~80% of viewport
-  // and completes quickly so laptop is settled by the time the demo section is visible.
-  const animStart = 0.8;  // heroBottomRatio when animation begins
-  const animEnd = 0.1;    // heroBottomRatio when animation ends (hero nearly scrolled off)
+  // Set target progress — the animate loop will smoothly follow
+  const animStart = 0.8;
+  const animEnd = 0.1;
   const rawProgress = (animStart - heroBottomRatio) / (animStart - animEnd);
-  const progress = Math.max(0, Math.min(1, rawProgress));
-  const eased = progress < 0.5
-    ? 2 * progress * progress                           // ease-in first half
-    : 1 - Math.pow(-2 * progress + 2, 2) / 2;           // ease-out second half
+  laptopTargetProgress = Math.max(0, Math.min(1, rawProgress));
 
-  // ── Handoff: swap hero laptop for overlay laptop ──
-  // Show overlay as soon as animation starts (progress > 0)
-  const shouldHandoff = progress > 0.01;
+  // Handoff (show/hide) must be immediate so there's no frame without a laptop
+  const shouldHandoff = laptopTargetProgress > 0.01 || laptopCurrentProgress > 0.01;
 
   if (heroLaptopNode && overlayReady) {
     heroLaptopNode.visible = !shouldHandoff;
@@ -1088,49 +1083,10 @@ window.addEventListener('scroll', () => {
   }
   overlayActive = shouldHandoff;
 
-  if (overlayLaptopNode && overlayReady && shouldHandoff) {
-    // ── Dynamic camera offset: match hero canvas viewport position exactly ──
-    // The hero canvas is inside the scrolling page with CSS translateY(12%).
-    // Its actual top-edge position on screen changes with scroll.
-    // The overlay is position:fixed at viewport top.
-    // We compute where the hero canvas actually IS on screen (in pixels),
-    // convert to world units, and offset the overlay camera to match.
-    const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
-    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units across 100vh
-    const dynamicShift = (heroCanvasTopPx / viewH) * visH;
-
-    // At progress=0: camera tracks the hero canvas position exactly
-    // At progress=1: camera centered on laptop (dynamicShift fades out)
-    const startCamY = 1.5 + dynamicShift;
-    const startLookY = 3.0 + dynamicShift;
-
-    // End state: camera looks at the laptop center (~world Y=1.0), moderate zoom
-    const endCamY = 1.5;
-    const endLookY = 1.0;
-
-    const camY = startCamY + (endCamY - startCamY) * eased;
-    const lookY = startLookY + (endLookY - startLookY) * eased;
-
-    const startCamZ = 14;
-    const endCamZ = 8;
-    const camZ = startCamZ + (endCamZ - startCamZ) * eased;
-
-    overlayCamera.position.set(0, camY, camZ);
-    overlayCamera.lookAt(0, lookY, 0);
-
-    // No CSS transform needed — the camera offset handles everything
-    if (overlayCanvas) {
-      overlayCanvas.style.transform = 'none';
-    }
-
-    // Rotate laptop: 0 at start (back facing user), PI at end (screen facing user)
-    overlayLaptopNode.rotation.y = eased * Math.PI;
-  }
-
   // Show "See it in action" text when animation is mostly complete
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
-    demoText.classList.toggle('visible', progress > 0.85);
+    demoText.classList.toggle('visible', laptopCurrentProgress > 0.85);
   }
 
   // Hide overlay once demo section has scrolled past
@@ -1141,6 +1097,50 @@ window.addEventListener('scroll', () => {
     }
   }
 }, { passive: true });
+
+// Called every frame from animate() to smoothly update laptop position
+function updateLaptopAnimation() {
+  if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
+
+  // Smooth lerp toward target — limits max speed regardless of scroll velocity
+  laptopCurrentProgress += (laptopTargetProgress - laptopCurrentProgress) * LAPTOP_LERP_SPEED;
+  // Snap to target when very close to avoid infinite asymptotic approach
+  if (Math.abs(laptopTargetProgress - laptopCurrentProgress) < 0.001) {
+    laptopCurrentProgress = laptopTargetProgress;
+  }
+
+  const eased = laptopCurrentProgress < 0.5
+    ? 2 * laptopCurrentProgress * laptopCurrentProgress
+    : 1 - Math.pow(-2 * laptopCurrentProgress + 2, 2) / 2;
+
+  // ── Dynamic camera offset: match hero canvas viewport position ──
+  const heroSection = document.querySelector('.hero');
+  if (!heroSection) return;
+  const heroRect = heroSection.getBoundingClientRect();
+  const viewH = window.innerHeight;
+  const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
+  const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
+  const dynamicShift = (heroCanvasTopPx / viewH) * visH;
+
+  // Start: camera tracks hero canvas position. End: centered on laptop.
+  const startCamY = 1.5 + dynamicShift;
+  const startLookY = 3.0 + dynamicShift;
+  const endCamY = 1.5;
+  const endLookY = 1.0;
+
+  const camY = startCamY + (endCamY - startCamY) * eased;
+  const lookY = startLookY + (endLookY - startLookY) * eased;
+
+  const startCamZ = 14;
+  const endCamZ = 8;
+  const camZ = startCamZ + (endCamZ - startCamZ) * eased;
+
+  overlayCamera.position.set(0, camY, camZ);
+  overlayCamera.lookAt(0, lookY, 0);
+
+  // Rotate: 0 at start (back facing), PI at end (screen facing)
+  overlayLaptopNode.rotation.y = eased * Math.PI;
+}
 
 function animate() {
   requestAnimationFrame(animate);
@@ -1219,7 +1219,8 @@ function animate() {
   // Update numbered labels
   if (window._updateLabels) window._updateLabels();
 
-  // Render overlay canvas when active
+  // Smooth laptop animation + render overlay
+  updateLaptopAnimation();
   if (overlayActive && overlayReady && overlayRenderer) {
     overlayRenderer.render(overlayScene, overlayCamera);
   }
