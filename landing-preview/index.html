@@ -69,6 +69,18 @@
   #flat-video-container .unmute-prompt { position: absolute; bottom: 16px; right: 16px; background: rgba(0,0,0,0.7); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; z-index: 2; }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
+  #laptop-light-rays {
+    position: fixed;
+    bottom: 5%; left: 50%;
+    transform: translateX(-50%);
+    width: 55vw; height: 28vh;
+    z-index: 49;
+    pointer-events: none;
+    display: none;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,107,53,0.18) 0%, transparent 70%);
+    filter: blur(16px);
+  }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -134,6 +146,8 @@
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
 </section>
 
+
+<div id="laptop-light-rays"></div>
 
 <section class="laptop-demo" id="laptop-demo">
   <div id="flat-video-wrap">
@@ -994,6 +1008,14 @@ function setupOverlayCanvas() {
   const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
   overlayScene.add(oAmbient);
 
+  // Orange spotlight — real 3D light, intensity driven by scroll
+  const oOrangeSpot = new THREE.SpotLight(0xFF6B35, 0, 60, Math.PI / 4, 0.6, 0.8);
+  oOrangeSpot.position.set(0, 18, 4);
+  oOrangeSpot.target.position.set(0, 3, 0);
+  overlayScene.add(oOrangeSpot);
+  overlayScene.add(oOrangeSpot.target);
+  window._orangeSpotlight = oOrangeSpot;
+
   // Load same GLTF, extract only laptop
   const oLoader = new GLTFLoader();
   oLoader.load('./scene.gltf', (gltf) => {
@@ -1207,6 +1229,11 @@ function showFlatVideo() {
     canvas.style.transform = 'none';
   }
 
+  // Hide spotlight + floor glow
+  if (window._orangeSpotlight) window._orangeSpotlight.intensity = 0;
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
   // Place video at the user's current scroll position within the demo section
   const wrap = document.getElementById('flat-video-wrap');
   const demoSection = document.getElementById('laptop-demo');
@@ -1273,9 +1300,22 @@ function hideFlatVideo() {
     wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
   }
 
-  // Restore 200vh so the animation has room to play on scroll-back-up
+  // Restore 200vh and scroll to a position where laptopProgress ≈ 0.95
+  // (zoom phase, canvas fully opaque) so the animation can reverse smoothly.
+  // Without this, progress is still 1.0 after hideFlatVideo, which immediately
+  // re-triggers showFlatVideo on the next scroll event (infinite flip-flop).
+  // The overlay canvas covers the viewport, so the scroll jump is invisible.
   const demoSection = document.getElementById('laptop-demo');
-  if (demoSection) demoSection.style.minHeight = '200vh';
+  if (demoSection) {
+    demoSection.style.minHeight = '200vh';
+    const viewH = window.innerHeight;
+    // progress = (0.8*viewH - demoRect.top) / (0.8*viewH)
+    // demoRect.top = demoSection.offsetTop - scrollY
+    // Solve for scrollY at progress=0.95:
+    // scrollY = demoSection.offsetTop - viewH * 0.8 * (1 - 0.95)
+    const targetScrollY = demoSection.offsetTop - viewH * 0.8 * 0.05;
+    window.scrollTo(0, targetScrollY);
+  }
 
   const video = document.getElementById('demo-video-player');
   if (video) video.pause();
@@ -1326,6 +1366,31 @@ window.addEventListener('scroll', () => {
     zoomProgress = Math.min(1, (laptopProgress - 0.7) / 0.3);
   } else {
     zoomProgress = 0;
+  }
+
+  // Orange spotlight — drive real Three.js light + CSS floor glow
+  const spotIntensityMax = 40;
+  let spotT = 0;
+  if (laptopProgress > 0.25 && laptopProgress < 1.0 && !flatVideoShown) {
+    spotT = 1;
+    if (laptopProgress < 0.4) {
+      spotT = (laptopProgress - 0.25) / 0.15;
+    } else if (laptopProgress > 0.7) {
+      spotT = 1 - zoomProgress;
+    }
+  }
+  if (window._orangeSpotlight) {
+    window._orangeSpotlight.intensity = spotT * spotIntensityMax;
+  }
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) {
+    if (spotT > 0) {
+      rays.style.display = 'block';
+      rays.style.opacity = String(spotT);
+    } else {
+      rays.style.display = 'none';
+      rays.style.opacity = '0';
+    }
   }
 
   // Overlay visibility
