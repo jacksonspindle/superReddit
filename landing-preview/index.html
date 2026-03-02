@@ -1051,7 +1051,8 @@ function setupOverlayCanvas() {
 // This guarantees buttery-smooth animation regardless of scroll speed.
 let laptopTargetProgress = 0;   // set instantly by scroll
 let laptopProgress = 0;         // lerped toward target each frame
-const LAPTOP_LERP_SPEED = 0.08; // lower = smoother/slower (0.05–0.12 sweet spot)
+const LAPTOP_LERP_SPEED = 0.08; // lower = smoother/slower
+const LAPTOP_MAX_SPEED = 0.012; // max progress change per frame (~83 frames = ~1.4s minimum for full animation) (0.05–0.12 sweet spot)
 
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
@@ -1117,8 +1118,11 @@ let lockedStartLookY = null;
 
 // Called every frame from animate()
 function updateLaptopAnimation() {
-  // Lerp progress toward target every frame — this is the smoothing
-  laptopProgress += (laptopTargetProgress - laptopProgress) * LAPTOP_LERP_SPEED;
+  // Lerp progress toward target, but clamp to max speed per frame.
+  // The lerp gives smoothness, the clamp gives speed control.
+  let delta = (laptopTargetProgress - laptopProgress) * LAPTOP_LERP_SPEED;
+  delta = Math.max(-LAPTOP_MAX_SPEED, Math.min(LAPTOP_MAX_SPEED, delta));
+  laptopProgress += delta;
   // Snap when very close to avoid infinite drift
   if (Math.abs(laptopProgress - laptopTargetProgress) < 0.001) {
     laptopProgress = laptopTargetProgress;
