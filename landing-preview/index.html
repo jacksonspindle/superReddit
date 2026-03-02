@@ -63,7 +63,7 @@
   .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 32px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
-  #flat-video-wrap { display: none; padding: 80px 24px 0; max-width: 960px; margin: 0 auto; }
+  #flat-video-wrap { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; max-width: 960px; padding: 0 24px; box-sizing: border-box; z-index: 60; }
   #flat-video-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
@@ -1156,13 +1156,27 @@ window.addEventListener('wheel', (e) => {
   }
 }, { passive: false });
 
+let flatVideoLockY = 0;
 function showFlatVideo() {
   scrollLocked = false;
   flatVideoShown = true;
+  flatVideoLockY = window.scrollY;
   const canvas = document.getElementById('laptop-overlay-canvas');
   if (canvas) canvas.style.display = 'none';
   const wrap = document.getElementById('flat-video-wrap');
-  if (wrap) wrap.style.display = 'block';
+  if (wrap) {
+    wrap.style.display = 'block';
+    wrap.style.opacity = '1';
+    // Convert to absolute so it scrolls with the page
+    const demoSection = document.getElementById('laptop-demo');
+    const demoTop = demoSection ? demoSection.offsetTop : 0;
+    const vpCenter = window.scrollY + window.innerHeight / 2;
+    const wrapH = wrap.offsetHeight || 400;
+    wrap.style.position = 'absolute';
+    wrap.style.top = (vpCenter - demoTop - wrapH / 2) + 'px';
+    wrap.style.left = '50%';
+    wrap.style.transform = 'translateX(-50%)';
+  }
   const text = document.getElementById('laptop-demo-text');
   if (text) text.style.opacity = '1';
 }
@@ -1172,7 +1186,14 @@ function hideFlatVideo() {
   const canvas = document.getElementById('laptop-overlay-canvas');
   if (canvas) { canvas.style.display = 'block'; canvas.style.opacity = '1'; }
   const wrap = document.getElementById('flat-video-wrap');
-  if (wrap) wrap.style.display = 'none';
+  if (wrap) {
+    wrap.style.display = 'none';
+    // Reset to fixed for crossfade positioning
+    wrap.style.position = 'fixed';
+    wrap.style.top = '50%';
+    wrap.style.left = '50%';
+    wrap.style.transform = 'translate(-50%, -50%)';
+  }
   const text = document.getElementById('laptop-demo-text');
   if (text) text.style.opacity = '0';
   // Re-enter zoom phase at max
