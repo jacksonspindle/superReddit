@@ -1122,11 +1122,17 @@ function updateLaptopAnimation() {
   const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
   const dynamicShift = (heroCanvasTopPx / viewH) * visH;
 
-  // Start: camera tracks hero canvas position. End: centered on laptop.
+  // Get the laptop's actual world-space center position
+  const laptopWorldPos = new THREE.Vector3();
+  overlayLaptopNode.getWorldPosition(laptopWorldPos);
+
+  // Start: camera tracks hero canvas position
   const startCamY = 1.5 + dynamicShift;
   const startLookY = 3.0 + dynamicShift;
-  const endCamY = 3.0;
-  const endLookY = 2.5;
+
+  // End: camera looks directly at the laptop's world center (guarantees screen center)
+  const endCamY = laptopWorldPos.y;
+  const endLookY = laptopWorldPos.y;
 
   const camY = startCamY + (endCamY - startCamY) * eased;
   const lookY = startLookY + (endLookY - startLookY) * eased;
