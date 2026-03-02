@@ -1099,6 +1099,7 @@ function setupOverlayCanvas() {
 // Pure native scrolling — no wheel interception, no scroll queue.
 // The 200vh section provides scroll distance. Animation maps directly to scroll position.
 let laptopProgress = 0;
+let zoomProgress = 0;
 let laptopLocked = false;
 let laptopLockScrollY = 0;
 
@@ -1121,12 +1122,22 @@ window.addEventListener('scroll', () => {
   }
 
   // ── Progress: direct from scroll position (no lerp) ──
-  // Animation completes within ~0.8 viewport heights of scrolling.
+  // Phase 1 (spin): completes within ~0.8vh of scrolling.
+  // Phase 2 (zoom): camera zooms into screen + tilts laptop upright over ~1.5vh.
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
   const scrollDistance = viewH * 0.8;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
+
+  const spinEndPoint = startThreshold - scrollDistance;
+  if (demoTop <= spinEndPoint) {
+    const zoomDistance = viewH * 1.5;
+    const rawZoom = (spinEndPoint - demoTop) / zoomDistance;
+    zoomProgress = Math.max(0, Math.min(1, rawZoom));
+  } else {
+    zoomProgress = 0;
+  }
 
   // Cross-fade: hero laptop stays visible and scrolls away naturally.
   // Overlay fades in gradually — no hard switch, no visual jump.
@@ -1190,24 +1201,30 @@ function updateLaptopAnimation() {
   const center = window._laptopCenter;
   if (!center) return;
 
+  // Phase 1 ease (spin)
   const eased = laptopProgress < 0.5
     ? 2 * laptopProgress * laptopProgress
     : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
-  // Camera Y is ALWAYS at the laptop's bounding box center.
-  // The laptop is always dead center vertically — no Y interpolation.
-  // Only zoom (Z) and rotation animate.
-  const camY = center.y;
-  const lookY = center.y;
-  const startCamZ = 14;
-  const endCamZ = 8;
-  const camZ = startCamZ + (endCamZ - startCamZ) * eased;
+  // Phase 2 ease (zoom + tilt)
+  const zE = zoomProgress < 0.5
+    ? 2 * zoomProgress * zoomProgress
+    : 1 - Math.pow(-2 * zoomProgress + 2, 2) / 2;
+
+  // Spin phase: camera pulls in, laptop rotates
+  const spinCamZ = 14 + (8 - 14) * eased;
+
+  // Zoom phase: camera moves closer + up, laptop tilts upright
+  const camZ = spinCamZ + (3.5 - 8) * zE;
+  const camY = center.y + 0.6 * zE;
+  const lookY = center.y + 0.3 * zE;
 
   overlayCamera.position.set(0, camY, camZ);
   overlayCamera.lookAt(0, lookY, 0);
 
-  // Rotate: 0 at start (back facing), PI at end (screen facing)
+  // Rotate Y: 0 → PI (spin). Rotate X: 0 → -0.55 (tilt screen upright)
   overlayLaptopNode.rotation.y = eased * Math.PI;
+  overlayLaptopNode.rotation.x = -0.55 * zE;
 }
 
 function animate() {
