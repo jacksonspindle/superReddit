@@ -1035,12 +1035,12 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll-driven laptop animation (Apple-style) ──
-// The demo section is 300vh tall. Animation progress = how far through
-// the demo section the user has scrolled. The tall section IS the speed
-// limit — no wheel event hacking needed. Works with trackpad, mouse,
-// keyboard, scrollbar, and momentum scrolling.
-let laptopProgress = 0;
+// ── Scroll-driven laptop animation (Apple-style with lerp smoothing) ──
+// Scroll sets a TARGET progress, the render loop lerps toward it.
+// This guarantees buttery-smooth animation regardless of scroll speed.
+let laptopTargetProgress = 0;   // set instantly by scroll
+let laptopProgress = 0;         // lerped toward target each frame
+const LAPTOP_LERP_SPEED = 0.08; // lower = smoother/slower (0.05–0.12 sweet spot)
 
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
@@ -1064,17 +1064,14 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // ── Progress: scroll fraction through the demo section ──
-  // progress=0 when demo section top reaches 80% of viewport (animation starts)
-  // progress=1 when user has scrolled 1.8 viewport heights into the demo section
-  // This gives a smooth, cinematic pace over a long scroll distance.
+  // ── Target progress: scroll fraction through the demo section ──
   const demoTop = demoRect.top;
-  const startThreshold = viewH * 0.8;   // demo top at 80% of viewport
-  const scrollDistance = viewH * 1.8;    // animation plays over 1.8 viewport heights
+  const startThreshold = viewH * 0.8;
+  const scrollDistance = viewH * 1.8;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
-  laptopProgress = Math.max(0, Math.min(1, rawProgress));
+  laptopTargetProgress = Math.max(0, Math.min(1, rawProgress));
 
-  const shouldHandoff = laptopProgress > 0.01;
+  const shouldHandoff = laptopTargetProgress > 0.01;
 
   if (heroLaptopNode && overlayReady) {
     heroLaptopNode.visible = !shouldHandoff;
@@ -1088,8 +1085,8 @@ window.addEventListener('scroll', () => {
       overlayCanvas.style.display = 'none';
     }
 
-    // Sticky: when animation complete, scroll laptop with demo section
-    if (laptopProgress >= 1.0 && demoRect.top < 0) {
+    // Sticky: when animation complete and scrolling past, move canvas with section
+    if (laptopProgress >= 0.99 && demoRect.top < 0) {
       overlayCanvas.style.transform = `translateY(${demoRect.top}px)`;
     } else {
       overlayCanvas.style.transform = 'none';
@@ -1097,52 +1094,60 @@ window.addEventListener('scroll', () => {
   }
   overlayActive = shouldHandoff && demoRect.bottom >= 0;
 
-  // Show "See it in action" text when animation is mostly complete
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
     demoText.classList.toggle('visible', laptopProgress > 0.85);
   }
 }, { passive: true });
 
-// Called every frame from animate() — applies current progress to camera/laptop
+// Called every frame from animate()
 function updateLaptopAnimation() {
+  // Lerp progress toward target every frame — this is the smoothing
+  laptopProgress += (laptopTargetProgress - laptopProgress) * LAPTOP_LERP_SPEED;
+  // Snap when very close to avoid infinite drift
+  if (Math.abs(laptopProgress - laptopTargetProgress) < 0.001) {
+    laptopProgress = laptopTargetProgress;
+  }
+
   if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
   const eased = laptopProgress < 0.5
     ? 2 * laptopProgress * laptopProgress
     : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
-  // Get the laptop's actual world-space center position
-  const laptopWorldPos = new THREE.Vector3();
-  overlayLaptopNode.getWorldPosition(laptopWorldPos);
+  // ── Camera end state: laptop perfectly centered vertically ──
+  // The overlay camera at Z=8, looking straight ahead at the laptop.
+  // We DON'T use getWorldPosition for the end Y because that gives
+  // the laptop's anchor point which isn't its visual center on screen.
+  // Instead we use fixed values tuned so the laptop sits at dead center.
+  const endCamY = 3.0;   // camera Y at end — level with laptop visual center
+  const endLookY = 3.0;  // look at same Y — keeps laptop centered
+  const endCamZ = 8;     // zoom in
 
-  // Once animation is complete, lock camera at final position
-  if (laptopProgress >= 1.0) {
-    overlayCamera.position.set(0, laptopWorldPos.y, 8);
-    overlayCamera.lookAt(0, laptopWorldPos.y, 0);
-    overlayLaptopNode.rotation.y = Math.PI;
-    return;
+  // ── Camera start state: match hero camera exactly ──
+  // Hero camera: position(0, 1.5, 14) lookAt(0, 3.0, 0)
+  // The hero canvas has CSS translateY(12%), shifting it down in the viewport.
+  // We account for this by computing a dynamic Y offset from the hero's
+  // actual position on screen.
+  const heroSection = document.querySelector('.hero');
+  const viewH = window.innerHeight;
+  let startCamY = 1.5;
+  let startLookY = 3.0;
+
+  if (heroSection) {
+    const heroRect = heroSection.getBoundingClientRect();
+    const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
+    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units
+    const dynamicShift = (heroCanvasTopPx / viewH) * visH;
+    startCamY = 1.5 + dynamicShift;
+    startLookY = 3.0 + dynamicShift;
   }
 
-  // ── Dynamic camera offset: match hero canvas viewport position ──
-  const heroSection = document.querySelector('.hero');
-  if (!heroSection) return;
-  const heroRect = heroSection.getBoundingClientRect();
-  const viewH = window.innerHeight;
-  const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
-  const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
-  const dynamicShift = (heroCanvasTopPx / viewH) * visH;
+  const startCamZ = 14;
 
-  const startCamY = 1.5 + dynamicShift;
-  const startLookY = 3.0 + dynamicShift;
-  const endCamY = laptopWorldPos.y;
-  const endLookY = laptopWorldPos.y;
-
+  // Interpolate from start to end
   const camY = startCamY + (endCamY - startCamY) * eased;
   const lookY = startLookY + (endLookY - startLookY) * eased;
-
-  const startCamZ = 14;
-  const endCamZ = 8;
   const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
   overlayCamera.position.set(0, camY, camZ);
