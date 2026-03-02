@@ -60,7 +60,7 @@
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
   .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); overflow: hidden; }
-  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 32px 0 0; }
+  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
   #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
@@ -1262,7 +1262,7 @@ function showFlatVideo() {
 
     // Trim empty space below the video+text so there's no white gap before Features
     const textHeight = 120; // approximate height for "See it in action" text block
-    const sectionEnd = videoCenterY + (videoH / 2) + 32 + textHeight + 64;
+    const sectionEnd = videoCenterY + (videoH / 2) + 12 + textHeight + 40;
     demoSection.style.minHeight = sectionEnd + 'px';
   }
 
@@ -1280,7 +1280,7 @@ function showFlatVideo() {
     const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
 
     text.style.position = 'absolute';
-    text.style.top = (videoCenterY + videoH / 2 + 32) + 'px';
+    text.style.top = (videoCenterY + videoH / 2 + 12) + 'px';
     text.style.left = '0';
     text.style.right = '0';
     text.style.opacity = '1';
@@ -1326,7 +1326,7 @@ function hideFlatVideo() {
 
 // ── Scroll listener ──
 let prevScrollY = 0;
-let upScrollAnchor = -1; // scrollY where upward scrolling began
+let upScrollStart = 0; // timestamp when upward scrolling began
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1345,17 +1345,17 @@ window.addEventListener('scroll', () => {
   }
 
   // If flat video is showing, scrolling back up reverses to 3D.
-  // Buffer: user must scroll up 150px before triggering, so small scrolls
-  // (e.g. reaching for the play button) don't snap back to the 3D animation.
+  // Time-based buffer: user must sustain upward scrolling for 400ms so
+  // quick flicks or small adjustments don't snap back to the 3D animation.
   if (flatVideoShown) {
     if (window.scrollY < prevScrollY) {
-      if (upScrollAnchor < 0) upScrollAnchor = prevScrollY;
-      if (upScrollAnchor - window.scrollY > 150) {
+      if (!upScrollStart) upScrollStart = performance.now();
+      if (performance.now() - upScrollStart > 1000) {
         hideFlatVideo();
-        upScrollAnchor = -1;
+        upScrollStart = 0;
       }
     } else {
-      upScrollAnchor = -1; // reset when scrolling down
+      upScrollStart = 0; // reset when scrolling down
     }
     prevScrollY = window.scrollY;
     return;
