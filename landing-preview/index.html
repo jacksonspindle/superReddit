@@ -1035,32 +1035,21 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll-driven laptop animation with speed cap ──
-let laptopTargetProgress = 0;
-let laptopCurrentProgress = 0;
-const LAPTOP_MAX_DELTA = 1.0 / 90;
+// ── Scroll-driven laptop animation — direct 1:1 scroll tracking ──
+// Animation progress is computed directly from scroll position every frame.
+// The wheel event limiter caps how fast the page can scroll through the
+// animation zone, which automatically caps the animation speed too.
+// One system, perfectly matched.
+let laptopProgress = 0; // current progress, updated directly from scroll
 
 // ── Limit page scroll speed through the animation zone ──
-// Intercept wheel events and cap the scroll delta so the page can't
-// fly past the animation faster than the laptop can keep up.
-const MAX_SCROLL_PX = 60; // max pixels per wheel event in the animation zone
+const MAX_SCROLL_PX = 40; // max pixels per wheel event in the animation zone
 window.addEventListener('wheel', (e) => {
-  const heroSection = document.querySelector('.hero');
-  if (!heroSection) return;
-  const heroRect = heroSection.getBoundingClientRect();
-  const viewH = window.innerHeight;
-  const heroBottomRatio = heroRect.bottom / viewH;
-
-  // Only limit scrolling in the animation zone (when animation is active)
-  const inAnimZone = heroBottomRatio < 0.85 && heroBottomRatio > 0.0;
-  // Also limit when animation is still catching up (current behind target)
-  const animCatchingUp = laptopCurrentProgress > 0.01 && laptopCurrentProgress < 0.99;
-
-  if (inAnimZone || animCatchingUp) {
+  // Check if we're in the animation zone
+  if (laptopProgress > 0.01 && laptopProgress < 0.99) {
     const absDelta = Math.abs(e.deltaY);
     if (absDelta > MAX_SCROLL_PX) {
       e.preventDefault();
-      // Scroll by capped amount in the same direction
       window.scrollBy(0, Math.sign(e.deltaY) * MAX_SCROLL_PX);
     }
   }
@@ -1088,14 +1077,13 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // Set target progress — the animate loop will move toward it at capped speed
+  // ── Progress: directly from scroll position, no lag ──
   const animStart = 0.8;
   const animEnd = 0.35;
   const rawProgress = (animStart - heroBottomRatio) / (animStart - animEnd);
-  laptopTargetProgress = Math.max(0, Math.min(1, rawProgress));
+  laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
-  // Handoff (show/hide) must be immediate so there's no frame without a laptop
-  const shouldHandoff = laptopTargetProgress > 0.01 || laptopCurrentProgress > 0.01;
+  const shouldHandoff = laptopProgress > 0.01;
 
   if (heroLaptopNode && overlayReady) {
     heroLaptopNode.visible = !shouldHandoff;
@@ -1103,16 +1091,14 @@ window.addEventListener('scroll', () => {
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
-    // Show overlay when animation is active
     if (shouldHandoff && demoRect.bottom >= 0) {
       overlayCanvas.style.display = 'block';
-    } else if (!shouldHandoff || demoRect.bottom < 0) {
+    } else {
       overlayCanvas.style.display = 'none';
     }
 
-    // ── Sticky behavior: when animation complete, scroll laptop with demo section ──
-    if (laptopCurrentProgress >= 1.0 && demoRect.top < 0) {
-      // Demo section is scrolling off — move the fixed canvas up with it
+    // Sticky: when animation complete, scroll laptop with demo section
+    if (laptopProgress >= 1.0 && demoRect.top < 0) {
       overlayCanvas.style.transform = `translateY(${demoRect.top}px)`;
     } else {
       overlayCanvas.style.transform = 'none';
@@ -1123,33 +1109,24 @@ window.addEventListener('scroll', () => {
   // Show "See it in action" text when animation is mostly complete
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
-    demoText.classList.toggle('visible', laptopCurrentProgress > 0.85);
+    demoText.classList.toggle('visible', laptopProgress > 0.85);
   }
 }, { passive: true });
 
-// Called every frame from animate() to smoothly update laptop position
+// Called every frame from animate() — applies current progress to camera/laptop
 function updateLaptopAnimation() {
   if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
-  // Move toward target at capped speed — same cap for forward and reverse
-  const diff = laptopTargetProgress - laptopCurrentProgress;
-  if (Math.abs(diff) < 0.001) {
-    laptopCurrentProgress = laptopTargetProgress;
-  } else {
-    const step = Math.sign(diff) * Math.min(Math.abs(diff), LAPTOP_MAX_DELTA);
-    laptopCurrentProgress += step;
-  }
-
-  const eased = laptopCurrentProgress < 0.5
-    ? 2 * laptopCurrentProgress * laptopCurrentProgress
-    : 1 - Math.pow(-2 * laptopCurrentProgress + 2, 2) / 2;
+  const eased = laptopProgress < 0.5
+    ? 2 * laptopProgress * laptopProgress
+    : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
   // Get the laptop's actual world-space center position
   const laptopWorldPos = new THREE.Vector3();
   overlayLaptopNode.getWorldPosition(laptopWorldPos);
 
   // Once animation is complete, lock camera at final position
-  if (laptopCurrentProgress >= 1.0) {
+  if (laptopProgress >= 1.0) {
     overlayCamera.position.set(0, laptopWorldPos.y, 8);
     overlayCamera.lookAt(0, laptopWorldPos.y, 0);
     overlayLaptopNode.rotation.y = Math.PI;
@@ -1165,11 +1142,8 @@ function updateLaptopAnimation() {
   const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
   const dynamicShift = (heroCanvasTopPx / viewH) * visH;
 
-  // Start: camera tracks hero canvas position
   const startCamY = 1.5 + dynamicShift;
   const startLookY = 3.0 + dynamicShift;
-
-  // End: camera looks directly at the laptop's world center (guarantees screen center)
   const endCamY = laptopWorldPos.y;
   const endLookY = laptopWorldPos.y;
 
