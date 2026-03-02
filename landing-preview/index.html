@@ -59,8 +59,8 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); overflow: hidden; }
-  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 32px 0 0; }
+  .laptop-demo { position: relative; min-height: 120vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 26%); overflow: hidden; }
+  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
   #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
@@ -69,6 +69,7 @@
   #flat-video-container .unmute-prompt { position: absolute; bottom: 16px; right: 16px; background: rgba(0,0,0,0.7); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; z-index: 2; }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
+  #scroll-video-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; display: none; }
   #laptop-light-rays {
     position: fixed;
     bottom: 5%; left: 50%;
@@ -148,6 +149,7 @@
 
 
 <div id="laptop-light-rays"></div>
+<canvas id="scroll-video-canvas"></canvas>
 
 <section class="laptop-demo" id="laptop-demo">
   <div id="flat-video-wrap">
@@ -212,6 +214,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ── Feature flag: scroll-driven pre-rendered frames vs real-time 3D overlay ──
+const USE_SCROLL_VIDEO = true;
 
 // ── Renderer — ACES Filmic, shadows, physically correct ──
 const container = document.getElementById('three-container');
@@ -942,7 +947,7 @@ loader.load('./scene.gltf', (gltf) => {
   window._updateLabels = null;
 
   // Set up fixed overlay canvas for laptop transition
-  setupOverlayCanvas();
+  if (!USE_SCROLL_VIDEO) setupOverlayCanvas();
 }, undefined, (err) => {
   console.error('GLTF load error:', err);
 });
@@ -956,7 +961,95 @@ let overlayRenderer, overlayScene, overlayCamera, overlayLaptopNode;
 let overlayReady = false;
 let overlayActive = false; // true once handoff from hero laptop occurs
 
+// ── Scroll-Driven Video Player (USE_SCROLL_VIDEO mode) ──
+const scrollFrames = []; // Image objects for each frame
+let scrollFramesLoaded = 0;
+const SCROLL_FRAME_COUNT = 120;
+let scrollCanvasCtx = null;
+
+if (USE_SCROLL_VIDEO) {
+  const scrollCanvas = document.getElementById('scroll-video-canvas');
+  if (scrollCanvas) {
+    // Set canvas internal resolution to match viewport
+    scrollCanvas.width = window.innerWidth * window.devicePixelRatio;
+    scrollCanvas.height = window.innerHeight * window.devicePixelRatio;
+    scrollCanvasCtx = scrollCanvas.getContext('2d');
+  }
+
+  // Check WebP support
+  function supportsWebP() {
+    const c = document.createElement('canvas');
+    c.width = 1; c.height = 1;
+    return c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  }
+  const ext = supportsWebP() ? 'webp' : 'png';
+
+  // Preload first 10 frames immediately (critical path)
+  for (let i = 0; i < SCROLL_FRAME_COUNT; i++) {
+    const img = new Image();
+    scrollFrames.push(img);
+  }
+
+  function loadFrame(i) {
+    return new Promise((resolve) => {
+      const img = scrollFrames[i];
+      img.onload = () => { scrollFramesLoaded++; resolve(); };
+      img.onerror = () => {
+        // Try PNG fallback if WebP failed
+        if (ext === 'webp') {
+          img.onload = () => { scrollFramesLoaded++; resolve(); };
+          img.onerror = () => { scrollFramesLoaded++; resolve(); }; // skip broken frame
+          img.src = `./frames/frame-${String(i).padStart(3, '0')}.png`;
+        } else {
+          scrollFramesLoaded++;
+          resolve();
+        }
+      };
+      img.src = `./frames/frame-${String(i).padStart(3, '0')}.${ext}`;
+    });
+  }
+
+  // Load first 10 immediately, rest via requestIdleCallback
+  (async () => {
+    // Critical path: first 10 frames
+    const critical = [];
+    for (let i = 0; i < Math.min(10, SCROLL_FRAME_COUNT); i++) {
+      critical.push(loadFrame(i));
+    }
+    await Promise.all(critical);
+    console.log('Scroll video: first 10 frames loaded');
+
+    // Background: remaining frames
+    let nextFrame = 10;
+    function loadNextBatch(deadline) {
+      while (nextFrame < SCROLL_FRAME_COUNT && (deadline.timeRemaining() > 5 || deadline.didTimeout)) {
+        loadFrame(nextFrame);
+        nextFrame++;
+      }
+      if (nextFrame < SCROLL_FRAME_COUNT) {
+        requestIdleCallback(loadNextBatch, { timeout: 200 });
+      } else {
+        console.log('Scroll video: all frames loaded');
+      }
+    }
+    if (nextFrame < SCROLL_FRAME_COUNT) {
+      requestIdleCallback(loadNextBatch, { timeout: 200 });
+    }
+  })();
+
+  // Resize handler for scroll canvas
+  window.addEventListener('resize', () => {
+    const sc = document.getElementById('scroll-video-canvas');
+    if (sc) {
+      sc.width = window.innerWidth * window.devicePixelRatio;
+      sc.height = window.innerHeight * window.devicePixelRatio;
+      scrollCanvasCtx = sc.getContext('2d');
+    }
+  });
+}
+
 function setupOverlayCanvas() {
+  if (USE_SCROLL_VIDEO) return; // no-op when using scroll video
   const w = window.innerWidth;
   const h = window.innerHeight;
 
@@ -1165,9 +1258,10 @@ let flatVideoShown = false;
 
 // ── Project a laptop-local screen point into viewport coords each frame ──
 function updateFlatVideoPlacement() {
+  if (USE_SCROLL_VIDEO) return;
   if (!overlayLaptopNode || !overlayReady || !overlayCamera) return;
   const wrap = document.getElementById('flat-video-wrap');
-  if (!wrap || flatVideoShown) return;
+  if (!wrap || flatVideoShown || snapCooldown || !overlayActive) return;
 
   const screenVerts = window._screenFaceVerts;
   const sMesh = window._overlayScreenMesh;
@@ -1218,6 +1312,7 @@ function updateFlatVideoPlacement() {
 }
 
 function showFlatVideo() {
+  if (USE_SCROLL_VIDEO) return;
   flatVideoShown = true;
   overlayActive = false;
 
@@ -1234,24 +1329,23 @@ function showFlatVideo() {
   const rays = document.getElementById('laptop-light-rays');
   if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
 
-  // Place video at the user's current scroll position within the demo section
+  // Place video at a fixed position within the demo section — centered in the
+  // first viewport-height. The animation completes when demoRect.top ≈ 0,
+  // so this always appears centered in the viewport at handoff.
   const wrap = document.getElementById('flat-video-wrap');
   const demoSection = document.getElementById('laptop-demo');
   if (wrap && demoSection) {
-    const demoTop = demoSection.offsetTop;
     const viewH = window.innerHeight;
-    const sr = window._screenRect;
-    const videoW = sr ? sr.width : viewH * 0.6 * (16/9);
-    const videoH = sr ? sr.height : viewH * 0.6;
-
-    // Place video at the Y position within the demo section that aligns
-    // with the center of the viewport at the current scroll position
-    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+    // Always use viewport-based dimensions with 16:9 aspect ratio.
+    // The projected _screenRect is unreliable during fast scrolling.
+    const videoH = viewH * 0.6;
+    const videoW = videoH * (16/9);
+    const videoTop = (viewH - videoH) / 2;
 
     wrap.style.cssText = `
       display: block;
       position: absolute;
-      top: ${videoCenterY - (videoH / 2)}px;
+      top: ${videoTop}px;
       left: 50%;
       transform: translateX(-50%);
       width: ${videoW}px;
@@ -1260,10 +1354,6 @@ function showFlatVideo() {
       pointer-events: auto;
     `;
 
-    // Trim empty space below the video+text so there's no white gap before Features
-    const textHeight = 120; // approximate height for "See it in action" text block
-    const sectionEnd = videoCenterY + (videoH / 2) + 32 + textHeight + 64;
-    demoSection.style.minHeight = sectionEnd + 'px';
   }
 
   // Autoplay video
@@ -1272,15 +1362,13 @@ function showFlatVideo() {
 
   // Show demo text below the video
   const text = document.getElementById('laptop-demo-text');
-  if (text && demoSection) {
-    const demoTop = demoSection.offsetTop;
+  if (text) {
     const viewH = window.innerHeight;
-    const sr = window._screenRect;
-    const videoH = sr ? sr.height : viewH * 0.6;
-    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+    const videoH = viewH * 0.6;
+    const videoTop = (viewH - videoH) / 2;
 
     text.style.position = 'absolute';
-    text.style.top = (videoCenterY + videoH / 2 + 32) + 'px';
+    text.style.top = (videoTop + videoH + 12) + 'px';
     text.style.left = '0';
     text.style.right = '0';
     text.style.opacity = '1';
@@ -1288,7 +1376,37 @@ function showFlatVideo() {
   }
 }
 
+// Cooldown: after snap-out, prevent showFlatVideo re-triggering until reset
+let snapCooldown = false;
+
+// Fast escape: skip reverse animation entirely, let scroll momentum carry to top
+function snapOutOfFlatVideo() {
+  if (USE_SCROLL_VIDEO) return;
+  flatVideoShown = false;
+  overlayActive = false;
+  snapCooldown = true;
+
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) { canvas.style.display = 'none'; canvas.style.opacity = '0'; canvas.style.transform = 'none'; }
+
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap) { wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;'; }
+
+  if (window._orangeSpotlight) window._orangeSpotlight.intensity = 0;
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
+  if (heroLaptopNode) heroLaptopNode.visible = true;
+
+  const video = document.getElementById('demo-video-player');
+  if (video) video.pause();
+
+  const text = document.getElementById('laptop-demo-text');
+  if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
+}
+
 function hideFlatVideo() {
+  if (USE_SCROLL_VIDEO) return;
   flatVideoShown = false;
   overlayActive = true;
 
@@ -1307,7 +1425,6 @@ function hideFlatVideo() {
   // The overlay canvas covers the viewport, so the scroll jump is invisible.
   const demoSection = document.getElementById('laptop-demo');
   if (demoSection) {
-    demoSection.style.minHeight = '200vh';
     const viewH = window.innerHeight;
     // progress = (0.8*viewH - demoRect.top) / (0.8*viewH)
     // demoRect.top = demoSection.offsetTop - scrollY
@@ -1324,8 +1441,218 @@ function hideFlatVideo() {
   if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
 }
 
-// ── Scroll listener ──
+// ── Scroll-Driven Video Player (new system) ──
+if (USE_SCROLL_VIDEO) {
+  // On page load/refresh, reset to top so the animation starts clean.
+  // Browsers restore scroll position on refresh, which would put us in the
+  // middle/end of the animation with no frames rendered yet.
+  if (window.scrollY > 0) {
+    window.scrollTo(0, 0);
+  }
+  // Screen rect fractions from capture tool (progress=1.0) — used for video sizing
+  const SCREEN_WIDTH_FRAC = 0.4670;
+  const SCREEN_HEIGHT_FRAC = 0.5906;
+  const SCREEN_TOP_FRAC = 0.2047;
+
+  // Lock zone: once video appears, small scroll-ups don't reverse the animation.
+  // Only unlocks when scrollProgress drops below this threshold.
+  let videoLocked = false;
+  const VIDEO_UNLOCK_THRESHOLD = 0.80;
+
+  window.addEventListener('scroll', () => {
+    const heroSection = document.querySelector('.hero');
+    const demoSection = document.getElementById('laptop-demo');
+    if (!heroSection || !demoSection) return;
+
+    const heroRect = heroSection.getBoundingClientRect();
+    const demoRect = demoSection.getBoundingClientRect();
+    const viewH = window.innerHeight;
+    const heroBottomRatio = heroRect.bottom / viewH;
+
+    // Hide scroll hint
+    const heroHint = document.querySelector('.hero-scroll-hint');
+    if (heroHint) {
+      const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
+      heroHint.style.opacity = 1 - hintFade;
+    }
+
+    // Same progress formula as original
+    const demoTop = demoRect.top;
+    const startThreshold = viewH * 0.8;
+    const scrollDistance = viewH * 0.8;
+    const rawProgress = (startThreshold - demoTop) / scrollDistance;
+    const scrollProgress = Math.max(0, Math.min(1, rawProgress));
+
+    // Lock/unlock logic
+    if (scrollProgress >= 0.99) {
+      videoLocked = true;
+    }
+    if (videoLocked && scrollProgress < VIDEO_UNLOCK_THRESHOLD) {
+      videoLocked = false;
+    }
+
+    // While locked, keep showing the video + text — skip all frame/canvas logic
+    if (videoLocked) {
+      const scrollCanvas = document.getElementById('scroll-video-canvas');
+      if (scrollCanvas) { scrollCanvas.style.display = 'none'; scrollCanvas.style.opacity = '0'; }
+      if (heroLaptopNode) heroLaptopNode.visible = false;
+      const rays = document.getElementById('laptop-light-rays');
+      if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
+      // Ensure video + text are positioned (they may not have been set yet)
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const videoW = vw * SCREEN_WIDTH_FRAC;
+      const videoH = vh * SCREEN_HEIGHT_FRAC;
+      const videoTop = vh * SCREEN_TOP_FRAC;
+      const wrap = document.getElementById('flat-video-wrap');
+      if (wrap && wrap.style.display !== 'block') {
+        wrap.style.cssText = `
+          display: block; position: absolute;
+          top: ${videoTop}px; left: 50%; transform: translateX(-50%);
+          width: ${videoW}px; height: ${videoH}px;
+          z-index: 10; pointer-events: auto;
+        `;
+        const video = document.getElementById('demo-video-player');
+        if (video && video.paused) video.play().catch(() => {});
+      }
+      const text = document.getElementById('laptop-demo-text');
+      if (text && text.style.opacity !== '1') {
+        text.style.position = 'absolute';
+        text.style.top = (videoTop + videoH + 16) + 'px';
+        text.style.left = '0';
+        text.style.right = '0';
+        text.style.opacity = '1';
+        text.style.pointerEvents = 'auto';
+      }
+      return;
+    }
+
+    // Compute frame index
+    const frameIndex = Math.min(SCROLL_FRAME_COUNT - 1, Math.floor(scrollProgress * SCROLL_FRAME_COUNT));
+
+    // Scroll canvas visibility + opacity
+    const scrollCanvas = document.getElementById('scroll-video-canvas');
+    if (!scrollCanvas || !scrollCanvasCtx) return;
+
+    const shouldShow = scrollProgress > 0.05 && scrollProgress < 1;
+
+    // Hero laptop visibility: hidden as soon as scroll canvas takes over
+    if (heroLaptopNode) heroLaptopNode.visible = !shouldShow;
+
+    // Show scroll canvas: fade in at start, hold through end (no fade-out — video appears behind)
+    const frameReady = scrollFrames[frameIndex] && scrollFrames[frameIndex].complete && scrollFrames[frameIndex].naturalWidth > 0;
+
+    if (shouldShow && frameReady) {
+      // Fade in: 0.05 → 0.12
+      let canvasOpacity = 1;
+      if (scrollProgress < 0.12) {
+        canvasOpacity = (scrollProgress - 0.05) / 0.07;
+      }
+
+      // Once video is showing (>= 0.99), hide canvas to reveal the video underneath
+      if (scrollProgress >= 0.99) {
+        scrollCanvas.style.display = 'none';
+        scrollCanvas.style.opacity = '0';
+      } else {
+        scrollCanvas.style.display = 'block';
+        scrollCanvas.style.opacity = String(canvasOpacity);
+
+        // Draw frame
+        scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+        scrollCanvasCtx.drawImage(scrollFrames[frameIndex], 0, 0, scrollCanvas.width, scrollCanvas.height);
+      }
+    } else if (!shouldShow) {
+      scrollCanvas.style.display = 'none';
+      scrollCanvas.style.opacity = '0';
+    }
+
+    // CSS floor glow (#laptop-light-rays) — same timing as original
+    let zoomProgress = 0;
+    if (scrollProgress > 0.7) {
+      zoomProgress = Math.min(1, (scrollProgress - 0.7) / 0.3);
+    }
+    const spotIntensityMax = 40;
+    let spotT = 0;
+    if (scrollProgress > 0.25 && scrollProgress < 1.0) {
+      spotT = 1;
+      if (scrollProgress < 0.4) {
+        spotT = (scrollProgress - 0.25) / 0.15;
+      } else if (scrollProgress > 0.7) {
+        spotT = 1 - zoomProgress;
+      }
+    }
+    const rays = document.getElementById('laptop-light-rays');
+    if (rays) {
+      if (spotT > 0) {
+        rays.style.display = 'block';
+        rays.style.opacity = String(spotT);
+      } else {
+        rays.style.display = 'none';
+        rays.style.opacity = '0';
+      }
+    }
+
+    // At animation end: show flat video + demo text matching the screen rect from last frame
+    const wrap = document.getElementById('flat-video-wrap');
+    const text = document.getElementById('laptop-demo-text');
+    const viewHForVideo = window.innerHeight;
+    const viewWForVideo = window.innerWidth;
+
+    if (scrollProgress >= 0.95) {
+      // Position flat video to exactly match the laptop screen in the last frame.
+      // Show it early (0.95) so it's ready behind the scroll canvas before canvas hides at 0.99.
+      const videoW = viewWForVideo * SCREEN_WIDTH_FRAC;
+      const videoH = viewHForVideo * SCREEN_HEIGHT_FRAC;
+      const videoTop = viewHForVideo * SCREEN_TOP_FRAC;
+
+      if (wrap) {
+        wrap.style.cssText = `
+          display: block;
+          position: absolute;
+          top: ${videoTop}px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: ${videoW}px;
+          height: ${videoH}px;
+          z-index: 10;
+          pointer-events: auto;
+        `;
+        const video = document.getElementById('demo-video-player');
+        if (video && video.paused) video.play().catch(() => {});
+      }
+
+      // Text appears slightly later, once video is fully revealed
+      if (text) {
+        if (scrollProgress >= 0.99) {
+          text.style.position = 'absolute';
+          text.style.top = (videoTop + videoH + 16) + 'px';
+          text.style.left = '0';
+          text.style.right = '0';
+          text.style.opacity = '1';
+          text.style.pointerEvents = 'auto';
+        } else {
+          text.style.opacity = '0';
+          text.style.pointerEvents = 'none';
+        }
+      }
+    } else {
+      if (wrap) {
+        wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
+      }
+      if (text) {
+        text.style.opacity = '0';
+        text.style.pointerEvents = 'none';
+      }
+    }
+  }, { passive: true });
+}
+
+// ── Old Scroll Listener (real-time 3D overlay system) ──
+if (!USE_SCROLL_VIDEO) {
 let prevScrollY = 0;
+let upScrollStart = 0;
+let upScrollAnchor = -1;
+let lastScrollTime = 0;
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1336,39 +1663,65 @@ window.addEventListener('scroll', () => {
   const viewH = window.innerHeight;
   const heroBottomRatio = heroRect.bottom / viewH;
 
-  // Hide scroll hint
   const heroHint = document.querySelector('.hero-scroll-hint');
   if (heroHint) {
     const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // If flat video is showing, scrolling back up reverses to 3D
   if (flatVideoShown) {
-    if (window.scrollY < prevScrollY && demoRect.top >= -viewH * 0.5) {
-      hideFlatVideo();
+    const now = performance.now();
+    const dt = now - lastScrollTime;
+    lastScrollTime = now;
+    const scrollDelta = prevScrollY - window.scrollY;
+    const velocity = dt > 0 ? (scrollDelta / dt) * 1000 : 0;
+
+    if (velocity > 3000) {
+      snapOutOfFlatVideo();
+      upScrollStart = 0;
+      upScrollAnchor = -1;
+      prevScrollY = window.scrollY;
+      return;
+    }
+
+    if (demoRect.top > viewH * 0.5) {
+      snapOutOfFlatVideo();
+      upScrollStart = 0;
+      upScrollAnchor = -1;
+    } else if (window.scrollY < prevScrollY) {
+      if (!upScrollStart) {
+        upScrollStart = performance.now();
+        upScrollAnchor = prevScrollY;
+      }
+      const elapsed = performance.now() - upScrollStart;
+      const distance = upScrollAnchor - window.scrollY;
+      if (elapsed > 1000 && distance > 150) {
+        hideFlatVideo();
+        upScrollStart = 0;
+        upScrollAnchor = -1;
+      }
+    } else {
+      upScrollStart = 0;
+      upScrollAnchor = -1;
     }
     prevScrollY = window.scrollY;
     return;
   }
   prevScrollY = window.scrollY;
+  lastScrollTime = performance.now();
 
-  // ── Laptop progress: drives both spin (0→0.7) and zoom (0.7→1.0) ──
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
   const scrollDistance = viewH * 0.8;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
-  // Compute zoom from the tail end of laptopProgress
-  // Zoom starts at laptopProgress 0.7 and reaches 1.0 at laptopProgress 1.0
   if (laptopProgress > 0.7) {
     zoomProgress = Math.min(1, (laptopProgress - 0.7) / 0.3);
   } else {
     zoomProgress = 0;
   }
 
-  // Orange spotlight — drive real Three.js light + CSS floor glow
   const spotIntensityMax = 40;
   let spotT = 0;
   if (laptopProgress > 0.25 && laptopProgress < 1.0 && !flatVideoShown) {
@@ -1393,7 +1746,6 @@ window.addEventListener('scroll', () => {
     }
   }
 
-  // Overlay visibility
   const shouldShowOverlay = laptopProgress > 0.05 && !flatVideoShown;
   if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay && !flatVideoShown;
 
@@ -1401,7 +1753,6 @@ window.addEventListener('scroll', () => {
   if (overlayCanvas && !flatVideoShown) {
     if (shouldShowOverlay) {
       overlayCanvas.style.display = 'block';
-      // Crossfade window: zoomProgress 0.85 → 1.0 fades out canvas
       if (zoomProgress > 0.85) {
         const crossfade = (zoomProgress - 0.85) / 0.15;
         overlayCanvas.style.opacity = String(1 - crossfade);
@@ -1414,34 +1765,38 @@ window.addEventListener('scroll', () => {
     }
   }
 
-  // Crossfade: show flat video wrap during crossfade window
   const wrap = document.getElementById('flat-video-wrap');
-  if (wrap && !flatVideoShown) {
+  if (wrap && !flatVideoShown && !snapCooldown) {
     if (zoomProgress > 0.85) {
       const crossfade = (zoomProgress - 0.85) / 0.15;
       wrap.style.opacity = String(crossfade);
+    } else {
+      wrap.style.opacity = '0';
     }
   }
 
-  // Transition complete → hand off to flat video
-  if (zoomProgress >= 1.0 && !flatVideoShown) {
+  if (snapCooldown && laptopProgress < 0.05) {
+    snapCooldown = false;
+  }
+
+  if (zoomProgress >= 1.0 && !flatVideoShown && !snapCooldown && demoRect.top < viewH * 0.3) {
     showFlatVideo();
   }
 
   overlayActive = !flatVideoShown && shouldShowOverlay && demoRect.bottom >= 0;
 }, { passive: true });
+} // end if (!USE_SCROLL_VIDEO)
 
 // Called every frame from animate()
 function updateLaptopAnimation() {
+  if (USE_SCROLL_VIDEO) return; // no-op when using scroll video
   if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
   const center = window._laptopCenter;
   if (!center) return;
 
-  // ── Split progress: spin uses 0→0.7, zoom uses 0.7→1.0 ──
   const spinProgress = Math.min(1, laptopProgress / 0.7);
 
-  // Ease functions
   const eased = spinProgress < 0.5
     ? 2 * spinProgress * spinProgress
     : 1 - Math.pow(-2 * spinProgress + 2, 2) / 2;
@@ -1450,10 +1805,7 @@ function updateLaptopAnimation() {
     ? 2 * zoomProgress * zoomProgress
     : 1 - Math.pow(-2 * zoomProgress + 2, 2) / 2;
 
-  // Spin: camera pulls from Z=14 to Z=8
   const spinCamZ = 14 + (8 - 14) * eased;
-
-  // Zoom: blend toward target Z=5 using zoomProgress
   const zoomCamZ = 5;
   const camZ = spinCamZ + (zoomCamZ - spinCamZ) * zE;
   const camY = center.y;
@@ -1462,12 +1814,9 @@ function updateLaptopAnimation() {
   overlayCamera.position.set(0, camY, camZ);
   overlayCamera.lookAt(0, lookY, 0);
 
-  // Y rotation: spin 0→PI (driven by spinProgress)
-  // X rotation: tilt screen FORWARD toward camera (+0.5 rad) during zoom
   overlayLaptopNode.rotation.y = eased * Math.PI;
   overlayLaptopNode.rotation.x = 0.5 * zE;
 
-  // Fade out base, lid back, and logo during zoom (0% → 50% of zoom)
   const fadeOut = Math.min(1, zE / 0.5);
   const baseMesh = window._overlayBaseMesh;
   const logoMesh = window._overlayLogoMesh;
@@ -1475,10 +1824,9 @@ function updateLaptopAnimation() {
   if (baseMesh) baseMesh.material.opacity = 1 - fadeOut;
   if (logoMesh) logoMesh.material.opacity = 1 - fadeOut;
   if (screenMesh && Array.isArray(screenMesh.material)) {
-    screenMesh.material[1].opacity = 1 - fadeOut; // lid
+    screenMesh.material[1].opacity = 1 - fadeOut;
   }
 
-  // ── Project screen face vertices → compute pixel rect ──
   const screenVerts = window._screenFaceVerts;
   const sMesh = window._overlayScreenMesh;
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
@@ -1505,7 +1853,6 @@ function updateLaptopAnimation() {
     const scrCY = (minY + maxY) / 2;
     window._screenRect = { left: minX, top: minY, width: scrW, height: scrH };
 
-    // ── CSS transform: shift canvas so screen center = viewport center ──
     if (zoomProgress > 0 && overlayCanvas && !flatVideoShown) {
       const dx = (vw / 2) - scrCX;
       const dy = (vh / 2) - scrCY;
@@ -1515,7 +1862,6 @@ function updateLaptopAnimation() {
     }
   }
 
-  // ── Position 2D video to track 3D screen (only while overlay is active) ──
   updateFlatVideoPlacement();
 }
 
@@ -1596,10 +1942,12 @@ function animate() {
   // Update numbered labels
   if (window._updateLabels) window._updateLabels();
 
-  // Smooth laptop animation + render overlay
-  updateLaptopAnimation();
-  if (overlayActive && overlayReady && overlayRenderer) {
-    overlayRenderer.render(overlayScene, overlayCamera);
+  // Smooth laptop animation + render overlay (old system only)
+  if (!USE_SCROLL_VIDEO) {
+    updateLaptopAnimation();
+    if (overlayActive && overlayReady && overlayRenderer) {
+      overlayRenderer.render(overlayScene, overlayCamera);
+    }
   }
 }
 
@@ -1616,8 +1964,8 @@ window.addEventListener('resize', () => {
   gf.width = window.innerWidth * window.devicePixelRatio;
   gf.height = Math.round(window.innerHeight * 0.14 * window.devicePixelRatio);
 
-  // Resize overlay canvas
-  if (overlayRenderer && overlayCamera) {
+  // Resize overlay canvas (old system only)
+  if (!USE_SCROLL_VIDEO && overlayRenderer && overlayCamera) {
     overlayRenderer.setSize(window.innerWidth, window.innerHeight);
     overlayCamera.aspect = window.innerWidth / window.innerHeight;
     overlayCamera.updateProjectionMatrix();
