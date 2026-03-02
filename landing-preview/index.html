@@ -59,13 +59,13 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 300vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 8%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+  .laptop-demo { position: relative; height: 300vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 8%); overflow: hidden; }
+  .laptop-demo-sticky { position: sticky; top: 0; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .laptop-demo-sticky canvas { width: 100%; height: 100%; display: block; }
+  .laptop-demo-text { position: absolute; bottom: 12%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
   .laptop-demo-text.visible { opacity: 1; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
-
-  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -132,9 +132,12 @@
 </section>
 
 <section class="laptop-demo" id="laptop-demo">
-  <div class="laptop-demo-text" id="laptop-demo-text">
-    <h2>See it in action</h2>
-    <p>Watch how SuperReddit finds your leads in seconds</p>
+  <div class="laptop-demo-sticky" id="laptop-demo-sticky">
+    <div id="demo-canvas-container"></div>
+    <div class="laptop-demo-text" id="laptop-demo-text">
+      <h2>See it in action</h2>
+      <p>Watch how SuperReddit finds your leads in seconds</p>
+    </div>
   </div>
 </section>
 
@@ -381,7 +384,7 @@ const loader = new GLTFLoader();
 const headGroups = [];
 const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
 let colorIndex = 0;
-let heroLaptopNode = null; // reference to laptop in hero scene for visibility toggle
+let heroLaptopNode = null;
 
 loader.load('./scene.gltf', (gltf) => {
   const model = gltf.scene;
@@ -914,8 +917,7 @@ loader.load('./scene.gltf', (gltf) => {
   // Labels removed — no longer needed
   window._updateLabels = null;
 
-  // Set up fixed overlay canvas for laptop transition
-  setupOverlayCanvas();
+  // Hero laptop stays visible — demo section has its own separate canvas
 }, undefined, (err) => {
   console.error('GLTF load error:', err);
 });
@@ -924,88 +926,85 @@ loader.load('./scene.gltf', (gltf) => {
 const eyelids = [];
 const pupils = [];
 
-// ── Fixed Overlay Canvas — renders ONLY the laptop, floats above the page ──
-let overlayRenderer, overlayScene, overlayCamera, overlayLaptopNode;
-let overlayReady = false;
-let overlayActive = false; // true once handoff from hero laptop occurs
+// ── Self-contained Demo Canvas (Apple-style sticky section) ──
+// No overlay, no handoff. The demo section has its own canvas with
+// position:sticky. Camera is FIXED, centered on the laptop. Only
+// rotation changes, driven by scroll with lerp smoothing.
+let demoRenderer, demoScene, demoCamera, demoLaptopNode;
+let demoReady = false;
+let laptopTargetProgress = 0;   // set instantly by scroll
+let laptopProgress = 0;         // lerped toward target each frame
+const LAPTOP_LERP_SPEED = 0.08; // lower = smoother/slower
 
-function setupOverlayCanvas() {
+function setupDemoCanvas() {
+  const container = document.getElementById('demo-canvas-container');
+  if (!container) return;
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  // Create fixed overlay canvas — transparent, above everything
-  overlayRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  overlayRenderer.setPixelRatio(window.devicePixelRatio);
-  overlayRenderer.setSize(w, h);
-  overlayRenderer.setClearColor(0x000000, 0);
-  overlayRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-  overlayRenderer.toneMappingExposure = 1.3;
-  overlayRenderer.outputColorSpace = THREE.SRGBColorSpace;
-  overlayRenderer.domElement.id = 'laptop-overlay-canvas';
-  overlayRenderer.domElement.style.display = 'none'; // hidden until handoff
-  document.body.appendChild(overlayRenderer.domElement);
+  // Fill the sticky wrapper
+  container.style.width = '100%';
+  container.style.height = '100vh';
+  container.style.position = 'absolute';
+  container.style.top = '0';
+  container.style.left = '0';
 
-  // Scene — transparent, no background
-  overlayScene = new THREE.Scene();
+  demoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  demoRenderer.setPixelRatio(window.devicePixelRatio);
+  demoRenderer.setSize(w, h);
+  demoRenderer.setClearColor(0x000000, 0);
+  demoRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  demoRenderer.toneMappingExposure = 1.3;
+  demoRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  container.appendChild(demoRenderer.domElement);
 
-  // Camera — EXACTLY matches hero camera (same position, FOV, lookAt)
-  // The overlay canvas starts with the same CSS translateY(12%) as the hero canvas,
-  // so no world-unit offset math is needed — they render identically.
-  overlayCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 200);
-  overlayCamera.position.set(0, 1.5, 14);
-  overlayCamera.lookAt(0, 3.0, 0);
+  demoScene = new THREE.Scene();
 
-  // Lighting — match hero lighting so laptop looks identical
-  overlayScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
+  // Camera — fixed, centered on where the laptop will be.
+  // FOV 45, positioned to frame the laptop nicely in the center of the viewport.
+  demoCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 200);
+  demoCamera.position.set(0, 3.0, 8);
+  demoCamera.lookAt(0, 3.0, 0);
 
-  const oTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
-  oTopSpot.position.set(0, 16, 6);
-  oTopSpot.target.position.set(0, 0, -2);
-  overlayScene.add(oTopSpot);
-  overlayScene.add(oTopSpot.target);
+  // Lighting
+  demoScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
 
-  const oLaptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
-  oLaptopSpot.position.set(0, -1.8, 2.0);
-  oLaptopSpot.target.position.set(0, 4, -1);
-  overlayScene.add(oLaptopSpot);
-  overlayScene.add(oLaptopSpot.target);
+  const topSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+  topSpot.position.set(0, 16, 6);
+  topSpot.target.position.set(0, 0, -2);
+  demoScene.add(topSpot);
+  demoScene.add(topSpot.target);
 
-  const oLaptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
-  oLaptopFill.position.set(0, -0.5, 3.5);
-  overlayScene.add(oLaptopFill);
+  const laptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
+  laptopSpot.position.set(0, -1.8, 2.0);
+  laptopSpot.target.position.set(0, 4, -1);
+  demoScene.add(laptopSpot);
+  demoScene.add(laptopSpot.target);
 
-  const oFill = new THREE.DirectionalLight(0x998acc, 0.6);
-  oFill.position.set(0, 2, 10);
-  overlayScene.add(oFill);
+  const laptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+  laptopFill.position.set(0, -0.5, 3.5);
+  demoScene.add(laptopFill);
 
-  const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
-  overlayScene.add(oAmbient);
+  const fill = new THREE.DirectionalLight(0x998acc, 0.6);
+  fill.position.set(0, 2, 10);
+  demoScene.add(fill);
 
-  // Load same GLTF, extract only laptop
-  const oLoader = new GLTFLoader();
-  oLoader.load('./scene.gltf', (gltf) => {
+  demoScene.add(new THREE.AmbientLight(0x221838, 0.8));
+
+  // Load GLTF, extract only laptop
+  const loader = new GLTFLoader();
+  loader.load('./scene.gltf', (gltf) => {
     const model = gltf.scene;
 
-    // Find laptop root node
-    let laptopRoot = null;
-    model.traverse((node) => {
-      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
-        laptopRoot = node;
-      }
-    });
-    if (!laptopRoot) { console.error('Overlay: laptop not found'); return; }
-
-    // We need the full model hierarchy to preserve the 0.01 root scale,
-    // but hide everything except the laptop.
+    // Hide everything except laptop meshes
     model.traverse((node) => {
       if (!node.isMesh) return;
       const pName = node.parent?.name || '';
       const gpName = node.parent?.parent?.name || '';
       const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
       if (!isLaptop) {
-        node.visible = false; // hide characters, table, background — keep laptop only
+        node.visible = false;
       } else {
-        // Apply same laptop materials as hero
         const name = node.name || '';
         if (name.includes('light') || name.includes('Logo')) {
           node.material = new THREE.MeshStandardMaterial({
@@ -1021,27 +1020,35 @@ function setupOverlayCanvas() {
       }
     });
 
-    // Apply the same laptop Y raise as the hero scene
+    // Raise laptop same as hero scene
     model.traverse((node) => {
       if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
         node.position.y += 80;
-        overlayLaptopNode = node;
+        demoLaptopNode = node;
+        // Start facing away (back of laptop toward camera)
+        node.rotation.y = 0;
       }
     });
 
-    overlayScene.add(model);
-    overlayReady = true;
-    console.log('Overlay canvas: laptop ready');
+    demoScene.add(model);
+    demoReady = true;
+    console.log('Demo canvas: laptop ready');
   });
 }
 
-// ── Scroll-driven laptop animation (Apple-style with lerp smoothing) ──
-// Scroll sets a TARGET progress, the render loop lerps toward it.
-// This guarantees buttery-smooth animation regardless of scroll speed.
-let laptopTargetProgress = 0;   // set instantly by scroll
-let laptopProgress = 0;         // lerped toward target each frame
-const LAPTOP_LERP_SPEED = 0.08; // lower = smoother/slower (0.05–0.12 sweet spot)
+// Initialize when the demo section is near the viewport (lazy)
+const demoInitObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting && !demoRenderer) {
+      setupDemoCanvas();
+      demoInitObserver.disconnect();
+    }
+  });
+}, { rootMargin: '200px' });
+const demoEl = document.getElementById('laptop-demo');
+if (demoEl) demoInitObserver.observe(demoEl);
 
+// ── Scroll handler — sets target progress + fades hero text ──
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1064,97 +1071,41 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // ── Target progress: scroll fraction through the demo section ──
+  // Progress: how far through the demo section the user has scrolled
+  // The section is 300vh tall. Animation plays over the first ~60% of it.
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
   const scrollDistance = viewH * 1.8;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopTargetProgress = Math.max(0, Math.min(1, rawProgress));
 
-  const shouldHandoff = laptopTargetProgress > 0.01;
-
-  if (heroLaptopNode && overlayReady) {
-    heroLaptopNode.visible = !shouldHandoff;
-  }
-
-  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
-  if (overlayCanvas) {
-    if (shouldHandoff && demoRect.bottom >= 0) {
-      overlayCanvas.style.display = 'block';
-    } else {
-      overlayCanvas.style.display = 'none';
-    }
-
-    // Sticky: when animation complete and scrolling past, move canvas with section
-    if (laptopProgress >= 0.99 && demoRect.top < 0) {
-      overlayCanvas.style.transform = `translateY(${demoRect.top}px)`;
-    } else {
-      overlayCanvas.style.transform = 'none';
-    }
-  }
-  overlayActive = shouldHandoff && demoRect.bottom >= 0;
-
+  // Show "See it in action" text near end of animation
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
     demoText.classList.toggle('visible', laptopProgress > 0.85);
   }
 }, { passive: true });
 
-// Called every frame from animate()
+// Called every frame from animate() — lerps + renders demo canvas
 function updateLaptopAnimation() {
-  // Lerp progress toward target every frame — this is the smoothing
+  // Lerp progress toward target — this is what makes it buttery smooth
   laptopProgress += (laptopTargetProgress - laptopProgress) * LAPTOP_LERP_SPEED;
-  // Snap when very close to avoid infinite drift
   if (Math.abs(laptopProgress - laptopTargetProgress) < 0.001) {
     laptopProgress = laptopTargetProgress;
   }
 
-  if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
+  if (!demoLaptopNode || !demoReady || !demoRenderer) return;
 
+  // Ease in-out for cinematic feel
   const eased = laptopProgress < 0.5
     ? 2 * laptopProgress * laptopProgress
     : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
-  // ── Camera end state: laptop perfectly centered vertically ──
-  // The overlay camera at Z=8, looking straight ahead at the laptop.
-  // We DON'T use getWorldPosition for the end Y because that gives
-  // the laptop's anchor point which isn't its visual center on screen.
-  // Instead we use fixed values tuned so the laptop sits at dead center.
-  const endCamY = 3.0;   // camera Y at end — level with laptop visual center
-  const endLookY = 3.0;  // look at same Y — keeps laptop centered
-  const endCamZ = 8;     // zoom in
+  // Rotate: 0 at start (back facing), PI at end (screen facing user)
+  demoLaptopNode.rotation.y = eased * Math.PI;
 
-  // ── Camera start state: match hero camera exactly ──
-  // Hero camera: position(0, 1.5, 14) lookAt(0, 3.0, 0)
-  // The hero canvas has CSS translateY(12%), shifting it down in the viewport.
-  // We account for this by computing a dynamic Y offset from the hero's
-  // actual position on screen.
-  const heroSection = document.querySelector('.hero');
-  const viewH = window.innerHeight;
-  let startCamY = 1.5;
-  let startLookY = 3.0;
-
-  if (heroSection) {
-    const heroRect = heroSection.getBoundingClientRect();
-    const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
-    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units
-    const dynamicShift = (heroCanvasTopPx / viewH) * visH;
-    startCamY = 1.5 + dynamicShift;
-    startLookY = 3.0 + dynamicShift;
-  }
-
-  const startCamZ = 14;
-
-  // Interpolate from start to end
-  const camY = startCamY + (endCamY - startCamY) * eased;
-  const lookY = startLookY + (endLookY - startLookY) * eased;
-  const camZ = startCamZ + (endCamZ - startCamZ) * eased;
-
-  overlayCamera.position.set(0, camY, camZ);
-  overlayCamera.lookAt(0, lookY, 0);
-
-  // Rotate: 0 at start (back facing), PI at end (screen facing)
-  overlayLaptopNode.rotation.y = eased * Math.PI;
+  // Render
+  demoRenderer.render(demoScene, demoCamera);
 }
 
 function animate() {
@@ -1234,11 +1185,8 @@ function animate() {
   // Update numbered labels
   if (window._updateLabels) window._updateLabels();
 
-  // Smooth laptop animation + render overlay
+  // Smooth laptop animation + render demo canvas
   updateLaptopAnimation();
-  if (overlayActive && overlayReady && overlayRenderer) {
-    overlayRenderer.render(overlayScene, overlayCamera);
-  }
 }
 
 animate();
@@ -1254,11 +1202,11 @@ window.addEventListener('resize', () => {
   gf.width = window.innerWidth * window.devicePixelRatio;
   gf.height = Math.round(window.innerHeight * 0.14 * window.devicePixelRatio);
 
-  // Resize overlay canvas
-  if (overlayRenderer && overlayCamera) {
-    overlayRenderer.setSize(window.innerWidth, window.innerHeight);
-    overlayCamera.aspect = window.innerWidth / window.innerHeight;
-    overlayCamera.updateProjectionMatrix();
+  // Resize demo canvas
+  if (demoRenderer && demoCamera) {
+    demoRenderer.setSize(window.innerWidth, window.innerHeight);
+    demoCamera.aspect = window.innerWidth / window.innerHeight;
+    demoCamera.updateProjectionMatrix();
   }
 });
 
