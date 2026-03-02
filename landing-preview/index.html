@@ -59,9 +59,8 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; height: 300vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 8%); overflow: hidden; }
-  .laptop-demo-sticky { position: sticky; top: 0; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; }
-  .laptop-demo-sticky canvas { width: 100%; height: 100%; display: block; }
+  .laptop-demo { position: relative; height: 300vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 8%); }
+  .laptop-demo-sticky { position: sticky; top: 0; width: 100%; height: 100vh; }
   .laptop-demo-text { position: absolute; bottom: 12%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
   .laptop-demo-text.visible { opacity: 1; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
@@ -1036,17 +1035,8 @@ function setupDemoCanvas() {
   });
 }
 
-// Initialize when the demo section is near the viewport (lazy)
-const demoInitObserver = new IntersectionObserver((entries) => {
-  entries.forEach(e => {
-    if (e.isIntersecting && !demoRenderer) {
-      setupDemoCanvas();
-      demoInitObserver.disconnect();
-    }
-  });
-}, { rootMargin: '200px' });
-const demoEl = document.getElementById('laptop-demo');
-if (demoEl) demoInitObserver.observe(demoEl);
+// Initialize demo canvas immediately
+setupDemoCanvas();
 
 // ── Scroll handler — sets target progress + fades hero text ──
 window.addEventListener('scroll', () => {
