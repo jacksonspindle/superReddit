@@ -1207,8 +1207,6 @@ function showFlatVideo() {
     canvas.style.transform = 'none';
   }
 
-  // DO NOT collapse the demo section — leave min-height: 200vh as-is
-
   // Place video at the user's current scroll position within the demo section
   const wrap = document.getElementById('flat-video-wrap');
   const demoSection = document.getElementById('laptop-demo');
@@ -1234,6 +1232,11 @@ function showFlatVideo() {
       z-index: 10;
       pointer-events: auto;
     `;
+
+    // Trim empty space below the video+text so there's no white gap before Features
+    const textHeight = 120; // approximate height for "See it in action" text block
+    const sectionEnd = videoCenterY + (videoH / 2) + 32 + textHeight + 64;
+    demoSection.style.minHeight = sectionEnd + 'px';
   }
 
   // Autoplay video
@@ -1270,7 +1273,9 @@ function hideFlatVideo() {
     wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
   }
 
-  // NO demoSection.style.minHeight change — it was never modified
+  // Restore 200vh so the animation has room to play on scroll-back-up
+  const demoSection = document.getElementById('laptop-demo');
+  if (demoSection) demoSection.style.minHeight = '200vh';
 
   const video = document.getElementById('demo-video-player');
   if (video) video.pause();
