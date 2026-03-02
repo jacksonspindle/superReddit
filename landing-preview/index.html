@@ -1111,6 +1111,10 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
+// Lock start camera values at the moment of handoff — computed ONCE
+let lockedStartCamY = null;
+let lockedStartLookY = null;
+
 // Called every frame from animate()
 function updateLaptopAnimation() {
   // Lerp progress toward target every frame — this is the smoothing
@@ -1122,43 +1126,42 @@ function updateLaptopAnimation() {
 
   if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
+  const center = window._laptopCenter;
+  if (!center) return;
+
+  // ── Lock start camera position ONCE at the moment of handoff ──
+  // This prevents the dynamic shift from drifting wildly as the hero scrolls away.
+  if (lockedStartCamY === null) {
+    const heroSection = document.querySelector('.hero');
+    const viewH = window.innerHeight;
+    if (heroSection) {
+      const heroRect = heroSection.getBoundingClientRect();
+      const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
+      const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180);
+      const dynamicShift = (heroCanvasTopPx / viewH) * visH;
+      lockedStartCamY = 1.5 + dynamicShift;
+      lockedStartLookY = 3.0 + dynamicShift;
+    } else {
+      lockedStartCamY = 1.5;
+      lockedStartLookY = 3.0;
+    }
+    console.log('Locked start cam Y:', lockedStartCamY, 'Look Y:', lockedStartLookY);
+  }
+
   const eased = laptopProgress < 0.5
     ? 2 * laptopProgress * laptopProgress
     : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
-  // ── Camera end state: laptop perfectly centered vertically ──
-  // Uses the COMPUTED bounding box center — mathematically guaranteed
-  // to place the laptop at the dead center of the viewport.
-  const center = window._laptopCenter;
-  if (!center) return; // not computed yet
-  const endCamY = center.y;    // camera at laptop's exact vertical center
-  const endLookY = center.y;   // look at the same point
-  const endCamZ = 8;           // zoom in
-
-  // ── Camera start state: match hero camera exactly ──
-  // Hero camera: position(0, 1.5, 14) lookAt(0, 3.0, 0)
-  // The hero canvas has CSS translateY(12%), shifting it down in the viewport.
-  // We account for this by computing a dynamic Y offset from the hero's
-  // actual position on screen.
-  const heroSection = document.querySelector('.hero');
-  const viewH = window.innerHeight;
-  let startCamY = 1.5;
-  let startLookY = 3.0;
-
-  if (heroSection) {
-    const heroRect = heroSection.getBoundingClientRect();
-    const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
-    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units
-    const dynamicShift = (heroCanvasTopPx / viewH) * visH;
-    startCamY = 1.5 + dynamicShift;
-    startLookY = 3.0 + dynamicShift;
-  }
+  // End state: camera at laptop's bounding box center — guaranteed centered
+  const endCamY = center.y;
+  const endLookY = center.y;
+  const endCamZ = 8;
 
   const startCamZ = 14;
 
-  // Interpolate from start to end
-  const camY = startCamY + (endCamY - startCamY) * eased;
-  const lookY = startLookY + (endLookY - startLookY) * eased;
+  // Interpolate from locked start to computed end
+  const camY = lockedStartCamY + (endCamY - lockedStartCamY) * eased;
+  const lookY = lockedStartLookY + (endLookY - lockedStartLookY) * eased;
   const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
   overlayCamera.position.set(0, camY, camZ);
@@ -1167,6 +1170,14 @@ function updateLaptopAnimation() {
   // Rotate: 0 at start (back facing), PI at end (screen facing)
   overlayLaptopNode.rotation.y = eased * Math.PI;
 }
+
+// Reset locked values when scrolling back up (handoff resets)
+window.addEventListener('scroll', () => {
+  if (laptopTargetProgress < 0.01 && lockedStartCamY !== null) {
+    lockedStartCamY = null;
+    lockedStartLookY = null;
+  }
+}, { passive: true });
 
 function animate() {
   requestAnimationFrame(animate);
