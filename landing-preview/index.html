@@ -1066,29 +1066,56 @@ window.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 // Process scroll queue at controlled rate — called every frame from animate()
+const DECEL_MAX_SCROLL = 60; // starting speed at decel zone entry (px/frame)
+
 function processDemoScroll() {
   const demoSection = document.getElementById('laptop-demo');
+  const heroSection = document.querySelector('.hero');
   if (!demoSection) { demoScrollActive = false; return; }
 
   const demoRect = demoSection.getBoundingClientRect();
   const viewH = window.innerHeight;
 
-  // Demo zone: section is visible AND animation hasn't completed
+  // Animation zone: section is visible AND animation hasn't completed
   const sectionVisible = demoRect.top < viewH && demoRect.bottom > 0;
-  demoScrollActive = sectionVisible && laptopProgress < 0.99;
+  const animationActive = sectionVisible && laptopProgress < 0.99;
+
+  // Deceleration zone: hero bottom is within 1.3x viewport heights.
+  // Gradually slows scrolling before the animation starts so the user
+  // notices the transition and is already at the controlled pace.
+  let decelActive = false;
+  let decelFactor = 0; // 0 = no limit, 1 = full speed limit
+  if (heroSection) {
+    const heroRect = heroSection.getBoundingClientRect();
+    const decelStart = viewH * 1.3;
+    if (heroRect.bottom < decelStart && heroRect.bottom > 0) {
+      decelActive = true;
+      decelFactor = 1 - (heroRect.bottom / decelStart);
+    }
+  }
+
+  demoScrollActive = animationActive || decelActive;
 
   if (scrollQueue !== 0) {
     if (demoScrollActive) {
-      // Consume from queue at controlled rate
-      const consume = Math.sign(scrollQueue) * Math.min(Math.abs(scrollQueue), MAX_SCROLL_PER_FRAME);
+      // During animation: fixed speed limit
+      // During deceleration: ramp from 60 down to MAX_SCROLL_PER_FRAME
+      let maxScroll;
+      if (animationActive) {
+        maxScroll = MAX_SCROLL_PER_FRAME;
+      } else {
+        maxScroll = DECEL_MAX_SCROLL - (DECEL_MAX_SCROLL - MAX_SCROLL_PER_FRAME) * decelFactor;
+      }
+
+      const consume = Math.sign(scrollQueue) * Math.min(Math.abs(scrollQueue), maxScroll);
       scrollQueue -= consume;
       window.scrollBy(0, consume);
       // Decay large queues to prevent infinite momentum buildup
-      if (Math.abs(scrollQueue) > MAX_SCROLL_PER_FRAME * 8) {
+      if (Math.abs(scrollQueue) > maxScroll * 8) {
         scrollQueue *= 0.8;
       }
     } else {
-      // Outside zone or animation done — flush remaining scroll
+      // Outside zone — flush remaining scroll
       scrollQueue = 0;
     }
   }
