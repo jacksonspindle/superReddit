@@ -65,7 +65,7 @@
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
 
-  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; transform: translateY(12%); }
+  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -1069,10 +1069,10 @@ window.addEventListener('scroll', () => {
   }
 
   // ── Animation progress: 0 = hero laptop in original position, 1 = laptop centered in demo section ──
-  // The animation starts when the hero bottom reaches ~80% of viewport (laptop starts moving)
-  // and ends when demo section is ~50% scrolled through (laptop centered).
+  // The animation starts when the hero bottom reaches ~80% of viewport
+  // and completes quickly so laptop is settled by the time the demo section is visible.
   const animStart = 0.8;  // heroBottomRatio when animation begins
-  const animEnd = -0.5;   // heroBottomRatio when animation ends (hero well past viewport)
+  const animEnd = 0.1;    // heroBottomRatio when animation ends (hero nearly scrolled off)
   const rawProgress = (animStart - heroBottomRatio) / (animStart - animEnd);
   const progress = Math.max(0, Math.min(1, rawProgress));
   const eased = progress < 0.5
@@ -1091,33 +1091,42 @@ window.addEventListener('scroll', () => {
   if (overlayCanvas) {
     overlayCanvas.style.display = shouldHandoff ? 'block' : 'none';
     if (!shouldHandoff) {
-      overlayCanvas.style.transform = 'translateY(12%)'; // reset to match hero
+      overlayCanvas.style.transform = 'none'; // reset
     }
   }
   overlayActive = shouldHandoff;
 
   if (overlayLaptopNode && overlayReady && shouldHandoff) {
-    // ── CSS transform: animate translateY from 12% (matching hero) to 0% ──
-    // This guarantees pixel-perfect handoff — at progress=0 the overlay canvas
-    // has the EXACT same CSS transform as the hero canvas.
-    const currentTranslateY = 12 * (1 - eased); // 12% → 0%
+    // ── Pixel-perfect CSS offset to match hero canvas position ──
+    // The hero 3D container (.hero-3d-container) has translateY(12%) where 12% is
+    // relative to the hero section height (115vh). The overlay canvas is 100vh tall.
+    // We compute the exact pixel offset of the hero container and apply it directly.
+    const heroContainer = document.querySelector('.hero-3d-container');
+    const heroContainerRect = heroContainer ? heroContainer.getBoundingClientRect() : null;
+    const heroRectTop = heroRect.top; // hero section top
+    // The hero canvas is shifted down by: heroContainer.top - hero.top (relative to viewport)
+    // At scroll=0, hero.top=0, heroContainer.top = 12% of heroSection.height
+    // As we scroll, both move equally, so the DIFFERENCE stays constant.
+    const pixelOffset = heroContainerRect ? (heroContainerRect.top - heroRectTop) : 0;
+    // Animate from this pixel offset to 0
+    const currentOffset = pixelOffset * (1 - eased);
     if (overlayCanvas) {
-      overlayCanvas.style.transform = `translateY(${currentTranslateY}%)`;
+      overlayCanvas.style.transform = `translateY(${currentOffset}px)`;
     }
 
-    // ── Camera: animate from hero position to laptop-centered close-up ──
-    // Start values match hero camera exactly (no cssShift needed — CSS handles it)
+    // ── Camera: animate from hero position to laptop-centered view ──
+    // Start values match hero camera exactly (CSS transform handles pixel alignment)
     const startCamY = 1.5;
     const startLookY = 3.0;
-    const endCamY = 0.3;
-    const endLookY = -0.3;
+    const endCamY = 2.0;     // camera at laptop level for centered framing
+    const endLookY = 1.0;    // look at laptop center
 
     const camY = startCamY + (endCamY - startCamY) * eased;
     const lookY = startLookY + (endLookY - startLookY) * eased;
 
-    // Zoom in — laptop fills ~60% of viewport at the end
+    // Zoom in moderately — full laptop visible, ~40-50% of viewport width
     const startCamZ = 14;
-    const endCamZ = 5;
+    const endCamZ = 8;
     const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
     overlayCamera.position.set(0, camY, camZ);
