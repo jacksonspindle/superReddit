@@ -1207,32 +1207,55 @@ function showFlatVideo() {
     canvas.style.transform = 'none';
   }
 
-  // Shrink demo section so there's no giant empty space
-  const demoSection = document.getElementById('laptop-demo');
-  if (demoSection) demoSection.style.minHeight = 'auto';
+  // DO NOT collapse the demo section — leave min-height: 200vh as-is
 
-  // Force wrap into normal page flow — cssText overrides the stylesheet's position:fixed
+  // Place video at the user's current scroll position within the demo section
   const wrap = document.getElementById('flat-video-wrap');
-  if (wrap) {
-    wrap.style.cssText = 'display:block; position:static; z-index:auto; height:auto; pointer-events:auto; width:60vw; margin:0 auto; padding:0;';
-  }
+  const demoSection = document.getElementById('laptop-demo');
+  if (wrap && demoSection) {
+    const demoTop = demoSection.offsetTop;
+    const viewH = window.innerHeight;
+    const sr = window._screenRect;
+    const videoW = sr ? sr.width : viewH * 0.6 * (16/9);
+    const videoH = sr ? sr.height : viewH * 0.6;
 
-  // Reset container to flow layout
-  const container = document.getElementById('flat-video-container');
-  if (container) {
-    container.style.position = 'relative';
-    container.style.transform = 'none';
-    container.style.width = '100%';
-    container.style.margin = '0 auto';
+    // Place video at the Y position within the demo section that aligns
+    // with the center of the viewport at the current scroll position
+    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+
+    wrap.style.cssText = `
+      display: block;
+      position: absolute;
+      top: ${videoCenterY - (videoH / 2)}px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: ${videoW}px;
+      height: ${videoH}px;
+      z-index: 10;
+      pointer-events: auto;
+    `;
   }
 
   // Autoplay video
   const video = document.getElementById('demo-video-player');
   if (video) video.play().catch(() => {});
 
-  // Show demo text
+  // Show demo text below the video
   const text = document.getElementById('laptop-demo-text');
-  if (text) text.style.opacity = '1';
+  if (text && demoSection) {
+    const demoTop = demoSection.offsetTop;
+    const viewH = window.innerHeight;
+    const sr = window._screenRect;
+    const videoH = sr ? sr.height : viewH * 0.6;
+    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+
+    text.style.position = 'absolute';
+    text.style.top = (videoCenterY + videoH / 2 + 32) + 'px';
+    text.style.left = '0';
+    text.style.right = '0';
+    text.style.opacity = '1';
+    text.style.pointerEvents = 'auto';
+  }
 }
 
 function hideFlatVideo() {
@@ -1247,14 +1270,13 @@ function hideFlatVideo() {
     wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
   }
 
-  const demoSection = document.getElementById('laptop-demo');
-  if (demoSection) demoSection.style.minHeight = '200vh';
+  // NO demoSection.style.minHeight change — it was never modified
 
   const video = document.getElementById('demo-video-player');
   if (video) video.pause();
 
   const text = document.getElementById('laptop-demo-text');
-  if (text) text.style.opacity = '0';
+  if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
 }
 
 // ── Scroll listener ──
