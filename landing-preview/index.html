@@ -1327,6 +1327,7 @@ function hideFlatVideo() {
 // ── Scroll listener ──
 let prevScrollY = 0;
 let upScrollStart = 0; // timestamp when upward scrolling began
+let upScrollAnchor = -1; // scrollY where upward scrolling began
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1345,17 +1346,24 @@ window.addEventListener('scroll', () => {
   }
 
   // If flat video is showing, scrolling back up reverses to 3D.
-  // Time-based buffer: user must sustain upward scrolling for 400ms so
-  // quick flicks or small adjustments don't snap back to the 3D animation.
+  // Requires BOTH: 1s sustained upward scroll AND 150px distance.
+  // This prevents trackpad inertia / micro-movements from triggering.
   if (flatVideoShown) {
     if (window.scrollY < prevScrollY) {
-      if (!upScrollStart) upScrollStart = performance.now();
-      if (performance.now() - upScrollStart > 1000) {
+      if (!upScrollStart) {
+        upScrollStart = performance.now();
+        upScrollAnchor = prevScrollY;
+      }
+      const elapsed = performance.now() - upScrollStart;
+      const distance = upScrollAnchor - window.scrollY;
+      if (elapsed > 1000 && distance > 150) {
         hideFlatVideo();
         upScrollStart = 0;
+        upScrollAnchor = -1;
       }
     } else {
-      upScrollStart = 0; // reset when scrolling down
+      upScrollStart = 0;
+      upScrollAnchor = -1;
     }
     prevScrollY = window.scrollY;
     return;
