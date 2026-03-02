@@ -1284,10 +1284,10 @@ function updateLaptopAnimation() {
   // Spin: camera pulls from Z=14 to Z=8
   const spinCamZ = 14 + (8 - 14) * eased;
 
-  // Zoom: moderate push closer, rise camera to track tilted screen center
+  // Zoom: moderate push closer, rise camera to center on screen face
   const camZ = spinCamZ + (6.0 - 8) * zE;
-  const camY = center.y + 1.5 * zE;
-  const lookY = center.y + 1.2 * zE;
+  const camY = center.y + 3.0 * zE;
+  const lookY = center.y + 2.5 * zE;
 
   overlayCamera.position.set(0, camY, camZ);
   overlayCamera.lookAt(0, lookY, 0);
