@@ -1241,12 +1241,10 @@ function showFlatVideo() {
   const demoSection = document.getElementById('laptop-demo');
   if (wrap && demoSection) {
     const viewH = window.innerHeight;
-    const fallbackH = viewH * 0.6;
-    const fallbackW = fallbackH * (16/9);
-    const sr = window._screenRect;
-    // Use projected size only if reasonable, otherwise fallback
-    const videoW = (sr && sr.width > fallbackW * 0.5) ? sr.width : fallbackW;
-    const videoH = (sr && sr.height > fallbackH * 0.5) ? sr.height : fallbackH;
+    // Always use viewport-based dimensions with 16:9 aspect ratio.
+    // The projected _screenRect is unreliable during fast scrolling.
+    const videoH = viewH * 0.6;
+    const videoW = videoH * (16/9);
     const videoTop = (viewH - videoH) / 2;
 
     wrap.style.cssText = `
@@ -1271,8 +1269,7 @@ function showFlatVideo() {
   const text = document.getElementById('laptop-demo-text');
   if (text) {
     const viewH = window.innerHeight;
-    const sr = window._screenRect;
-    const videoH = sr ? sr.height : viewH * 0.6;
+    const videoH = viewH * 0.6;
     const videoTop = (viewH - videoH) / 2;
 
     text.style.position = 'absolute';
