@@ -65,7 +65,7 @@
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
 
-  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
+  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; transform: translateY(12%); }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -953,22 +953,12 @@ function setupOverlayCanvas() {
   // Scene — transparent, no background
   overlayScene = new THREE.Scene();
 
-  // Camera — EXACTLY matches hero camera
+  // Camera — EXACTLY matches hero camera (same position, FOV, lookAt)
+  // The overlay canvas starts with the same CSS translateY(12%) as the hero canvas,
+  // so no world-unit offset math is needed — they render identically.
   overlayCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 200);
-  // Hero camera: position (0, 1.5, 14) lookAt (0, 3.0, 0)
-  // But hero canvas has CSS translateY(12%), which shifts everything down on screen.
-  // For the fixed overlay (no CSS offset), we shift the camera UP to match.
-  // 12% of the visible vertical range: visH = 2 * 14 * tan(22.5°) ≈ 11.6
-  // offset = 0.12 * heroSectionHeight / windowHeight * visH
-  // Approximate: shift lookAt and camera Y down by the same amount the CSS shifts up
-  // The hero section is 115vh, canvas covers it. translateY(12%) shifts canvas down by 12% of 115vh.
-  // In normalized screen space that's 0.12 * 1.15 = 0.138 of viewport.
-  // In world units: 0.138 * 11.6 ≈ 1.6 world units shift.
-  // So the overlay camera needs to look ~1.6 units LOWER than the hero camera to match.
-  const visHeight = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
-  const cssShift = HERO_CANVAS_OFFSET_RATIO * 1.15 * visHeight; // ~1.6
-  overlayCamera.position.set(0, 1.5 - cssShift, 14);
-  overlayCamera.lookAt(0, 3.0 - cssShift, 0);
+  overlayCamera.position.set(0, 1.5, 14);
+  overlayCamera.lookAt(0, 3.0, 0);
 
   // Lighting — match hero lighting so laptop looks identical
   overlayScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
@@ -1100,33 +1090,32 @@ window.addEventListener('scroll', () => {
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
     overlayCanvas.style.display = shouldHandoff ? 'block' : 'none';
+    if (!shouldHandoff) {
+      overlayCanvas.style.transform = 'translateY(12%)'; // reset to match hero
+    }
   }
   overlayActive = shouldHandoff;
 
   if (overlayLaptopNode && overlayReady && shouldHandoff) {
-    // ── Move laptop on screen from hero position to viewport center ──
-    // At progress=0: camera matches hero camera (laptop at same screen position)
-    // At progress=1: camera shifted so laptop appears at viewport center
+    // ── CSS transform: animate translateY from 12% (matching hero) to 0% ──
+    // This guarantees pixel-perfect handoff — at progress=0 the overlay canvas
+    // has the EXACT same CSS transform as the hero canvas.
+    const currentTranslateY = 12 * (1 - eased); // 12% → 0%
+    if (overlayCanvas) {
+      overlayCanvas.style.transform = `translateY(${currentTranslateY}%)`;
+    }
 
-    // The hero canvas has translateY(12%) CSS. This offsets the laptop ~1.6 world units
-    // below where it would be without the transform. Our overlay has no CSS transform,
-    // so at progress=0, we shift the camera to match.
-    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units
-    const cssShift = HERO_CANVAS_OFFSET_RATIO * 1.15 * visH;
-
-    // At progress=0: camera matches hero (shifted down by cssShift)
-    // At progress=1: camera centered on laptop, zoomed in close
-    // The laptop is in the lower portion of the hero scene. We need to lower
-    // the end lookAt to center it vertically, and zoom in much closer.
-    const startCamY = 1.5 - cssShift;
-    const startLookY = 3.0 - cssShift;
-    const endCamY = 0.3;   // slightly above laptop to look down at it
-    const endLookY = -0.3;  // look below center to push laptop up in frame
+    // ── Camera: animate from hero position to laptop-centered close-up ──
+    // Start values match hero camera exactly (no cssShift needed — CSS handles it)
+    const startCamY = 1.5;
+    const startLookY = 3.0;
+    const endCamY = 0.3;
+    const endLookY = -0.3;
 
     const camY = startCamY + (endCamY - startCamY) * eased;
     const lookY = startLookY + (endLookY - startLookY) * eased;
 
-    // Zoom in significantly — laptop should fill ~60% of viewport at the end
+    // Zoom in — laptop fills ~60% of viewport at the end
     const startCamZ = 14;
     const endCamZ = 5;
     const camZ = startCamZ + (endCamZ - startCamZ) * eased;
@@ -1134,7 +1123,7 @@ window.addEventListener('scroll', () => {
     overlayCamera.position.set(0, camY, camZ);
     overlayCamera.lookAt(0, lookY, 0);
 
-    // Rotate laptop: 0 at start (back facing user, same as hero), PI at end (screen facing user)
+    // Rotate laptop: 0 at start (back facing user), PI at end (screen facing user)
     overlayLaptopNode.rotation.y = eased * Math.PI;
   }
 
