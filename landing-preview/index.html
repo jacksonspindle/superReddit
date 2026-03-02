@@ -1051,9 +1051,8 @@ function setupOverlayCanvas() {
 // through a queue at a controlled rate. The animation reads directly
 // from the scroll position — always perfectly in sync, no lerp.
 let laptopProgress = 0;
-const MAX_SCROLL_PER_FRAME = 12; // pixels per frame — controls animation pace
-                                  // 12px * 60fps = 720px/sec max scroll speed
-                                  // ~2.5 seconds minimum for full animation
+const MAX_SCROLL_PER_FRAME = 20; // pixels per frame — controls animation pace
+                                  // 20px * 60fps = 1200px/sec max scroll speed
 
 // ── Scroll queue for speed limiting ──
 let scrollQueue = 0;
@@ -1121,7 +1120,7 @@ window.addEventListener('scroll', () => {
   // ── Progress: direct from scroll position (no lerp) ──
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
-  const scrollDistance = viewH * 2.0;
+  const scrollDistance = viewH * 1.2;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
