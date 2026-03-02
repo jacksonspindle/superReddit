@@ -35,41 +35,37 @@
   .btn-secondary:hover { background: var(--gray-50); border-color: var(--gray-300); }
   .btn-secondary-lg { padding: 16px 36px; font-size: 16px; border-radius: 14px; }
 
-  .hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: #1a1050; }
-  .hero-3d-container { position: absolute; inset: 0; z-index: 1; }
-  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -5vh; }
-  .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 4px 40px rgba(0,0,0,0.5); }
-  .hero-overlay h1 .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero-overlay p { font-size: 22px; color: rgba(255,255,255,0.6); font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 20px rgba(0,0,0,0.4); }
-  .hero-buttons { display: flex; gap: 16px; justify-content: center; pointer-events: all; }
-  .hero-buttons .btn-primary { box-shadow: 0 8px 32px rgba(255,107,53,0.4); }
-  .hero-buttons .btn-secondary { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: white; backdrop-filter: blur(12px); }
-  .hero-buttons .btn-secondary:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
+  .hero { position: relative; min-height: 115vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: radial-gradient(ellipse 70% 60% at 50% 65%, #4a2040 0%, #2a1648 25%, #1e1350 45%, #1a1050 70%); }
+  .hero-3d-container { position: absolute; inset: 0; z-index: 1; transform: translateY(12%); }
+  .hero-gap-fill { position: absolute; top: 0; left: 0; width: 100%; height: 14%; z-index: 1; pointer-events: none; }
+  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -20vh; }
+  .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
+  .hero-overlay h1 .accent { color: white; -webkit-text-fill-color: white; }
+  .hero-overlay p { font-size: 22px; color: white; font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
+  .hero-cta { display: flex; flex-direction: column; align-items: center; gap: 16px; pointer-events: all; }
+  .hero-input-wrap { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 14px; padding: 14px 20px; width: 420px; max-width: 100%; backdrop-filter: blur(12px); }
+  .hero-input-wrap svg { flex-shrink: 0; color: rgba(255,255,255,0.4); }
+  .hero-input-wrap input { background: none; border: none; outline: none; color: white; font-size: 16px; font-family: inherit; width: 100%; }
+  .hero-input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
+  .hero-cta-btn { background: var(--orange); color: white; border: none; font-size: 16px; font-weight: 700; padding: 16px 36px; border-radius: 14px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; width: 420px; max-width: 100%; justify-content: center; }
+  .hero-cta-btn:hover { background: var(--orange-hover); transform: translateY(-1px); box-shadow: 0 8px 32px rgba(255,107,53,0.4); }
+  .hero-cta-note { font-size: 14px; color: rgba(255,255,255,0.45); font-weight: 400; }
   .hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px; background: linear-gradient(to top, #1a1050 0%, transparent 100%); z-index: 2; pointer-events: none; }
   .hero-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 3; color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: bounce 2s infinite; }
   @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
 
-  .stats { padding: 48px 0; background: var(--white); border-bottom: 1px solid var(--gray-100); }
-  .stats .container { display: flex; align-items: center; justify-content: center; gap: 64px; }
-  .stat { text-align: center; }
-  .stat-number { font-size: 36px; font-weight: 800; color: var(--gray-900); letter-spacing: -0.02em; }
-  .stat-label { font-size: 14px; color: var(--gray-400); font-weight: 500; margin-top: 4px; }
-  .stat-divider { width: 1px; height: 48px; background: var(--gray-200); }
-
-  .how-it-works { padding: 100px 0; }
   .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
   .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
-  .steps-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 24px; display: grid; grid-template-columns: repeat(3, 1fr); box-shadow: 0 4px 40px rgba(0,0,0,0.04); overflow: hidden; }
-  .step { padding: 0; display: flex; flex-direction: column; }
-  .step:not(:last-child) { border-right: 1px solid var(--gray-100); }
-  .step-character { width: 100%; height: 220px; }
-  .step h3, .step p { padding: 0 36px; }
-  .step h3 { padding-top: 24px; }
-  .step-character canvas { width: 100% !important; height: 100% !important; display: block; }
-  .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: var(--gray-900); }
-  .step p { font-size: 14px; color: var(--gray-500); line-height: 1.7; padding-bottom: 36px; }
+
+  .laptop-demo { position: relative; min-height: 600vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 4%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+  .laptop-demo-text.visible { opacity: 1; }
+  .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
+  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
+
+  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -105,7 +101,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .stats .container { flex-wrap: wrap; gap: 32px; } .stat-divider { display: none; } .stat { flex: 1 1 40%; } .steps-card { grid-template-columns: 1fr; } .step:not(:last-child) { border-right: none; border-bottom: 1px solid var(--gray-100); } .step-character { height: 160px; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } }
 </style>
 </head>
 <body>
@@ -113,57 +109,32 @@
 <nav class="nav" id="nav">
   <div class="container">
     <a href="#" class="nav-logo"><div class="nav-logo-icon">SR</div><span>SuperReddit</span></a>
-    <div class="nav-links"><a href="#how-it-works">How it works</a><a href="#features">Features</a></div>
+    <div class="nav-links"><a href="#laptop-demo">Demo</a><a href="#features">Features</a></div>
     <div class="nav-actions"><a href="#" class="btn-ghost">Log in</a><a href="#" class="btn-primary">Get Started Free</a></div>
   </div>
 </nav>
 
 <section class="hero">
+  <canvas class="hero-gap-fill" id="gap-fill"></canvas>
   <div class="hero-3d-container" id="three-container"></div>
   <div class="hero-overlay">
     <h1>People are looking for<br><span class="accent">your product</span></h1>
     <p>We help you find them.</p>
-    <div class="hero-buttons">
-      <a href="#" class="btn-primary btn-primary-lg">Start for free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
-      <a href="#" class="btn-secondary btn-secondary-lg">Learn more</a>
+    <div class="hero-cta">
+      <div class="hero-input-wrap">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <input type="text" placeholder="website.com (Optional)">
+      </div>
+      <button class="hero-cta-btn">Find My Leads <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
     </div>
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
 </section>
 
-<section class="stats">
-  <div class="container">
-    <div class="stat fade-in"><div class="stat-number">2M+</div><div class="stat-label">Subreddits</div></div>
-    <div class="stat-divider"></div>
-    <div class="stat fade-in delay-1"><div class="stat-number">52M</div><div class="stat-label">Daily Active Users</div></div>
-    <div class="stat-divider"></div>
-    <div class="stat fade-in delay-2"><div class="stat-number">100K+</div><div class="stat-label">Communities</div></div>
-    <div class="stat-divider"></div>
-    <div class="stat fade-in delay-3"><div class="stat-number">430M</div><div class="stat-label">Monthly Visitors</div></div>
-  </div>
-</section>
-
-<section class="how-it-works" id="how-it-works">
-  <div class="container">
-    <h2 class="section-title fade-in">How <span class="accent">SuperReddit</span> works</h2>
-    <p class="section-subtitle fade-in delay-1">Get from zero to growth in three simple steps</p>
-    <div class="steps-card fade-in delay-2">
-      <div class="step">
-        <div class="step-character" id="step-char-1"></div>
-        <h3>01. Reddit deep-dive</h3>
-        <p>Just drop your product URL and we scan Reddit for relevant subreddits, decode top-performing posts, and map your niche in seconds.</p>
-      </div>
-      <div class="step">
-        <div class="step-character" id="step-char-2"></div>
-        <h3>02. Content generation</h3>
-        <p>Our AI creates high-quality Reddit posts in your brand voice, modeled after proven winners. Ready to post and built to blend in.</p>
-      </div>
-      <div class="step">
-        <div class="step-character" id="step-char-3"></div>
-        <h3>03. Execute &amp; optimize</h3>
-        <p>Publish, track performance, and iterate. Rewrite in different tones, test what resonates, and build sustained momentum.</p>
-      </div>
-    </div>
+<section class="laptop-demo" id="laptop-demo">
+  <div class="laptop-demo-text" id="laptop-demo-text">
+    <h2>See it in action</h2>
+    <p>Watch how SuperReddit finds your leads in seconds</p>
   </div>
 </section>
 
@@ -209,7 +180,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -410,6 +381,7 @@ const loader = new GLTFLoader();
 const headGroups = [];
 const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
 let colorIndex = 0;
+let heroLaptopNode = null; // reference to laptop in hero scene for visibility toggle
 
 loader.load('./scene.gltf', (gltf) => {
   const model = gltf.scene;
@@ -489,16 +461,17 @@ loader.load('./scene.gltf', (gltf) => {
           envMapIntensity: 0.5,
         });
       } else if (verts === 4225) {
-        // Glass lenses
+        // Glass lenses — fake glass (transmission doesn't work through EffectComposer)
         node.material = new THREE.MeshPhysicalMaterial({
-          color: 0xaaddff,
+          color: 0xffffff,
           roughness: 0.05,
-          metalness: 0.0,
-          transmission: 0.9,
-          thickness: 0.3,
-          ior: 1.5,
+          metalness: 0.1,
           transparent: true,
+          opacity: 0.15,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.05,
           envMapIntensity: 2.0,
+          depthWrite: false,
         });
         node.renderOrder = 1;
       } else if (verts === 294) {
@@ -574,12 +547,209 @@ loader.load('./scene.gltf', (gltf) => {
   model.traverse((node) => {
     if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
       node.position.y += 80;
+      heroLaptopNode = node;
     }
   });
 
   scene.add(model);
 
   console.log('GLTF loaded. Head groups:', headGroups.length);
+
+  // Fix Head #17 cylinders — they're the glasses lenses, not skin
+  // Labels are 0-indexed, so #17 on screen = headGroups[17]
+  const hg17 = headGroups[17];
+  if (hg17) {
+    let dbg = 'Head #17 (idx 17) meshes: ';
+    hg17.traverse(n => { if (n.isMesh) dbg += `[${n.name} v=${n.geometry?.attributes?.position?.count}] `; });
+    console.log(dbg);
+  }
+
+  // Head #14 — bright white head, glowing orange eyes
+  const hg14 = headGroups[14];
+  if (hg14) {
+    let mi14 = 0;
+    hg14.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi14 <= 1) {
+        // Eyes — glowing orange
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xff6b35,
+          roughness: 0.1,
+          metalness: 0.0,
+          emissive: 0xff6b35,
+          emissiveIntensity: 1.5,
+          envMapIntensity: 1.0,
+        });
+      } else {
+        // Head — bright white
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.4,
+          metalness: 0.0,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.1,
+          envMapIntensity: 0.5,
+        });
+      }
+      mi14++;
+    });
+  }
+
+  // Head #4 — pupils match skin tone, whites stay white
+  const hg4 = headGroups[4];
+  if (hg4) {
+    const skin4 = hg4.userData.skinColor || 0x8855aa;
+    hg4.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 147) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: skin4, roughness: 0.3, metalness: 0.0, envMapIntensity: 0.5,
+        });
+      }
+    });
+  }
+
+  // Head #9 — make eyebrow + eye rings black
+  const hg9 = headGroups[9];
+  if (hg9) {
+    let mi9 = 0;
+    hg9.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi9 === 0 || mi9 === 1 || mi9 === 2 || mi9 === 3) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8,
+        });
+      }
+      mi9++;
+    });
+  }
+
+  // Head #13 — cone with orange-white-orange stripes
+  const hg13 = headGroups[13];
+  if (hg13) {
+    let mi = 0;
+    hg13.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi === 0) {
+        // Brim — orange to match cone
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xff6b35, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5,
+        });
+      } else if (mi === 1) {
+        // Cone mesh — orange/white/orange stripes via vertex colors
+        n.geometry.computeBoundingBox();
+        const bb = n.geometry.boundingBox;
+        const posAttr = n.geometry.attributes.position;
+        const colors = new Float32Array(posAttr.count * 3);
+        const orange = new THREE.Color(0xff6b35);
+        const white = new THREE.Color(0xffffff);
+        for (let v = 0; v < posAttr.count; v++) {
+          const y = posAttr.getY(v);
+          const t = (y - bb.min.y) / (bb.max.y - bb.min.y);
+          const c = (t < 0.333) ? orange : (t < 0.666) ? white : orange;
+          colors[v * 3] = c.r;
+          colors[v * 3 + 1] = c.g;
+          colors[v * 3 + 2] = c.b;
+        }
+        n.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        n.material = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.5,
+          metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else {
+        // All other skin-colored parts — tan (same as #17)
+        const verts = n.geometry?.attributes?.position?.count || 0;
+        if (verts !== 294 && verts !== 147 && verts !== 563) {
+          n.material = new THREE.MeshStandardMaterial({
+            color: 0xc09888, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5,
+          });
+        }
+      }
+      mi++;
+    });
+  }
+
+  // Head #19 — metallic silver
+  const hg19 = headGroups[19];
+  if (hg19) {
+    const skinVerts = new Set([3968, 598]); // head sphere + ears/cylinders
+    hg19.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      // Make all skin-colored meshes translucent (skip eyes, eyebrows, pupils)
+      if (skinVerts.has(verts) || (verts !== 294 && verts !== 147 && verts !== 563 && verts <= 10000 && verts !== 3968 && verts !== 598)) {
+        // catch anything that's not eyes/brows
+      }
+      if (verts === 3968 || verts === 598) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xcccccc,
+          roughness: 0.15,
+          metalness: 0.9,
+          envMapIntensity: 2.0,
+        });
+      }
+    });
+  }
+
+  // Head #0 — show upside-down teapot on top
+  const hg0 = headGroups[0];
+  if (hg0) {
+    hg0.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts > 10000) {
+        n.visible = true;
+        n.rotation.z = Math.PI; // flip upside down
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xd4a843,
+          roughness: 0.2,
+          metalness: 0.9,
+          envMapIntensity: 1.5,
+        });
+      }
+    });
+  }
+  if (hg17) {
+    const skin17 = 0xc09888; // tan, same as #9
+    hg17.userData.skinColor = skin17;
+    hg17.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 3968 || verts === 598) {
+        // Head sphere + ears — tan skin
+        n.material = new THREE.MeshStandardMaterial({
+          color: skin17, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 60) {
+        // Lenses — transparent glass
+        n.material = new THREE.MeshPhysicalMaterial({
+          color: 0xaaccff,
+          roughness: 0.0,
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.12,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.0,
+          envMapIntensity: 3.0,
+          emissive: 0x4466aa,
+          emissiveIntensity: 0.1,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        n.renderOrder = 1;
+      } else if (verts === 250 || verts === 1071) {
+        // Glasses frame + rims — black
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1,
+          envMapIntensity: 0.8,
+        });
+      }
+    });
+  }
 
   // Force world matrix computation before reading positions
   model.updateMatrixWorld(true);
@@ -639,50 +809,68 @@ loader.load('./scene.gltf', (gltf) => {
     console.log(`Matched Head[${hi}] → Body[${bi}] xzDist=${xzDist.toFixed(2)}`);
   });
 
-  // Push top rows of heads outward to clear space for text
-  const headsByY = headGroups
-    .map(g => {
-      const wp = new THREE.Vector3();
-      g.getWorldPosition(wp);
-      return { group: g, y: wp.y, x: wp.x };
-    })
-    .sort((a, b) => b.y - a.y); // highest first
-
-  // Debug: log all head positions
-  console.log('Head Y positions:', headsByY.map(h => `y=${h.y.toFixed(1)} x=${h.x.toFixed(1)}`));
-
-  // Find Y thresholds for top 2 rows
-  const yMax = headsByY[0].y;
-  const rowHeight = 2.5;
-  const row1Threshold = yMax - rowHeight * 0.5;
-  const row2Threshold = yMax - rowHeight * 1.5;
-
-  console.log(`Thresholds: row1>${row1Threshold.toFixed(1)}, row2>${row2Threshold.toFixed(1)}, yMax=${yMax.toFixed(1)}`);
-
-  let moved = 0;
-  headsByY.forEach(({ group, y, x }) => {
-    const xDir = x >= 0 ? 1 : -1;
-
-    if (y > row1Threshold) {
-      group.position.x += xDir * 8.0;
-      group.position.y -= 2.5;
-      moved++;
-      console.log(`Row1: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
-    } else if (y > row2Threshold) {
-      group.position.x += xDir * 5.0;
-      group.position.y -= 1.5;
-      moved++;
-      console.log(`Row2: moved head at y=${y.toFixed(1)} x=${x.toFixed(1)} → xDir=${xDir}`);
-    }
+  // Hardcoded head positions from drag editor export
+  const headPositions = [
+    { x: -646.98, y: -114.30, z: -40.64 },   // #0
+    { x: -713.22, y: -290.72, z: 172.79 },    // #1
+    { x: -391.41, y: -148.98, z: 95.86 },     // #2
+    { x: -78.42, y: 50.57, z: -39.08 },       // #3
+    { x: 284.02, y: -98.17, z: 86.97 },       // #4
+    { x: 44.78, y: -133.47, z: 233.29 },      // #5
+    { x: 457.60, y: -244.83, z: 57.78 },      // #6
+    { x: 431.41, y: 21.91, z: -107.51 },      // #7
+    { x: -492.74, y: -421.59, z: 232.17 },    // #8
+    { x: -379.09, y: 39.06, z: -101.59 },     // #9
+    { x: 1151.88, y: -334.33, z: -306.77 },   // #10
+    { x: -1166.13, y: -324.27, z: -208.78 },  // #11
+    { x: 185.35, y: 56.15, z: -88.64 },       // #12
+    { x: 611.87, y: -85.01, z: -25.49 },      // #13
+    { x: 731.11, y: -244.83, z: 64.46 },      // #14
+    { x: -193.53, y: -98.17, z: 68.10 },      // #15
+    { x: 502.93, y: -441.88, z: 128.27 },     // #16
+    { x: -27.69, y: -337.19, z: 253.16 },     // #17
+    { x: -290.61, y: -337.19, z: 160.72 },    // #18
+    { x: 258.40, y: -322.41, z: 172.79 },     // #19
+  ];
+  headPositions.forEach((pos, i) => {
+    if (!pos || i >= headGroups.length) return;
+    headGroups[i].position.set(pos.x, pos.y, pos.z);
   });
 
-  console.log(`Moved ${moved} heads outward`);
+  // Hardcoded body positions from drag editor export
+  const bodyPositions = [
+    { x: 637.81, y: 11.08, z: 30.73 },       // body 0
+    { x: 770.02, y: -202.57, z: 127.38 },    // body 1
+    { x: 467.01, y: -220.79, z: 105.99 },    // body 2
+    { x: 540.41, y: -251.32, z: 187.49 },    // body 3
+    { x: -260.63, y: -157.13, z: 188.53 },   // body 4
+    { x: 301.34, y: 165.46, z: 142.65 },     // body 5
+    { x: 268.76, y: -112.58, z: 218.21 },    // body 6
+    { x: -481.88, y: -244.15, z: 272.52 },   // body 7
+    { x: -702.36, y: -180.71, z: 206.64 },   // body 8
+    { x: -630.27, y: -11.31, z: 10.80 },     // body 9
+    { x: 207.98, y: 324.07, z: -48.00 },     // body 10
+    { x: 475.68, y: 294.18, z: -79.29 },     // body 11
+    { x: 1176.76, y: -175.37, z: -281.47 },  // body 12
+    { x: -365.46, y: 145.70, z: -20.96 },    // body 13
+    { x: -1169.04, y: -169.91, z: -194.20 }, // body 14
+    { x: -391.32, y: 28.18, z: 142.45 },     // body 15
+    { x: -57.04, y: 321.17, z: 18.58 },      // body 16
+    { x: -166.42, y: 65.98, z: 121.80 },     // body 17
+    { x: 58.92, y: 128.45, z: 161.98 },      // body 18
+    { x: -6.62, y: -49.55, z: 311.17 },      // body 19
+  ];
+  bodyPositions.forEach((pos, i) => {
+    if (!pos || i >= bodyMeshes.length) return;
+    bodyMeshes[i].mesh.position.set(pos.x, pos.y, pos.z);
+  });
+  model.updateMatrixWorld(true);
 
-  // Collect eyelids for animation
+  // Collect eyelids for animation (exclude pupils — both are 147 verts)
   model.traverse((node) => {
     if (!node.isMesh) return;
     const verts = node.geometry?.attributes?.position?.count || 0;
-    if (verts === 147 && isInHeadGroup(node)) {
+    if (verts === 147 && isInHeadGroup(node) && !node.userData.isPupil) {
       node.userData.isEyelid = true;
       node.userData.basePosition = node.position.clone();
       eyelids.push(node);
@@ -690,333 +878,276 @@ loader.load('./scene.gltf', (gltf) => {
   });
   console.log('Eyelids found:', eyelids.length);
 
-  // Set up step character canvases using cloned heads
-  setupStepCharacters();
+  // Collect pupils — 147-vert meshes that overlap with 294-vert eye whites
+  headGroups.forEach(group => {
+    const eyeWhites = [];
+    const candidates = [];
+    group.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 294) eyeWhites.push(n);
+      if (verts === 147) candidates.push(n);
+    });
+    candidates.forEach(c => {
+      const cPos = new THREE.Vector3();
+      c.getWorldPosition(cPos);
+      for (const ew of eyeWhites) {
+        const ewPos = new THREE.Vector3();
+        ew.getWorldPosition(ewPos);
+        if (cPos.distanceTo(ewPos) < 0.15) {
+          c.userData.isPupil = true;
+          c.userData.basePosition = c.position.clone();
+          c.userData.parentEyeWhite = ew;
+          pupils.push(c);
+          break;
+        }
+      }
+    });
+  });
+  console.log('Pupils found:', pupils.length);
+
+  // Remove pupils from eyelids array to avoid conflicting position updates
+  for (let i = eyelids.length - 1; i >= 0; i--) {
+    if (eyelids[i].userData.isPupil) eyelids.splice(i, 1);
+  }
+
+  // Labels removed — no longer needed
+  window._updateLabels = null;
+
+  // Set up fixed overlay canvas for laptop transition
+  setupOverlayCanvas();
 }, undefined, (err) => {
   console.error('GLTF load error:', err);
 });
 
 // ── Animation ──
-const clock = new THREE.Clock();
 const eyelids = [];
+const pupils = [];
 
-// ── Step Characters — clone GLTF heads + themed context per step ──
-const stepCharRenderers = [];
-const stepCharScenes = [];
-const stepCharCameras = [];
-const stepCharHeads = [];
-const stepContextObjects = []; // per-step animated context elements
-let stepsVisible = false;
+// ── Fixed Overlay Canvas — renders ONLY the laptop, floats above the page ──
+let overlayRenderer, overlayScene, overlayCamera, overlayLaptopNode;
+let overlayReady = false;
+let overlayActive = false; // true once handoff from hero laptop occurs
 
-// Helper: build a full character by baking head + body geometry into world space.
-// Uses saved (pre-spreading) world matrices and XZ-plane matched body.
-function buildCharacter(srcHead) {
-  const meshGroup = new THREE.Group();
+function setupOverlayCanvas() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-  // Bake each visible head mesh using SAVED world matrix (pre-spreading)
-  srcHead.traverse(n => {
-    if (!n.isMesh || !n.visible) return;
-    const wm = n.userData.savedWorldMatrix;
-    if (!wm) return;
-    const geo = n.geometry.clone();
-    geo.applyMatrix4(wm);
-    meshGroup.add(new THREE.Mesh(geo, n.material.clone()));
-  });
+  // Create fixed overlay canvas — transparent, above everything
+  overlayRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  overlayRenderer.setPixelRatio(window.devicePixelRatio);
+  overlayRenderer.setSize(w, h);
+  overlayRenderer.setClearColor(0x000000, 0);
+  overlayRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  overlayRenderer.toneMappingExposure = 1.3;
+  overlayRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  overlayRenderer.domElement.id = 'laptop-overlay-canvas';
+  overlayRenderer.domElement.style.display = 'none'; // hidden until handoff
+  document.body.appendChild(overlayRenderer.domElement);
 
-  // Use pre-computed XZ-matched body
-  const bodyEntry = srcHead.userData.matchedBody;
-  if (bodyEntry) {
-    const geo = bodyEntry.mesh.geometry.clone();
-    geo.applyMatrix4(bodyEntry.worldMatrix);
-    meshGroup.add(new THREE.Mesh(geo, bodyEntry.mesh.material.clone()));
-  }
+  // Scene — transparent, no background
+  overlayScene = new THREE.Scene();
 
-  if (meshGroup.children.length === 0) return null;
+  // Camera — EXACTLY matches hero camera (same position, FOV, lookAt)
+  // The overlay canvas starts with the same CSS translateY(12%) as the hero canvas,
+  // so no world-unit offset math is needed — they render identically.
+  overlayCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 200);
+  overlayCamera.position.set(0, 1.5, 14);
+  overlayCamera.lookAt(0, 3.0, 0);
 
-  // Everything is in world space — recenter at origin
-  const box = new THREE.Box3().setFromObject(meshGroup);
-  if (box.isEmpty()) return null;
+  // Lighting — match hero lighting so laptop looks identical
+  overlayScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
 
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
+  const oTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+  oTopSpot.position.set(0, 16, 6);
+  oTopSpot.target.position.set(0, 0, -2);
+  overlayScene.add(oTopSpot);
+  overlayScene.add(oTopSpot.target);
 
-  // Offset meshGroup to center content at origin
-  meshGroup.position.set(-center.x, -center.y, -center.z);
+  const oLaptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
+  oLaptopSpot.position.set(0, -1.8, 2.0);
+  oLaptopSpot.target.position.set(0, 4, -1);
+  overlayScene.add(oLaptopSpot);
+  overlayScene.add(oLaptopSpot.target);
 
-  // Scale to fit canvas
-  const s = maxDim > 0 ? 2.8 / maxDim : 1;
-  const wrapper = new THREE.Group();
-  wrapper.add(meshGroup);
-  wrapper.scale.set(s, s, s);
-  wrapper.userData.baseY = 0;
+  const oLaptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+  oLaptopFill.position.set(0, -0.5, 3.5);
+  overlayScene.add(oLaptopFill);
 
-  console.log(`Character: ${meshGroup.children.length} meshes, size=${size.x.toFixed(2)},${size.y.toFixed(2)},${size.z.toFixed(2)}`);
-  return wrapper;
-}
+  const oFill = new THREE.DirectionalLight(0x998acc, 0.6);
+  oFill.position.set(0, 2, 10);
+  overlayScene.add(oFill);
 
-// Step 1 context: 3D magnifying glass hovering over character's eye
-function createSearchContext(scene, character) {
-  const ctx = { glass: null };
+  const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
+  overlayScene.add(oAmbient);
 
-  // Build a 3D magnifying glass
-  const glassGroup = new THREE.Group();
+  // Load same GLTF, extract only laptop
+  const oLoader = new GLTFLoader();
+  oLoader.load('./scene.gltf', (gltf) => {
+    const model = gltf.scene;
 
-  // Lens ring (torus)
-  const ringGeo = new THREE.TorusGeometry(0.35, 0.04, 12, 32);
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0x3B82F6, roughness: 0.2, metalness: 0.6 });
-  const ring = new THREE.Mesh(ringGeo, ringMat);
-  glassGroup.add(ring);
+    // Find laptop root node
+    let laptopRoot = null;
+    model.traverse((node) => {
+      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+        laptopRoot = node;
+      }
+    });
+    if (!laptopRoot) { console.error('Overlay: laptop not found'); return; }
 
-  // Glass lens (transparent disc)
-  const lensGeo = new THREE.CircleGeometry(0.34, 32);
-  const lensMat = new THREE.MeshPhysicalMaterial({
-    color: 0xaaddff, roughness: 0.05, metalness: 0.0,
-    transmission: 0.85, thickness: 0.1, ior: 1.5,
-    transparent: true, opacity: 0.4, side: THREE.DoubleSide,
-  });
-  const lens = new THREE.Mesh(lensGeo, lensMat);
-  lens.renderOrder = 1;
-  glassGroup.add(lens);
-
-  // Handle (cylinder)
-  const handleGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.7, 8);
-  const handleMat = new THREE.MeshStandardMaterial({ color: 0x2563EB, roughness: 0.3, metalness: 0.5 });
-  const handle = new THREE.Mesh(handleGeo, handleMat);
-  handle.position.set(0.25, -0.55, 0);
-  handle.rotation.z = Math.PI / 6;
-  glassGroup.add(handle);
-
-  // Position over character's right eye area (zoomed-in head view)
-  glassGroup.position.set(0.12, 1.15, 0.6);
-  glassGroup.rotation.set(0.15, -0.2, 0.35);
-  glassGroup.scale.setScalar(0.3);
-
-  scene.add(glassGroup);
-  ctx.glass = glassGroup;
-  ctx.baseY = glassGroup.position.y;
-
-  return ctx;
-}
-
-// Step 2 context: robot model next to character (AI creation)
-function createAIContext(scene, character) {
-  const ctx = { robot: null };
-
-  const fbxLoader = new FBXLoader();
-  fbxLoader.load('./RobMesh.fbx', (fbx) => {
-    // Auto-scale robot to fit scene
-    const box = new THREE.Box3().setFromObject(fbx);
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const targetHeight = 2.2;
-    const s = targetHeight / maxDim;
-    fbx.scale.setScalar(s);
-
-    // Center vertically and position to the right of character
-    const center = box.getCenter(new THREE.Vector3());
-    fbx.position.set(1.3, -(center.y * s), 0.3);
-
-    // Apply a metallic material to all meshes
-    fbx.traverse(n => {
-      if (n.isMesh) {
-        n.material = new THREE.MeshStandardMaterial({
-          color: 0x8899aa, roughness: 0.3, metalness: 0.7,
-          envMapIntensity: 0.5,
-        });
-        n.castShadow = true;
+    // We need the full model hierarchy to preserve the 0.01 root scale,
+    // but hide everything except the laptop.
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      const pName = node.parent?.name || '';
+      const gpName = node.parent?.parent?.name || '';
+      const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      if (!isLaptop) {
+        node.visible = false; // hide characters, table, background — keep laptop only
+      } else {
+        // Apply same laptop materials as hero
+        const name = node.name || '';
+        if (name.includes('light') || name.includes('Logo')) {
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0x6688cc, roughness: 0.15, metalness: 0.0,
+            emissive: 0x3355bb, emissiveIntensity: 1.5,
+          });
+        } else {
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0x888898, roughness: 0.5, metalness: 0.3,
+            envMapIntensity: 0.8,
+          });
+        }
       }
     });
 
-    scene.add(fbx);
-    ctx.robot = fbx;
-    console.log('Robot loaded, size:', size, 'scale:', s);
-  }, undefined, (err) => {
-    console.error('Robot FBX load error:', err);
+    // Apply the same laptop Y raise as the hero scene
+    model.traverse((node) => {
+      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+        node.position.y += 80;
+        overlayLaptopNode = node;
+      }
+    });
+
+    overlayScene.add(model);
+
+    // ── Compute laptop's TRUE geometric center via bounding box ──
+    // This guarantees we know exactly where the laptop is — no guessing.
+    model.updateMatrixWorld(true); // ensure all transforms are applied
+    const laptopBox = new THREE.Box3().setFromObject(overlayLaptopNode);
+    const laptopCenterWorld = new THREE.Vector3();
+    laptopBox.getCenter(laptopCenterWorld);
+    // Store for use in updateLaptopAnimation
+    window._laptopCenter = laptopCenterWorld;
+    console.log('Laptop bounding box center (world):', laptopCenterWorld);
+
+    overlayReady = true;
+    console.log('Overlay canvas: laptop ready');
   });
-
-  return ctx;
 }
 
-// Step 3 context: rising particles + expanding rings (growth)
-function createGrowthContext(scene) {
-  const ctx = { arrows: [], rings: [], particles: null };
+// ── Scroll-driven laptop animation ──
+// Pure native scrolling — no wheel interception, no scroll queue.
+// The 600vh section IS the speed control. Browser handles all scrolling
+// natively for buttery-smooth feel. Animation maps directly to scroll position.
+let laptopProgress = 0;
 
-  // Rising arrow shapes (small cones pointing up)
-  const arrowGeo = new THREE.ConeGeometry(0.08, 0.25, 4);
-  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xA855F7, transparent: true, opacity: 0.6 });
-  for (let j = 0; j < 6; j++) {
-    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-    scene.add(arrow);
-    ctx.arrows.push(arrow);
+// ── Scroll listener — reads actual position, sets progress directly ──
+window.addEventListener('scroll', () => {
+  const heroSection = document.querySelector('.hero');
+  const demoSection = document.getElementById('laptop-demo');
+  if (!heroSection || !demoSection) return;
+
+  const heroRect = heroSection.getBoundingClientRect();
+  const demoRect = demoSection.getBoundingClientRect();
+  const viewH = window.innerHeight;
+  const heroBottomRatio = heroRect.bottom / viewH;
+
+  // Fade hero text/hint on scroll
+  const heroOverlay = document.querySelector('.hero-overlay');
+  const heroHint = document.querySelector('.hero-scroll-hint');
+  if (heroOverlay) {
+    const fadeProgress = Math.max(0, Math.min(1, (1.05 - heroBottomRatio) / 0.2));
+    heroOverlay.style.opacity = 1 - fadeProgress;
+  }
+  if (heroHint) {
+    const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
+    heroHint.style.opacity = 1 - hintFade;
   }
 
-  // Expanding pulse rings
-  for (let j = 0; j < 2; j++) {
-    const ringGeo = new THREE.RingGeometry(0.8, 0.85, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xC084FC, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    scene.add(ring);
-    ctx.rings.push(ring);
-  }
+  // ── Progress: direct from scroll position (no lerp) ──
+  // Animation completes within ~1.5 viewport heights of scrolling.
+  const demoTop = demoRect.top;
+  const startThreshold = viewH * 0.8;
+  const scrollDistance = viewH * 1.5;
+  const rawProgress = (startThreshold - demoTop) / scrollDistance;
+  laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
-  // Upward particle stream
-  const count = 30;
-  const positions = new Float32Array(count * 3);
-  for (let j = 0; j < count; j++) {
-    positions[j * 3] = (Math.random() - 0.5) * 2.5;
-    positions[j * 3 + 1] = Math.random() * 3 - 1;
-    positions[j * 3 + 2] = (Math.random() - 0.5) * 1.5;
-  }
-  const pGeo = new THREE.BufferGeometry();
-  pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  ctx.particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-    color: 0xC084FC, size: 0.06, transparent: true, opacity: 0.5, sizeAttenuation: true,
-  }));
-  scene.add(ctx.particles);
+  // Cross-fade: hero laptop stays visible and scrolls away naturally.
+  // Overlay fades in gradually — no hard switch, no visual jump.
+  const shouldShowOverlay = laptopProgress > 0.05;
 
-  return ctx;
-}
+  // Instant swap: hero laptop hides, overlay laptop appears
+  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay;
 
-function setupStepCharacters() {
-  console.log('setupStepCharacters called, headGroups:', headGroups.length);
-  if (headGroups.length < 3) return;
-
-  // Skip index 0 (teapot head). Pick 3 with good body matches, spread across the rest.
-  const pool = headGroups.filter((g, i) => i > 0 && g.userData.matchedBody);
-  const stride = Math.floor(pool.length / 3);
-  const picks = [pool[0], pool[Math.min(stride, pool.length - 1)], pool[Math.min(stride * 2, pool.length - 1)]];
-  console.log('Step character picks:', picks.map(p => headGroups.indexOf(p)));
-  const contextCreators = [createSearchContext, createAIContext, createGrowthContext];
-
-  picks.forEach((srcHead, i) => {
-    const el = document.getElementById(`step-char-${i + 1}`);
-    if (!el) return;
-
-    const w = el.clientWidth || 300;
-    const h = el.clientHeight || 200;
-
-    const character = buildCharacter(srcHead);
-    if (!character) {
-      console.warn(`Step char ${i}: could not build character`);
-      return;
-    }
-
-    // Mini scene — lighting matched to hero section
-    const miniScene = new THREE.Scene();
-    miniScene.fog = new THREE.FogExp2(0x1a1050, 0.08);
-
-    // 1. Hemisphere — soft neutral sky, dark purple ground
-    miniScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.8));
-
-    // 2. Top key — soft purple-white from above
-    const key = new THREE.DirectionalLight(0xeeddff, 5.0);
-    key.position.set(0, 6, 4);
-    miniScene.add(key);
-
-    // 3. Blue uplight — dramatic blue on chins (like laptop glow)
-    const blueUp = new THREE.PointLight(0x3366ee, 8.0, 15, 1.0);
-    blueUp.position.set(0, -2, 2);
-    miniScene.add(blueUp);
-
-    // 4. Blue fill — wider wash
-    const blueFill = new THREE.PointLight(0x3355dd, 3.0, 15, 1.0);
-    blueFill.position.set(0, 0, 3);
-    miniScene.add(blueFill);
-
-    // 5. Left rim — blue edge
-    const leftRim = new THREE.PointLight(0x4477cc, 3.0, 15);
-    leftRim.position.set(-4, 1, 0);
-    miniScene.add(leftRim);
-
-    // 6. Right rim — purple edge
-    const rightRim = new THREE.PointLight(0x6644bb, 2.5, 15);
-    rightRim.position.set(4, 1, 0);
-    miniScene.add(rightRim);
-
-    // 7. Front fill — keeps faces from going full black
-    const frontFill = new THREE.DirectionalLight(0x998acc, 1.5);
-    frontFill.position.set(0, 1, 6);
-    miniScene.add(frontFill);
-
-    // 8. Ambient — lifts blacks
-    miniScene.add(new THREE.AmbientLight(0x332848, 1.5));
-
-    // 9. Orange backlight — warm glow behind
-    const orangeBack = new THREE.PointLight(0xff6b35, 5.0, 15, 1.0);
-    orangeBack.position.set(0, 1, -3);
-    miniScene.add(orangeBack);
-    miniScene.add(character);
-
-    // Orange radial glow backdrop — matching hero section
-    const bgGlowGeo = new THREE.PlaneGeometry(10, 10);
-    const bgGlowMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false,
-      uniforms: {
-        color: { value: new THREE.Color(0xff6b35) },
-        opacity: { value: 0.65 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-      `,
-      fragmentShader: `
-        uniform vec3 color; uniform float opacity; varying vec2 vUv;
-        void main() {
-          vec2 c = vUv - 0.5; float d = length(c) * 2.0;
-          float alpha = opacity * pow(smoothstep(1.0, 0.0, d), 2.0);
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-    });
-    const bgGlow = new THREE.Mesh(bgGlowGeo, bgGlowMat);
-    bgGlow.position.set(0, 0.5, -2);
-    miniScene.add(bgGlow);
-
-    // Add themed context elements
-    const ctx = contextCreators[i](miniScene, character);
-    stepContextObjects.push(ctx);
-
-    // Camera — step 1 zooms into head, others show full character
-    const cam = new THREE.PerspectiveCamera(40, w / h, 0.01, 100);
-    if (i === 0) {
-      cam.position.set(0, 1.0, 1.7);
-      cam.lookAt(0, 1.0, 0);
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  if (overlayCanvas) {
+    if (shouldShowOverlay && demoRect.bottom >= 0) {
+      overlayCanvas.style.display = 'block';
+      overlayCanvas.style.opacity = 1;
     } else {
-      cam.position.set(0, 0.2, 5);
-      cam.lookAt(0, 0, 0);
+      overlayCanvas.style.display = 'none';
+      overlayCanvas.style.opacity = 0;
     }
 
-    // Renderer — dark purple background matching hero
-    const r = new THREE.WebGLRenderer({ antialias: true });
-    r.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    r.setSize(w, h);
-    r.setClearColor(0x1a1050, 1);
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.5;
-    r.outputColorSpace = THREE.SRGBColorSpace;
-    el.appendChild(r.domElement);
+    // Sticky: keep laptop pinned in center after animation completes.
+    // Only scroll it away when the section BOTTOM reaches the viewport bottom.
+    if (laptopProgress >= 0.99) {
+      const distFromBottom = demoRect.bottom - viewH;
+      if (distFromBottom < 0) {
+        // Section leaving viewport — scroll canvas away with it
+        overlayCanvas.style.transform = `translateY(${distFromBottom}px)`;
+      } else {
+        // Section still has room — laptop stays pinned in center
+        overlayCanvas.style.transform = 'none';
+      }
+    } else {
+      overlayCanvas.style.transform = 'none';
+    }
+  }
+  overlayActive = shouldShowOverlay && demoRect.bottom >= 0;
 
-    // Force immediate render
-    r.render(miniScene, cam);
+  const demoText = document.getElementById('laptop-demo-text');
+  if (demoText) {
+    demoText.classList.toggle('visible', laptopProgress > 0.85);
+  }
+}, { passive: true });
 
-    stepCharRenderers.push(r);
-    stepCharScenes.push(miniScene);
-    stepCharCameras.push(cam);
-    stepCharHeads.push(character);
-  });
+// Called every frame from animate()
+function updateLaptopAnimation() {
+  if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
-  console.log('Step characters set up:', stepCharRenderers.length);
-}
+  const center = window._laptopCenter;
+  if (!center) return;
 
-// IntersectionObserver
-const stepsSection = document.getElementById('how-it-works');
-if (stepsSection) {
-  new IntersectionObserver((entries) => {
-    entries.forEach(e => { stepsVisible = e.isIntersecting; });
-  }, { threshold: 0.01 }).observe(stepsSection);
+  const eased = laptopProgress < 0.5
+    ? 2 * laptopProgress * laptopProgress
+    : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
+
+  // Camera Y is ALWAYS at the laptop's bounding box center.
+  // The laptop is always dead center vertically — no Y interpolation.
+  // Only zoom (Z) and rotation animate.
+  const camY = center.y;
+  const lookY = center.y;
+  const startCamZ = 14;
+  const endCamZ = 8;
+  const camZ = startCamZ + (endCamZ - startCamZ) * eased;
+
+  overlayCamera.position.set(0, camY, camZ);
+  overlayCamera.lookAt(0, lookY, 0);
+
+  // Rotate: 0 at start (back facing), PI at end (screen facing)
+  overlayLaptopNode.rotation.y = eased * Math.PI;
 }
 
 function animate() {
@@ -1028,7 +1159,7 @@ function animate() {
   const MAX_ROT = 0.5; // ~29 degrees
   const tempVec = new THREE.Vector3();
 
-  headGroups.forEach((group) => {
+  if (!window._isDragging) headGroups.forEach((group) => {
     // Get this head's screen-space position
     tempVec.setFromMatrixPosition(group.matrixWorld);
     tempVec.project(camera);
@@ -1063,49 +1194,43 @@ function animate() {
     lid.position.y = base.y + smoothMouse.y * 2.0;
   });
 
+  // Animate pupils — horizontal cursor tracking + vertical eyelid motion
+  const PUPIL_MAX_OFFSET = 3.0;
+  pupils.forEach(pupil => {
+    if (!pupil.userData.basePosition) return;
+    const base = pupil.userData.basePosition;
+    // Horizontal + vertical cursor tracking (clamped to circle)
+    const offsetX = smoothMouse.x * PUPIL_MAX_OFFSET;
+    const offsetY = smoothMouse.y * PUPIL_MAX_OFFSET;
+    const len = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    const clampedLen = Math.min(len, PUPIL_MAX_OFFSET);
+    const scale = len > 0 ? clampedLen / len : 0;
+    pupil.position.x = base.x + offsetX * scale;
+    // Combine: eyelid vertical motion (same as eyelids array used) + pupil Y tracking
+    pupil.position.y = base.y + smoothMouse.y * 2.0 + offsetY * scale;
+  });
+
   // Render through post-processing pipeline
   composer.render();
 
-  // Render step character canvases + animated context
-  if (stepsVisible && stepCharRenderers.length > 0) {
-    const t = clock.getElapsedTime();
-    stepCharHeads.forEach((head, i) => {
-      const ctx = stepContextObjects[i];
-      if (ctx && i === 0) {
-        ctx.glass.position.y = ctx.baseY + Math.sin(t * 1.2) * 0.02;
-      }
-      if (ctx && i === 1) {
-        // Robot is static — no animation needed
-      }
-      if (ctx && i === 2) {
-        // Growth: rising arrows + pulse rings + particles
-        ctx.arrows.forEach((arrow, j) => {
-          const phase = (t * 0.5 + j * 0.4) % 2.5;
-          const x = (j - 2.5) * 0.5;
-          arrow.position.set(x, -1.2 + phase * 1.2, (j % 2 - 0.5) * 0.5);
-          arrow.material.opacity = phase < 2.0 ? 0.6 : 0.6 * (2.5 - phase) * 2;
-        });
-        // Expanding pulse rings
-        ctx.rings.forEach((ring, j) => {
-          const phase = (t * 0.6 + j * 1.5) % 3.0;
-          ring.scale.setScalar(0.5 + phase * 0.5);
-          ring.material.opacity = 0.3 * Math.max(0, 1 - phase / 3.0);
-          ring.position.y = -0.2;
-        });
-        // Rising particles
-        const pp = ctx.particles.geometry.attributes.position;
-        for (let j = 0; j < pp.count; j++) {
-          pp.array[j * 3 + 1] += 0.012;
-          if (pp.array[j * 3 + 1] > 2.5) {
-            pp.array[j * 3 + 1] = -1.0;
-            pp.array[j * 3] = (Math.random() - 0.5) * 2.5;
-          }
-        }
-        pp.needsUpdate = true;
-      }
+  // ── Gap fill: stretch top 3px of 3D canvas to cover the translateY gap ──
+  const gapCanvas = document.getElementById('gap-fill');
+  const gapCtx = gapCanvas.getContext('2d');
+  const srcCanvas = renderer.domElement;
+  if (gapCanvas.width !== srcCanvas.width || gapCanvas.height !== Math.round(srcCanvas.height * 0.14)) {
+    gapCanvas.width = srcCanvas.width;
+    gapCanvas.height = Math.round(srcCanvas.height * 0.14);
+  }
+  // Copy top 3 pixel rows from the 3D render, stretch to fill the gap
+  gapCtx.drawImage(srcCanvas, 0, 0, srcCanvas.width, 3, 0, 0, gapCanvas.width, gapCanvas.height);
 
-      stepCharRenderers[i].render(stepCharScenes[i], stepCharCameras[i]);
-    });
+  // Update numbered labels
+  if (window._updateLabels) window._updateLabels();
+
+  // Smooth laptop animation + render overlay
+  updateLaptopAnimation();
+  if (overlayActive && overlayReady && overlayRenderer) {
+    overlayRenderer.render(overlayScene, overlayCamera);
   }
 }
 
@@ -1117,18 +1242,17 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
+  // Resize gap-fill canvas
+  const gf = document.getElementById('gap-fill');
+  gf.width = window.innerWidth * window.devicePixelRatio;
+  gf.height = Math.round(window.innerHeight * 0.14 * window.devicePixelRatio);
 
-  // Resize step character canvases
-  stepCharRenderers.forEach((r, i) => {
-    const el = document.getElementById(`step-char-${i + 1}`);
-    if (el) {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      r.setSize(w, h);
-      stepCharCameras[i].aspect = w / h;
-      stepCharCameras[i].updateProjectionMatrix();
-    }
-  });
+  // Resize overlay canvas
+  if (overlayRenderer && overlayCamera) {
+    overlayRenderer.setSize(window.innerWidth, window.innerHeight);
+    overlayCamera.aspect = window.innerWidth / window.innerHeight;
+    overlayCamera.updateProjectionMatrix();
+  }
 });
 
 // ── Prevent scroll zoom ──
