@@ -1115,23 +1115,20 @@ window.addEventListener('scroll', () => {
     const cssShift = HERO_CANVAS_OFFSET_RATIO * 1.15 * visH;
 
     // At progress=0: camera matches hero (shifted down by cssShift)
-    // At progress=1: camera centered on laptop (shift=0, looking directly at laptop)
-    // The laptop world Y with +80 local offset and 0.01 root scale ≈ 0.8 world units above model origin.
-    // Hero camera looks at (0, 3.0, 0). With the laptop at ~y=0.8, it's in the lower part of the view.
-    // At progress=1, we want the laptop centered: camera at laptop height, looking at it.
-    const laptopWorldY = 0.8; // approximate: position.y += 80 * 0.01 scale
-
+    // At progress=1: camera centered on laptop, zoomed in close
+    // The laptop is in the lower portion of the hero scene. We need to lower
+    // the end lookAt to center it vertically, and zoom in much closer.
     const startCamY = 1.5 - cssShift;
     const startLookY = 3.0 - cssShift;
-    const endCamY = laptopWorldY;
-    const endLookY = laptopWorldY;
+    const endCamY = 0.3;   // slightly above laptop to look down at it
+    const endLookY = -0.3;  // look below center to push laptop up in frame
 
     const camY = startCamY + (endCamY - startCamY) * eased;
     const lookY = startLookY + (endLookY - startLookY) * eased;
 
-    // Also pull camera closer at the end for a nice zoom-in effect
+    // Zoom in significantly — laptop should fill ~60% of viewport at the end
     const startCamZ = 14;
-    const endCamZ = 8;
+    const endCamZ = 5;
     const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
     overlayCamera.position.set(0, camY, camZ);
