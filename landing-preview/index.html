@@ -1288,10 +1288,14 @@ function showFlatVideo() {
   }
 }
 
+// Cooldown: after snap-out, prevent showFlatVideo re-triggering until reset
+let snapCooldown = false;
+
 // Fast escape: skip reverse animation entirely, let scroll momentum carry to top
 function snapOutOfFlatVideo() {
   flatVideoShown = false;
   overlayActive = false;
+  snapCooldown = true;
 
   const canvas = document.getElementById('laptop-overlay-canvas');
   if (canvas) { canvas.style.display = 'none'; canvas.style.opacity = '0'; canvas.style.transform = 'none'; }
@@ -1483,7 +1487,7 @@ window.addEventListener('scroll', () => {
 
   // Crossfade: show flat video wrap during crossfade window
   const wrap = document.getElementById('flat-video-wrap');
-  if (wrap && !flatVideoShown) {
+  if (wrap && !flatVideoShown && !snapCooldown) {
     if (zoomProgress > 0.85) {
       const crossfade = (zoomProgress - 0.85) / 0.15;
       wrap.style.opacity = String(crossfade);
@@ -1496,7 +1500,14 @@ window.addEventListener('scroll', () => {
   // Guard: only trigger when demo section has scrolled far enough up that
   // the video will land inside the demo section, not in the hero area.
   // demoRect.top should be well above viewport center at zoomProgress 1.0.
-  if (zoomProgress >= 1.0 && !flatVideoShown && demoRect.top < viewH * 0.3) {
+  // Reset snap cooldown once user scrolls back above the animation start
+  if (snapCooldown && laptopProgress < 0.05) {
+    snapCooldown = false;
+    const ds = document.getElementById('laptop-demo');
+    if (ds) ds.style.minHeight = '200vh';
+  }
+
+  if (zoomProgress >= 1.0 && !flatVideoShown && !snapCooldown && demoRect.top < viewH * 0.3) {
     showFlatVideo();
   }
 
