@@ -1443,6 +1443,12 @@ function hideFlatVideo() {
 
 // ── Scroll-Driven Video Player (new system) ──
 if (USE_SCROLL_VIDEO) {
+  // On page load/refresh, reset to top so the animation starts clean.
+  // Browsers restore scroll position on refresh, which would put us in the
+  // middle/end of the animation with no frames rendered yet.
+  if (window.scrollY > 0) {
+    window.scrollTo(0, 0);
+  }
   // Screen rect fractions from capture tool (progress=1.0) — used for video sizing
   const SCREEN_WIDTH_FRAC = 0.4670;
   const SCREEN_HEIGHT_FRAC = 0.5906;
