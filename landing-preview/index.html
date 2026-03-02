@@ -1092,11 +1092,12 @@ window.addEventListener('scroll', () => {
   }
 
   // ── Progress: direct from scroll position (no lerp) ──
-  // Animation plays over 3 viewport heights of scrolling.
-  // With 600vh section, that uses ~50% for animation, ~50% for hold.
+  // Animation plays over 1.5 viewport heights of scrolling.
+  // This ensures the laptop is fully rotated to screen-facing
+  // by the time it's centered on the white background.
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
-  const scrollDistance = viewH * 3.0;
+  const scrollDistance = viewH * 1.5;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
