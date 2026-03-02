@@ -63,7 +63,7 @@
   .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 32px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
-  #flat-video-wrap { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; max-width: 960px; padding: 0 24px; box-sizing: border-box; z-index: 60; }
+  #flat-video-wrap { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; max-width: 800px; padding: 0 24px; box-sizing: border-box; z-index: 60; }
   #flat-video-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
@@ -1287,18 +1287,18 @@ function updateLaptopAnimation() {
   // Spin: camera pulls from Z=14 to Z=8
   const spinCamZ = 14 + (8 - 14) * eased;
 
-  // Zoom: camera pushes closer, rises to screen level, tilts screen flat
-  const camZ = spinCamZ + (3.0 - 8) * zE;
-  const camY = center.y + 0.5 * zE;
-  const lookY = center.y + 0.3 * zE;
+  // Zoom: moderate push closer, rise camera to track tilted screen center
+  const camZ = spinCamZ + (6.0 - 8) * zE;
+  const camY = center.y + 1.5 * zE;
+  const lookY = center.y + 1.2 * zE;
 
   overlayCamera.position.set(0, camY, camZ);
   overlayCamera.lookAt(0, lookY, 0);
 
   // Y rotation: spin 0→PI
-  // X rotation: tilt screen FORWARD toward camera (+0.65 rad ≈ 37°) to flatten it
+  // X rotation: tilt screen FORWARD toward camera (+0.5 rad ≈ 29°) to flatten it
   overlayLaptopNode.rotation.y = eased * Math.PI;
-  overlayLaptopNode.rotation.x = 0.65 * zE;
+  overlayLaptopNode.rotation.x = 0.5 * zE;
 
   // Fade out base, lid back, and logo during zoom (0% → 60% of zoom)
   const fadeOut = Math.min(1, zE / 0.6);
