@@ -1035,12 +1035,14 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll-driven laptop animation with smooth interpolation ──
-// The scroll handler sets a TARGET progress. The animate() loop smoothly
-// interpolates toward it each frame, so fast scrolling can't skip the animation.
+// ── Scroll-driven laptop animation with speed cap ──
+// Scroll sets a target progress. The animate() loop moves toward it at a capped
+// speed (~1.5s minimum for the full 0→1 animation). This keeps the animation
+// smooth and consistent regardless of how fast the user scrolls.
 let laptopTargetProgress = 0;
 let laptopCurrentProgress = 0;
-const LAPTOP_LERP_SPEED = 0.06; // lower = smoother/slower, higher = snappier
+// Max progress change per frame: 1.0 / (60fps × 1.5s) ≈ 0.011
+const LAPTOP_MAX_DELTA = 1.0 / 90;
 
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
@@ -1064,7 +1066,7 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // Set target progress — the animate loop will smoothly follow
+  // Set target progress — the animate loop will move toward it at capped speed
   const animStart = 0.8;
   const animEnd = 0.35;
   const rawProgress = (animStart - heroBottomRatio) / (animStart - animEnd);
@@ -1079,22 +1081,27 @@ window.addEventListener('scroll', () => {
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
-    overlayCanvas.style.display = shouldHandoff ? 'block' : 'none';
+    // Show overlay when animation is active
+    if (shouldHandoff && demoRect.bottom >= 0) {
+      overlayCanvas.style.display = 'block';
+    } else if (!shouldHandoff || demoRect.bottom < 0) {
+      overlayCanvas.style.display = 'none';
+    }
+
+    // ── Sticky behavior: when animation complete, scroll laptop with demo section ──
+    if (laptopCurrentProgress >= 1.0 && demoRect.top < 0) {
+      // Demo section is scrolling off — move the fixed canvas up with it
+      overlayCanvas.style.transform = `translateY(${demoRect.top}px)`;
+    } else {
+      overlayCanvas.style.transform = 'none';
+    }
   }
-  overlayActive = shouldHandoff;
+  overlayActive = shouldHandoff && demoRect.bottom >= 0;
 
   // Show "See it in action" text when animation is mostly complete
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
     demoText.classList.toggle('visible', laptopCurrentProgress > 0.85);
-  }
-
-  // Hide overlay once demo section has scrolled past
-  if (demoSection && overlayCanvas) {
-    if (demoRect.bottom < 0) {
-      overlayCanvas.style.display = 'none';
-      overlayActive = false;
-    }
   }
 }, { passive: true });
 
@@ -1102,15 +1109,13 @@ window.addEventListener('scroll', () => {
 function updateLaptopAnimation() {
   if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
-  // Smooth lerp toward target — limits max speed regardless of scroll velocity
-  laptopCurrentProgress += (laptopTargetProgress - laptopCurrentProgress) * LAPTOP_LERP_SPEED;
-  // Snap to target when very close to avoid infinite asymptotic approach
-  if (Math.abs(laptopTargetProgress - laptopCurrentProgress) < 0.001) {
+  // Move toward target at capped speed — same cap for forward and reverse
+  const diff = laptopTargetProgress - laptopCurrentProgress;
+  if (Math.abs(diff) < 0.001) {
     laptopCurrentProgress = laptopTargetProgress;
-  }
-  // Once target reaches 1.0, snap immediately — no more lerp lag
-  if (laptopTargetProgress >= 1.0) {
-    laptopCurrentProgress = 1.0;
+  } else {
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), LAPTOP_MAX_DELTA);
+    laptopCurrentProgress += step;
   }
 
   const eased = laptopCurrentProgress < 0.5
@@ -1121,7 +1126,7 @@ function updateLaptopAnimation() {
   const laptopWorldPos = new THREE.Vector3();
   overlayLaptopNode.getWorldPosition(laptopWorldPos);
 
-  // Once animation is complete, lock camera at final position — no more dynamic updates
+  // Once animation is complete, lock camera at final position
   if (laptopCurrentProgress >= 1.0) {
     overlayCamera.position.set(0, laptopWorldPos.y, 8);
     overlayCamera.lookAt(0, laptopWorldPos.y, 0);
