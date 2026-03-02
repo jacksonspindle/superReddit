@@ -1027,20 +1027,23 @@ function setupOverlayCanvas() {
       }
     });
 
-    // Black screen placeholder on laptop lid (Cube 3 = screen mesh)
-    // This will be replaced with a VideoTexture when the demo video is added.
-    let overlayScreenMesh = null;
+    // Add a black inner-screen face by cloning Cube 3 with BackSide rendering.
+    // Original Cube 3 keeps gray material (FrontSide = outer lid).
+    // Clone renders black on BackSide (= inner screen face).
+    // At every angle, only the correct side is visible to the camera.
     model.traverse((node) => {
-      if (node.isMesh && node.name === 'Cube 3') {
-        const pName = node.parent?.name || '';
-        const gpName = node.parent?.parent?.name || '';
-        if (pName.includes('Laptop') || gpName.includes('Laptop')) {
-          overlayScreenMesh = node;
-          node.material = new THREE.MeshBasicMaterial({ color: 0x000000 });
-        }
+      if (!node.isMesh) return;
+      const pName = node.parent?.name || '';
+      const gpName = node.parent?.parent?.name || '';
+      const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube3')) {
+        const screenInner = node.clone();
+        screenInner.material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
+        screenInner.name = 'ScreenInner';
+        node.parent.add(screenInner);
+        window._overlayScreenMesh = screenInner;
       }
     });
-    window._overlayScreenMesh = overlayScreenMesh;
 
     // Apply the same laptop Y raise as the hero scene
     model.traverse((node) => {
