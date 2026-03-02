@@ -59,7 +59,7 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 300vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 8%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .laptop-demo { position: relative; min-height: 600vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 4%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
   .laptop-demo-text.visible { opacity: 1; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
@@ -1046,80 +1046,11 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll-driven laptop animation with speed-limited scrolling ──
-// One system: wheel events are intercepted in the demo zone and fed
-// through a queue at a controlled rate. The animation reads directly
-// from the scroll position — always perfectly in sync, no lerp.
+// ── Scroll-driven laptop animation ──
+// Pure native scrolling — no wheel interception, no scroll queue.
+// The 600vh section IS the speed control. Browser handles all scrolling
+// natively for buttery-smooth feel. Animation maps directly to scroll position.
 let laptopProgress = 0;
-const MAX_SCROLL_PER_FRAME = 20; // pixels per frame — controls animation pace
-                                  // 20px * 60fps = 1200px/sec max scroll speed
-
-// ── Scroll queue for speed limiting ──
-let scrollQueue = 0;
-let demoScrollActive = false;
-
-// Intercept wheel events when in the animation zone
-window.addEventListener('wheel', (e) => {
-  if (!demoScrollActive) return; // normal scrolling outside demo zone
-  e.preventDefault();
-  scrollQueue += e.deltaY;
-}, { passive: false });
-
-// Process scroll queue at controlled rate — called every frame from animate()
-const DECEL_MAX_SCROLL = 60; // starting speed at decel zone entry (px/frame)
-
-function processDemoScroll() {
-  const demoSection = document.getElementById('laptop-demo');
-  const heroSection = document.querySelector('.hero');
-  if (!demoSection) { demoScrollActive = false; return; }
-
-  const demoRect = demoSection.getBoundingClientRect();
-  const viewH = window.innerHeight;
-
-  // Animation zone: section is visible AND animation hasn't completed
-  const sectionVisible = demoRect.top < viewH && demoRect.bottom > 0;
-  const animationActive = sectionVisible && laptopProgress < 0.99;
-
-  // Deceleration zone: hero bottom is within 1.3x viewport heights.
-  // Gradually slows scrolling before the animation starts so the user
-  // notices the transition and is already at the controlled pace.
-  let decelActive = false;
-  let decelFactor = 0; // 0 = no limit, 1 = full speed limit
-  if (heroSection) {
-    const heroRect = heroSection.getBoundingClientRect();
-    const decelStart = viewH * 1.3;
-    if (heroRect.bottom < decelStart && heroRect.bottom > 0) {
-      decelActive = true;
-      decelFactor = 1 - (heroRect.bottom / decelStart);
-    }
-  }
-
-  demoScrollActive = animationActive || decelActive;
-
-  if (scrollQueue !== 0) {
-    if (demoScrollActive) {
-      // During animation: fixed speed limit
-      // During deceleration: ramp from 60 down to MAX_SCROLL_PER_FRAME
-      let maxScroll;
-      if (animationActive) {
-        maxScroll = MAX_SCROLL_PER_FRAME;
-      } else {
-        maxScroll = DECEL_MAX_SCROLL - (DECEL_MAX_SCROLL - MAX_SCROLL_PER_FRAME) * decelFactor;
-      }
-
-      const consume = Math.sign(scrollQueue) * Math.min(Math.abs(scrollQueue), maxScroll);
-      scrollQueue -= consume;
-      window.scrollBy(0, consume);
-      // Decay large queues to prevent infinite momentum buildup
-      if (Math.abs(scrollQueue) > maxScroll * 8) {
-        scrollQueue *= 0.8;
-      }
-    } else {
-      // Outside zone — flush remaining scroll
-      scrollQueue = 0;
-    }
-  }
-}
 
 // ── Scroll listener — reads actual position, sets progress directly ──
 window.addEventListener('scroll', () => {
@@ -1145,9 +1076,11 @@ window.addEventListener('scroll', () => {
   }
 
   // ── Progress: direct from scroll position (no lerp) ──
+  // Animation plays over 3 viewport heights of scrolling.
+  // With 600vh section, that uses ~50% for animation, ~50% for hold.
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
-  const scrollDistance = viewH * 1.2;
+  const scrollDistance = viewH * 3.0;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
@@ -1193,9 +1126,6 @@ window.addEventListener('scroll', () => {
 
 // Called every frame from animate()
 function updateLaptopAnimation() {
-  // Process speed-limited scroll queue
-  processDemoScroll();
-
   if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
 
   const center = window._laptopCenter;
