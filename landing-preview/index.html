@@ -1135,6 +1135,9 @@ window.addEventListener('scroll', () => {
   if (overlayCanvas) {
     if (shouldHandoff && demoRect.bottom >= 0) {
       overlayCanvas.style.display = 'block';
+      // Fade in over the first 10% of progress for smooth appearance
+      const fadeIn = Math.min(1, laptopProgress / 0.10);
+      overlayCanvas.style.opacity = fadeIn;
     } else {
       overlayCanvas.style.display = 'none';
     }
@@ -1154,10 +1157,6 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
-// Lock start camera values at the moment of handoff — computed ONCE
-let lockedStartCamY = null;
-let lockedStartLookY = null;
-
 // Called every frame from animate()
 function updateLaptopAnimation() {
   // Process speed-limited scroll queue
@@ -1168,43 +1167,17 @@ function updateLaptopAnimation() {
   const center = window._laptopCenter;
   if (!center) return;
 
-  // Lock start camera position ONCE at handoff
-  if (lockedStartCamY === null) {
-    const heroSection = document.querySelector('.hero');
-    const viewH = window.innerHeight;
-    if (heroSection) {
-      const heroRect = heroSection.getBoundingClientRect();
-      const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
-      const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180);
-      const dynamicShift = (heroCanvasTopPx / viewH) * visH;
-      lockedStartCamY = 1.5 + dynamicShift;
-      lockedStartLookY = 3.0 + dynamicShift;
-    } else {
-      lockedStartCamY = 1.5;
-      lockedStartLookY = 3.0;
-    }
-  }
-
-  // Reset locked values when scrolling back past handoff
-  if (laptopProgress < 0.01 && lockedStartCamY !== null) {
-    lockedStartCamY = null;
-    lockedStartLookY = null;
-    return;
-  }
-
   const eased = laptopProgress < 0.5
     ? 2 * laptopProgress * laptopProgress
     : 1 - Math.pow(-2 * laptopProgress + 2, 2) / 2;
 
-  // End state: camera at laptop's bounding box center — guaranteed centered
-  const endCamY = center.y;
-  const endLookY = center.y;
-  const endCamZ = 8;
+  // Camera Y is ALWAYS at the laptop's bounding box center.
+  // The laptop is always dead center vertically — no Y interpolation.
+  // Only zoom (Z) and rotation animate.
+  const camY = center.y;
+  const lookY = center.y;
   const startCamZ = 14;
-
-  // Interpolate from locked start to computed end
-  const camY = lockedStartCamY + (endCamY - lockedStartCamY) * eased;
-  const lookY = lockedStartLookY + (endLookY - lockedStartLookY) * eased;
+  const endCamZ = 8;
   const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
   overlayCamera.position.set(0, camY, camZ);
