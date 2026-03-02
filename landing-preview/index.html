@@ -1141,9 +1141,17 @@ window.addEventListener('scroll', () => {
       overlayCanvas.style.display = 'none';
     }
 
-    // Sticky: when animation complete, scroll canvas with section
-    if (laptopProgress >= 0.99 && demoRect.top < 0) {
-      overlayCanvas.style.transform = `translateY(${demoRect.top}px)`;
+    // Sticky: keep laptop pinned in center after animation completes.
+    // Only scroll it away when the section BOTTOM reaches the viewport bottom.
+    if (laptopProgress >= 0.99) {
+      const distFromBottom = demoRect.bottom - viewH;
+      if (distFromBottom < 0) {
+        // Section leaving viewport — scroll canvas away with it
+        overlayCanvas.style.transform = `translateY(${distFromBottom}px)`;
+      } else {
+        // Section still has room — laptop stays pinned in center
+        overlayCanvas.style.transform = 'none';
+      }
     } else {
       overlayCanvas.style.transform = 'none';
     }
