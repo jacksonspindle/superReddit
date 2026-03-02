@@ -1076,11 +1076,10 @@ window.addEventListener('scroll', () => {
   }
 
   // ── Progress: direct from scroll position (no lerp) ──
-  // Animation plays over 3 viewport heights of scrolling.
-  // With 600vh section, that uses ~50% for animation, ~50% for hold.
+  // Animation completes within ~1.5 viewport heights of scrolling.
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
-  const scrollDistance = viewH * 3.0;
+  const scrollDistance = viewH * 1.5;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
@@ -1088,16 +1087,14 @@ window.addEventListener('scroll', () => {
   // Overlay fades in gradually — no hard switch, no visual jump.
   const shouldShowOverlay = laptopProgress > 0.05;
 
-  // Hero laptop stays visible — it scrolls away with the hero section.
-  // No visibility toggle needed.
+  // Instant swap: hero laptop hides, overlay laptop appears
+  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay;
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
     if (shouldShowOverlay && demoRect.bottom >= 0) {
       overlayCanvas.style.display = 'block';
-      // Gradual fade in from 5% to 25% progress — smooth cross-fade
-      const fadeIn = Math.min(1, (laptopProgress - 0.05) / 0.20);
-      overlayCanvas.style.opacity = fadeIn;
+      overlayCanvas.style.opacity = 1;
     } else {
       overlayCanvas.style.display = 'none';
       overlayCanvas.style.opacity = 0;
