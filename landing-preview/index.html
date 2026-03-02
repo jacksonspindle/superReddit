@@ -1050,17 +1050,23 @@ function setupOverlayCanvas() {
   });
 }
 
-// ── Scroll handler — handoff hero laptop → overlay laptop + animate ──
+// ── Scroll handler — seamless laptop transition ──
+// Strategy: The overlay is ALWAYS rendered (when loaded), but starts invisible.
+// We track where the hero laptop WOULD be on screen, and position the overlay
+// laptop there, then smoothly animate it to the center of the viewport.
+// The handoff is invisible because both laptops are at the exact same pixel position.
+
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
-  if (!heroSection) return;
-  const heroRect = heroSection.getBoundingClientRect();
-  const viewH = window.innerHeight;
+  const demoSection = document.getElementById('laptop-demo');
+  if (!heroSection || !demoSection) return;
 
-  // heroBottomRatio: 1.15 at top, 0 = hero fully scrolled past
+  const heroRect = heroSection.getBoundingClientRect();
+  const demoRect = demoSection.getBoundingClientRect();
+  const viewH = window.innerHeight;
   const heroBottomRatio = heroRect.bottom / viewH;
 
-  // Fade out hero overlay text and scroll hint as you start scrolling
+  // Fade hero text/hint on scroll
   const heroOverlay = document.querySelector('.hero-overlay');
   const heroHint = document.querySelector('.hero-scroll-hint');
   if (heroOverlay) {
@@ -1072,17 +1078,25 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // Handoff point: when hero has scrolled enough that the laptop area is near viewport center.
-  // Hero is 115vh. The laptop is in the lower half. Once heroBottomRatio drops below ~0.55,
-  // the laptop is in the upper half of viewport and ready for handoff.
-  const handoffPoint = 0.55;
-  const shouldHandoff = heroBottomRatio < handoffPoint;
+  // ── Animation progress: 0 = hero laptop in original position, 1 = laptop centered in demo section ──
+  // The animation starts when the hero bottom reaches ~80% of viewport (laptop starts moving)
+  // and ends when demo section is ~50% scrolled through (laptop centered).
+  const animStart = 0.8;  // heroBottomRatio when animation begins
+  const animEnd = -0.5;   // heroBottomRatio when animation ends (hero well past viewport)
+  const rawProgress = (animStart - heroBottomRatio) / (animStart - animEnd);
+  const progress = Math.max(0, Math.min(1, rawProgress));
+  const eased = progress < 0.5
+    ? 2 * progress * progress                           // ease-in first half
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;           // ease-out second half
+
+  // ── Handoff: swap hero laptop for overlay laptop ──
+  // Show overlay as soon as animation starts (progress > 0)
+  const shouldHandoff = progress > 0.01;
 
   if (heroLaptopNode && overlayReady) {
     heroLaptopNode.visible = !shouldHandoff;
   }
 
-  // Show/hide overlay canvas
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
     overlayCanvas.style.display = shouldHandoff ? 'block' : 'none';
@@ -1090,37 +1104,52 @@ window.addEventListener('scroll', () => {
   overlayActive = shouldHandoff;
 
   if (overlayLaptopNode && overlayReady && shouldHandoff) {
-    // How far past the handoff point are we? 0 = just handed off, 1 = hero fully gone
-    const postHandoff = Math.max(0, Math.min(1, (handoffPoint - heroBottomRatio) / handoffPoint));
-    const eased = 1 - Math.pow(1 - postHandoff, 3); // cubic ease-out
+    // ── Move laptop on screen from hero position to viewport center ──
+    // At progress=0: camera matches hero camera (laptop at same screen position)
+    // At progress=1: camera shifted so laptop appears at viewport center
 
-    // Move laptop down in world space to counteract scroll + create descent effect.
-    // As user scrolls, the overlay canvas is fixed but the laptop should appear to
-    // move downward on screen. We do this by lowering the camera lookAt + position.
-    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180);
+    // The hero canvas has translateY(12%) CSS. This offsets the laptop ~1.6 world units
+    // below where it would be without the transform. Our overlay has no CSS transform,
+    // so at progress=0, we shift the camera to match.
+    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units
     const cssShift = HERO_CANVAS_OFFSET_RATIO * 1.15 * visH;
-    const descent = eased * visH * 0.4; // descend ~40% of visible height
-    overlayCamera.position.set(0, 1.5 - cssShift + descent, 14);
-    overlayCamera.lookAt(0, 3.0 - cssShift + descent, 0);
 
-    // Rotate laptop from back-facing to front-facing
+    // At progress=0: camera matches hero (shifted down by cssShift)
+    // At progress=1: camera centered on laptop (shift=0, looking directly at laptop)
+    // The laptop world Y with +80 local offset and 0.01 root scale ≈ 0.8 world units above model origin.
+    // Hero camera looks at (0, 3.0, 0). With the laptop at ~y=0.8, it's in the lower part of the view.
+    // At progress=1, we want the laptop centered: camera at laptop height, looking at it.
+    const laptopWorldY = 0.8; // approximate: position.y += 80 * 0.01 scale
+
+    const startCamY = 1.5 - cssShift;
+    const startLookY = 3.0 - cssShift;
+    const endCamY = laptopWorldY;
+    const endLookY = laptopWorldY;
+
+    const camY = startCamY + (endCamY - startCamY) * eased;
+    const lookY = startLookY + (endLookY - startLookY) * eased;
+
+    // Also pull camera closer at the end for a nice zoom-in effect
+    const startCamZ = 14;
+    const endCamZ = 8;
+    const camZ = startCamZ + (endCamZ - startCamZ) * eased;
+
+    overlayCamera.position.set(0, camY, camZ);
+    overlayCamera.lookAt(0, lookY, 0);
+
+    // Rotate laptop: 0 at start (back facing user, same as hero), PI at end (screen facing user)
     overlayLaptopNode.rotation.y = eased * Math.PI;
   }
 
-  // Show "See it in action" text
-  const demoSection = document.getElementById('laptop-demo');
+  // Show "See it in action" text when animation is mostly complete
   const demoText = document.getElementById('laptop-demo-text');
-  if (demoSection && demoText) {
-    const demoRect = demoSection.getBoundingClientRect();
-    const demoProgress = Math.max(0, Math.min(1, 1 - (demoRect.top / viewH)));
-    demoText.classList.toggle('visible', demoProgress > 0.5);
+  if (demoText) {
+    demoText.classList.toggle('visible', progress > 0.85);
   }
 
-  // Hide overlay once past the demo section (features section visible)
-  const demoSection2 = document.getElementById('laptop-demo');
-  if (demoSection2) {
-    const demoRect2 = demoSection2.getBoundingClientRect();
-    if (demoRect2.bottom < 0 && overlayCanvas) {
+  // Hide overlay once demo section has scrolled past
+  if (demoSection && overlayCanvas) {
+    if (demoRect.bottom < 0) {
       overlayCanvas.style.display = 'none';
       overlayActive = false;
     }
