@@ -59,11 +59,12 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 60; opacity: 0; pointer-events: none; }
-  .laptop-demo-text.visible { opacity: 1; }
+  .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); overflow: hidden; }
+  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 32px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
+  #flat-video-wrap { display: none; padding: 80px 24px 0; max-width: 960px; margin: 0 auto; }
+  #flat-video-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
 
@@ -138,9 +139,14 @@
 </video>
 
 <section class="laptop-demo" id="laptop-demo">
-  <div class="laptop-demo-text" id="laptop-demo-text">
-    <h2>See it in action</h2>
-    <p>Watch how SuperReddit finds your leads in seconds</p>
+  <div id="flat-video-wrap">
+    <div id="flat-video-container">
+      <!-- Video placeholder — replace with <video> element later -->
+    </div>
+    <div class="laptop-demo-text" id="laptop-demo-text">
+      <h2>See it in action</h2>
+      <p>Watch how SuperReddit finds your leads in seconds</p>
+    </div>
   </div>
 </section>
 
@@ -1037,6 +1043,18 @@ function setupOverlayCanvas() {
       const pName = node.parent?.name || '';
       const gpName = node.parent?.parent?.name || '';
       const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      // Store base mesh for fading during zoom
+      if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube2')) {
+        node.material = node.material.clone();
+        node.material.transparent = true;
+        window._overlayBaseMesh = node;
+      }
+      // Store logo for fading
+      if (isLaptop && node.name && (node.name.includes('Logo') || node.name.includes('logo'))) {
+        node.material = node.material.clone();
+        node.material.transparent = true;
+        window._overlayLogoMesh = node;
+      }
       if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube3')) {
         const geo = node.geometry;
         const idx = geo.index;
@@ -1063,6 +1081,7 @@ function setupOverlayCanvas() {
         const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const lidMat = new THREE.MeshStandardMaterial({
           color: 0x888898, roughness: 0.5, metalness: 0.3, envMapIntensity: 0.8,
+          transparent: true,
         });
         node.material = [screenMat, lidMat];
         window._overlayScreenMesh = node;
@@ -1096,14 +1115,74 @@ function setupOverlayCanvas() {
 }
 
 // ── Scroll-driven laptop animation ──
-// Pure native scrolling — no wheel interception, no scroll queue.
-// The 200vh section provides scroll distance. Animation maps directly to scroll position.
+// Phase 1 (spin): page scrolls normally, animation maps to scroll position.
+// Phase 2 (zoom): scroll hijacked — page stays put, wheel drives camera zoom + tilt.
+// Phase 3 (video): 3D canvas hides, flat 16:9 video appears, scroll resumes.
 let laptopProgress = 0;
 let zoomProgress = 0;
-let laptopLocked = false;
-let laptopLockScrollY = 0;
+let scrollLocked = false;
+let zoomAccumulator = 0;
+let flatVideoShown = false;
+const ZOOM_WHEEL_RANGE = 800;
 
-// ── Scroll listener — reads actual position, sets progress directly ──
+// ── Wheel handler: hijacks scroll during zoom phase ──
+window.addEventListener('wheel', (e) => {
+  if (!scrollLocked) return;
+  e.preventDefault();
+
+  zoomAccumulator += e.deltaY;
+  zoomAccumulator = Math.max(0, zoomAccumulator);
+  zoomProgress = Math.max(0, Math.min(1, zoomAccumulator / ZOOM_WHEEL_RANGE));
+
+  // Zoomed all the way back → release lock, spin can reverse
+  if (zoomProgress <= 0 && zoomAccumulator <= 0) {
+    scrollLocked = false;
+  }
+
+  // Show flat video during crossfade (85%+), complete transition at 100%
+  const wrap = document.getElementById('flat-video-wrap');
+  if (zoomProgress >= 0.85 && !flatVideoShown) {
+    if (wrap) {
+      wrap.style.display = 'block';
+      wrap.style.opacity = String((zoomProgress - 0.85) / 0.15);
+    }
+    const text = document.getElementById('laptop-demo-text');
+    if (text) text.style.opacity = String((zoomProgress - 0.85) / 0.15);
+  } else if (zoomProgress < 0.85 && !flatVideoShown) {
+    if (wrap) { wrap.style.display = 'none'; wrap.style.opacity = '0'; }
+  }
+  if (zoomProgress >= 1.0) {
+    showFlatVideo();
+  }
+}, { passive: false });
+
+function showFlatVideo() {
+  scrollLocked = false;
+  flatVideoShown = true;
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) canvas.style.display = 'none';
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap) wrap.style.display = 'block';
+  const text = document.getElementById('laptop-demo-text');
+  if (text) text.style.opacity = '1';
+}
+
+function hideFlatVideo() {
+  flatVideoShown = false;
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) { canvas.style.display = 'block'; canvas.style.opacity = '1'; }
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap) wrap.style.display = 'none';
+  const text = document.getElementById('laptop-demo-text');
+  if (text) text.style.opacity = '0';
+  // Re-enter zoom phase at max
+  zoomProgress = 1.0;
+  zoomAccumulator = ZOOM_WHEEL_RANGE;
+  scrollLocked = true;
+}
+
+// ── Scroll listener ──
+let prevScrollY = 0;
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1114,40 +1193,34 @@ window.addEventListener('scroll', () => {
   const viewH = window.innerHeight;
   const heroBottomRatio = heroRect.bottom / viewH;
 
-  // Hide scroll hint once user starts scrolling
+  // Hide scroll hint
   const heroHint = document.querySelector('.hero-scroll-hint');
   if (heroHint) {
     const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // ── Progress: direct from scroll position (no lerp) ──
-  // Phase 1 (spin): completes within ~0.8vh of scrolling.
-  // Phase 2 (zoom): camera zooms into screen + tilts laptop upright over ~1.5vh.
+  // If flat video is showing and user scrolls back up into demo section, reverse
+  if (flatVideoShown && window.scrollY < prevScrollY && demoRect.top >= -viewH * 0.5) {
+    hideFlatVideo();
+    prevScrollY = window.scrollY;
+    return;
+  }
+  prevScrollY = window.scrollY;
+
+  // ── Spin progress ──
   const demoTop = demoRect.top;
   const startThreshold = viewH * 0.8;
   const scrollDistance = viewH * 0.8;
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
-  const spinEndPoint = startThreshold - scrollDistance;
-  if (demoTop <= spinEndPoint) {
-    const zoomDistance = viewH * 1.5;
-    const rawZoom = (spinEndPoint - demoTop) / zoomDistance;
-    zoomProgress = Math.max(0, Math.min(1, rawZoom));
-  } else {
-    zoomProgress = 0;
-  }
-
-  // Cross-fade: hero laptop stays visible and scrolls away naturally.
-  // Overlay fades in gradually — no hard switch, no visual jump.
-  const shouldShowOverlay = laptopProgress > 0.05;
-
-  // Instant swap: hero laptop hides, overlay laptop appears
-  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay;
+  // Overlay visibility — canvas stays position:fixed the whole time
+  const shouldShowOverlay = laptopProgress > 0.05 && !flatVideoShown;
+  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay && !flatVideoShown;
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
-  if (overlayCanvas) {
+  if (overlayCanvas && !flatVideoShown) {
     if (shouldShowOverlay) {
       overlayCanvas.style.display = 'block';
       overlayCanvas.style.opacity = 1;
@@ -1155,43 +1228,22 @@ window.addEventListener('scroll', () => {
       overlayCanvas.style.display = 'none';
       overlayCanvas.style.opacity = 0;
     }
-
-    // Lock laptop to a fixed page position once animation completes.
-    // Switches from viewport-fixed to page-absolute so the user scrolls past it.
-    if (laptopProgress >= 0.99) {
-      if (!laptopLocked) {
-        laptopLocked = true;
-        laptopLockScrollY = window.scrollY;
-        overlayCanvas.style.position = 'absolute';
-        overlayCanvas.style.top = laptopLockScrollY + 'px';
-        overlayCanvas.style.transform = 'none';
-      }
-    } else {
-      if (laptopLocked) {
-        laptopLocked = false;
-        overlayCanvas.style.position = 'fixed';
-        overlayCanvas.style.top = '0';
-      }
-      overlayCanvas.style.transform = 'none';
-    }
   }
+
+  // Enter zoom phase when spin completes
+  if (laptopProgress >= 0.99 && !flatVideoShown) {
+    if (!scrollLocked && zoomProgress < 1.0) {
+      scrollLocked = true;
+      zoomAccumulator = zoomProgress * ZOOM_WHEEL_RANGE;
+    }
+  } else if (laptopProgress < 0.99) {
+    // Spin not complete — reset zoom
+    zoomProgress = 0;
+    zoomAccumulator = 0;
+    scrollLocked = false;
+  }
+
   overlayActive = shouldShowOverlay;
-
-  const demoText = document.getElementById('laptop-demo-text');
-  if (demoText) {
-    if (laptopProgress > 0.85) {
-      demoText.style.opacity = '1';
-      if (laptopLocked) {
-        // Position text right below the laptop on the page
-        const textPageTop = laptopLockScrollY + viewH * 0.75;
-        const sectionTop = demoSection.offsetTop;
-        demoText.style.top = (textPageTop - sectionTop) + 'px';
-        demoText.style.bottom = 'auto';
-      }
-    } else {
-      demoText.style.opacity = '0';
-    }
-  }
 }, { passive: true });
 
 // Called every frame from animate()
@@ -1211,20 +1263,42 @@ function updateLaptopAnimation() {
     ? 2 * zoomProgress * zoomProgress
     : 1 - Math.pow(-2 * zoomProgress + 2, 2) / 2;
 
-  // Spin phase: camera pulls in, laptop rotates
+  // Spin: camera pulls from Z=14 to Z=8
   const spinCamZ = 14 + (8 - 14) * eased;
 
-  // Zoom phase: camera moves closer + up, laptop tilts upright
-  const camZ = spinCamZ + (3.5 - 8) * zE;
-  const camY = center.y + 0.6 * zE;
+  // Zoom: camera pushes closer, rises to screen level, tilts screen flat
+  const camZ = spinCamZ + (3.0 - 8) * zE;
+  const camY = center.y + 0.5 * zE;
   const lookY = center.y + 0.3 * zE;
 
   overlayCamera.position.set(0, camY, camZ);
   overlayCamera.lookAt(0, lookY, 0);
 
-  // Rotate Y: 0 → PI (spin). Rotate X: 0 → -0.55 (tilt screen upright)
+  // Y rotation: spin 0→PI
+  // X rotation: tilt screen FORWARD toward camera (+0.65 rad ≈ 37°) to flatten it
   overlayLaptopNode.rotation.y = eased * Math.PI;
-  overlayLaptopNode.rotation.x = -0.55 * zE;
+  overlayLaptopNode.rotation.x = 0.65 * zE;
+
+  // Fade out base, lid back, and logo during zoom (0% → 60% of zoom)
+  const fadeOut = Math.min(1, zE / 0.6);
+  const baseMesh = window._overlayBaseMesh;
+  const logoMesh = window._overlayLogoMesh;
+  const screenMesh = window._overlayScreenMesh;
+  if (baseMesh) baseMesh.material.opacity = 1 - fadeOut;
+  if (logoMesh) logoMesh.material.opacity = 1 - fadeOut;
+  // Fade the lid (back of screen) but keep the screen face fully opaque
+  if (screenMesh && Array.isArray(screenMesh.material)) {
+    screenMesh.material[1].opacity = 1 - fadeOut; // lid
+  }
+
+  // Crossfade: at zoom 85-100%, fade out the 3D canvas
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  if (overlayCanvas && zoomProgress > 0.85) {
+    const crossfade = (zoomProgress - 0.85) / 0.15;
+    overlayCanvas.style.opacity = String(1 - crossfade);
+  } else if (overlayCanvas && zoomProgress <= 0.85 && zoomProgress > 0) {
+    overlayCanvas.style.opacity = '1';
+  }
 }
 
 function animate() {
