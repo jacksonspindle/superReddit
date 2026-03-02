@@ -929,11 +929,6 @@ let overlayRenderer, overlayScene, overlayCamera, overlayLaptopNode;
 let overlayReady = false;
 let overlayActive = false; // true once handoff from hero laptop occurs
 
-// The hero canvas has CSS transform: translateY(12%). This shifts the rendered 3D
-// scene downward by 12% of the hero height. We need to replicate that offset in
-// the overlay camera so the laptop appears at the exact same pixel position.
-const HERO_CANVAS_OFFSET_RATIO = 0.12;
-
 function setupOverlayCanvas() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -1090,47 +1085,43 @@ window.addEventListener('scroll', () => {
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
     overlayCanvas.style.display = shouldHandoff ? 'block' : 'none';
-    if (!shouldHandoff) {
-      overlayCanvas.style.transform = 'none'; // reset
-    }
   }
   overlayActive = shouldHandoff;
 
   if (overlayLaptopNode && overlayReady && shouldHandoff) {
-    // ── Pixel-perfect CSS offset to match hero canvas position ──
-    // The hero 3D container (.hero-3d-container) has translateY(12%) where 12% is
-    // relative to the hero section height (115vh). The overlay canvas is 100vh tall.
-    // We compute the exact pixel offset of the hero container and apply it directly.
-    const heroContainer = document.querySelector('.hero-3d-container');
-    const heroContainerRect = heroContainer ? heroContainer.getBoundingClientRect() : null;
-    const heroRectTop = heroRect.top; // hero section top
-    // The hero canvas is shifted down by: heroContainer.top - hero.top (relative to viewport)
-    // At scroll=0, hero.top=0, heroContainer.top = 12% of heroSection.height
-    // As we scroll, both move equally, so the DIFFERENCE stays constant.
-    const pixelOffset = heroContainerRect ? (heroContainerRect.top - heroRectTop) : 0;
-    // Animate from this pixel offset to 0
-    const currentOffset = pixelOffset * (1 - eased);
-    if (overlayCanvas) {
-      overlayCanvas.style.transform = `translateY(${currentOffset}px)`;
-    }
+    // ── Dynamic camera offset: match hero canvas viewport position exactly ──
+    // The hero canvas is inside the scrolling page with CSS translateY(12%).
+    // Its actual top-edge position on screen changes with scroll.
+    // The overlay is position:fixed at viewport top.
+    // We compute where the hero canvas actually IS on screen (in pixels),
+    // convert to world units, and offset the overlay camera to match.
+    const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
+    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6 world units across 100vh
+    const dynamicShift = (heroCanvasTopPx / viewH) * visH;
 
-    // ── Camera: animate from hero position to laptop-centered view ──
-    // Start values match hero camera exactly (CSS transform handles pixel alignment)
-    const startCamY = 1.5;
-    const startLookY = 3.0;
-    const endCamY = 2.0;     // camera at laptop level for centered framing
-    const endLookY = 1.0;    // look at laptop center
+    // At progress=0: camera tracks the hero canvas position exactly
+    // At progress=1: camera centered on laptop (dynamicShift fades out)
+    const startCamY = 1.5 + dynamicShift;
+    const startLookY = 3.0 + dynamicShift;
+
+    // End state: camera looks at the laptop center (~world Y=1.0), moderate zoom
+    const endCamY = 1.5;
+    const endLookY = 1.0;
 
     const camY = startCamY + (endCamY - startCamY) * eased;
     const lookY = startLookY + (endLookY - startLookY) * eased;
 
-    // Zoom in moderately — full laptop visible, ~40-50% of viewport width
     const startCamZ = 14;
     const endCamZ = 8;
     const camZ = startCamZ + (endCamZ - startCamZ) * eased;
 
     overlayCamera.position.set(0, camY, camZ);
     overlayCamera.lookAt(0, lookY, 0);
+
+    // No CSS transform needed — the camera offset handles everything
+    if (overlayCanvas) {
+      overlayCanvas.style.transform = 'none';
+    }
 
     // Rotate laptop: 0 at start (back facing user), PI at end (screen facing user)
     overlayLaptopNode.rotation.y = eased * Math.PI;
