@@ -1042,16 +1042,15 @@ function setupOverlayCanvas() {
 // One system, perfectly matched.
 let laptopProgress = 0; // current progress, updated directly from scroll
 
-// ── Limit page scroll speed through the animation zone ──
-const MAX_SCROLL_PX = 40; // max pixels per wheel event in the animation zone
+// ── Slow page scroll through the animation zone ──
+// Every wheel event in the zone is intercepted and replaced with a fraction
+// of its original delta. This slows the page scroll to ~15% of normal,
+// giving the laptop animation time to play out smoothly.
+const SCROLL_SLOW_FACTOR = 0.15;
 window.addEventListener('wheel', (e) => {
-  // Check if we're in the animation zone
   if (laptopProgress > 0.01 && laptopProgress < 0.99) {
-    const absDelta = Math.abs(e.deltaY);
-    if (absDelta > MAX_SCROLL_PX) {
-      e.preventDefault();
-      window.scrollBy(0, Math.sign(e.deltaY) * MAX_SCROLL_PX);
-    }
+    e.preventDefault();
+    window.scrollBy(0, e.deltaY * SCROLL_SLOW_FACTOR);
   }
 }, { passive: false });
 
