@@ -54,27 +54,18 @@
   .hero-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 3; color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: bounce 2s infinite; }
   @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
 
-  .stats { padding: 48px 0; background: var(--white); border-bottom: 1px solid var(--gray-100); }
-  .stats .container { display: flex; align-items: center; justify-content: center; gap: 64px; }
-  .stat { text-align: center; }
-  .stat-number { font-size: 36px; font-weight: 800; color: var(--gray-900); letter-spacing: -0.02em; }
-  .stat-label { font-size: 14px; color: var(--gray-400); font-weight: 500; margin-top: 4px; }
-  .stat-divider { width: 1px; height: 48px; background: var(--gray-200); }
-
-  .how-it-works { padding: 100px 0; }
   .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
   .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
-  .steps-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 24px; display: grid; grid-template-columns: repeat(3, 1fr); box-shadow: 0 4px 40px rgba(0,0,0,0.04); overflow: hidden; }
-  .step { padding: 0; display: flex; flex-direction: column; }
-  .step:not(:last-child) { border-right: 1px solid var(--gray-100); }
-  .step-character { width: 100%; height: 220px; }
-  .step h3, .step p { padding: 0 36px; }
-  .step h3 { padding-top: 24px; }
-  .step-character canvas { width: 100% !important; height: 100% !important; display: block; }
-  .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: var(--gray-900); }
-  .step p { font-size: 14px; color: var(--gray-500); line-height: 1.7; padding-bottom: 36px; }
+
+  .laptop-demo { position: relative; min-height: 100vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 25%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+  .laptop-demo-text.visible { opacity: 1; }
+  .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
+  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
+
+  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
 
   .features { padding: 100px 0; background: var(--gray-50); }
   .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -110,7 +101,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .stats .container { flex-wrap: wrap; gap: 32px; } .stat-divider { display: none; } .stat { flex: 1 1 40%; } .steps-card { grid-template-columns: 1fr; } .step:not(:last-child) { border-right: none; border-bottom: 1px solid var(--gray-100); } .step-character { height: 160px; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } }
 </style>
 </head>
 <body>
@@ -118,7 +109,7 @@
 <nav class="nav" id="nav">
   <div class="container">
     <a href="#" class="nav-logo"><div class="nav-logo-icon">SR</div><span>SuperReddit</span></a>
-    <div class="nav-links"><a href="#how-it-works">How it works</a><a href="#features">Features</a></div>
+    <div class="nav-links"><a href="#laptop-demo">Demo</a><a href="#features">Features</a></div>
     <div class="nav-actions"><a href="#" class="btn-ghost">Log in</a><a href="#" class="btn-primary">Get Started Free</a></div>
   </div>
 </nav>
@@ -140,39 +131,10 @@
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
 </section>
 
-<section class="stats">
-  <div class="container">
-    <div class="stat fade-in"><div class="stat-number">2M+</div><div class="stat-label">Subreddits</div></div>
-    <div class="stat-divider"></div>
-    <div class="stat fade-in delay-1"><div class="stat-number">52M</div><div class="stat-label">Daily Active Users</div></div>
-    <div class="stat-divider"></div>
-    <div class="stat fade-in delay-2"><div class="stat-number">100K+</div><div class="stat-label">Communities</div></div>
-    <div class="stat-divider"></div>
-    <div class="stat fade-in delay-3"><div class="stat-number">430M</div><div class="stat-label">Monthly Visitors</div></div>
-  </div>
-</section>
-
-<section class="how-it-works" id="how-it-works">
-  <div class="container">
-    <h2 class="section-title fade-in">How <span class="accent">SuperReddit</span> works</h2>
-    <p class="section-subtitle fade-in delay-1">Get from zero to growth in three simple steps</p>
-    <div class="steps-card fade-in delay-2">
-      <div class="step">
-        <div class="step-character" id="step-char-1"></div>
-        <h3>01. Reddit deep-dive</h3>
-        <p>Just drop your product URL and we scan Reddit for relevant subreddits, decode top-performing posts, and map your niche in seconds.</p>
-      </div>
-      <div class="step">
-        <div class="step-character" id="step-char-2"></div>
-        <h3>02. Content generation</h3>
-        <p>Our AI creates high-quality Reddit posts in your brand voice, modeled after proven winners. Ready to post and built to blend in.</p>
-      </div>
-      <div class="step">
-        <div class="step-character" id="step-char-3"></div>
-        <h3>03. Execute &amp; optimize</h3>
-        <p>Publish, track performance, and iterate. Rewrite in different tones, test what resonates, and build sustained momentum.</p>
-      </div>
-    </div>
+<section class="laptop-demo" id="laptop-demo">
+  <div class="laptop-demo-text" id="laptop-demo-text">
+    <h2>See it in action</h2>
+    <p>Watch how SuperReddit finds your leads in seconds</p>
   </div>
 </section>
 
@@ -218,7 +180,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -419,6 +381,7 @@ const loader = new GLTFLoader();
 const headGroups = [];
 const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
 let colorIndex = 0;
+let heroLaptopNode = null; // reference to laptop in hero scene for visibility toggle
 
 loader.load('./scene.gltf', (gltf) => {
   const model = gltf.scene;
@@ -584,6 +547,7 @@ loader.load('./scene.gltf', (gltf) => {
   model.traverse((node) => {
     if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
       node.position.y += 80;
+      heroLaptopNode = node;
     }
   });
 
@@ -950,335 +914,218 @@ loader.load('./scene.gltf', (gltf) => {
   // Labels removed — no longer needed
   window._updateLabels = null;
 
-  // Set up step character canvases using cloned heads
-  setupStepCharacters();
+  // Set up fixed overlay canvas for laptop transition
+  setupOverlayCanvas();
 }, undefined, (err) => {
   console.error('GLTF load error:', err);
 });
 
 // ── Animation ──
-const clock = new THREE.Clock();
 const eyelids = [];
 const pupils = [];
 
-// ── Step Characters — clone GLTF heads + themed context per step ──
-const stepCharRenderers = [];
-const stepCharScenes = [];
-const stepCharCameras = [];
-const stepCharHeads = [];
-const stepContextObjects = []; // per-step animated context elements
-let stepsVisible = false;
+// ── Fixed Overlay Canvas — renders ONLY the laptop, floats above the page ──
+let overlayRenderer, overlayScene, overlayCamera, overlayLaptopNode;
+let overlayReady = false;
+let overlayActive = false; // true once handoff from hero laptop occurs
 
-// Helper: build a full character by baking head + body geometry into world space.
-// Uses saved (pre-spreading) world matrices and XZ-plane matched body.
-function buildCharacter(srcHead) {
-  const meshGroup = new THREE.Group();
+// The hero canvas has CSS transform: translateY(12%). This shifts the rendered 3D
+// scene downward by 12% of the hero height. We need to replicate that offset in
+// the overlay camera so the laptop appears at the exact same pixel position.
+const HERO_CANVAS_OFFSET_RATIO = 0.12;
 
-  // Bake each visible head mesh using SAVED world matrix (pre-spreading)
-  srcHead.traverse(n => {
-    if (!n.isMesh || !n.visible) return;
-    const wm = n.userData.savedWorldMatrix;
-    if (!wm) return;
-    const geo = n.geometry.clone();
-    geo.applyMatrix4(wm);
-    meshGroup.add(new THREE.Mesh(geo, n.material.clone()));
-  });
+function setupOverlayCanvas() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-  // Use pre-computed XZ-matched body
-  const bodyEntry = srcHead.userData.matchedBody;
-  if (bodyEntry) {
-    const geo = bodyEntry.mesh.geometry.clone();
-    geo.applyMatrix4(bodyEntry.worldMatrix);
-    meshGroup.add(new THREE.Mesh(geo, bodyEntry.mesh.material.clone()));
-  }
+  // Create fixed overlay canvas — transparent, above everything
+  overlayRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  overlayRenderer.setPixelRatio(window.devicePixelRatio);
+  overlayRenderer.setSize(w, h);
+  overlayRenderer.setClearColor(0x000000, 0);
+  overlayRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  overlayRenderer.toneMappingExposure = 1.3;
+  overlayRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  overlayRenderer.domElement.id = 'laptop-overlay-canvas';
+  overlayRenderer.domElement.style.display = 'none'; // hidden until handoff
+  document.body.appendChild(overlayRenderer.domElement);
 
-  if (meshGroup.children.length === 0) return null;
+  // Scene — transparent, no background
+  overlayScene = new THREE.Scene();
 
-  // Everything is in world space — recenter at origin
-  const box = new THREE.Box3().setFromObject(meshGroup);
-  if (box.isEmpty()) return null;
+  // Camera — EXACTLY matches hero camera
+  overlayCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 200);
+  // Hero camera: position (0, 1.5, 14) lookAt (0, 3.0, 0)
+  // But hero canvas has CSS translateY(12%), which shifts everything down on screen.
+  // For the fixed overlay (no CSS offset), we shift the camera UP to match.
+  // 12% of the visible vertical range: visH = 2 * 14 * tan(22.5°) ≈ 11.6
+  // offset = 0.12 * heroSectionHeight / windowHeight * visH
+  // Approximate: shift lookAt and camera Y down by the same amount the CSS shifts up
+  // The hero section is 115vh, canvas covers it. translateY(12%) shifts canvas down by 12% of 115vh.
+  // In normalized screen space that's 0.12 * 1.15 = 0.138 of viewport.
+  // In world units: 0.138 * 11.6 ≈ 1.6 world units shift.
+  // So the overlay camera needs to look ~1.6 units LOWER than the hero camera to match.
+  const visHeight = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
+  const cssShift = HERO_CANVAS_OFFSET_RATIO * 1.15 * visHeight; // ~1.6
+  overlayCamera.position.set(0, 1.5 - cssShift, 14);
+  overlayCamera.lookAt(0, 3.0 - cssShift, 0);
 
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
+  // Lighting — match hero lighting so laptop looks identical
+  overlayScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
 
-  // Offset meshGroup to center content at origin
-  meshGroup.position.set(-center.x, -center.y, -center.z);
+  const oTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+  oTopSpot.position.set(0, 16, 6);
+  oTopSpot.target.position.set(0, 0, -2);
+  overlayScene.add(oTopSpot);
+  overlayScene.add(oTopSpot.target);
 
-  // Scale to fit canvas
-  const s = maxDim > 0 ? 2.8 / maxDim : 1;
-  const wrapper = new THREE.Group();
-  wrapper.add(meshGroup);
-  wrapper.scale.set(s, s, s);
-  wrapper.userData.baseY = 0;
+  const oLaptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
+  oLaptopSpot.position.set(0, -1.8, 2.0);
+  oLaptopSpot.target.position.set(0, 4, -1);
+  overlayScene.add(oLaptopSpot);
+  overlayScene.add(oLaptopSpot.target);
 
-  console.log(`Character: ${meshGroup.children.length} meshes, size=${size.x.toFixed(2)},${size.y.toFixed(2)},${size.z.toFixed(2)}`);
-  return wrapper;
-}
+  const oLaptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+  oLaptopFill.position.set(0, -0.5, 3.5);
+  overlayScene.add(oLaptopFill);
 
-// Step 1 context: 3D magnifying glass hovering over character's eye
-function createSearchContext(scene, character) {
-  const ctx = { glass: null };
+  const oFill = new THREE.DirectionalLight(0x998acc, 0.6);
+  oFill.position.set(0, 2, 10);
+  overlayScene.add(oFill);
 
-  // Build a 3D magnifying glass
-  const glassGroup = new THREE.Group();
+  const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
+  overlayScene.add(oAmbient);
 
-  // Lens ring (torus)
-  const ringGeo = new THREE.TorusGeometry(0.35, 0.04, 12, 32);
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0x3B82F6, roughness: 0.2, metalness: 0.6 });
-  const ring = new THREE.Mesh(ringGeo, ringMat);
-  glassGroup.add(ring);
+  // Load same GLTF, extract only laptop
+  const oLoader = new GLTFLoader();
+  oLoader.load('./scene.gltf', (gltf) => {
+    const model = gltf.scene;
 
-  // Glass lens (transparent disc)
-  const lensGeo = new THREE.CircleGeometry(0.34, 32);
-  const lensMat = new THREE.MeshPhysicalMaterial({
-    color: 0xaaddff, roughness: 0.05, metalness: 0.0,
-    transmission: 0.85, thickness: 0.1, ior: 1.5,
-    transparent: true, opacity: 0.4, side: THREE.DoubleSide,
-  });
-  const lens = new THREE.Mesh(lensGeo, lensMat);
-  lens.renderOrder = 1;
-  glassGroup.add(lens);
+    // Find laptop root node
+    let laptopRoot = null;
+    model.traverse((node) => {
+      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+        laptopRoot = node;
+      }
+    });
+    if (!laptopRoot) { console.error('Overlay: laptop not found'); return; }
 
-  // Handle (cylinder)
-  const handleGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.7, 8);
-  const handleMat = new THREE.MeshStandardMaterial({ color: 0x2563EB, roughness: 0.3, metalness: 0.5 });
-  const handle = new THREE.Mesh(handleGeo, handleMat);
-  handle.position.set(0.25, -0.55, 0);
-  handle.rotation.z = Math.PI / 6;
-  glassGroup.add(handle);
-
-  // Position over character's right eye area (zoomed-in head view)
-  glassGroup.position.set(0.12, 1.15, 0.6);
-  glassGroup.rotation.set(0.15, -0.2, 0.35);
-  glassGroup.scale.setScalar(0.3);
-
-  scene.add(glassGroup);
-  ctx.glass = glassGroup;
-  ctx.baseY = glassGroup.position.y;
-
-  return ctx;
-}
-
-// Step 2 context: robot model next to character (AI creation)
-function createAIContext(scene, character) {
-  const ctx = { robot: null };
-
-  const fbxLoader = new FBXLoader();
-  fbxLoader.load('./RobMesh.fbx', (fbx) => {
-    // Auto-scale robot to fit scene
-    const box = new THREE.Box3().setFromObject(fbx);
-    const size = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const targetHeight = 2.2;
-    const s = targetHeight / maxDim;
-    fbx.scale.setScalar(s);
-
-    // Center vertically and position to the right of character
-    const center = box.getCenter(new THREE.Vector3());
-    fbx.position.set(1.3, -(center.y * s), 0.3);
-
-    // Apply a metallic material to all meshes
-    fbx.traverse(n => {
-      if (n.isMesh) {
-        n.material = new THREE.MeshStandardMaterial({
-          color: 0x8899aa, roughness: 0.3, metalness: 0.7,
-          envMapIntensity: 0.5,
-        });
-        n.castShadow = true;
+    // We need the full model hierarchy to preserve the 0.01 root scale,
+    // but hide everything except the laptop.
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      const pName = node.parent?.name || '';
+      const gpName = node.parent?.parent?.name || '';
+      const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      if (!isLaptop) {
+        node.visible = false; // hide characters, table, background — keep laptop only
+      } else {
+        // Apply same laptop materials as hero
+        const name = node.name || '';
+        if (name.includes('light') || name.includes('Logo')) {
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0x6688cc, roughness: 0.15, metalness: 0.0,
+            emissive: 0x3355bb, emissiveIntensity: 1.5,
+          });
+        } else {
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0x888898, roughness: 0.5, metalness: 0.3,
+            envMapIntensity: 0.8,
+          });
+        }
       }
     });
 
-    scene.add(fbx);
-    ctx.robot = fbx;
-    console.log('Robot loaded, size:', size, 'scale:', s);
-  }, undefined, (err) => {
-    console.error('Robot FBX load error:', err);
-  });
-
-  return ctx;
-}
-
-// Step 3 context: rising particles + expanding rings (growth)
-function createGrowthContext(scene) {
-  const ctx = { arrows: [], rings: [], particles: null };
-
-  // Rising arrow shapes (small cones pointing up)
-  const arrowGeo = new THREE.ConeGeometry(0.08, 0.25, 4);
-  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xA855F7, transparent: true, opacity: 0.6 });
-  for (let j = 0; j < 6; j++) {
-    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-    scene.add(arrow);
-    ctx.arrows.push(arrow);
-  }
-
-  // Expanding pulse rings
-  for (let j = 0; j < 2; j++) {
-    const ringGeo = new THREE.RingGeometry(0.8, 0.85, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xC084FC, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
+    // Apply the same laptop Y raise as the hero scene
+    model.traverse((node) => {
+      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+        node.position.y += 80;
+        overlayLaptopNode = node;
+      }
     });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    scene.add(ring);
-    ctx.rings.push(ring);
-  }
 
-  // Upward particle stream
-  const count = 30;
-  const positions = new Float32Array(count * 3);
-  for (let j = 0; j < count; j++) {
-    positions[j * 3] = (Math.random() - 0.5) * 2.5;
-    positions[j * 3 + 1] = Math.random() * 3 - 1;
-    positions[j * 3 + 2] = (Math.random() - 0.5) * 1.5;
-  }
-  const pGeo = new THREE.BufferGeometry();
-  pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  ctx.particles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-    color: 0xC084FC, size: 0.06, transparent: true, opacity: 0.5, sizeAttenuation: true,
-  }));
-  scene.add(ctx.particles);
-
-  return ctx;
-}
-
-function setupStepCharacters() {
-  console.log('setupStepCharacters called, headGroups:', headGroups.length);
-  if (headGroups.length < 3) return;
-
-  // Skip index 0 (teapot head). Pick 3 with good body matches, spread across the rest.
-  const pool = headGroups.filter((g, i) => i > 0 && g.userData.matchedBody);
-  const stride = Math.floor(pool.length / 3);
-  const picks = [pool[0], pool[Math.min(stride, pool.length - 1)], pool[Math.min(stride * 2, pool.length - 1)]];
-  console.log('Step character picks:', picks.map(p => headGroups.indexOf(p)));
-  const contextCreators = [createSearchContext, createAIContext, createGrowthContext];
-
-  picks.forEach((srcHead, i) => {
-    const el = document.getElementById(`step-char-${i + 1}`);
-    if (!el) return;
-
-    const w = el.clientWidth || 300;
-    const h = el.clientHeight || 200;
-
-    const character = buildCharacter(srcHead);
-    if (!character) {
-      console.warn(`Step char ${i}: could not build character`);
-      return;
-    }
-
-    // Mini scene — lighting matched to hero section
-    const miniScene = new THREE.Scene();
-    miniScene.fog = new THREE.FogExp2(0x1a1050, 0.08);
-
-    // 1. Hemisphere — soft neutral sky, dark purple ground
-    miniScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.8));
-
-    // 2. Top key — soft purple-white from above
-    const key = new THREE.DirectionalLight(0xeeddff, 5.0);
-    key.position.set(0, 6, 4);
-    miniScene.add(key);
-
-    // 3. Blue uplight — dramatic blue on chins (like laptop glow)
-    const blueUp = new THREE.PointLight(0x3366ee, 8.0, 15, 1.0);
-    blueUp.position.set(0, -2, 2);
-    miniScene.add(blueUp);
-
-    // 4. Blue fill — wider wash
-    const blueFill = new THREE.PointLight(0x3355dd, 3.0, 15, 1.0);
-    blueFill.position.set(0, 0, 3);
-    miniScene.add(blueFill);
-
-    // 5. Left rim — blue edge
-    const leftRim = new THREE.PointLight(0x4477cc, 3.0, 15);
-    leftRim.position.set(-4, 1, 0);
-    miniScene.add(leftRim);
-
-    // 6. Right rim — purple edge
-    const rightRim = new THREE.PointLight(0x6644bb, 2.5, 15);
-    rightRim.position.set(4, 1, 0);
-    miniScene.add(rightRim);
-
-    // 7. Front fill — keeps faces from going full black
-    const frontFill = new THREE.DirectionalLight(0x998acc, 1.5);
-    frontFill.position.set(0, 1, 6);
-    miniScene.add(frontFill);
-
-    // 8. Ambient — lifts blacks
-    miniScene.add(new THREE.AmbientLight(0x332848, 1.5));
-
-    // 9. Orange backlight — warm glow behind
-    const orangeBack = new THREE.PointLight(0xff6b35, 5.0, 15, 1.0);
-    orangeBack.position.set(0, 1, -3);
-    miniScene.add(orangeBack);
-    miniScene.add(character);
-
-    // Orange radial glow backdrop — matching hero section
-    const bgGlowGeo = new THREE.PlaneGeometry(10, 10);
-    const bgGlowMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false,
-      uniforms: {
-        color: { value: new THREE.Color(0xff6b35) },
-        opacity: { value: 0.65 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-      `,
-      fragmentShader: `
-        uniform vec3 color; uniform float opacity; varying vec2 vUv;
-        void main() {
-          vec2 c = vUv - 0.5; float d = length(c) * 2.0;
-          float alpha = opacity * pow(smoothstep(1.0, 0.0, d), 2.0);
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-    });
-    const bgGlow = new THREE.Mesh(bgGlowGeo, bgGlowMat);
-    bgGlow.position.set(0, 0.5, -2);
-    miniScene.add(bgGlow);
-
-    // Add themed context elements
-    const ctx = contextCreators[i](miniScene, character);
-    stepContextObjects.push(ctx);
-
-    // Camera — step 1 zooms into head, others show full character
-    const cam = new THREE.PerspectiveCamera(40, w / h, 0.01, 100);
-    if (i === 0) {
-      cam.position.set(0, 1.0, 1.7);
-      cam.lookAt(0, 1.0, 0);
-    } else {
-      cam.position.set(0, 0.2, 5);
-      cam.lookAt(0, 0, 0);
-    }
-
-    // Renderer — dark purple background matching hero
-    const r = new THREE.WebGLRenderer({ antialias: true });
-    r.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    r.setSize(w, h);
-    r.setClearColor(0x1a1050, 1);
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.5;
-    r.outputColorSpace = THREE.SRGBColorSpace;
-    el.appendChild(r.domElement);
-
-    // Force immediate render
-    r.render(miniScene, cam);
-
-    stepCharRenderers.push(r);
-    stepCharScenes.push(miniScene);
-    stepCharCameras.push(cam);
-    stepCharHeads.push(character);
+    overlayScene.add(model);
+    overlayReady = true;
+    console.log('Overlay canvas: laptop ready');
   });
-
-  console.log('Step characters set up:', stepCharRenderers.length);
 }
 
-// IntersectionObserver
-const stepsSection = document.getElementById('how-it-works');
-if (stepsSection) {
-  new IntersectionObserver((entries) => {
-    entries.forEach(e => { stepsVisible = e.isIntersecting; });
-  }, { threshold: 0.01 }).observe(stepsSection);
-}
+// ── Scroll handler — handoff hero laptop → overlay laptop + animate ──
+window.addEventListener('scroll', () => {
+  const heroSection = document.querySelector('.hero');
+  if (!heroSection) return;
+  const heroRect = heroSection.getBoundingClientRect();
+  const viewH = window.innerHeight;
+
+  // heroBottomRatio: 1.15 at top, 0 = hero fully scrolled past
+  const heroBottomRatio = heroRect.bottom / viewH;
+
+  // Fade out hero overlay text and scroll hint as you start scrolling
+  const heroOverlay = document.querySelector('.hero-overlay');
+  const heroHint = document.querySelector('.hero-scroll-hint');
+  if (heroOverlay) {
+    const fadeProgress = Math.max(0, Math.min(1, (1.05 - heroBottomRatio) / 0.2));
+    heroOverlay.style.opacity = 1 - fadeProgress;
+  }
+  if (heroHint) {
+    const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
+    heroHint.style.opacity = 1 - hintFade;
+  }
+
+  // Handoff point: when hero has scrolled enough that the laptop area is near viewport center.
+  // Hero is 115vh. The laptop is in the lower half. Once heroBottomRatio drops below ~0.55,
+  // the laptop is in the upper half of viewport and ready for handoff.
+  const handoffPoint = 0.55;
+  const shouldHandoff = heroBottomRatio < handoffPoint;
+
+  if (heroLaptopNode && overlayReady) {
+    heroLaptopNode.visible = !shouldHandoff;
+  }
+
+  // Show/hide overlay canvas
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  if (overlayCanvas) {
+    overlayCanvas.style.display = shouldHandoff ? 'block' : 'none';
+  }
+  overlayActive = shouldHandoff;
+
+  if (overlayLaptopNode && overlayReady && shouldHandoff) {
+    // How far past the handoff point are we? 0 = just handed off, 1 = hero fully gone
+    const postHandoff = Math.max(0, Math.min(1, (handoffPoint - heroBottomRatio) / handoffPoint));
+    const eased = 1 - Math.pow(1 - postHandoff, 3); // cubic ease-out
+
+    // Move laptop down in world space to counteract scroll + create descent effect.
+    // As user scrolls, the overlay canvas is fixed but the laptop should appear to
+    // move downward on screen. We do this by lowering the camera lookAt + position.
+    const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180);
+    const cssShift = HERO_CANVAS_OFFSET_RATIO * 1.15 * visH;
+    const descent = eased * visH * 0.4; // descend ~40% of visible height
+    overlayCamera.position.set(0, 1.5 - cssShift + descent, 14);
+    overlayCamera.lookAt(0, 3.0 - cssShift + descent, 0);
+
+    // Rotate laptop from back-facing to front-facing
+    overlayLaptopNode.rotation.y = eased * Math.PI;
+  }
+
+  // Show "See it in action" text
+  const demoSection = document.getElementById('laptop-demo');
+  const demoText = document.getElementById('laptop-demo-text');
+  if (demoSection && demoText) {
+    const demoRect = demoSection.getBoundingClientRect();
+    const demoProgress = Math.max(0, Math.min(1, 1 - (demoRect.top / viewH)));
+    demoText.classList.toggle('visible', demoProgress > 0.5);
+  }
+
+  // Hide overlay once past the demo section (features section visible)
+  const demoSection2 = document.getElementById('laptop-demo');
+  if (demoSection2) {
+    const demoRect2 = demoSection2.getBoundingClientRect();
+    if (demoRect2.bottom < 0 && overlayCanvas) {
+      overlayCanvas.style.display = 'none';
+      overlayActive = false;
+    }
+  }
+}, { passive: true });
 
 function animate() {
   requestAnimationFrame(animate);
@@ -1357,46 +1204,9 @@ function animate() {
   // Update numbered labels
   if (window._updateLabels) window._updateLabels();
 
-  // Render step character canvases + animated context
-  if (stepsVisible && stepCharRenderers.length > 0) {
-    const t = clock.getElapsedTime();
-    stepCharHeads.forEach((head, i) => {
-      const ctx = stepContextObjects[i];
-      if (ctx && i === 0) {
-        ctx.glass.position.y = ctx.baseY + Math.sin(t * 1.2) * 0.02;
-      }
-      if (ctx && i === 1) {
-        // Robot is static — no animation needed
-      }
-      if (ctx && i === 2) {
-        // Growth: rising arrows + pulse rings + particles
-        ctx.arrows.forEach((arrow, j) => {
-          const phase = (t * 0.5 + j * 0.4) % 2.5;
-          const x = (j - 2.5) * 0.5;
-          arrow.position.set(x, -1.2 + phase * 1.2, (j % 2 - 0.5) * 0.5);
-          arrow.material.opacity = phase < 2.0 ? 0.6 : 0.6 * (2.5 - phase) * 2;
-        });
-        // Expanding pulse rings
-        ctx.rings.forEach((ring, j) => {
-          const phase = (t * 0.6 + j * 1.5) % 3.0;
-          ring.scale.setScalar(0.5 + phase * 0.5);
-          ring.material.opacity = 0.3 * Math.max(0, 1 - phase / 3.0);
-          ring.position.y = -0.2;
-        });
-        // Rising particles
-        const pp = ctx.particles.geometry.attributes.position;
-        for (let j = 0; j < pp.count; j++) {
-          pp.array[j * 3 + 1] += 0.012;
-          if (pp.array[j * 3 + 1] > 2.5) {
-            pp.array[j * 3 + 1] = -1.0;
-            pp.array[j * 3] = (Math.random() - 0.5) * 2.5;
-          }
-        }
-        pp.needsUpdate = true;
-      }
-
-      stepCharRenderers[i].render(stepCharScenes[i], stepCharCameras[i]);
-    });
+  // Render overlay canvas when active
+  if (overlayActive && overlayReady && overlayRenderer) {
+    overlayRenderer.render(overlayScene, overlayCamera);
   }
 }
 
@@ -1413,17 +1223,12 @@ window.addEventListener('resize', () => {
   gf.width = window.innerWidth * window.devicePixelRatio;
   gf.height = Math.round(window.innerHeight * 0.14 * window.devicePixelRatio);
 
-  // Resize step character canvases
-  stepCharRenderers.forEach((r, i) => {
-    const el = document.getElementById(`step-char-${i + 1}`);
-    if (el) {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      r.setSize(w, h);
-      stepCharCameras[i].aspect = w / h;
-      stepCharCameras[i].updateProjectionMatrix();
-    }
-  });
+  // Resize overlay canvas
+  if (overlayRenderer && overlayCamera) {
+    overlayRenderer.setSize(window.innerWidth, window.innerHeight);
+    overlayCamera.aspect = window.innerWidth / window.innerHeight;
+    overlayCamera.updateProjectionMatrix();
+  }
 });
 
 // ── Prevent scroll zoom ──
