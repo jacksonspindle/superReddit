@@ -1084,21 +1084,23 @@ window.addEventListener('scroll', () => {
   const rawProgress = (startThreshold - demoTop) / scrollDistance;
   laptopProgress = Math.max(0, Math.min(1, rawProgress));
 
-  const shouldHandoff = laptopProgress > 0.01;
+  // Cross-fade: hero laptop stays visible and scrolls away naturally.
+  // Overlay fades in gradually — no hard switch, no visual jump.
+  const shouldShowOverlay = laptopProgress > 0.05;
 
-  if (heroLaptopNode && overlayReady) {
-    heroLaptopNode.visible = !shouldHandoff;
-  }
+  // Hero laptop stays visible — it scrolls away with the hero section.
+  // No visibility toggle needed.
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
-    if (shouldHandoff && demoRect.bottom >= 0) {
+    if (shouldShowOverlay && demoRect.bottom >= 0) {
       overlayCanvas.style.display = 'block';
-      // Fade in over the first 10% of progress for smooth appearance
-      const fadeIn = Math.min(1, laptopProgress / 0.10);
+      // Gradual fade in from 5% to 25% progress — smooth cross-fade
+      const fadeIn = Math.min(1, (laptopProgress - 0.05) / 0.20);
       overlayCanvas.style.opacity = fadeIn;
     } else {
       overlayCanvas.style.display = 'none';
+      overlayCanvas.style.opacity = 0;
     }
 
     // Sticky: keep laptop pinned in center after animation completes.
@@ -1116,7 +1118,7 @@ window.addEventListener('scroll', () => {
       overlayCanvas.style.transform = 'none';
     }
   }
-  overlayActive = shouldHandoff && demoRect.bottom >= 0;
+  overlayActive = shouldShowOverlay && demoRect.bottom >= 0;
 
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
