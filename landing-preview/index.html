@@ -1326,6 +1326,7 @@ function hideFlatVideo() {
 
 // ── Scroll listener ──
 let prevScrollY = 0;
+let upScrollAnchor = -1; // scrollY where upward scrolling began
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
   const demoSection = document.getElementById('laptop-demo');
@@ -1343,10 +1344,18 @@ window.addEventListener('scroll', () => {
     heroHint.style.opacity = 1 - hintFade;
   }
 
-  // If flat video is showing, scrolling back up reverses to 3D
+  // If flat video is showing, scrolling back up reverses to 3D.
+  // Buffer: user must scroll up 150px before triggering, so small scrolls
+  // (e.g. reaching for the play button) don't snap back to the 3D animation.
   if (flatVideoShown) {
-    if (window.scrollY < prevScrollY && demoRect.top >= -viewH * 0.5) {
-      hideFlatVideo();
+    if (window.scrollY < prevScrollY) {
+      if (upScrollAnchor < 0) upScrollAnchor = prevScrollY;
+      if (upScrollAnchor - window.scrollY > 150) {
+        hideFlatVideo();
+        upScrollAnchor = -1;
+      }
+    } else {
+      upScrollAnchor = -1; // reset when scrolling down
     }
     prevScrollY = window.scrollY;
     return;
@@ -1420,11 +1429,16 @@ window.addEventListener('scroll', () => {
     if (zoomProgress > 0.85) {
       const crossfade = (zoomProgress - 0.85) / 0.15;
       wrap.style.opacity = String(crossfade);
+    } else {
+      wrap.style.opacity = '0';
     }
   }
 
   // Transition complete → hand off to flat video
-  if (zoomProgress >= 1.0 && !flatVideoShown) {
+  // Guard: only trigger when demo section has scrolled far enough up that
+  // the video will land inside the demo section, not in the hero area.
+  // demoRect.top should be well above viewport center at zoomProgress 1.0.
+  if (zoomProgress >= 1.0 && !flatVideoShown && demoRect.top < viewH * 0.3) {
     showFlatVideo();
   }
 
