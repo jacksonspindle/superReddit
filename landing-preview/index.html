@@ -1108,10 +1108,26 @@ function updateLaptopAnimation() {
   if (Math.abs(laptopTargetProgress - laptopCurrentProgress) < 0.001) {
     laptopCurrentProgress = laptopTargetProgress;
   }
+  // Once target reaches 1.0, snap immediately — no more lerp lag
+  if (laptopTargetProgress >= 1.0) {
+    laptopCurrentProgress = 1.0;
+  }
 
   const eased = laptopCurrentProgress < 0.5
     ? 2 * laptopCurrentProgress * laptopCurrentProgress
     : 1 - Math.pow(-2 * laptopCurrentProgress + 2, 2) / 2;
+
+  // Get the laptop's actual world-space center position
+  const laptopWorldPos = new THREE.Vector3();
+  overlayLaptopNode.getWorldPosition(laptopWorldPos);
+
+  // Once animation is complete, lock camera at final position — no more dynamic updates
+  if (laptopCurrentProgress >= 1.0) {
+    overlayCamera.position.set(0, laptopWorldPos.y, 8);
+    overlayCamera.lookAt(0, laptopWorldPos.y, 0);
+    overlayLaptopNode.rotation.y = Math.PI;
+    return;
+  }
 
   // ── Dynamic camera offset: match hero canvas viewport position ──
   const heroSection = document.querySelector('.hero');
@@ -1121,10 +1137,6 @@ function updateLaptopAnimation() {
   const heroCanvasTopPx = heroRect.top + 0.12 * heroSection.offsetHeight;
   const visH = 2 * 14 * Math.tan(22.5 * Math.PI / 180); // ~11.6
   const dynamicShift = (heroCanvasTopPx / viewH) * visH;
-
-  // Get the laptop's actual world-space center position
-  const laptopWorldPos = new THREE.Vector3();
-  overlayLaptopNode.getWorldPosition(laptopWorldPos);
 
   // Start: camera tracks hero canvas position
   const startCamY = 1.5 + dynamicShift;
