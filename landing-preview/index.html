@@ -59,8 +59,8 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 600vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 4%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 2; opacity: 0; transition: opacity 0.6s ease; pointer-events: none; }
+  .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .laptop-demo-text { position: absolute; bottom: 10%; left: 0; right: 0; text-align: center; z-index: 60; opacity: 0; pointer-events: none; }
   .laptop-demo-text.visible { opacity: 1; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
@@ -130,6 +130,12 @@
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
 </section>
+
+<!-- Hidden video element for laptop screen playback -->
+<video id="demo-video" muted loop playsinline preload="auto" style="display:none;">
+  <!-- Replace src with your demo video file -->
+  <!-- <source src="./demo.mp4" type="video/mp4"> -->
+</video>
 
 <section class="laptop-demo" id="laptop-demo">
   <div class="laptop-demo-text" id="laptop-demo-text">
@@ -1021,6 +1027,21 @@ function setupOverlayCanvas() {
       }
     });
 
+    // Black screen placeholder on laptop lid (Cube 3 = screen mesh)
+    // This will be replaced with a VideoTexture when the demo video is added.
+    let overlayScreenMesh = null;
+    model.traverse((node) => {
+      if (node.isMesh && node.name === 'Cube 3') {
+        const pName = node.parent?.name || '';
+        const gpName = node.parent?.parent?.name || '';
+        if (pName.includes('Laptop') || gpName.includes('Laptop')) {
+          overlayScreenMesh = node;
+          node.material = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        }
+      }
+    });
+    window._overlayScreenMesh = overlayScreenMesh;
+
     // Apply the same laptop Y raise as the hero scene
     model.traverse((node) => {
       if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
@@ -1048,9 +1069,10 @@ function setupOverlayCanvas() {
 
 // ── Scroll-driven laptop animation ──
 // Pure native scrolling — no wheel interception, no scroll queue.
-// The 600vh section IS the speed control. Browser handles all scrolling
-// natively for buttery-smooth feel. Animation maps directly to scroll position.
+// The 200vh section provides scroll distance. Animation maps directly to scroll position.
 let laptopProgress = 0;
+let laptopLocked = false;
+let laptopLockScrollY = 0;
 
 // ── Scroll listener — reads actual position, sets progress directly ──
 window.addEventListener('scroll', () => {
@@ -1063,13 +1085,8 @@ window.addEventListener('scroll', () => {
   const viewH = window.innerHeight;
   const heroBottomRatio = heroRect.bottom / viewH;
 
-  // Fade hero text/hint on scroll
-  const heroOverlay = document.querySelector('.hero-overlay');
+  // Hide scroll hint once user starts scrolling
   const heroHint = document.querySelector('.hero-scroll-hint');
-  if (heroOverlay) {
-    const fadeProgress = Math.max(0, Math.min(1, (1.05 - heroBottomRatio) / 0.2));
-    heroOverlay.style.opacity = 1 - fadeProgress;
-  }
   if (heroHint) {
     const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
     heroHint.style.opacity = 1 - hintFade;
@@ -1092,7 +1109,7 @@ window.addEventListener('scroll', () => {
 
   const overlayCanvas = document.getElementById('laptop-overlay-canvas');
   if (overlayCanvas) {
-    if (shouldShowOverlay && demoRect.bottom >= 0) {
+    if (shouldShowOverlay) {
       overlayCanvas.style.display = 'block';
       overlayCanvas.style.opacity = 1;
     } else {
@@ -1100,26 +1117,41 @@ window.addEventListener('scroll', () => {
       overlayCanvas.style.opacity = 0;
     }
 
-    // Sticky: keep laptop pinned in center after animation completes.
-    // Only scroll it away when the section BOTTOM reaches the viewport bottom.
+    // Lock laptop to a fixed page position once animation completes.
+    // Switches from viewport-fixed to page-absolute so the user scrolls past it.
     if (laptopProgress >= 0.99) {
-      const distFromBottom = demoRect.bottom - viewH;
-      if (distFromBottom < 0) {
-        // Section leaving viewport — scroll canvas away with it
-        overlayCanvas.style.transform = `translateY(${distFromBottom}px)`;
-      } else {
-        // Section still has room — laptop stays pinned in center
+      if (!laptopLocked) {
+        laptopLocked = true;
+        laptopLockScrollY = window.scrollY;
+        overlayCanvas.style.position = 'absolute';
+        overlayCanvas.style.top = laptopLockScrollY + 'px';
         overlayCanvas.style.transform = 'none';
       }
     } else {
+      if (laptopLocked) {
+        laptopLocked = false;
+        overlayCanvas.style.position = 'fixed';
+        overlayCanvas.style.top = '0';
+      }
       overlayCanvas.style.transform = 'none';
     }
   }
-  overlayActive = shouldShowOverlay && demoRect.bottom >= 0;
+  overlayActive = shouldShowOverlay;
 
   const demoText = document.getElementById('laptop-demo-text');
   if (demoText) {
-    demoText.classList.toggle('visible', laptopProgress > 0.85);
+    if (laptopProgress > 0.85) {
+      demoText.style.opacity = '1';
+      if (laptopLocked) {
+        // Position text right below the laptop on the page
+        const textPageTop = laptopLockScrollY + viewH * 0.75;
+        const sectionTop = demoSection.offsetTop;
+        demoText.style.top = (textPageTop - sectionTop) + 'px';
+        demoText.style.bottom = 'auto';
+      }
+    } else {
+      demoText.style.opacity = '0';
+    }
   }
 }, { passive: true });
 
