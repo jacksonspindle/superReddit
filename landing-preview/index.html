@@ -59,7 +59,7 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 12%); overflow: hidden; }
+  .laptop-demo { position: relative; min-height: 92vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 26%); overflow: hidden; }
   .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
   .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
@@ -1261,9 +1261,6 @@ function showFlatVideo() {
       pointer-events: auto;
     `;
 
-    // Size demo section to fit video + text with no excess white space
-    const textHeight = 120;
-    demoSection.style.minHeight = (videoTop + videoH + 12 + textHeight + 40) + 'px';
   }
 
   // Autoplay video
@@ -1308,9 +1305,6 @@ function snapOutOfFlatVideo() {
 
   if (heroLaptopNode) heroLaptopNode.visible = true;
 
-  const demoSection = document.getElementById('laptop-demo');
-  if (demoSection) demoSection.style.minHeight = '200vh';
-
   const video = document.getElementById('demo-video-player');
   if (video) video.pause();
 
@@ -1337,7 +1331,6 @@ function hideFlatVideo() {
   // The overlay canvas covers the viewport, so the scroll jump is invisible.
   const demoSection = document.getElementById('laptop-demo');
   if (demoSection) {
-    demoSection.style.minHeight = '200vh';
     const viewH = window.innerHeight;
     // progress = (0.8*viewH - demoRect.top) / (0.8*viewH)
     // demoRect.top = demoSection.offsetTop - scrollY
@@ -1502,8 +1495,6 @@ window.addEventListener('scroll', () => {
   // Reset snap cooldown once user scrolls back above the animation start
   if (snapCooldown && laptopProgress < 0.05) {
     snapCooldown = false;
-    const ds = document.getElementById('laptop-demo');
-    if (ds) ds.style.minHeight = '200vh';
   }
 
   if (zoomProgress >= 1.0 && !flatVideoShown && !snapCooldown && demoRect.top < viewH * 0.3) {
