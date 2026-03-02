@@ -1036,13 +1036,35 @@ function setupOverlayCanvas() {
 }
 
 // ── Scroll-driven laptop animation with speed cap ──
-// Scroll sets a target progress. The animate() loop moves toward it at a capped
-// speed (~1.5s minimum for the full 0→1 animation). This keeps the animation
-// smooth and consistent regardless of how fast the user scrolls.
 let laptopTargetProgress = 0;
 let laptopCurrentProgress = 0;
-// Max progress change per frame: 1.0 / (60fps × 1.5s) ≈ 0.011
 const LAPTOP_MAX_DELTA = 1.0 / 90;
+
+// ── Limit page scroll speed through the animation zone ──
+// Intercept wheel events and cap the scroll delta so the page can't
+// fly past the animation faster than the laptop can keep up.
+const MAX_SCROLL_PX = 60; // max pixels per wheel event in the animation zone
+window.addEventListener('wheel', (e) => {
+  const heroSection = document.querySelector('.hero');
+  if (!heroSection) return;
+  const heroRect = heroSection.getBoundingClientRect();
+  const viewH = window.innerHeight;
+  const heroBottomRatio = heroRect.bottom / viewH;
+
+  // Only limit scrolling in the animation zone (when animation is active)
+  const inAnimZone = heroBottomRatio < 0.85 && heroBottomRatio > 0.0;
+  // Also limit when animation is still catching up (current behind target)
+  const animCatchingUp = laptopCurrentProgress > 0.01 && laptopCurrentProgress < 0.99;
+
+  if (inAnimZone || animCatchingUp) {
+    const absDelta = Math.abs(e.deltaY);
+    if (absDelta > MAX_SCROLL_PX) {
+      e.preventDefault();
+      // Scroll by capped amount in the same direction
+      window.scrollBy(0, Math.sign(e.deltaY) * MAX_SCROLL_PX);
+    }
+  }
+}, { passive: false });
 
 window.addEventListener('scroll', () => {
   const heroSection = document.querySelector('.hero');
