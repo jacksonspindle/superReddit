@@ -1167,7 +1167,7 @@ let flatVideoShown = false;
 function updateFlatVideoPlacement() {
   if (!overlayLaptopNode || !overlayReady || !overlayCamera) return;
   const wrap = document.getElementById('flat-video-wrap');
-  if (!wrap || flatVideoShown) return;
+  if (!wrap || flatVideoShown || snapCooldown || !overlayActive) return;
 
   const screenVerts = window._screenFaceVerts;
   const sMesh = window._overlayScreenMesh;
@@ -1234,24 +1234,25 @@ function showFlatVideo() {
   const rays = document.getElementById('laptop-light-rays');
   if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
 
-  // Place video at the user's current scroll position within the demo section
+  // Place video at a fixed position within the demo section — centered in the
+  // first viewport-height. The animation completes when demoRect.top ≈ 0,
+  // so this always appears centered in the viewport at handoff.
   const wrap = document.getElementById('flat-video-wrap');
   const demoSection = document.getElementById('laptop-demo');
   if (wrap && demoSection) {
-    const demoTop = demoSection.offsetTop;
     const viewH = window.innerHeight;
+    const fallbackH = viewH * 0.6;
+    const fallbackW = fallbackH * (16/9);
     const sr = window._screenRect;
-    const videoW = sr ? sr.width : viewH * 0.6 * (16/9);
-    const videoH = sr ? sr.height : viewH * 0.6;
-
-    // Place video at the Y position within the demo section that aligns
-    // with the center of the viewport at the current scroll position
-    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+    // Use projected size only if reasonable, otherwise fallback
+    const videoW = (sr && sr.width > fallbackW * 0.5) ? sr.width : fallbackW;
+    const videoH = (sr && sr.height > fallbackH * 0.5) ? sr.height : fallbackH;
+    const videoTop = (viewH - videoH) / 2;
 
     wrap.style.cssText = `
       display: block;
       position: absolute;
-      top: ${videoCenterY - (videoH / 2)}px;
+      top: ${videoTop}px;
       left: 50%;
       transform: translateX(-50%);
       width: ${videoW}px;
@@ -1260,10 +1261,9 @@ function showFlatVideo() {
       pointer-events: auto;
     `;
 
-    // Trim empty space below the video+text so there's no white gap before Features
-    const textHeight = 120; // approximate height for "See it in action" text block
-    const sectionEnd = videoCenterY + (videoH / 2) + 12 + textHeight + 40;
-    demoSection.style.minHeight = sectionEnd + 'px';
+    // Size demo section to fit video + text with no excess white space
+    const textHeight = 120;
+    demoSection.style.minHeight = (videoTop + videoH + 12 + textHeight + 40) + 'px';
   }
 
   // Autoplay video
@@ -1272,15 +1272,14 @@ function showFlatVideo() {
 
   // Show demo text below the video
   const text = document.getElementById('laptop-demo-text');
-  if (text && demoSection) {
-    const demoTop = demoSection.offsetTop;
+  if (text) {
     const viewH = window.innerHeight;
     const sr = window._screenRect;
     const videoH = sr ? sr.height : viewH * 0.6;
-    const videoCenterY = window.scrollY + (viewH / 2) - demoTop;
+    const videoTop = (viewH - videoH) / 2;
 
     text.style.position = 'absolute';
-    text.style.top = (videoCenterY + videoH / 2 + 12) + 'px';
+    text.style.top = (videoTop + videoH + 12) + 'px';
     text.style.left = '0';
     text.style.right = '0';
     text.style.opacity = '1';
