@@ -108,12 +108,27 @@
   .feature-icon { display: none; }
 
   .feature-card h3 {
-    font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #ffffff;
-    text-shadow: 0 2px 3px rgba(0,0,0,0.5), 0 -1px 1px rgba(255,255,255,0.15);
+    font-size: 18px; font-weight: 800; margin-bottom: 6px; color: #ffffff;
+    text-shadow:
+      0 1px 0 rgba(255,255,255,0.35),
+      0 -1px 0 rgba(0,0,0,0.25),
+      0 2px 0 rgba(200,180,220,0.5),
+      0 3px 0 rgba(180,160,200,0.4),
+      0 4px 0 rgba(160,140,180,0.3),
+      0 5px 0 rgba(140,120,160,0.2),
+      0 6px 8px rgba(0,0,0,0.4),
+      0 6px 15px rgba(0,0,0,0.2);
+    letter-spacing: 0.5px;
   }
   .feature-card p {
-    font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.5;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 -1px 1px rgba(255,255,255,0.1);
+    font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.5; font-weight: 600;
+    text-shadow:
+      0 1px 0 rgba(255,255,255,0.2),
+      0 -1px 0 rgba(0,0,0,0.2),
+      0 2px 0 rgba(180,160,200,0.3),
+      0 3px 0 rgba(160,140,180,0.2),
+      0 3px 6px rgba(0,0,0,0.35),
+      0 4px 12px rgba(0,0,0,0.15);
   }
 
   .features .section-label { color: var(--orange); }
@@ -2159,11 +2174,11 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // ── Icon definitions ──
     const iconDefs = [
       { color: 0xFF6B35, geo: new THREE.TorusGeometry(0.18, 0.07, 16, 32) },
-      { color: 0x3B82F6, geo: new THREE.OctahedronGeometry(0.22, 0) },
-      { color: 0xA855F7, geo: new THREE.IcosahedronGeometry(0.2, 0) },
-      { color: 0x22C55E, geo: new THREE.BoxGeometry(0.28, 0.28, 0.28) },
-      { color: 0xF59E0B, geo: new THREE.ConeGeometry(0.18, 0.35, 5) },
-      { color: 0xEF4444, geo: new THREE.DodecahedronGeometry(0.2, 0) },
+      { color: 0xFF6B35, geo: new THREE.OctahedronGeometry(0.22, 0) },
+      { color: 0xFF6B35, geo: new THREE.IcosahedronGeometry(0.2, 0) },
+      { color: 0xFF6B35, geo: new THREE.BoxGeometry(0.28, 0.28, 0.28) },
+      { color: 0xFF6B35, geo: new THREE.ConeGeometry(0.18, 0.35, 5) },
+      { color: 0xFF6B35, geo: new THREE.DodecahedronGeometry(0.2, 0) },
     ];
 
     // ── Build grouped 3x2 grid (parent group is draggable) ──
@@ -2191,20 +2206,18 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
         // Icon mesh (local position above tile)
         const def = iconDefs[i];
-        // Diamond material — glass-like with high refraction + dispersion
+        // Metallic orange with emissive glow — self-illuminating, no extra lights needed
         const iconMat = new THREE.MeshPhysicalMaterial({
           color: def.color,
-          metalness: 0.0,
-          roughness: 0.0,
-          transmission: 0.9,
-          thickness: 1.5,
-          ior: 2.42,
+          emissive: new THREE.Color(0xFF6B35),
+          emissiveIntensity: 0.6,
+          metalness: 0.85,
+          roughness: 0.15,
           clearcoat: 1.0,
-          clearcoatRoughness: 0.0,
-          envMapIntensity: 3.0,
+          clearcoatRoughness: 0.05,
+          envMapIntensity: 2.5,
           reflectivity: 1.0,
           specularIntensity: 1.0,
-          dispersion: 5.0,
         });
         const iconMesh = new THREE.Mesh(def.geo, iconMat);
         iconMesh.position.set(-tileW / 2 + 0.4, tileH / 2 + 0.5, -tileD / 2 + 0.4);
@@ -2227,6 +2240,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         gridGroup.add(tileGroup);
       }
     }
+
+    // Icon lights removed — icons use emissive glow instead to avoid tile hot spots
 
     // ── Orange gradient glow underneath tiles (like hero orange backdrop) ──
     const glowGeo = new THREE.PlaneGeometry(12, 8);
