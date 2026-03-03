@@ -62,7 +62,35 @@
   .laptop-demo { position: relative; min-height: 120vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 26%); overflow: hidden; }
   .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
-  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
+  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); margin-bottom: 28px; }
+
+  .btn-3d {
+    display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700;
+    color: #fff; text-decoration: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #ff7a45 0%, #e0601e 100%);
+    border: none; position: relative;
+    box-shadow:
+      0 4px 0 0 #b84a14,
+      0 6px 12px rgba(180,60,10,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: translateY(0);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    letter-spacing: 0.02em;
+  }
+  .btn-3d:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 6px 0 0 #b84a14,
+      0 10px 20px rgba(180,60,10,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .btn-3d:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0 0 #b84a14,
+      0 2px 4px rgba(180,60,10,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
   #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
   #flat-video-container { width: 100%; height: 100%; background: #111; border-radius: 8px; overflow: hidden; cursor: pointer; }
   #flat-video-container video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -140,24 +168,25 @@
   .cta-card {
     max-width: 720px; margin: 0 auto; text-align: center;
     background:
-      linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 40%),
-      linear-gradient(180deg, #c2b29a 0%, #baa88e 25%, #b3a085 50%, #ab9a7e 75%, #a59478 100%);
+      linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 50%, rgba(255,255,255,0.08) 100%),
+      linear-gradient(180deg, #d0d0d8 0%, #b8b8c4 25%, #a8a8b8 50%, #9898ac 75%, #8888a0 100%);
     border: none; border-radius: 22px; padding: 72px 48px;
     box-shadow:
-      inset 0 3px 0 0 rgba(255,255,255,0.35),
-      inset 0 6px 12px 0 rgba(255,255,255,0.18),
-      inset 3px 0 0 0 rgba(255,255,255,0.12),
-      inset 0 -4px 0 0 rgba(60,40,15,0.3),
-      inset 0 -8px 16px 0 rgba(60,40,15,0.12),
-      inset -3px 0 0 0 rgba(60,40,15,0.08),
-      0 2px 3px rgba(40,25,10,0.3),
-      0 8px 20px rgba(50,30,10,0.25),
-      0 16px 40px rgba(50,30,10,0.12);
+      inset 0 3px 0 0 rgba(255,255,255,0.5),
+      inset 0 6px 12px 0 rgba(255,255,255,0.25),
+      inset 3px 0 0 0 rgba(255,255,255,0.15),
+      inset 0 -4px 0 0 rgba(20,20,40,0.35),
+      inset 0 -8px 16px 0 rgba(20,20,40,0.15),
+      inset -3px 0 0 0 rgba(20,20,40,0.1),
+      0 2px 3px rgba(0,0,20,0.3),
+      0 8px 20px rgba(0,0,20,0.2),
+      0 16px 40px rgba(0,0,20,0.1);
     position: relative; overflow: hidden;
   }
-  .cta-card::before { content: ''; position: absolute; inset: 0; border-radius: 22px; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 200px 200px; opacity: 0.045; mix-blend-mode: multiply; pointer-events: none; }
-  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; color: #3d2e1e; }
-  .cta-card p { font-size: 16px; color: #5c4a38; margin-bottom: 32px; position: relative; }
+  .cta-card::before { content: ''; position: absolute; inset: 0; border-radius: 22px; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.15) 55%, transparent 70%); pointer-events: none; }
+  .cta-card::after { content: ''; position: absolute; inset: 0; border-radius: 22px; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5 0.08' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 300px 300px; opacity: 0.06; mix-blend-mode: overlay; pointer-events: none; }
+  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; z-index: 1; color: #1a1a2e; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
+  .cta-card p { font-size: 16px; color: #2a2a44; margin-bottom: 32px; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
 
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
   .footer .container { display: flex; align-items: center; justify-content: space-between; }
@@ -218,6 +247,7 @@
   <div class="laptop-demo-text" id="laptop-demo-text">
     <h2>See it in action</h2>
     <p>Watch how SuperReddit finds your leads in seconds</p>
+    <a href="#" class="btn-3d">Get Started Now &rarr;</a>
   </div>
 </section>
 
@@ -227,8 +257,8 @@
     <h2 class="section-title fade-in delay-1">Everything you need</h2>
     <p class="section-subtitle fade-in delay-2">A complete toolkit for Reddit-powered growth.</p>
     <div class="features-grid">
-      <div class="feature-card fade-in delay-2"><div class="feature-icon orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div><h3>Visual Canvas</h3><p>A node-based whiteboard to map your Reddit strategy. Connect products to subreddits to examples to generated posts.</p></div>
-      <div class="feature-card fade-in delay-3"><div class="feature-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Inspiration Engine</h3><p>Browse top posts from any subreddit with filters for Hot, Top, Rising. Find what works in your niche.</p></div>
+      <div class="feature-card fade-in delay-2"><div class="feature-icon orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div><h3>Get Leads on Demand</h3><p>Our experienced Reddit team has closed thousands of leads and finds high-intent buyers for your product or service.</p></div>
+      <div class="feature-card fade-in delay-3"><div class="feature-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Inspiration Engine</h3><p>We tell you exactly what to post and guide you based on our high-converting Reddit copy skills.</p></div>
       <div class="feature-card fade-in delay-4"><div class="feature-icon purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div><h3>AI Generation</h3><p>Claude AI analyzes winning posts and generates Reddit-native content for your product. No marketing speak.</p></div>
       <div class="feature-card fade-in delay-2"><div class="feature-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>AI Chat Mode</h3><p>Chat with an AI Reddit strategist. Get advice on subreddit targeting, timing, and engagement strategies.</p></div>
       <div class="feature-card fade-in delay-3"><div class="feature-icon yellow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Smart Rewrite</h3><p>Rewrite generated content in different tones — Humorous, Engaging, Sarcastic, Concise, and more.</p></div>
@@ -610,8 +640,8 @@ loader.load('./scene.gltf', (gltf) => {
         });
       } else {
         node.material = new THREE.MeshStandardMaterial({
-          color: 0x888898, roughness: 0.5, metalness: 0.3,
-          envMapIntensity: 0.8,
+          color: 0xcccccc, roughness: 0.15, metalness: 0.9,
+          envMapIntensity: 2.0,
         });
       }
     } else if (isTable) {
@@ -1199,8 +1229,8 @@ function setupOverlayCanvas() {
           });
         } else {
           node.material = new THREE.MeshStandardMaterial({
-            color: 0x888898, roughness: 0.5, metalness: 0.3,
-            envMapIntensity: 0.8,
+            color: 0xcccccc, roughness: 0.15, metalness: 0.9,
+            envMapIntensity: 2.0,
           });
         }
       }
@@ -1253,7 +1283,7 @@ function setupOverlayCanvas() {
 
         const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const lidMat = new THREE.MeshStandardMaterial({
-          color: 0x888898, roughness: 0.5, metalness: 0.3, envMapIntensity: 0.8,
+          color: 0xcccccc, roughness: 0.15, metalness: 0.9, envMapIntensity: 2.0,
           transparent: true,
         });
         node.material = [screenMat, lidMat];
@@ -2157,18 +2187,12 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     const tileW = 2.8, tileH = 0.45, tileD = 2.2;
     const tileGeo = new RoundedBoxGeometry(tileW, tileH, tileD, 6, 0.12);
 
-    // Polished metallic tile — higher metalness for real metal look
-    const metalMat = new THREE.MeshPhysicalMaterial({
-      color: 0x8878b0,
-      metalness: 0.75,
-      roughness: 0.18,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.05,
-      envMapIntensity: 2.5,
-      reflectivity: 1.0,
-      sheen: 0.5,
-      sheenRoughness: 0.2,
-      sheenColor: new THREE.Color(0xbbaadd),
+    // Metallic silver — same material as hero character Head #19
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0xcccccc,
+      roughness: 0.15,
+      metalness: 0.9,
+      envMapIntensity: 2.0,
     });
 
     // ── Icon definitions ──
