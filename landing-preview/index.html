@@ -2142,18 +2142,18 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     const tileW = 2.8, tileH = 0.45, tileD = 2.2;
     const tileGeo = new RoundedBoxGeometry(tileW, tileH, tileD, 6, 0.12);
 
-    // Rich matte metallic — like the hero character skin, not flat chrome
+    // Polished metallic tile — higher metalness for real metal look
     const metalMat = new THREE.MeshPhysicalMaterial({
-      color: 0x7b6fa0,
-      metalness: 0.35,
-      roughness: 0.4,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.15,
-      envMapIntensity: 2.0,
-      reflectivity: 0.8,
-      sheen: 1.0,
-      sheenRoughness: 0.3,
-      sheenColor: new THREE.Color(0x9988cc),
+      color: 0x8878b0,
+      metalness: 0.75,
+      roughness: 0.18,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 2.5,
+      reflectivity: 1.0,
+      sheen: 0.5,
+      sheenRoughness: 0.2,
+      sheenColor: new THREE.Color(0xbbaadd),
     });
 
     // ── Icon definitions ──
@@ -2191,16 +2191,20 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
         // Icon mesh (local position above tile)
         const def = iconDefs[i];
+        // Diamond material — glass-like with high refraction + dispersion
         const iconMat = new THREE.MeshPhysicalMaterial({
           color: def.color,
-          metalness: 0.3,
-          roughness: 0.35,
-          clearcoat: 0.8,
-          clearcoatRoughness: 0.1,
-          envMapIntensity: 2.0,
-          sheen: 0.8,
-          sheenRoughness: 0.3,
-          sheenColor: new THREE.Color(def.color).lerp(new THREE.Color(0xffffff), 0.3),
+          metalness: 0.0,
+          roughness: 0.0,
+          transmission: 0.9,
+          thickness: 1.5,
+          ior: 2.42,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.0,
+          envMapIntensity: 3.0,
+          reflectivity: 1.0,
+          specularIntensity: 1.0,
+          dispersion: 5.0,
         });
         const iconMesh = new THREE.Mesh(def.geo, iconMat);
         iconMesh.position.set(-tileW / 2 + 0.4, tileH / 2 + 0.5, -tileD / 2 + 0.4);
@@ -2214,7 +2218,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           cards[i].style.width = cardPx + 'px';
           cards[i].style.boxSizing = 'border-box';
           const cssObj = new CSS3DObject(cards[i]);
-          cssObj.position.set(0, tileH / 2 + 0.06, 0);
+          cssObj.position.set(0, tileH / 2 + 0.15, 0);
           cssObj.rotation.x = -Math.PI / 2;
           cssObj.scale.setScalar(scaleFactor);
           tileGroup.add(cssObj);
@@ -2223,6 +2227,40 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         gridGroup.add(tileGroup);
       }
     }
+
+    // ── Orange gradient glow underneath tiles (like hero orange backdrop) ──
+    const glowGeo = new THREE.PlaneGeometry(12, 8);
+    const glowMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      uniforms: {
+        color1: { value: new THREE.Color(0xff6b35) },
+        color2: { value: new THREE.Color(0x1a1050) },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 color1;
+        uniform vec3 color2;
+        varying vec2 vUv;
+        void main() {
+          float d = distance(vUv, vec2(0.5));
+          float a = smoothstep(0.5, 0.0, d) * 0.6;
+          vec3 col = mix(color2, color1, smoothstep(0.4, 0.0, d));
+          gl_FragColor = vec4(col, a);
+        }
+      `,
+    });
+    const glowPlane = new THREE.Mesh(glowGeo, glowMat);
+    glowPlane.rotation.x = -Math.PI / 2;
+    glowPlane.position.set(0, -0.5, 0);
+    gridGroup.add(glowPlane);
 
     // ── Drag controls — drag the whole grid to position it ──
     const dragControls = new DragControls([gridGroup], fCamera, fRenderer.domElement);
