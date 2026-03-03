@@ -83,27 +83,66 @@
     filter: blur(16px);
   }
 
-  .features { padding: 100px 0; background: var(--gray-50); }
-  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-  .feature-card { position: relative; background: var(--white); border: 1px solid var(--gray-200); border-radius: 20px; padding: 32px; transition: all 0.3s ease; }
-  .feature-card::before { content: ''; position: absolute; inset: -1px; border-radius: 21px; padding: 1px; background: linear-gradient(135deg, transparent 40%, rgba(255,107,53,0.2) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-  .feature-card:hover::before { opacity: 1; }
-  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.06); }
-  .feature-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-  .feature-icon.orange { background: #FFF3ED; color: var(--orange); }
-  .feature-icon.blue { background: #EFF6FF; color: #3B82F6; }
-  .feature-icon.purple { background: #FAF5FF; color: #A855F7; }
-  .feature-icon.green { background: #F0FDF4; color: #22C55E; }
-  .feature-icon.yellow { background: #FFFBEB; color: #F59E0B; }
-  .feature-icon.red { background: #FEF2F2; color: #EF4444; }
-  .feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-  .feature-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+  /* ---- Features section: 3D metallic tiles ---- */
+  .features { padding: 60px 0 0; background: radial-gradient(ellipse 80% 70% at 50% 55%, #2a1848 0%, #1e1350 30%, #1a1050 60%, #140e3a 100%); position: relative; overflow: hidden; }
 
-  .cta { padding: 100px 0; background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%); }
-  .cta-card { max-width: 720px; margin: 0 auto; text-align: center; background: var(--white); border: 1px solid var(--gray-200); border-radius: 28px; padding: 72px 48px; box-shadow: 0 24px 80px rgba(0,0,0,0.06); position: relative; overflow: hidden; }
-  .cta-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at center, rgba(255,107,53,0.04) 0%, transparent 50%); pointer-events: none; }
-  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; }
-  .cta-card p { font-size: 16px; color: var(--gray-400); margin-bottom: 32px; position: relative; }
+  .features .container { position: relative; z-index: 2; padding-bottom: 0; }
+
+  #features-3d { position: relative; width: 100%; height: 600px; }
+  #features-3d > canvas { pointer-events: auto; }
+
+  .features-grid { display: none; }
+
+  .feature-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 16px 20px;
+    overflow: hidden;
+    box-sizing: border-box;
+    pointer-events: auto;
+  }
+
+  .feature-card::before, .feature-card::after { display: none; }
+
+  .feature-icon { display: none; }
+
+  .feature-card h3 {
+    font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #ffffff;
+    text-shadow: 0 2px 3px rgba(0,0,0,0.5), 0 -1px 1px rgba(255,255,255,0.15);
+  }
+  .feature-card p {
+    font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.5;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 -1px 1px rgba(255,255,255,0.1);
+  }
+
+  .features .section-label { color: var(--orange); }
+  .features .section-title { color: #ffffff; }
+  .features .section-subtitle { color: rgba(255,255,255,0.6); margin-bottom: 0; }
+
+  /* ---- CTA section ---- */
+  .cta { padding: 100px 0; background: linear-gradient(180deg, #140e3a 0%, #e07835 50%, #ffffff 100%); }
+  .cta-card {
+    max-width: 720px; margin: 0 auto; text-align: center;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 40%),
+      linear-gradient(180deg, #c2b29a 0%, #baa88e 25%, #b3a085 50%, #ab9a7e 75%, #a59478 100%);
+    border: none; border-radius: 22px; padding: 72px 48px;
+    box-shadow:
+      inset 0 3px 0 0 rgba(255,255,255,0.35),
+      inset 0 6px 12px 0 rgba(255,255,255,0.18),
+      inset 3px 0 0 0 rgba(255,255,255,0.12),
+      inset 0 -4px 0 0 rgba(60,40,15,0.3),
+      inset 0 -8px 16px 0 rgba(60,40,15,0.12),
+      inset -3px 0 0 0 rgba(60,40,15,0.08),
+      0 2px 3px rgba(40,25,10,0.3),
+      0 8px 20px rgba(50,30,10,0.25),
+      0 16px 40px rgba(50,30,10,0.12);
+    position: relative; overflow: hidden;
+  }
+  .cta-card::before { content: ''; position: absolute; inset: 0; border-radius: 22px; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 200px 200px; opacity: 0.045; mix-blend-mode: multiply; pointer-events: none; }
+  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; color: #3d2e1e; }
+  .cta-card p { font-size: 16px; color: #5c4a38; margin-bottom: 32px; position: relative; }
 
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
   .footer .container { display: flex; align-items: center; justify-content: space-between; }
@@ -117,7 +156,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; } .features-grid { display: grid; grid-template-columns: 1fr; gap: 16px; } .feature-card { background: rgba(255,255,255,0.08); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); } .feature-card h3 { font-size: 16px; color: #fff; } .feature-card p { font-size: 14px; line-height: 1.7; color: rgba(255,255,255,0.7); } .feature-icon { display: flex; } }
 </style>
 </head>
 <body>
@@ -181,6 +220,7 @@
       <div class="feature-card fade-in delay-4"><div class="feature-icon red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div><h3>Ban Prevention</h3><p>Built-in knowledge about Reddit policies. Our AI avoids patterns that get flagged as spam.</p></div>
     </div>
   </div>
+  <div id="features-3d"></div>
 </section>
 
 <section class="cta">
@@ -209,11 +249,13 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+import { DragControls } from 'three/addons/controls/DragControls.js';
 
 // ── Feature flag: scroll-driven pre-rendered frames vs real-time 3D overlay ──
 const USE_SCROLL_VIDEO = true;
@@ -1974,6 +2016,262 @@ window.addEventListener('resize', () => {
 
 // ── Prevent scroll zoom ──
 container.addEventListener('wheel', (e) => e.stopPropagation());
+
+// ── Features Section: 3D Metallic Keycap Tiles + CSS3D Text ──
+{
+  const featuresSection = document.getElementById('features');
+  const f3d = document.getElementById('features-3d');
+  if (f3d) {
+    // ── WebGL Renderer (metallic tiles) ──
+    const fRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    fRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    fRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    fRenderer.toneMappingExposure = 1.3;
+    fRenderer.domElement.style.position = 'absolute';
+    fRenderer.domElement.style.top = '0';
+    fRenderer.domElement.style.left = '0';
+    f3d.appendChild(fRenderer.domElement);
+
+    // ── CSS3D Renderer (text cards on tile faces) ──
+    const cssRenderer = new CSS3DRenderer();
+    cssRenderer.domElement.style.position = 'absolute';
+    cssRenderer.domElement.style.top = '0';
+    cssRenderer.domElement.style.left = '0';
+    cssRenderer.domElement.style.pointerEvents = 'none';
+    f3d.appendChild(cssRenderer.domElement);
+
+    const fScene = new THREE.Scene();
+    const fCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    fCamera.position.set(0, 9, 6);
+    fCamera.lookAt(0, -1.5, 0);
+
+    // ── Environment Map — identical to hero: soft purple studio ──
+    const fEnvScene = new THREE.Scene();
+    fEnvScene.background = new THREE.Color(0x1a1050);
+    const fEnvLight1 = new THREE.PointLight(0x4466cc, 50, 100);
+    fEnvLight1.position.set(5, 5, 5);
+    fEnvScene.add(fEnvLight1);
+    const fEnvLight2 = new THREE.PointLight(0x6644aa, 40, 100);
+    fEnvLight2.position.set(-5, 3, -5);
+    fEnvScene.add(fEnvLight2);
+    const fEnvLight3 = new THREE.PointLight(0x3355dd, 30, 100);
+    fEnvLight3.position.set(0, -3, 5);
+    fEnvScene.add(fEnvLight3);
+    const fEnvLight4 = new THREE.PointLight(0xddddff, 20, 100);
+    fEnvLight4.position.set(0, 8, 0);
+    fEnvScene.add(fEnvLight4);
+    const fEnvSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(20, 32, 32),
+      new THREE.MeshBasicMaterial({ color: 0x1a1050, side: THREE.BackSide })
+    );
+    fEnvScene.add(fEnvSphere);
+
+    const pmremGen = new THREE.PMREMGenerator(fRenderer);
+    pmremGen.compileEquirectangularShader();
+    const fEnvMap = pmremGen.fromScene(fEnvScene, 0.04).texture;
+    pmremGen.dispose();
+    fScene.environment = fEnvMap;
+    fScene.background = new THREE.Color(0x1a1050);
+    fScene.fog = new THREE.FogExp2(0x1a1050, 0.02);
+
+    // ── Post Processing — bloom (same as hero) ──
+    const fComposer = new EffectComposer(fRenderer);
+    fComposer.addPass(new RenderPass(fScene, fCamera));
+    const fBloom = new UnrealBloomPass(
+      new THREE.Vector2(800, 600),
+      0.15,  // strength
+      0.4,   // radius
+      0.9    // threshold
+    );
+    fComposer.addPass(fBloom);
+    fComposer.addPass(new OutputPass());
+
+    // ── Lighting — exact hero rig ──
+
+    // 1. Hemisphere — soft neutral sky, dark purple ground
+    const fHemi = new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0);
+    fScene.add(fHemi);
+
+    // 2. Top key spotlight — main illumination
+    const fTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+    fTopSpot.position.set(0, 16, 6);
+    fTopSpot.target.position.set(0, 0, 0);
+    fTopSpot.castShadow = true;
+    fTopSpot.shadow.mapSize.set(2048, 2048);
+    fTopSpot.shadow.radius = 4;
+    fScene.add(fTopSpot);
+    fScene.add(fTopSpot.target);
+
+    // 3. Blue uplight — dramatic blue on tile undersides
+    const fUplight = new THREE.SpotLight(0x3366ee, 20.0, 50, Math.PI / 2.5, 0.7, 0.8);
+    fUplight.position.set(0, -2, 4);
+    fUplight.target.position.set(0, 3, 0);
+    fScene.add(fUplight);
+    fScene.add(fUplight.target);
+
+    // 4. Blue fill — wider blue wash
+    const fBlueFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+    fBlueFill.position.set(0, -0.5, 5);
+    fScene.add(fBlueFill);
+
+    // 5. Left rim — blue edge light
+    const fLeftRim = new THREE.PointLight(0x4477cc, 4.0, 50);
+    fLeftRim.position.set(-12, 4, 0);
+    fScene.add(fLeftRim);
+
+    // 6. Right rim — purple edge light
+    const fRightRim = new THREE.PointLight(0x6644bb, 3.0, 50);
+    fRightRim.position.set(12, 4, 0);
+    fScene.add(fRightRim);
+
+    // 7. Front fill — keeps faces visible
+    const fFrontFill = new THREE.DirectionalLight(0x998acc, 0.6);
+    fFrontFill.position.set(0, 2, 10);
+    fScene.add(fFrontFill);
+
+    // 8. Ambient — lifts absolute blacks
+    const fAmbient = new THREE.AmbientLight(0x221838, 0.8);
+    fScene.add(fAmbient);
+
+    // 9. Orange backlight — warm glow behind tiles
+    const fOrangeBack = new THREE.PointLight(0xff6b35, 2.0, 40, 1.5);
+    fOrangeBack.position.set(0, 1, -6);
+    fScene.add(fOrangeBack);
+
+    // ── Keycap tile geometry ──
+    const tileW = 2.8, tileH = 0.45, tileD = 2.2;
+    const tileGeo = new RoundedBoxGeometry(tileW, tileH, tileD, 6, 0.12);
+
+    // Rich matte metallic — like the hero character skin, not flat chrome
+    const metalMat = new THREE.MeshPhysicalMaterial({
+      color: 0x7b6fa0,
+      metalness: 0.35,
+      roughness: 0.4,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.15,
+      envMapIntensity: 2.0,
+      reflectivity: 0.8,
+      sheen: 1.0,
+      sheenRoughness: 0.3,
+      sheenColor: new THREE.Color(0x9988cc),
+    });
+
+    // ── Icon definitions ──
+    const iconDefs = [
+      { color: 0xFF6B35, geo: new THREE.TorusGeometry(0.18, 0.07, 16, 32) },
+      { color: 0x3B82F6, geo: new THREE.OctahedronGeometry(0.22, 0) },
+      { color: 0xA855F7, geo: new THREE.IcosahedronGeometry(0.2, 0) },
+      { color: 0x22C55E, geo: new THREE.BoxGeometry(0.28, 0.28, 0.28) },
+      { color: 0xF59E0B, geo: new THREE.ConeGeometry(0.18, 0.35, 5) },
+      { color: 0xEF4444, geo: new THREE.DodecahedronGeometry(0.2, 0) },
+    ];
+
+    // ── Build grouped 3x2 grid (parent group is draggable) ──
+    const gridGroup = new THREE.Group();
+    fScene.add(gridGroup);
+
+    const cols = 3, rows = 2;
+    const gapX = 3.1, gapZ = 2.6;
+    const offsetX = ((cols - 1) * gapX) / 2;
+    const offsetZ = ((rows - 1) * gapZ) / 2;
+    const iconMeshes = [];
+    const cards = Array.from(featuresSection.querySelectorAll('.feature-card'));
+    const cardPx = 280;
+    const scaleFactor = tileW / cardPx;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const i = r * cols + c;
+        const tileGroup = new THREE.Group();
+        tileGroup.position.set(c * gapX - offsetX, 0, r * gapZ - offsetZ);
+
+        // Tile mesh (at local origin)
+        const tile = new THREE.Mesh(tileGeo, metalMat);
+        tileGroup.add(tile);
+
+        // Icon mesh (local position above tile)
+        const def = iconDefs[i];
+        const iconMat = new THREE.MeshPhysicalMaterial({
+          color: def.color,
+          metalness: 0.3,
+          roughness: 0.35,
+          clearcoat: 0.8,
+          clearcoatRoughness: 0.1,
+          envMapIntensity: 2.0,
+          sheen: 0.8,
+          sheenRoughness: 0.3,
+          sheenColor: new THREE.Color(def.color).lerp(new THREE.Color(0xffffff), 0.3),
+        });
+        const iconMesh = new THREE.Mesh(def.geo, iconMat);
+        iconMesh.position.set(-tileW / 2 + 0.4, tileH / 2 + 0.5, -tileD / 2 + 0.4);
+        iconMesh.userData.baseY = iconMesh.position.y;
+        iconMesh.userData.phase = i * 0.8;
+        tileGroup.add(iconMesh);
+        iconMeshes.push(iconMesh);
+
+        // CSS3D text card (on tile top face, in cssScene but tracking group)
+        if (cards[i]) {
+          cards[i].style.width = cardPx + 'px';
+          cards[i].style.boxSizing = 'border-box';
+          const cssObj = new CSS3DObject(cards[i]);
+          cssObj.position.set(0, tileH / 2 + 0.06, 0);
+          cssObj.rotation.x = -Math.PI / 2;
+          cssObj.scale.setScalar(scaleFactor);
+          tileGroup.add(cssObj);
+        }
+
+        gridGroup.add(tileGroup);
+      }
+    }
+
+    // ── Drag controls — drag the whole grid to position it ──
+    const dragControls = new DragControls([gridGroup], fCamera, fRenderer.domElement);
+    dragControls.transformGroup = true;
+    dragControls.addEventListener('drag', () => { fNeedsRender = true; });
+
+    // ── Sizing ──
+    let fNeedsRender = true;
+    let fVisible = false;
+
+    function resizeFeatures() {
+      const rect = featuresSection.getBoundingClientRect();
+      fRenderer.setSize(rect.width, rect.height);
+      fComposer.setSize(rect.width, rect.height);
+      cssRenderer.setSize(rect.width, rect.height);
+      fCamera.aspect = rect.width / rect.height;
+      fCamera.updateProjectionMatrix();
+      fNeedsRender = true;
+    }
+
+    const fObserver = new IntersectionObserver(([entry]) => {
+      fVisible = entry.isIntersecting;
+      if (fVisible) fNeedsRender = true;
+    }, { threshold: 0.05 });
+    fObserver.observe(featuresSection);
+
+    window.addEventListener('resize', resizeFeatures);
+    resizeFeatures();
+
+    // ── Render loop (continuous for icon animation) ──
+    const fClock = new THREE.Clock();
+    function featuresLoop() {
+      requestAnimationFrame(featuresLoop);
+      if (!fVisible) return;
+      const t = fClock.getElapsedTime();
+
+      // Animate icons: gentle float + slow rotation
+      iconMeshes.forEach(m => {
+        m.position.y = m.userData.baseY + Math.sin(t * 1.2 + m.userData.phase) * 0.08;
+        m.rotation.y = t * 0.5 + m.userData.phase;
+        m.rotation.x = Math.sin(t * 0.3 + m.userData.phase) * 0.15;
+      });
+
+      fComposer.render();
+      cssRenderer.render(fScene, fCamera);
+    }
+    featuresLoop();
+  }
+}
 </script>
 
 <script>
