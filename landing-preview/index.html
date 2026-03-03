@@ -138,14 +138,11 @@
   .feature-card h3 {
     font-size: 18px; font-weight: 800; margin-bottom: 6px; color: #ffffff;
     text-shadow:
-      0 1px 0 rgba(255,255,255,0.35),
-      0 -1px 0 rgba(0,0,0,0.25),
-      0 2px 0 rgba(200,180,220,0.5),
-      0 3px 0 rgba(180,160,200,0.4),
-      0 4px 0 rgba(160,140,180,0.3),
-      0 5px 0 rgba(140,120,160,0.2),
-      0 6px 8px rgba(0,0,0,0.4),
-      0 6px 15px rgba(0,0,0,0.2);
+      0 1px 0 rgba(255,255,255,0.25),
+      0 -1px 0 rgba(0,0,0,0.2),
+      0 2px 0 rgba(200,180,220,0.3),
+      0 3px 0 rgba(180,160,200,0.15),
+      0 3px 6px rgba(0,0,0,0.3);
     letter-spacing: 0.5px;
   }
   .feature-card p {
@@ -2196,13 +2193,14 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     });
 
     // ── Icon definitions ──
+    // Icon shapes matched to tile content
     const iconDefs = [
-      { color: 0xFF6B35, geo: new THREE.TorusGeometry(0.18, 0.07, 16, 32) },
-      { color: 0xFF6B35, geo: new THREE.OctahedronGeometry(0.22, 0) },
-      { color: 0xFF6B35, geo: new THREE.IcosahedronGeometry(0.2, 0) },
-      { color: 0xFF6B35, geo: new THREE.BoxGeometry(0.28, 0.28, 0.28) },
-      { color: 0xFF6B35, geo: new THREE.ConeGeometry(0.18, 0.35, 5) },
-      { color: 0xFF6B35, geo: new THREE.DodecahedronGeometry(0.2, 0) },
+      { color: 0xFF6B35, geo: new THREE.TorusKnotGeometry(0.14, 0.05, 64, 8, 2, 3) },  // Get Leads — interconnected network
+      { color: 0xFF6B35, geo: new THREE.ConeGeometry(0.18, 0.35, 4) },                  // Inspiration — compass/direction arrow
+      { color: 0xFF6B35, geo: new THREE.OctahedronGeometry(0.22, 0) },                  // AI Generation — gem/sparkle
+      { color: 0xFF6B35, geo: new THREE.SphereGeometry(0.2, 32, 32) },                  // AI Chat — speech bubble
+      { color: 0xFF6B35, geo: new THREE.CylinderGeometry(0.04, 0.04, 0.4, 8) },         // Smart Rewrite — pen/stylus
+      { color: 0xFF6B35, geo: new THREE.CapsuleGeometry(0.12, 0.18, 4, 16) },           // Ban Prevention — shield capsule
     ];
 
     // ── Build grouped 3x2 grid (parent group is draggable) ──
@@ -2230,18 +2228,14 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
         // Icon mesh (local position above tile)
         const def = iconDefs[i];
-        // Metallic orange with emissive glow — self-illuminating, no extra lights needed
-        const iconMat = new THREE.MeshPhysicalMaterial({
+        // Metallic orange — brushed metal look, subtle emissive for visibility
+        const iconMat = new THREE.MeshStandardMaterial({
           color: def.color,
           emissive: new THREE.Color(0xFF6B35),
-          emissiveIntensity: 0.6,
-          metalness: 0.85,
-          roughness: 0.15,
-          clearcoat: 1.0,
-          clearcoatRoughness: 0.05,
-          envMapIntensity: 2.5,
-          reflectivity: 1.0,
-          specularIntensity: 1.0,
+          emissiveIntensity: 0.3,
+          metalness: 0.9,
+          roughness: 0.35,
+          envMapIntensity: 1.8,
         });
         const iconMesh = new THREE.Mesh(def.geo, iconMat);
         iconMesh.position.set(-tileW / 2 + 0.4, tileH / 2 + 0.5, -tileD / 2 + 0.4);
