@@ -54,6 +54,10 @@
   .hero-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 3; color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: bounce 2s infinite; }
   @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
 
+  /* ---- Trusted-by logo ticker ---- */
+  .trusted-bar { position: absolute; top: 80px; left: 0; right: 0; z-index: 10; text-align: center; padding: 0; pointer-events: none; }
+  .ticker-wrap { width: 100%; padding: 12px 0; }
+
   .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
   .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
@@ -62,7 +66,35 @@
   .laptop-demo { position: relative; min-height: 120vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 26%); overflow: hidden; }
   .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
   .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
-  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); }
+  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); margin-bottom: 28px; }
+
+  .btn-3d {
+    display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700;
+    color: #fff; text-decoration: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #ff7a45 0%, #e0601e 100%);
+    border: none; position: relative;
+    box-shadow:
+      0 4px 0 0 #b84a14,
+      0 6px 12px rgba(180,60,10,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: translateY(0);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    letter-spacing: 0.02em;
+  }
+  .btn-3d:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 6px 0 0 #b84a14,
+      0 10px 20px rgba(180,60,10,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .btn-3d:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0 0 #b84a14,
+      0 2px 4px rgba(180,60,10,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
   #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
   #flat-video-container { width: 100%; height: 100%; background: #111; border-radius: 8px; overflow: hidden; cursor: pointer; }
   #flat-video-container video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -83,27 +115,248 @@
     filter: blur(16px);
   }
 
-  .features { padding: 100px 0; background: var(--gray-50); }
-  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-  .feature-card { position: relative; background: var(--white); border: 1px solid var(--gray-200); border-radius: 20px; padding: 32px; transition: all 0.3s ease; }
-  .feature-card::before { content: ''; position: absolute; inset: -1px; border-radius: 21px; padding: 1px; background: linear-gradient(135deg, transparent 40%, rgba(255,107,53,0.2) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
-  .feature-card:hover::before { opacity: 1; }
-  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.06); }
-  .feature-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-  .feature-icon.orange { background: #FFF3ED; color: var(--orange); }
-  .feature-icon.blue { background: #EFF6FF; color: #3B82F6; }
-  .feature-icon.purple { background: #FAF5FF; color: #A855F7; }
-  .feature-icon.green { background: #F0FDF4; color: #22C55E; }
-  .feature-icon.yellow { background: #FFFBEB; color: #F59E0B; }
-  .feature-icon.red { background: #FEF2F2; color: #EF4444; }
-  .feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-  .feature-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+  /* ---- Lead Discovery section ---- */
+  .lead-discovery {
+    padding: 100px 0;
+    background: #ffffff;
+    position: relative;
+  }
+  .ld-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+  }
+  .ld-badge {
+    display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; color: var(--orange);
+    background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2);
+    margin-bottom: 24px;
+  }
+  .ld-title {
+    font-size: 40px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900);
+    line-height: 1.15; margin-bottom: 20px;
+  }
+  .ld-desc {
+    font-size: 16px; line-height: 1.7; color: var(--gray-400); margin-bottom: 40px;
+  }
+  .ld-features { display: flex; flex-direction: column; gap: 0; }
+  .ld-feature {
+    display: flex; gap: 16px; align-items: flex-start; padding: 20px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .ld-feature:last-child { border-bottom: none; }
+  .ld-feature-icon {
+    font-size: 22px; width: 40px; height: 40px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--gray-50); border-radius: 10px;
+  }
+  .ld-feature h4 {
+    font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px;
+  }
+  .ld-feature p {
+    font-size: 14px; color: var(--gray-400); line-height: 1.5; margin: 0;
+  }
+  .ld-right {
+    perspective: 1000px;
+    position: relative;
+    overflow: visible;
+  }
+  .ld-feed-card {
+    background: #ffffff;
+    border: 1px solid var(--gray-100);
+    border-radius: 20px; padding: 0; overflow: hidden;
+    transform: rotateY(-4deg) rotateX(2deg);
+    transform-style: preserve-3d;
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.12),
+      0 24px 64px rgba(0,0,0,0.08),
+      -8px 16px 40px rgba(0,0,0,0.06);
+    border-left: 2px solid rgba(255,255,255,0.5);
+    border-top: 1px solid rgba(255,255,255,0.3);
+    position: relative;
+    z-index: 1;
+  }
+  #ld-character-canvas {
+    position: absolute;
+    top: -160px;
+    right: -120px;
+    bottom: -40px;
+    left: -120px;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .ld-feed-header {
+    display: flex; align-items: center; gap: 10px; padding: 18px 24px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .ld-pulse {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #22c55e; flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(34,197,94,0.4);
+    animation: ldPulse 2s ease-in-out infinite;
+  }
+  @keyframes ldPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .ld-feed-title { font-size: 14px; font-weight: 600; color: var(--gray-900); flex: 1; }
+  .ld-feed-count { font-size: 12px; color: var(--gray-400); }
+  .ld-feed-items { padding: 8px 0; overflow: hidden; height: 560px; }
+  .ld-feed-item {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px;
+    padding: 16px 24px; border-bottom: 1px solid var(--gray-100);
+    align-items: start;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .ld-feed-item:last-child { border-bottom: none; }
+  .ld-feed-item.ld-new {
+    animation: ldSlideIn 0.5s ease forwards;
+  }
+  @keyframes ldSlideIn {
+    from { opacity: 0; transform: translateY(-20px); max-height: 0; padding-top: 0; padding-bottom: 0; }
+    to { opacity: 1; transform: translateY(0); max-height: 120px; padding-top: 16px; padding-bottom: 16px; }
+  }
+  .ld-feed-item.ld-removing {
+    animation: ldSlideOut 0.4s ease forwards;
+  }
+  @keyframes ldSlideOut {
+    from { opacity: 1; max-height: 120px; }
+    to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; }
+  }
+  .ld-feed-meta {
+    grid-column: 1; font-size: 12px; color: var(--gray-400);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ld-reddit-icon { font-size: 14px; }
+  .ld-feed-score {
+    grid-column: 2; grid-row: 1 / 3; align-self: center;
+    font-size: 14px; font-weight: 700; color: #22c55e;
+    border: 1px solid rgba(34,197,94,0.25); border-radius: 8px;
+    padding: 4px 10px; text-align: center;
+    background: rgba(34,197,94,0.06);
+  }
+  .ld-feed-item p {
+    grid-column: 1; font-size: 14px; color: var(--gray-700);
+    line-height: 1.5; margin: 0;
+  }
 
-  .cta { padding: 100px 0; background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%); }
-  .cta-card { max-width: 720px; margin: 0 auto; text-align: center; background: var(--white); border: 1px solid var(--gray-200); border-radius: 28px; padding: 72px 48px; box-shadow: 0 24px 80px rgba(0,0,0,0.06); position: relative; overflow: hidden; }
-  .cta-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at center, rgba(255,107,53,0.04) 0%, transparent 50%); pointer-events: none; }
-  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; }
-  .cta-card p { font-size: 16px; color: var(--gray-400); margin-bottom: 32px; position: relative; }
+  @media (max-width: 768px) {
+    .ld-grid { grid-template-columns: 1fr; gap: 40px; }
+    .ld-title { font-size: 28px; }
+    .lead-discovery { padding: 60px 0; }
+    .ld-right { perspective: none; }
+    .ld-feed-card { transform: none; border-left: 1px solid var(--gray-100); border-top: 1px solid var(--gray-100); box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 16px 48px rgba(0,0,0,0.04); }
+    #ld-character-canvas { display: none; }
+  }
+
+  /* ---- Features section: 2D tiles with 3D keycap look ---- */
+  .features { padding: 60px 0 80px; background: linear-gradient(to bottom, #ffffff 0%, #ff6b35 100%); position: relative; overflow: hidden; }
+
+  .features .container { position: relative; z-index: 2; }
+
+  #features-3d { display: none; }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 48px;
+  }
+
+  .feature-card {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 50%, rgba(255,255,255,0.15) 100%),
+      linear-gradient(180deg, #f8f4ee 0%, #f2ede5 50%, #ece6dc 100%);
+    border: none;
+    border-radius: 18px;
+    padding: 28px 24px;
+    overflow: hidden;
+    box-sizing: border-box;
+    position: relative;
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,0.6),
+      inset 0 4px 8px 0 rgba(255,255,255,0.3),
+      inset 2px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -3px 0 0 rgba(80,60,40,0.1),
+      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
+      0 2px 4px rgba(0,0,0,0.06),
+      0 8px 24px rgba(0,0,0,0.08),
+      0 20px 48px rgba(0,0,0,0.06);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,0.6),
+      inset 0 4px 8px 0 rgba(255,255,255,0.3),
+      inset 2px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -3px 0 0 rgba(80,60,40,0.1),
+      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
+      0 4px 8px rgba(0,0,0,0.08),
+      0 16px 32px rgba(0,0,0,0.1),
+      0 28px 56px rgba(0,0,0,0.08);
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute; inset: 0; border-radius: 18px;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.2) 55%, transparent 70%);
+    pointer-events: none;
+  }
+  .feature-card::after {
+    content: '';
+    position: absolute; inset: 0; border-radius: 18px;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5 0.08' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 300px 300px;
+    opacity: 0.04; mix-blend-mode: overlay; pointer-events: none;
+  }
+
+  .feature-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 12px; margin-bottom: 14px;
+    color: white; position: relative; z-index: 1;
+  }
+  .feature-icon.orange { background: #ff4422; }
+  .feature-icon.blue { background: #2288ff; }
+  .feature-icon.purple { background: #8833ee; }
+  .feature-icon.green { background: #00cc88; }
+  .feature-icon.yellow { background: #ffaa00; }
+  .feature-icon.red { background: #ff2255; }
+
+  .feature-card h3 {
+    font-size: 18px; font-weight: 800; margin-bottom: 8px; color: #1a1a1a;
+    letter-spacing: -0.01em; position: relative; z-index: 1;
+  }
+  .feature-card p {
+    font-size: 14px; color: #555; line-height: 1.6; font-weight: 400;
+    position: relative; z-index: 1;
+  }
+
+  .features .section-label { color: var(--orange); }
+  .features .section-title { color: #1a1a1a; }
+  .features .section-subtitle { color: #666; margin-bottom: 0; }
+
+  @media (max-width: 1024px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .features-grid { grid-template-columns: 1fr; } }
+
+  /* ---- CTA section ---- */
+  .cta { padding: 100px 0; background: linear-gradient(180deg, #ff6b35 0%, #ffffff 60%); }
+  .cta-card {
+    max-width: 720px; margin: 0 auto; text-align: center;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, rgba(255,255,255,0.15) 100%),
+      linear-gradient(180deg, #f8f4ee 0%, #f2ede5 50%, #ece6dc 100%);
+    border: none; border-radius: 22px; padding: 72px 48px;
+    box-shadow:
+      inset 0 3px 0 0 rgba(255,255,255,0.6),
+      inset 0 6px 12px 0 rgba(255,255,255,0.3),
+      inset 3px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -4px 0 0 rgba(80,60,40,0.12),
+      inset 0 -8px 16px 0 rgba(80,60,40,0.06),
+      0 2px 3px rgba(0,0,0,0.08),
+      0 8px 20px rgba(0,0,0,0.06),
+      0 16px 40px rgba(0,0,0,0.04);
+    position: relative; overflow: hidden;
+  }
+  .cta-card::before { content: ''; position: absolute; inset: 0; border-radius: 22px; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.15) 55%, transparent 70%); pointer-events: none; }
+  .cta-card::after { content: ''; position: absolute; inset: 0; border-radius: 22px; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5 0.08' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 300px 300px; opacity: 0.06; mix-blend-mode: overlay; pointer-events: none; }
+  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; z-index: 1; color: #1a1a2e; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
+  .cta-card p { font-size: 16px; color: #2a2a44; margin-bottom: 32px; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
 
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
   .footer .container { display: flex; align-items: center; justify-content: space-between; }
@@ -117,7 +370,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; } .features-grid { display: grid; grid-template-columns: 1fr; gap: 16px; } .feature-card { background: rgba(255,255,255,0.5); box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.6); } .feature-card h3 { font-size: 16px; color: #1a1a1a; } .feature-card p { font-size: 14px; line-height: 1.7; color: #3a3a3a; } .feature-icon { display: flex; } }
 </style>
 </head>
 <body>
@@ -126,11 +379,18 @@
   <div class="container">
     <a href="#" class="nav-logo"><div class="nav-logo-icon">SR</div><span>SuperReddit</span></a>
     <div class="nav-links"><a href="#laptop-demo">Demo</a><a href="#features">Features</a></div>
-    <div class="nav-actions"><a href="#" class="btn-ghost">Log in</a><a href="#" class="btn-primary">Get Started Free</a></div>
+    <div class="nav-actions"><a href="signup.html" class="btn-ghost">Log in</a><a href="signup.html" class="btn-primary">Get Started Free</a></div>
   </div>
 </nav>
 
 <section class="hero">
+  <!-- Trusted-by banner -->
+  <div class="trusted-bar">
+    <div class="ticker-wrap" style="display:flex; align-items:center; justify-content:center; gap:14px;">
+      <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.6); white-space:nowrap;">Trusted by partners of</span>
+      <img src="models/amazon-white.webp" alt="Amazon" style="height:16px; object-fit:contain; position:relative; top:3px;">
+    </div>
+  </div>
   <canvas class="hero-gap-fill" id="gap-fill"></canvas>
   <div class="hero-3d-container" id="three-container"></div>
   <div class="hero-overlay">
@@ -141,7 +401,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
         <input type="text" placeholder="website.com (Optional)">
       </div>
-      <button class="hero-cta-btn">Find My Leads <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
+      <a href="signup.html" class="hero-cta-btn" style="text-decoration:none;">Find My Leads <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
     </div>
   </div>
   <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
@@ -164,6 +424,74 @@
   <div class="laptop-demo-text" id="laptop-demo-text">
     <h2>See it in action</h2>
     <p>Watch how SuperReddit finds your leads in seconds</p>
+    <a href="signup.html" class="btn-3d">Get Started Now &rarr;</a>
+  </div>
+</section>
+
+<section class="lead-discovery" id="lead-discovery">
+  <div class="container">
+    <div class="ld-grid fade-in">
+      <div class="ld-left">
+        <span class="ld-badge">&#128269; LEAD DISCOVERY</span>
+        <h2 class="ld-title">Lead Discovery on Autopilot</h2>
+        <p class="ld-desc">SuperReddit scans thousands of Reddit posts every day to surface people actively asking for tools, services, or skills like yours — and delivers them straight to your dashboard.</p>
+        <div class="ld-features">
+          <div class="ld-feature">
+            <div class="ld-feature-icon">&#10024;</div>
+            <div>
+              <h4>Fresh Leads, Everyday</h4>
+              <p>We scan Reddit communities you selected every day so you never miss a lead.</p>
+            </div>
+          </div>
+          <div class="ld-feature">
+            <div class="ld-feature-icon">&#128200;</div>
+            <div>
+              <h4>Intent Scoring</h4>
+              <p>Every lead is scored by buying intent so you focus on the highest-value prospects first.</p>
+            </div>
+          </div>
+          <div class="ld-feature">
+            <div class="ld-feature-icon">&#128276;</div>
+            <div>
+              <h4>Real-time Alerts</h4>
+              <p>Get notified by email as soon as new high-intent leads are found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ld-right">
+        <div id="ld-character-canvas"></div>
+        <div class="ld-feed-card">
+          <div class="ld-feed-header">
+            <span class="ld-pulse"></span>
+            <span class="ld-feed-title">Scanning platforms...</span>
+            <span class="ld-feed-count">473 posts scanned</span>
+          </div>
+          <div class="ld-feed-items">
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-icon">&#128308;</span> r/smallbusiness &middot; 8m ago</div>
+              <div class="ld-feed-score">9.0</div>
+              <p>Any recommendations for a lightweight CRM? HubSpot is overkill for us</p>
+            </div>
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-icon">&#128308;</span> r/ecommerce &middot; 14m ago</div>
+              <div class="ld-feed-score">8.0</div>
+              <p>Need a no-code tool to build internal dashboards. Budget is tight.</p>
+            </div>
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-icon">&#128308;</span> r/startups &middot; 22m ago</div>
+              <div class="ld-feed-score">8.0</div>
+              <p>Searching for an affordable email marketing platform for my Shopify store</p>
+            </div>
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-icon">&#128308;</span> r/freelance &middot; 31m ago</div>
+              <div class="ld-feed-score">7.0</div>
+              <p>Can anyone suggest a good invoicing tool for freelancers?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -181,6 +509,7 @@
       <div class="feature-card fade-in delay-4"><div class="feature-icon red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div><h3>Ban Prevention</h3><p>Built-in knowledge about Reddit policies. Our AI avoids patterns that get flagged as spam.</p></div>
     </div>
   </div>
+  <div id="features-3d"></div>
 </section>
 
 <section class="cta">
@@ -188,7 +517,7 @@
     <div class="cta-card fade-in">
       <h2>Ready to grow on Reddit?</h2>
       <p>Join the beta and start creating Reddit content that actually works.</p>
-      <a href="#" class="btn-primary btn-primary-lg">Get Started Free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      <a href="signup.html" class="btn-primary btn-primary-lg">Get Started Free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
     </div>
   </div>
 </section>
@@ -209,11 +538,13 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+import { DragControls } from 'three/addons/controls/DragControls.js';
 
 // ── Feature flag: scroll-driven pre-rendered frames vs real-time 3D overlay ──
 const USE_SCROLL_VIDEO = true;
@@ -553,8 +884,8 @@ loader.load('./scene.gltf', (gltf) => {
         });
       } else {
         node.material = new THREE.MeshStandardMaterial({
-          color: 0x888898, roughness: 0.5, metalness: 0.3,
-          envMapIntensity: 0.8,
+          color: 0xcccccc, roughness: 0.15, metalness: 0.9,
+          envMapIntensity: 2.0,
         });
       }
     } else if (isTable) {
@@ -1101,6 +1432,17 @@ function setupOverlayCanvas() {
   const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
   overlayScene.add(oAmbient);
 
+  // Blue glare lights on laptop body
+  const oBlueGlare1 = new THREE.PointLight(0x3388ff, 12.0, 30, 1.0);
+  oBlueGlare1.position.set(-4, 2, 4);
+  overlayScene.add(oBlueGlare1);
+  const oBlueGlare2 = new THREE.PointLight(0x2266ee, 10.0, 30, 1.0);
+  oBlueGlare2.position.set(4, 1, 5);
+  overlayScene.add(oBlueGlare2);
+  const oBlueGlare3 = new THREE.PointLight(0x4499ff, 8.0, 25, 1.0);
+  oBlueGlare3.position.set(0, 5, 3);
+  overlayScene.add(oBlueGlare3);
+
   // Orange spotlight — real 3D light, intensity driven by scroll
   const oOrangeSpot = new THREE.SpotLight(0xFF6B35, 0, 60, Math.PI / 4, 0.6, 0.8);
   oOrangeSpot.position.set(0, 18, 4);
@@ -1142,8 +1484,8 @@ function setupOverlayCanvas() {
           });
         } else {
           node.material = new THREE.MeshStandardMaterial({
-            color: 0x888898, roughness: 0.5, metalness: 0.3,
-            envMapIntensity: 0.8,
+            color: 0xcccccc, roughness: 0.15, metalness: 0.9,
+            envMapIntensity: 2.0,
           });
         }
       }
@@ -1196,7 +1538,7 @@ function setupOverlayCanvas() {
 
         const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const lidMat = new THREE.MeshStandardMaterial({
-          color: 0x888898, roughness: 0.5, metalness: 0.3, envMapIntensity: 0.8,
+          color: 0xcccccc, roughness: 0.15, metalness: 0.9, envMapIntensity: 2.0,
           transparent: true,
         });
         node.material = [screenMat, lidMat];
@@ -1974,6 +2316,551 @@ window.addEventListener('resize', () => {
 
 // ── Prevent scroll zoom ──
 container.addEventListener('wheel', (e) => e.stopPropagation());
+
+// ── Features Section: 3D Metallic Keycap Tiles + CSS3D Text ──
+{
+  const featuresSection = document.getElementById('features');
+  const f3d = document.getElementById('features-3d');
+  if (f3d && f3d.offsetParent !== null) {  // skip if hidden (display:none)
+    // ── WebGL Renderer (clay tiles) ──
+    const fRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    fRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    fRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    fRenderer.toneMappingExposure = 1.15;
+    fRenderer.physicallyCorrectLights = true;
+    fRenderer.domElement.style.position = 'absolute';
+    fRenderer.domElement.style.top = '0';
+    fRenderer.domElement.style.left = '0';
+    f3d.appendChild(fRenderer.domElement);
+
+    // ── CSS3D Renderer (text cards on tile faces) ──
+    const cssRenderer = new CSS3DRenderer();
+    cssRenderer.domElement.style.position = 'absolute';
+    cssRenderer.domElement.style.top = '0';
+    cssRenderer.domElement.style.left = '0';
+    cssRenderer.domElement.style.pointerEvents = 'none';
+    f3d.appendChild(cssRenderer.domElement);
+
+    const fScene = new THREE.Scene();
+    const fCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    fCamera.position.set(0, 0, 11);
+    fCamera.lookAt(0, 0, 0);
+
+    // ── Environment Map — warm neutral studio for clay tiles ──
+    const fEnvScene = new THREE.Scene();
+    fEnvScene.background = new THREE.Color(0xfaf6f0);
+    // Rich studio env map — 6 lights for premium reflections
+    const envLights = [
+      { color: 0xffffff, intensity: 50, pos: [5, 6, 5] },    // bright key
+      { color: 0xffddbb, intensity: 35, pos: [-5, 4, -3] },  // warm fill
+      { color: 0xfff0dd, intensity: 25, pos: [0, -4, 5] },   // bottom bounce
+      { color: 0xffffff, intensity: 40, pos: [0, 9, 0] },    // overhead
+      { color: 0xffccaa, intensity: 20, pos: [-6, 0, 4] },   // warm side
+      { color: 0xffeedd, intensity: 30, pos: [6, 2, -4] },   // rim accent
+    ];
+    envLights.forEach(l => {
+      const pl = new THREE.PointLight(l.color, l.intensity, 100);
+      pl.position.set(...l.pos);
+      fEnvScene.add(pl);
+    });
+    const fEnvSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(20, 32, 32),
+      new THREE.MeshBasicMaterial({ color: 0xfaf6f0, side: THREE.BackSide })
+    );
+    fEnvScene.add(fEnvSphere);
+
+    const pmremGen = new THREE.PMREMGenerator(fRenderer);
+    pmremGen.compileEquirectangularShader();
+    const fEnvMap = pmremGen.fromScene(fEnvScene, 0.04).texture;
+    pmremGen.dispose();
+    fScene.environment = fEnvMap;
+    // No background — transparent so CSS gradient shows through
+
+    // ── Premium lighting rig — dramatic directional with cast shadows ──
+
+    // Enable shadow maps on the renderer
+    fRenderer.shadowMap.enabled = true;
+    fRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // 1. Hemisphere — bright sky, warm ground bounce
+    const fHemi = new THREE.HemisphereLight(0xffffff, 0xf5e0c8, 0.6);
+    fScene.add(fHemi);
+
+    // 2. Key light — strong top-left to create dramatic edge highlights
+    const fKeyLight = new THREE.DirectionalLight(0xfff8f0, 2.5);
+    fKeyLight.position.set(-4, 8, 6);
+    fKeyLight.castShadow = true;
+    fKeyLight.shadow.mapSize.set(1024, 1024);
+    fKeyLight.shadow.camera.near = 0.5;
+    fKeyLight.shadow.camera.far = 30;
+    fKeyLight.shadow.camera.left = -10;
+    fKeyLight.shadow.camera.right = 10;
+    fKeyLight.shadow.camera.top = 10;
+    fKeyLight.shadow.camera.bottom = -10;
+    fKeyLight.shadow.bias = -0.002;
+    fKeyLight.shadow.radius = 4;
+    fScene.add(fKeyLight);
+
+    // 3. Rim light — warm orange from top-right edge for premium glow
+    const fRimLight = new THREE.DirectionalLight(0xffb880, 1.2);
+    fRimLight.position.set(6, 5, -2);
+    fScene.add(fRimLight);
+
+    // 4. Front fill — soft, slightly cool to add depth contrast
+    const fFrontFill = new THREE.DirectionalLight(0xf0f0ff, 0.5);
+    fFrontFill.position.set(0, 0, 10);
+    fScene.add(fFrontFill);
+
+    // 5. Bottom kick — warm uplight to illuminate underside edges
+    const fBottomKick = new THREE.DirectionalLight(0xffd4a8, 0.4);
+    fBottomKick.position.set(0, -6, 4);
+    fScene.add(fBottomKick);
+
+    // 6. Side accent — subtle left-side color for dimension
+    const fSideAccent = new THREE.DirectionalLight(0xffe0cc, 0.3);
+    fSideAccent.position.set(-8, 0, 2);
+    fScene.add(fSideAccent);
+
+    // 7. Ambient — low, just enough to prevent pure black shadows
+    const fAmbient = new THREE.AmbientLight(0xf5efe8, 0.25);
+    fScene.add(fAmbient);
+
+    // ── Keycap tile geometry — front-facing, thick for 3D pop ──
+    const tileW = 2.8, tileH = 2.2, tileDepth = 0.7;
+    const tileGeo = new RoundedBoxGeometry(tileW, tileH, tileDepth, 6, 0.15);
+
+    // Premium glossy keycap tile material — slight sheen for luxurious look
+    const metalMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf5f0ea,
+      roughness: 0.35,
+      metalness: 0.02,
+      envMapIntensity: 0.8,
+      clearcoat: 0.4,
+      clearcoatRoughness: 0.2,
+      reflectivity: 0.5,
+      sheen: 0.1,
+      sheenColor: new THREE.Color(0xffe8d0),
+    });
+
+    // ── Build grouped 3x2 grid — tiles face the camera (X-Y layout) ──
+    const gridGroup = new THREE.Group();
+    gridGroup.position.y = 0.8;
+    fScene.add(gridGroup);
+
+    const cols = 3, rows = 2;
+    const gapX = 3.2, gapY = 2.8;
+    const offsetX = ((cols - 1) * gapX) / 2;
+    const offsetY = ((rows - 1) * gapY) / 2;
+    const cards = Array.from(featuresSection.querySelectorAll('.feature-card'));
+    const cardPx = 280;
+    const scaleFactor = tileW / cardPx;
+
+    // 3D icon definitions — punchy saturated colors, strong emissive
+    // Index 2 (AI Generation) uses a GLTF robot model, Index 5 uses shield model
+    const iconDefs = [
+      { color: 0xff4422, emissive: 0xff4422, geo: new THREE.TorusGeometry(0.14, 0.05, 16, 32) },       // Visual Canvas — ring
+      { color: 0x2288ff, emissive: 0x2288ff, geo: new THREE.SphereGeometry(0.15, 32, 32) },             // Inspiration Engine — sphere
+      { color: 0x8833ee, emissive: 0x8833ee, geo: null, gltf: 'models/robot.glb' },                     // AI Generation — robot model
+      { color: 0x00cc88, emissive: 0x00cc88, geo: new THREE.BoxGeometry(0.22, 0.18, 0.10, 1, 1, 1) },  // AI Chat — speech box
+      { color: 0xffaa00, emissive: 0xffaa00, geo: new THREE.ConeGeometry(0.12, 0.26, 6) },              // Smart Rewrite — bolt
+      { color: 0xff2255, emissive: 0xff2255, geo: null, gltf: 'models/shield.glb' },                    // Ban Prevention — shield model
+    ];
+    const iconMeshes = [];
+    const tileGroups = [];
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const i = r * cols + c;
+        const tileGroup = new THREE.Group();
+        tileGroup.position.set(c * gapX - offsetX, -(r * gapY - offsetY), 0);
+        tileGroups.push(tileGroup);
+
+        // Tile mesh — with shadow casting for depth
+        const tile = new THREE.Mesh(tileGeo, metalMat);
+        tile.castShadow = true;
+        tile.receiveShadow = true;
+        tileGroup.add(tile);
+
+        // 3D icon protruding from tile face
+        const def = iconDefs[i];
+        const iconZ = tileDepth / 2 + 0.3;  // push well in front of tile face
+        if (def.geo) {
+          // Primitive geometry icon — saturated, self-lit, candy gloss
+          const iconMat = new THREE.MeshPhysicalMaterial({
+            color: def.color,
+            emissive: def.emissive,
+            emissiveIntensity: 0.6,
+            roughness: 0.15,
+            metalness: 0.0,
+            envMapIntensity: 1.5,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.05,
+          });
+          const iconMesh = new THREE.Mesh(def.geo, iconMat);
+          iconMesh.castShadow = true;
+          iconMesh.position.set(-tileW / 2 + 0.45, tileH / 2 - 0.45, iconZ);
+          iconMesh.userData.baseZ = iconMesh.position.z;
+          iconMesh.userData.phase = i * 0.9;
+          tileGroup.add(iconMesh);
+          iconMeshes.push(iconMesh);
+        } else {
+          // GLTF model — placeholder group, sits in front of tile
+          const iconGroup = new THREE.Group();
+          iconGroup.position.set(-tileW / 2 + 0.45, tileH / 2 - 0.45, iconZ);
+          iconGroup.userData.baseZ = iconGroup.position.z;
+          iconGroup.userData.phase = i * 0.9;
+          tileGroup.add(iconGroup);
+          iconMeshes.push(iconGroup);
+        }
+
+        // CSS3D text card on the front face of the tile
+        if (cards[i]) {
+          // Hide the CSS icon badge since we have 3D icons now
+          const badge = cards[i].querySelector('.feature-icon');
+          if (badge) badge.style.display = 'none';
+          cards[i].style.width = cardPx + 'px';
+          cards[i].style.boxSizing = 'border-box';
+          const cssObj = new CSS3DObject(cards[i]);
+          cssObj.position.set(0, 0, tileDepth / 2 + 0.01);
+          cssObj.scale.setScalar(scaleFactor);
+          tileGroup.add(cssObj);
+        }
+
+        gridGroup.add(tileGroup);
+      }
+    }
+
+    // ── Load GLTF robot model for AI Generation tile (index 2) ──
+    {
+      const robotIdx = 2;
+      const robotIconGroup = iconMeshes[robotIdx];
+      const fGltfLoader = new GLTFLoader();
+      fGltfLoader.load('models/robot.glb', (gltf) => {
+        const model = gltf.scene;
+        // Compute bounding box to normalize size
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        // Scale to match smaller icon sizes
+        const targetSize = 0.28;
+        const sc = targetSize / maxDim;
+        model.scale.setScalar(sc);
+        // Center the model
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        model.position.set(-center.x * sc, -center.y * sc, -center.z * sc);
+        // Saturated self-lit candy gloss material
+        const rDef = iconDefs[robotIdx];
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.material = new THREE.MeshPhysicalMaterial({
+              color: rDef.color,
+              emissive: rDef.emissive,
+              emissiveIntensity: 0.6,
+              roughness: 0.15,
+              metalness: 0.0,
+              envMapIntensity: 1.5,
+              clearcoat: 1.0,
+              clearcoatRoughness: 0.05,
+            });
+          }
+        });
+        robotIconGroup.add(model);
+      });
+    }
+
+    // ── Load GLTF shield model for Ban Prevention tile (index 5) ──
+    {
+      const shieldIdx = 5;
+      const shieldIconGroup = iconMeshes[shieldIdx];
+      const sLoader = new GLTFLoader();
+      sLoader.load('models/shield.glb', (gltf) => {
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const targetSize = 0.30;
+        const sc = targetSize / maxDim;
+        model.scale.setScalar(sc);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        model.position.set(-center.x * sc, -center.y * sc, -center.z * sc);
+        const sDef = iconDefs[shieldIdx];
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.material = new THREE.MeshPhysicalMaterial({
+              color: sDef.color,
+              emissive: sDef.emissive,
+              emissiveIntensity: 0.6,
+              roughness: 0.15,
+              metalness: 0.0,
+              envMapIntensity: 1.5,
+              clearcoat: 1.0,
+              clearcoatRoughness: 0.05,
+            });
+          }
+        });
+        shieldIconGroup.add(model);
+      });
+    }
+
+    // ── Drag controls — drag the whole grid to position it ──
+    const dragControls = new DragControls([gridGroup], fCamera, fRenderer.domElement);
+    dragControls.transformGroup = true;
+    dragControls.addEventListener('drag', () => { fNeedsRender = true; });
+
+    // ── Sizing ──
+    let fNeedsRender = true;
+    let fVisible = false;
+
+    function resizeFeatures() {
+      const rect = featuresSection.getBoundingClientRect();
+      fRenderer.setSize(rect.width, rect.height);
+      cssRenderer.setSize(rect.width, rect.height);
+      fCamera.aspect = rect.width / rect.height;
+      fCamera.updateProjectionMatrix();
+      fNeedsRender = true;
+    }
+
+    const fObserver = new IntersectionObserver(([entry]) => {
+      fVisible = entry.isIntersecting;
+      if (fVisible) fNeedsRender = true;
+    }, { threshold: 0.05 });
+    fObserver.observe(featuresSection);
+
+    window.addEventListener('resize', resizeFeatures);
+    resizeFeatures();
+
+    // ── Render loop — icon float + slow rotation ──
+    const fClock = new THREE.Clock();
+    function featuresLoop() {
+      requestAnimationFrame(featuresLoop);
+      if (!fVisible) return;
+      const t = fClock.getElapsedTime();
+
+      iconMeshes.forEach(m => {
+        m.position.z = m.userData.baseZ + Math.sin(t * 1.2 + m.userData.phase) * 0.04;
+        m.rotation.y = t * 0.5 + m.userData.phase;
+      });
+
+      fRenderer.render(fScene, fCamera);
+      cssRenderer.render(fScene, fCamera);
+    }
+    featuresLoop();
+  }
+}
+
+// ── Lead Discovery: 3D Characters peeking behind the feed card ──
+{
+  const ldContainer = document.getElementById('ld-character-canvas');
+  const ldSection = document.getElementById('lead-discovery');
+  if (ldContainer && ldSection && window.innerWidth > 768) {
+    const ldRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    ldRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    ldRenderer.setClearColor(0x000000, 0);
+    ldRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    ldRenderer.toneMappingExposure = 1.3;
+    ldRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    ldContainer.appendChild(ldRenderer.domElement);
+
+    const ldScene = new THREE.Scene();
+    const ldCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+    ldCamera.position.set(0, 0, 6);
+    ldCamera.lookAt(0, 0, 0);
+
+    // Environment map — purple studio PMREM (matches hero)
+    const ldEnvScene = new THREE.Scene();
+    ldEnvScene.background = new THREE.Color(0x1a1050);
+    const ldE1 = new THREE.PointLight(0x4466cc, 50, 100); ldE1.position.set(5, 5, 5); ldEnvScene.add(ldE1);
+    const ldE2 = new THREE.PointLight(0x6644aa, 40, 100); ldE2.position.set(-5, 3, -5); ldEnvScene.add(ldE2);
+    const ldE3 = new THREE.PointLight(0x3355dd, 30, 100); ldE3.position.set(0, -3, 5); ldEnvScene.add(ldE3);
+    const ldE4 = new THREE.PointLight(0xddddff, 20, 100); ldE4.position.set(0, 8, 0); ldEnvScene.add(ldE4);
+    ldEnvScene.add(new THREE.Mesh(new THREE.SphereGeometry(20, 32, 32), new THREE.MeshBasicMaterial({ color: 0x1a1050, side: THREE.BackSide })));
+    const ldPmrem = new THREE.PMREMGenerator(ldRenderer);
+    ldPmrem.compileEquirectangularShader();
+    const ldEnvMap = ldPmrem.fromScene(ldEnvScene, 0.04).texture;
+    ldPmrem.dispose();
+    ldScene.environment = ldEnvMap;
+
+    // Lighting — match hero
+    ldScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
+    const ldTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+    ldTopSpot.position.set(0, 10, 6); ldScene.add(ldTopSpot);
+    const ldBlueUp = new THREE.PointLight(0x3355dd, 5.0, 35);
+    ldBlueUp.position.set(0, -2, 3); ldScene.add(ldBlueUp);
+    const ldFill = new THREE.DirectionalLight(0x998acc, 0.6);
+    ldFill.position.set(0, 2, 10); ldScene.add(ldFill);
+    ldScene.add(new THREE.AmbientLight(0x221838, 0.8));
+    const ldOrangeBack = new THREE.PointLight(0xff6b35, 8.0, 40);
+    ldOrangeBack.position.set(0, 3, -4); ldScene.add(ldOrangeBack);
+
+    // Character loader with head tilt + pupil gaze
+    function loadLDChar(headIdx, skinColor, scaleVal, headTilt, pupilDir, onDone) {
+      const loader = new GLTFLoader();
+      loader.load('./scene.gltf', (gltf) => {
+        const model = gltf.scene;
+        model.updateMatrixWorld(true);
+        function isInHeadGroup(n) { let p = n.parent; while (p) { if (p.name === 'Heads') return true; p = p.parent; } return false; }
+        function getHeadGroup(n) { let p = n.parent; while (p && p.parent) { if (p.parent.name === 'Heads') return p; p = p.parent; } return null; }
+        model.traverse(n => { if (n.isMesh) n.visible = false; });
+        const hgs = [];
+        model.traverse(n => {
+          if (!n.isMesh || !isInHeadGroup(n)) return;
+          const v = n.geometry?.attributes?.position?.count || 0;
+          if (v === 3968 || v === 28792) { const hg = getHeadGroup(n); if (hg && !hg.userData._done) { hg.userData._done = true; hgs.push(hg); } }
+        });
+        const chosen = hgs[headIdx];
+        if (!chosen) return;
+        const bodies = [];
+        model.traverse(n => {
+          if (!n.isMesh) return;
+          const pn = n.parent?.name || '', gn = n.parent?.parent?.name || '';
+          if (pn === 'Bodies' || gn === 'Bodies') { const wp = new THREE.Vector3(); n.getWorldPosition(wp); bodies.push({ mesh: n, wp }); }
+        });
+        const headWP = new THREE.Vector3(); chosen.getWorldPosition(headWP);
+        let mb = null, bd = Infinity;
+        bodies.forEach(b => { const d = Math.sqrt((b.wp.x - headWP.x)**2 + (b.wp.z - headWP.z)**2); if (d < bd) { bd = d; mb = b.mesh; } });
+        chosen.traverse(n => { if (n.isMesh) n.visible = true; });
+        if (mb) mb.visible = true;
+        chosen.traverse(n => {
+          if (!n.isMesh) return;
+          const v = n.geometry?.attributes?.position?.count || 0;
+          if (v === 3968 || v === 28792) n.material = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5 });
+          else if (v === 294) n.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.05, emissive: 0xffffff, emissiveIntensity: 0.15, envMapIntensity: 1.0 });
+          else if (v === 147) n.material = new THREE.MeshStandardMaterial({ color: 0x050508, roughness: 0.08, metalness: 0.15, envMapIntensity: 1.5 });
+          else if (v === 563) n.material = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8 });
+          else if (headIdx === 9) {
+            if (!chosen.userData._vcMap) { chosen.userData._vcMap = {}; chosen.userData._vcIdx = 0; }
+            if (!(v in chosen.userData._vcMap)) chosen.userData._vcMap[v] = chosen.userData._vcIdx++;
+            if (chosen.userData._vcMap[v] < 3) n.material = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8 });
+            else n.material = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5 });
+          }
+          else n.material = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5 });
+        });
+        if (mb) mb.material = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.85, metalness: 0.0, envMapIntensity: 0.3 });
+
+        // Collect all 147-vert meshes in head group as pupils/eyelids
+        const pupilMeshes = [];
+        chosen.traverse(n => {
+          if (n.isMesh && (n.geometry?.attributes?.position?.count || 0) === 147) pupilMeshes.push(n);
+        });
+
+        const box = new THREE.Box3();
+        model.traverse(n => { if (n.isMesh && n.visible) { n.geometry.computeBoundingBox(); const b = n.geometry.boundingBox.clone(); b.applyMatrix4(n.matrixWorld); box.union(b); } });
+        const center = box.getCenter(new THREE.Vector3());
+        const group = new THREE.Group();
+        group.add(model);
+        model.position.set(-center.x, -center.y, -center.z);
+        group.scale.setScalar(scaleVal);
+
+        // Apply head tilt + pupil offset AFTER centering
+        if (headTilt) { chosen.rotation.x += headTilt[0]; chosen.rotation.y += headTilt[1]; }
+        if (pupilDir) pupilMeshes.forEach(p => { p.position.x += pupilDir[0]; p.position.y += pupilDir[1]; });
+
+        ldScene.add(group);
+        onDone(group);
+      });
+    }
+
+    // ── All 4 characters — wave order: Purple → Green → Blue → Orange ──
+    let ldVisible = false, ldHasTriggered = false, ldAnimT = 0;
+    const CHAR_DUR = 0.5;
+
+    const ldChars = [
+      { idx: 12, skin: 0x8855cc, sc: 0.350, delay: 0.00,
+        headTilt: [0.42, -0.15], pupilDir: [0.006, -0.027],
+        start: { pos: [-0.59, 0.25, 0.00], rot: [0.25, 0.51, 0.46] },
+        end:   { pos: [-1.31, 0.99, 0.00], rot: [0.25, 0.51, 0.46] } },
+      { idx: 9,  skin: 0x33aa55, sc: 0.370, delay: 0.15,
+        headTilt: [0.74, 0.03], pupilDir: null,
+        start: { pos: [-0.25, -0.38, 0.00], rot: [0.00, 0.00, 0.23] },
+        end:   { pos: [-0.43, 0.47, 0.00], rot: [0.00, 0.00, 0.23] } },
+      { idx: 1,  skin: 0x3399dd, sc: 0.350, delay: 0.30,
+        headTilt: [0.69, 0.02], pupilDir: null,
+        start: { pos: [0.18, -0.36, 0.00], rot: [-0.02, -0.16, -0.19] },
+        end:   { pos: [0.34, 0.43, 0.00], rot: [-0.02, -0.16, -0.19] } },
+      { idx: 3,  skin: 0xff6b35, sc: 0.325, delay: 0.45,
+        headTilt: [0.45, 0.07], pupilDir: [0.295, 0.164],
+        start: { pos: [0.41, 0.15, 0.00], rot: [0.08, -0.44, -0.51] },
+        end:   { pos: [1.25, 1.04, 0.00], rot: [0.08, -0.44, -0.51] } },
+    ];
+
+    const ldGroups = [];
+    let ldLoadCount = 0;
+
+    ldChars.forEach((def, i) => {
+      loadLDChar(def.idx, def.skin, def.sc, def.headTilt, def.pupilDir, (group) => {
+        group.position.set(...def.start.pos);
+        group.rotation.set(...def.start.rot);
+        ldGroups[i] = { group, def };
+        ldLoadCount++;
+        if (ldVisible && !ldHasTriggered && ldLoadCount === ldChars.length) {
+          ldHasTriggered = true; ldAnimT = 0;
+        }
+      });
+    });
+
+    // Visibility observer
+    const ldObserver = new IntersectionObserver(([entry]) => {
+      ldVisible = entry.isIntersecting;
+      if (ldVisible && !ldHasTriggered && ldLoadCount === ldChars.length) {
+        ldHasTriggered = true; ldAnimT = 0;
+      }
+    }, { threshold: 0.05 });
+    ldObserver.observe(ldSection);
+
+    // Resize
+    function resizeLD() {
+      const rect = ldContainer.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        ldRenderer.setSize(rect.width, rect.height);
+        ldCamera.aspect = rect.width / rect.height;
+        ldCamera.updateProjectionMatrix();
+      }
+    }
+    window.addEventListener('resize', resizeLD);
+    resizeLD();
+
+    function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    const ldMaxT = ldChars[ldChars.length - 1].delay + CHAR_DUR;
+
+    // Render loop — wave stagger animation + idle bob
+    function ldLoop() {
+      requestAnimationFrame(ldLoop);
+      const now = Date.now() * 0.001;
+
+      if (ldHasTriggered) {
+        ldAnimT = Math.min(ldAnimT + 0.012, ldMaxT);
+
+        ldGroups.forEach((fg, i) => {
+          if (!fg) return;
+          const d = fg.def;
+          const charT = Math.max(0, Math.min(1, (ldAnimT - d.delay) / CHAR_DUR));
+          const e = easeInOut(charT);
+
+          const px = d.start.pos[0] + (d.end.pos[0] - d.start.pos[0]) * e;
+          const py = d.start.pos[1] + (d.end.pos[1] - d.start.pos[1]) * e;
+          const pz = d.start.pos[2] + (d.end.pos[2] - d.start.pos[2]) * e;
+          const bob = charT >= 1.0 ? Math.sin(now * 1.2 + i * 1.7) * 0.015 : 0;
+
+          fg.group.position.set(px, py + bob, pz);
+          fg.group.rotation.set(
+            d.start.rot[0] + (d.end.rot[0] - d.start.rot[0]) * e,
+            d.start.rot[1] + (d.end.rot[1] - d.start.rot[1]) * e,
+            d.start.rot[2] + (d.end.rot[2] - d.start.rot[2]) * e
+          );
+        });
+      }
+
+      ldRenderer.render(ldScene, ldCamera);
+    }
+    ldLoop();
+  }
+}
 </script>
 
 <script>
@@ -1983,6 +2870,67 @@ const fadeObserver = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.1 });
 document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
+
+// ── Lead Discovery feed animation ──
+(function() {
+  const leads = [
+    { sub: 'r/smallbusiness', time: '2m ago', text: 'Looking for a simple project management tool for a 5-person team', score: '9.2' },
+    { sub: 'r/SaaS', time: '4m ago', text: 'Any recommendations for customer onboarding software?', score: '8.5' },
+    { sub: 'r/marketing', time: '6m ago', text: 'Need an affordable social media scheduling tool for my agency', score: '8.8' },
+    { sub: 'r/webdev', time: '3m ago', text: 'What are you using for error monitoring? Sentry alternatives?', score: '7.5' },
+    { sub: 'r/startups', time: '7m ago', text: 'Best tool for creating landing pages without a developer?', score: '9.0' },
+    { sub: 'r/ecommerce', time: '5m ago', text: 'Looking for a Klaviyo alternative that is more affordable', score: '8.3' },
+    { sub: 'r/Entrepreneur', time: '1m ago', text: 'Can anyone recommend a good CRM for solo founders?', score: '9.5' },
+    { sub: 'r/freelance', time: '9m ago', text: 'Best invoicing tool that integrates with Stripe?', score: '7.8' },
+    { sub: 'r/digital_marketing', time: '3m ago', text: 'Need an SEO tool that actually works for small sites', score: '8.1' },
+    { sub: 'r/smallbusiness', time: '6m ago', text: 'Recommendations for appointment scheduling software?', score: '8.7' },
+    { sub: 'r/webdev', time: '2m ago', text: 'What do you use for website analytics besides Google Analytics?', score: '7.9' },
+    { sub: 'r/startups', time: '8m ago', text: 'Looking for a feedback collection tool for our beta launch', score: '9.1' },
+    { sub: 'r/SaaS', time: '4m ago', text: 'Any good tools for managing customer support tickets?', score: '8.4' },
+    { sub: 'r/ecommerce', time: '5m ago', text: 'Need a returns management platform for our DTC brand', score: '7.6' },
+    { sub: 'r/Entrepreneur', time: '1m ago', text: 'What are people using for business phone systems these days?', score: '8.0' },
+  ];
+
+  const feedItems = document.querySelector('.ld-feed-items');
+  const feedCount = document.querySelector('.ld-feed-count');
+  if (!feedItems || !feedCount) return;
+
+  let scanCount = 473;
+  let leadIdx = 0;
+  const MAX_VISIBLE = 6;
+
+  function addLead() {
+    const lead = leads[leadIdx % leads.length];
+    leadIdx++;
+    scanCount += Math.floor(Math.random() * 5) + 1;
+    feedCount.textContent = scanCount + ' posts scanned';
+
+    // Create new item
+    const item = document.createElement('div');
+    item.className = 'ld-feed-item ld-new';
+    item.innerHTML =
+      '<div class="ld-feed-meta"><span class="ld-reddit-icon">&#128308;</span> ' + lead.sub + ' &middot; ' + lead.time + '</div>' +
+      '<div class="ld-feed-score">' + lead.score + '</div>' +
+      '<p>' + lead.text + '</p>';
+
+    // Insert at top
+    feedItems.insertBefore(item, feedItems.firstChild);
+
+    // Remove animation class after it finishes
+    setTimeout(() => item.classList.remove('ld-new'), 500);
+
+    // Remove oldest if over limit
+    const items = feedItems.querySelectorAll('.ld-feed-item');
+    if (items.length > MAX_VISIBLE) {
+      const last = items[items.length - 1];
+      last.classList.add('ld-removing');
+      setTimeout(() => last.remove(), 400);
+    }
+  }
+
+  // Run every 3 seconds
+  setInterval(addLead, 3000);
+})();
 </script>
 
 </body>
