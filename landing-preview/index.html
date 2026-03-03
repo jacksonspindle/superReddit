@@ -56,12 +56,7 @@
 
   /* ---- Trusted-by logo ticker ---- */
   .trusted-bar { position: absolute; top: 80px; left: 0; right: 0; z-index: 10; text-align: center; padding: 0; pointer-events: none; }
-  .trusted-bar h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.6); margin-bottom: 12px; padding-top: 14px; }
-  .ticker-wrap { overflow: hidden; width: 100%; background: rgba(255,255,255,0.06); border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 14px 0; }
-  .ticker-track { display: flex; align-items: center; gap: 52px; width: max-content; animation: ticker 30s linear infinite; }
-  .ticker-track img, .ticker-track svg { height: 22px; opacity: 0.6; filter: brightness(0) invert(1); flex-shrink: 0; }
-  .ticker-logo { font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.7); white-space: nowrap; flex-shrink: 0; letter-spacing: 0.02em; }
-  @keyframes ticker { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
+  .ticker-wrap { width: 100%; background: rgba(255,255,255,0.06); border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 12px 0; }
 
   .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
   .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
@@ -347,45 +342,11 @@
 </nav>
 
 <section class="hero">
-  <!-- Trusted-by logo ticker -->
+  <!-- Trusted-by banner -->
   <div class="trusted-bar">
-    <h4>Trusted by</h4>
-    <div class="ticker-wrap">
-      <div class="ticker-track">
-        <span class="ticker-logo">Stripe</span>
-        <span class="ticker-logo">Notion</span>
-        <span class="ticker-logo">Vercel</span>
-        <span class="ticker-logo">Linear</span>
-        <span class="ticker-logo">Figma</span>
-        <span class="ticker-logo">Shopify</span>
-        <span class="ticker-logo">Webflow</span>
-        <span class="ticker-logo">Loom</span>
-        <span class="ticker-logo">Intercom</span>
-        <span class="ticker-logo">HubSpot</span>
-        <span class="ticker-logo">Calendly</span>
-        <span class="ticker-logo">Airtable</span>
-        <span class="ticker-logo">Zapier</span>
-        <span class="ticker-logo">Canva</span>
-        <span class="ticker-logo">Framer</span>
-        <span class="ticker-logo">Supabase</span>
-        <!-- duplicate set for seamless infinite loop -->
-        <span class="ticker-logo">Stripe</span>
-        <span class="ticker-logo">Notion</span>
-        <span class="ticker-logo">Vercel</span>
-        <span class="ticker-logo">Linear</span>
-        <span class="ticker-logo">Figma</span>
-        <span class="ticker-logo">Shopify</span>
-        <span class="ticker-logo">Webflow</span>
-        <span class="ticker-logo">Loom</span>
-        <span class="ticker-logo">Intercom</span>
-        <span class="ticker-logo">HubSpot</span>
-        <span class="ticker-logo">Calendly</span>
-        <span class="ticker-logo">Airtable</span>
-        <span class="ticker-logo">Zapier</span>
-        <span class="ticker-logo">Canva</span>
-        <span class="ticker-logo">Framer</span>
-        <span class="ticker-logo">Supabase</span>
-      </div>
+    <div class="ticker-wrap" style="display:flex; align-items:center; justify-content:center; gap:14px;">
+      <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.6); white-space:nowrap;">Trusted by partners of</span>
+      <img src="models/amazonlogo.webp" alt="Amazon" style="height:28px; object-fit:contain;">
     </div>
   </div>
   <canvas class="hero-gap-fill" id="gap-fill"></canvas>
