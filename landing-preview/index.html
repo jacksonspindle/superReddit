@@ -2581,8 +2581,18 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     fComposer.addPass(fBloom);
     fComposer.addPass(new OutputPass());
 
+    // ── Mouse tracking for head movement ──
+    let fMouseX = 0, fMouseY = 0;
+    let fMouseSmoothedX = 0, fMouseSmoothedY = 0;
+    window.addEventListener('mousemove', (e) => {
+      fMouseX = (e.clientX / window.innerWidth) * 2 - 1;  // -1 to 1
+      fMouseY = (e.clientY / window.innerHeight) * 2 - 1; // -1 to 1
+    }, { passive: true });
+
     // ── Load Robot Scene Pro GLTF ──
     let robotModel = null;
+    let robotHead = null;
+    let headBaseRotation = null;
     const fGltfLoader = new GLTFLoader();
     fGltfLoader.setMeshoptDecoder(MeshoptDecoder);
     fGltfLoader.load('models/robotscenepro-optimized.glb', (gltf) => { try {
@@ -2656,6 +2666,14 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
       // Remove hidden meshes entirely so they don't skew the bounding box
       meshesToRemove.forEach(m => m.parent?.remove(m));
+
+      // Grab the head group for cursor-driven movement
+      robotModel.traverse((child) => {
+        if ((child.name || '').toLowerCase() === 'cabeza') {
+          robotHead = child;
+          headBaseRotation = child.rotation.clone();
+        }
+      });
 
       // Compute bounding box from visible robot parts only
       const box = new THREE.Box3().setFromObject(robotModel);
@@ -2748,6 +2766,18 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // ── Render loop ──
     function featuresLoop() {
       requestAnimationFrame(featuresLoop);
+
+      // Smooth cursor-driven head movement
+      if (robotHead && headBaseRotation) {
+        const lerp = 0.05;
+        fMouseSmoothedX += (fMouseX - fMouseSmoothedX) * lerp;
+        fMouseSmoothedY += (fMouseY - fMouseSmoothedY) * lerp;
+
+        // Very slight side-to-side (Y-axis), more noticeable up/down (X-axis)
+        robotHead.rotation.x = headBaseRotation.x + fMouseSmoothedY * 0.12;
+        robotHead.rotation.y = headBaseRotation.y + fMouseSmoothedX * 0.05;
+      }
+
       fComposer.render();
     }
     featuresLoop();
