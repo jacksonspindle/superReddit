@@ -306,14 +306,21 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="document.getElementById('status-message').className='status-message error visible';document.getElementById('status-message').textContent='Failed to load auth SDK. Make sure you are serving this page via a local server (not file://), e.g.: python3 -m http.server 8080'"></script>
 <script>
   // Supabase public credentials (safe to expose — RLS protects data)
   const SUPABASE_URL = 'https://oxihivtuniifrygozwde.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94aWhpdnR1bmlpZnJ5Z296d2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTg2OTcsImV4cCI6MjA4NjA3NDY5N30.bD7VrQ6n-eSxYpT654fNdWkeRHK96TjRTRIPIEZU2Ic';
   const APP_URL = 'https://app.superreddit.ai';
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let _supabase = null;
+  function getSupabase() {
+    if (!_supabase) {
+      if (!window.supabase) throw new Error('Supabase SDK failed to load. Please refresh the page.');
+      _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    return _supabase;
+  }
 
   function showStatus(message, type) {
     const el = document.getElementById('status-message');
@@ -331,7 +338,7 @@
     btn.textContent = 'Redirecting...';
     hideStatus();
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: APP_URL + '/auth/callback' }
     });
@@ -351,7 +358,7 @@
     btn.textContent = 'Sending link...';
     hideStatus();
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await getSupabase().auth.signInWithOtp({
       email,
       options: { emailRedirectTo: APP_URL + '/auth/callback' }
     });
