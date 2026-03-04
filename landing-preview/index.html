@@ -364,6 +364,151 @@
   .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; z-index: 1; color: #1a1a2e; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
   .cta-card p { font-size: 16px; color: #2a2a44; margin-bottom: 32px; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
 
+  /* ---- Pricing section ---- */
+  .pricing { padding: 100px 0; background: #000000; }
+  .pricing .section-label { color: var(--orange); }
+  .pricing .section-title { color: #ffffff; }
+  .pricing .section-subtitle { color: rgba(255,255,255,0.5); }
+
+  .pricing-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 56px;
+  }
+  .pricing-toggle-label {
+    font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.5); transition: color 0.2s;
+  }
+  .pricing-toggle-label.active { color: #ffffff; }
+  .pricing-toggle-switch {
+    position: relative; width: 52px; height: 28px; background: rgba(255,255,255,0.15);
+    border-radius: 14px; cursor: pointer; border: none; transition: background 0.2s;
+  }
+  .pricing-toggle-switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+    background: #ffffff; border-radius: 50%; transition: transform 0.25s ease;
+  }
+  .pricing[data-billing="yearly"] .pricing-toggle-switch {
+    background: var(--orange);
+  }
+  .pricing[data-billing="yearly"] .pricing-toggle-switch::after {
+    transform: translateX(24px);
+  }
+  .pricing-save-badge {
+    font-size: 12px; font-weight: 700; color: var(--orange); background: rgba(255,107,53,0.15);
+    padding: 4px 10px; border-radius: 20px; letter-spacing: 0.02em;
+  }
+
+  .pricing-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1040px; margin: 0 auto;
+  }
+
+  .pricing-card {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 50%, rgba(255,255,255,0.15) 100%),
+      linear-gradient(180deg, #f8f4ee 0%, #f2ede5 50%, #ece6dc 100%);
+    border: none; border-radius: 20px; padding: 36px 28px; position: relative; overflow: hidden;
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,0.6),
+      inset 0 4px 8px 0 rgba(255,255,255,0.3),
+      inset 2px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -3px 0 0 rgba(80,60,40,0.1),
+      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
+      0 2px 4px rgba(0,0,0,0.06),
+      0 8px 24px rgba(0,0,0,0.08),
+      0 20px 48px rgba(0,0,0,0.06);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    display: flex; flex-direction: column;
+  }
+  .pricing-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,0.6),
+      inset 0 4px 8px 0 rgba(255,255,255,0.3),
+      inset 2px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -3px 0 0 rgba(80,60,40,0.1),
+      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
+      0 4px 8px rgba(0,0,0,0.08),
+      0 16px 32px rgba(0,0,0,0.1),
+      0 28px 56px rgba(0,0,0,0.08);
+  }
+  .pricing-card::before {
+    content: ''; position: absolute; inset: 0; border-radius: 20px;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.2) 55%, transparent 70%);
+    pointer-events: none;
+  }
+  .pricing-card::after {
+    content: ''; position: absolute; inset: 0; border-radius: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5 0.08' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 300px 300px; opacity: 0.04; mix-blend-mode: overlay; pointer-events: none;
+  }
+
+  .pricing-card.featured {
+    border: 2px solid var(--orange);
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,0.6),
+      inset 0 4px 8px 0 rgba(255,255,255,0.3),
+      inset 2px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -3px 0 0 rgba(80,60,40,0.1),
+      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
+      0 2px 4px rgba(0,0,0,0.06),
+      0 8px 24px rgba(0,0,0,0.08),
+      0 20px 48px rgba(0,0,0,0.06),
+      0 0 40px rgba(255,107,53,0.15);
+  }
+  .pricing-card.featured:hover {
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,0.6),
+      inset 0 4px 8px 0 rgba(255,255,255,0.3),
+      inset 2px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -3px 0 0 rgba(80,60,40,0.1),
+      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
+      0 4px 8px rgba(0,0,0,0.08),
+      0 16px 32px rgba(0,0,0,0.1),
+      0 28px 56px rgba(0,0,0,0.08),
+      0 0 50px rgba(255,107,53,0.2);
+  }
+
+  .pricing-badge {
+    display: inline-block; font-size: 12px; font-weight: 700; color: white; background: var(--orange);
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; position: relative; z-index: 1;
+  }
+  .pricing-tier {
+    font-size: 20px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; position: relative; z-index: 1;
+    letter-spacing: -0.01em;
+  }
+  .pricing-desc {
+    font-size: 14px; color: #555; margin-bottom: 20px; position: relative; z-index: 1; line-height: 1.5;
+  }
+  .pricing-price {
+    position: relative; z-index: 1; margin-bottom: 24px;
+  }
+  .pricing-amount {
+    font-size: 48px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.03em; line-height: 1;
+  }
+  .pricing-period {
+    font-size: 16px; font-weight: 500; color: #888;
+  }
+  .pricing-yearly-note {
+    font-size: 13px; color: var(--orange); font-weight: 600; margin-top: 4px; display: none;
+  }
+  .pricing[data-billing="yearly"] .pricing-yearly-note { display: block; }
+
+  .pricing-card .btn-primary { width: 100%; justify-content: center; position: relative; z-index: 1; }
+  .pricing-card .btn-secondary { width: 100%; justify-content: center; position: relative; z-index: 1; }
+
+  .pricing-features {
+    list-style: none; margin-top: 24px; padding-top: 24px;
+    border-top: 1px solid rgba(0,0,0,0.06); position: relative; z-index: 1;
+  }
+  .pricing-features li {
+    display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #444;
+    padding: 6px 0; line-height: 1.5;
+  }
+  .pricing-features li svg { flex-shrink: 0; margin-top: 2px; }
+  .pricing-features li.disabled { color: #bbb; text-decoration: line-through; }
+  .pricing-features li.disabled svg { color: #ccc; }
+
+  @media (max-width: 1024px) { .pricing-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .pricing-grid { grid-template-columns: 1fr; } }
+
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
   .footer .container { display: flex; align-items: center; justify-content: space-between; }
   .footer-brand { display: flex; align-items: center; gap: 8px; }
@@ -376,7 +521,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } .features-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; } .features-grid { display: grid; grid-template-columns: 1fr; gap: 16px; } .feature-card { background: rgba(255,255,255,0.5); box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.6); } .feature-card h3 { font-size: 16px; color: #1a1a1a; } .feature-card p { font-size: 14px; line-height: 1.7; color: #3a3a3a; } .feature-icon { display: flex; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .features-grid { grid-template-columns: 1fr; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; } .features-grid { display: grid; grid-template-columns: 1fr; gap: 16px; } .feature-card { background: rgba(255,255,255,0.5); box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.6); } .feature-card h3 { font-size: 16px; color: #1a1a1a; } .feature-card p { font-size: 14px; line-height: 1.7; color: #3a3a3a; } .feature-icon { display: flex; } .pricing { padding: 64px 0; } .pricing-grid { grid-template-columns: 1fr; max-width: 400px; } .pricing-card { padding: 28px 24px; } .pricing-amount { font-size: 40px; } }
 </style>
 </head>
 <body>
@@ -384,7 +529,7 @@
 <nav class="nav" id="nav">
   <div class="container">
     <a href="#" class="nav-logo"><div class="nav-logo-icon">SR</div><span>SuperReddit</span></a>
-    <div class="nav-links"><a href="#laptop-demo">Demo</a><a href="#features">Features</a></div>
+    <div class="nav-links"><a href="#laptop-demo">Demo</a><a href="#features">Features</a><a href="#pricing">Pricing</a></div>
     <div class="nav-actions"><a href="signup.html" class="btn-ghost">Log in</a><a href="signup.html" class="btn-primary">Get Started Free</a></div>
   </div>
 </nav>
@@ -503,6 +648,83 @@
 
 <section class="features" id="features">
   <div id="features-3d"></div>
+</section>
+
+<section class="pricing" id="pricing" data-billing="monthly">
+  <div class="container">
+    <p class="section-label fade-in">Pricing</p>
+    <h2 class="section-title fade-in">Simple, transparent <span class="accent">pricing</span></h2>
+    <p class="section-subtitle fade-in">Start free, upgrade when you're ready. No hidden fees.</p>
+
+    <div class="pricing-toggle fade-in">
+      <span class="pricing-toggle-label active" id="toggle-monthly">Monthly</span>
+      <button class="pricing-toggle-switch" id="pricing-toggle-btn" aria-label="Toggle billing period"></button>
+      <span class="pricing-toggle-label" id="toggle-yearly">Yearly</span>
+      <span class="pricing-save-badge">Save 20%</span>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="pricing-card fade-in delay-1">
+        <div class="pricing-tier">Free</div>
+        <div class="pricing-desc">Perfect for trying out SuperReddit and exploring leads.</div>
+        <div class="pricing-price">
+          <span class="pricing-amount" data-monthly="$0" data-yearly="$0">$0</span>
+          <span class="pricing-period">/mo</span>
+        </div>
+        <a href="signup.html" class="btn-secondary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>25 leads per month</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>1 project</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Basic AI post generation</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Email support</li>
+          <li class="disabled"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Priority support</li>
+          <li class="disabled"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>API access</li>
+        </ul>
+      </div>
+
+      <!-- Pro (featured) -->
+      <div class="pricing-card featured fade-in delay-2">
+        <span class="pricing-badge">Most Popular</span>
+        <div class="pricing-tier">Pro</div>
+        <div class="pricing-desc">For marketers and founders serious about Reddit growth.</div>
+        <div class="pricing-price">
+          <span class="pricing-amount" data-monthly="$29" data-yearly="$23">$29</span>
+          <span class="pricing-period">/mo</span>
+          <div class="pricing-yearly-note">Billed $276/year</div>
+        </div>
+        <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>5 projects</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Lead alerts</li>
+          <li class="disabled"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>API access</li>
+        </ul>
+      </div>
+
+      <!-- Scale -->
+      <div class="pricing-card fade-in delay-3">
+        <div class="pricing-tier">Scale</div>
+        <div class="pricing-desc">For teams and agencies managing multiple brands on Reddit.</div>
+        <div class="pricing-price">
+          <span class="pricing-amount" data-monthly="$79" data-yearly="$63">$79</span>
+          <span class="pricing-period">/mo</span>
+          <div class="pricing-yearly-note">Billed $756/year</div>
+        </div>
+        <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited projects</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Dedicated support</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API access</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Custom integrations</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="cta">
@@ -2857,6 +3079,23 @@ const fadeObserver = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.1 });
 document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
+
+// ── Pricing toggle ──
+(function() {
+  const section = document.getElementById('pricing');
+  const btn = document.getElementById('pricing-toggle-btn');
+  const lblMonthly = document.getElementById('toggle-monthly');
+  const lblYearly = document.getElementById('toggle-yearly');
+  btn.addEventListener('click', () => {
+    const isYearly = section.dataset.billing === 'yearly';
+    section.dataset.billing = isYearly ? 'monthly' : 'yearly';
+    lblMonthly.classList.toggle('active', isYearly);
+    lblYearly.classList.toggle('active', !isYearly);
+    document.querySelectorAll('.pricing-amount').forEach(el => {
+      el.textContent = isYearly ? el.dataset.monthly : el.dataset.yearly;
+    });
+  });
+})();
 
 // ── Lead Discovery feed animation ──
 (function() {
