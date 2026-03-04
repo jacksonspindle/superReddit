@@ -2564,95 +2564,6 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         if (child.isLight) child.visible = false;
       });
 
-      // ── Lighting HUD ──
-      try {
-        const hud = document.createElement('div');
-        hud.id = 'lighting-hud';
-        hud.style.cssText = 'position:fixed;top:20px;right:20px;background:rgba(10,8,20,0.95);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:16px;color:#ccc;font-size:11px;z-index:9999;font-family:monospace;max-height:90vh;overflow-y:auto;width:320px;';
-
-        function sl(label, min, max, step, val, cb) {
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;';
-          const lbl = document.createElement('span');
-          lbl.style.cssText = 'width:90px;flex-shrink:0;';
-          lbl.textContent = label;
-          const inp = document.createElement('input');
-          inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = val;
-          inp.style.cssText = 'flex:1;';
-          const valSpan = document.createElement('span');
-          valSpan.style.cssText = 'width:50px;text-align:right;color:#ff6b35;';
-          valSpan.textContent = Number(val).toFixed(2);
-          inp.addEventListener('input', () => { valSpan.textContent = Number(inp.value).toFixed(2); cb(Number(inp.value)); });
-          row.append(lbl, inp, valSpan);
-          return row;
-        }
-        function heading(text) {
-          const h = document.createElement('div');
-          h.style.cssText = 'color:#ff6b35;font-weight:bold;margin:12px 0 6px;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;';
-          h.textContent = text;
-          return h;
-        }
-
-        window._camReadout = document.createElement('div');
-        window._camReadout.style.cssText = 'margin-bottom:8px;font-size:10px;color:#888;';
-        hud.appendChild(window._camReadout);
-
-        const copyBtn = document.createElement('button');
-        copyBtn.textContent = 'Copy Code to Paste';
-        copyBtn.style.cssText = 'background:#ff6b35;border:none;color:white;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;width:100%;';
-        copyBtn.addEventListener('click', () => {
-          const cp = fCamera.position;
-          const code = [
-            `// ── LOCKED VALUES — paste this entire block ──`,
-            `fCamera.position.set(${cp.x.toFixed(3)}, ${cp.y.toFixed(3)}, ${cp.z.toFixed(3)});`,
-            `fCamera.lookAt(1.095, -0.744, -1.280);`,
-            `fSpotPurple.position.set(${fSpotPurple.position.x.toFixed(2)}, ${fSpotPurple.position.y.toFixed(2)}, ${fSpotPurple.position.z.toFixed(2)});`,
-            `fSpotPurple.target.position.set(${fSpotPurple.target.position.x.toFixed(2)}, ${fSpotPurple.target.position.y.toFixed(2)}, ${fSpotPurple.target.position.z.toFixed(2)});`,
-            `fSpotPurple.intensity = ${fSpotPurple.intensity};`,
-            `fSpotPurple.angle = ${fSpotPurple.angle.toFixed(4)};`,
-            `fSpotPurple.penumbra = ${fSpotPurple.penumbra.toFixed(2)};`,
-            `fSpotSalmon.position.set(${fSpotSalmon.position.x.toFixed(2)}, ${fSpotSalmon.position.y.toFixed(2)}, ${fSpotSalmon.position.z.toFixed(2)});`,
-            `fSpotSalmon.target.position.set(${fSpotSalmon.target.position.x.toFixed(2)}, ${fSpotSalmon.target.position.y.toFixed(2)}, ${fSpotSalmon.target.position.z.toFixed(2)});`,
-            `fSpotSalmon.intensity = ${fSpotSalmon.intensity};`,
-            `fSpotSalmon.angle = ${fSpotSalmon.angle.toFixed(4)};`,
-            `fSpotSalmon.penumbra = ${fSpotSalmon.penumbra.toFixed(2)};`,
-            `groundMat.roughness = ${groundMat.roughness.toFixed(2)};`,
-            `groundMat.metalness = ${groundMat.metalness.toFixed(2)};`,
-          ].join('\n');
-          navigator.clipboard.writeText(code);
-          copyBtn.textContent = 'Copied!';
-          setTimeout(() => copyBtn.textContent = 'Copy Code to Paste', 1500);
-        });
-        hud.appendChild(copyBtn);
-
-        hud.appendChild(heading('Purple Spotlight'));
-        hud.appendChild(sl('Pos X', -20, 20, 0.1, fSpotPurple.position.x, v => fSpotPurple.position.x = v));
-        hud.appendChild(sl('Pos Y', -5, 25, 0.1, fSpotPurple.position.y, v => fSpotPurple.position.y = v));
-        hud.appendChild(sl('Pos Z', -20, 20, 0.1, fSpotPurple.position.z, v => fSpotPurple.position.z = v));
-        hud.appendChild(sl('Tgt X', -20, 20, 0.1, fSpotPurple.target.position.x, v => fSpotPurple.target.position.x = v));
-        hud.appendChild(sl('Tgt Y', -10, 10, 0.1, fSpotPurple.target.position.y, v => fSpotPurple.target.position.y = v));
-        hud.appendChild(sl('Tgt Z', -20, 20, 0.1, fSpotPurple.target.position.z, v => fSpotPurple.target.position.z = v));
-        hud.appendChild(sl('Intensity', 0, 500, 5, fSpotPurple.intensity, v => fSpotPurple.intensity = v));
-        hud.appendChild(sl('Angle', 1, 80, 1, fSpotPurple.angle * 180 / Math.PI, v => fSpotPurple.angle = v * Math.PI / 180));
-        hud.appendChild(sl('Penumbra', 0, 1, 0.01, fSpotPurple.penumbra, v => fSpotPurple.penumbra = v));
-
-        hud.appendChild(heading('Salmon Spotlight'));
-        hud.appendChild(sl('Pos X', -20, 20, 0.1, fSpotSalmon.position.x, v => fSpotSalmon.position.x = v));
-        hud.appendChild(sl('Pos Y', -5, 25, 0.1, fSpotSalmon.position.y, v => fSpotSalmon.position.y = v));
-        hud.appendChild(sl('Pos Z', -20, 20, 0.1, fSpotSalmon.position.z, v => fSpotSalmon.position.z = v));
-        hud.appendChild(sl('Tgt X', -20, 20, 0.1, fSpotSalmon.target.position.x, v => fSpotSalmon.target.position.x = v));
-        hud.appendChild(sl('Tgt Y', -10, 10, 0.1, fSpotSalmon.target.position.y, v => fSpotSalmon.target.position.y = v));
-        hud.appendChild(sl('Tgt Z', -20, 20, 0.1, fSpotSalmon.target.position.z, v => fSpotSalmon.target.position.z = v));
-        hud.appendChild(sl('Intensity', 0, 500, 5, fSpotSalmon.intensity, v => fSpotSalmon.intensity = v));
-        hud.appendChild(sl('Angle', 1, 80, 1, fSpotSalmon.angle * 180 / Math.PI, v => fSpotSalmon.angle = v * Math.PI / 180));
-        hud.appendChild(sl('Penumbra', 0, 1, 0.01, fSpotSalmon.penumbra, v => fSpotSalmon.penumbra = v));
-
-        hud.appendChild(heading('Floor Material'));
-        hud.appendChild(sl('Roughness', 0, 1, 0.01, groundMat.roughness, v => { groundMat.roughness = v; groundMat.needsUpdate = true; }));
-        hud.appendChild(sl('Metalness', 0, 1, 0.01, groundMat.metalness, v => { groundMat.metalness = v; groundMat.needsUpdate = true; }));
-
-        document.body.appendChild(hud);
-      } catch(e) { console.error('HUD error:', e); }
 
       fNeedsRender = true;
     } catch(e) { console.error('GLTF callback error:', e); } });
@@ -2682,10 +2593,6 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // ── Render loop ──
     function featuresLoop() {
       requestAnimationFrame(featuresLoop);
-      if (window._fControls) window._fControls.update();
-      const p = fCamera.position;
-      const t = window._fControls ? window._fControls.target : {x:0,y:0,z:0};
-      if (window._camReadout) window._camReadout.textContent = `cam: (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}) → tgt: (${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)})`;
       fComposer.render();
     }
     featuresLoop();
