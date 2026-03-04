@@ -6,11 +6,44 @@
 <title>Robot — Static Hologram</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; }
+  body { background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
   canvas { display: block; }
+  #cam-info {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,8,20,0.9);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 12px 20px;
+    color: #ccc;
+    font-size: 12px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  #cam-info span { color: #ff6b35; font-weight: 600; }
+  #cam-info button {
+    background: #ff6b35;
+    border: none;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #cam-info button:hover { background: #e85d2c; }
 </style>
 </head>
 <body>
+<div id="cam-info">
+  Pos: <span id="cam-pos">—</span> &nbsp; Target: <span id="cam-tgt">—</span>
+  <button id="cam-copy">Copy to Clipboard</button>
+</div>
 <script type="importmap">
 {
   "imports": {
@@ -28,41 +61,60 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
+/* ─── Locked parameters ─── */
+const EYE_Y = 0.68, EYE_X = 0.24, EYE_R = 0.15, EYE_Z_MIN = 0.15;
+const MOUTH_Y_MIN = 0.60, MOUTH_Y_MAX = 0.50, MOUTH_X_MAX = 0.18;
+
 /* ─── Renderer ─── */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.physicallyCorrectLights = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.1;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 /* ─── Scene ─── */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050008);
+scene.background = new THREE.Color(0x020005);
 
 /* ─── Camera ─── */
-const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 1.2, 6.5);
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(0, 0.9, 6.5);
 camera.lookAt(0, 1.0, 0);
 
-/* ─── Orbit controls ─── */
+/* ─── Orbit Controls — drag to find your angle ─── */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 1.0, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 
-/* ─── Environment Map — Dark purple/magenta PMREM ─── */
+/* ─── Camera readout ─── */
+const camPosEl = document.getElementById('cam-pos');
+const camTgtEl = document.getElementById('cam-tgt');
+document.getElementById('cam-copy').addEventListener('click', () => {
+  const p = camera.position;
+  const t = controls.target;
+  const text = `camera.position.set(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)});\ncamera.lookAt(${t.x.toFixed(3)}, ${t.y.toFixed(3)}, ${t.z.toFixed(3)});`;
+  navigator.clipboard.writeText(text);
+  document.getElementById('cam-copy').textContent = 'Copied!';
+  setTimeout(() => document.getElementById('cam-copy').textContent = 'Copy to Clipboard', 1500);
+});
+
+/* ─── Environment Map — dark studio HDRI (low intensity, NOT primary light) ─── */
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 const envScene = new THREE.Scene();
-envScene.background = new THREE.Color(0x050008);
+envScene.background = new THREE.Color(0x030208);
 [
-  { color: 0xaa44ff, intensity: 60, pos: [-5, 3, 3] },
-  { color: 0xff4488, intensity: 30, pos: [4, -2, -3] },
-  { color: 0x6622cc, intensity: 40, pos: [0, 6, -5] },
-  { color: 0xffffff, intensity: 15, pos: [3, 5, 5] },
-  { color: 0xcc2288, intensity: 25, pos: [-3, -4, 2] },
+  { color: 0x2a1848, intensity: 8, pos: [-5, 3, 3] },
+  { color: 0x1a1030, intensity: 6, pos: [4, -2, -3] },
+  { color: 0x0e0820, intensity: 10, pos: [0, 6, -5] },
+  { color: 0xccbbaa, intensity: 12, pos: [3, 4, 4] },
+  { color: 0x201040, intensity: 5, pos: [-3, -4, 2] },
 ].forEach(l => {
   const pl = new THREE.PointLight(l.color, l.intensity, 100);
   pl.position.set(...l.pos);
@@ -70,48 +122,95 @@ envScene.background = new THREE.Color(0x050008);
 });
 envScene.add(new THREE.Mesh(
   new THREE.SphereGeometry(20, 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0x050008, side: THREE.BackSide })
+  new THREE.MeshBasicMaterial({ color: 0x030208, side: THREE.BackSide })
 ));
 const envMap = pmrem.fromScene(envScene, 0.04).texture;
 scene.environment = envMap;
+scene.environmentIntensity = 0.3;
 pmrem.dispose();
 
-/* ─── Lighting (for ground plane + ambient color) ─── */
-// Purple spotlight from above-left
-const heroSpot = new THREE.SpotLight(0x9933dd, 40, 50, Math.PI / 5, 0.4, 0.6);
-heroSpot.position.set(-3, 8, -2);
-heroSpot.target.position.set(0.5, 0, 1);
-scene.add(heroSpot); scene.add(heroSpot.target);
+/* ════════════════════════════════════════════════════════
+   LIGHTING — Studio 3-Point + Ground Contact
+   ════════════════════════════════════════════════════════ */
 
-// Magenta wash from behind
-const magentaWash = new THREE.SpotLight(0xcc2288, 25, 30, Math.PI / 3, 0.3, 0.5);
-magentaWash.position.set(1, 6, -4);
-magentaWash.target.position.set(0, -0.5, 0);
-scene.add(magentaWash); scene.add(magentaWash.target);
+// KEY LIGHT: front-left, slightly above
+const keyLight = new THREE.SpotLight(0xfff5ee, 25, 40, Math.PI / 4, 0.7, 0.5);
+keyLight.position.set(-3, 5, 5);
+keyLight.target.position.set(0, 0.8, 0);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.bias = -0.0005;
+keyLight.shadow.radius = 4;
+scene.add(keyLight); scene.add(keyLight.target);
 
-// Warm rim upper-right
-scene.add(new THREE.PointLight(0xff5533, 4, 20).translateX(4).translateY(4).translateZ(1));
+// FILL LIGHT: opposite side (right), low intensity
+const fillLight = new THREE.SpotLight(0xccccdd, 6, 30, Math.PI / 3, 0.8, 0.8);
+fillLight.position.set(3, 3, 3);
+fillLight.target.position.set(0, 0.8, 0);
+scene.add(fillLight); scene.add(fillLight.target);
 
-/* ─── Ground Plane ─── */
+// RIM LIGHT: behind robot, magenta/purple tint — silhouette separation
+const rimLight = new THREE.SpotLight(0xaa3388, 18, 35, Math.PI / 5, 0.4, 0.5);
+rimLight.position.set(0, 3, -4);
+rimLight.target.position.set(0, 1.0, 0);
+scene.add(rimLight); scene.add(rimLight.target);
+
+// GROUND CONTACT LIGHT: subtle spot aimed at floor beneath robot
+const groundSpot = new THREE.SpotLight(0xeeddcc, 8, 15, Math.PI / 6, 0.9, 1.0);
+groundSpot.position.set(0, 4, 2);
+groundSpot.target.position.set(0, 0, 0);
+groundSpot.castShadow = true;
+groundSpot.shadow.mapSize.set(1024, 1024);
+groundSpot.shadow.bias = -0.001;
+groundSpot.shadow.radius = 6;
+scene.add(groundSpot); scene.add(groundSpot.target);
+
+// AMBIENT: extremely dim
+scene.add(new THREE.AmbientLight(0x080612, 0.3));
+
+/* ─── Ground Plane — dark matte ─── */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.1 })
+  new THREE.MeshStandardMaterial({ color: 0x0e0c14, roughness: 0.7, metalness: 0.0 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.01;
 ground.receiveShadow = true;
 scene.add(ground);
 
-/* ─── Dark purple chrome — same as robot-editor.html ─── */
+/* ─── Dark purple chrome ─── */
 const bodyMat = new THREE.MeshPhysicalMaterial({
   color: 0x14102a,
   roughness: 0.1,
   metalness: 1.0,
   clearcoat: 1.0,
   clearcoatRoughness: 0.03,
-  envMapIntensity: 2.5,
-  emissive: 0x0a0818,
-  emissiveIntensity: 0.15,
+  envMapIntensity: 1.8,
+  emissive: 0x060410,
+  emissiveIntensity: 0.08,
+});
+
+/* ─── Eye material — matte white clay (matcap, immune to scene lights) ─── */
+const matcapSize = 256;
+const matcapCanvas = document.createElement('canvas');
+matcapCanvas.width = matcapSize;
+matcapCanvas.height = matcapSize;
+const mctx = matcapCanvas.getContext('2d');
+const grad = mctx.createRadialGradient(
+  matcapSize * 0.45, matcapSize * 0.38, 0,
+  matcapSize * 0.5, matcapSize * 0.5, matcapSize * 0.5
+);
+grad.addColorStop(0.0, '#d4cfc8');
+grad.addColorStop(0.4, '#b8b0a8');
+grad.addColorStop(0.75, '#8a8078');
+grad.addColorStop(1.0, '#5a524a');
+mctx.fillStyle = grad;
+mctx.fillRect(0, 0, matcapSize, matcapSize);
+const matcapTex = new THREE.CanvasTexture(matcapCanvas);
+
+const eyeMat = new THREE.MeshMatcapMaterial({
+  matcap: matcapTex,
+  color: 0xffffff,
 });
 
 /* ─── Load Robot ─── */
@@ -128,49 +227,111 @@ loader.load('models/robot.glb', (gltf) => {
   const center = new THREE.Vector3(); box.getCenter(center);
   model.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
 
-  // Wireframe overlay material — same as robot-editor showOutline()
+  // Wireframe overlay material
   const wireframeMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.3,
+    color: 0xffffff, wireframe: true, transparent: true, opacity: 0.3,
   });
 
-  // Apply dark purple chrome + wireframe overlay to all meshes
-  const wireframeClones = [];
+  // Collect meshes
+  const meshes = [];
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.castShadow = true;
     child.receiveShadow = true;
-    child.material = bodyMat.clone();
+    meshes.push(child);
+  });
 
-    // Clone geometry for wireframe overlay
-    wireframeClones.push(child);
+  // Process each mesh: flatten mouth + classify faces
+  meshes.forEach((mesh) => {
+    const geo = mesh.geometry;
+    const pos = geo.attributes.position;
+    const norm = geo.attributes.normal;
+    const idx = geo.index;
+    if (!idx) { mesh.material = bodyMat.clone(); return; }
+
+    // Flatten mouth vertices
+    let surfaceZSum = 0, surfaceZCount = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const vy = pos.getY(i), vx = pos.getX(i), vz = pos.getZ(i);
+      if (vy > MOUTH_Y_MIN && vy < MOUTH_Y_MAX && Math.abs(vx) > MOUTH_X_MAX && vz > 0.05) {
+        surfaceZSum += vz;
+        surfaceZCount++;
+      }
+    }
+    const surfaceZ = surfaceZCount > 0 ? surfaceZSum / surfaceZCount : 0.20;
+
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i);
+      if (vy > MOUTH_Y_MIN && vy < MOUTH_Y_MAX && Math.abs(vx) < MOUTH_X_MAX && vz > surfaceZ + 0.005) {
+        pos.setZ(i, surfaceZ);
+        if (norm) { norm.setX(i, 0); norm.setY(i, 0); norm.setZ(i, 1); }
+      }
+    }
+    pos.needsUpdate = true;
+    if (norm) norm.needsUpdate = true;
+    geo.computeBoundingBox();
+
+    // Classify triangles into body / eyes / mouth
+    const triCount = idx.count / 3;
+    const bodyArr = [], eyeArr = [], mouthArr = [];
+
+    for (let t = 0; t < triCount; t++) {
+      const a = idx.getX(t * 3), b = idx.getX(t * 3 + 1), c = idx.getX(t * 3 + 2);
+      const cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3;
+      const cy = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3;
+      const cz = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+
+      const distL = Math.sqrt((cx - (-EYE_X)) ** 2 + (cy - EYE_Y) ** 2);
+      const distR = Math.sqrt((cx - EYE_X) ** 2 + (cy - EYE_Y) ** 2);
+      const isEye = cz > EYE_Z_MIN && (distL < EYE_R || distR < EYE_R);
+
+      const isMouth = cy > MOUTH_Y_MIN && cy < MOUTH_Y_MAX && cz > 0.20 && Math.abs(cx) < MOUTH_X_MAX * 0.83;
+
+      if (isEye) eyeArr.push(a, b, c);
+      else if (isMouth) mouthArr.push(a, b, c);
+      else bodyArr.push(a, b, c);
+    }
+
+    // Rebuild index with groups
+    const newIdx = [...bodyArr, ...eyeArr, ...mouthArr];
+    const newGeo = geo.clone();
+    newGeo.setIndex(newIdx);
+    newGeo.clearGroups();
+    newGeo.addGroup(0, bodyArr.length, 0);
+    newGeo.addGroup(bodyArr.length, eyeArr.length, 1);
+    newGeo.addGroup(bodyArr.length + eyeArr.length, mouthArr.length, 2);
+
+    mesh.geometry = newGeo;
+    mesh.material = [bodyMat.clone(), eyeMat.clone(), bodyMat.clone()];
   });
 
   scene.add(model);
 
-  // Add wireframe overlays after model is in scene (so world transforms are correct)
-  wireframeClones.forEach((mesh) => {
-    const geo = mesh.geometry.clone();
-    const overlay = new THREE.Mesh(geo, wireframeMat);
+  // Add wireframe overlays — hidden over eyes
+  meshes.forEach((mesh) => {
+    const eyeWireHide = new THREE.MeshBasicMaterial({ visible: false });
+    const overlay = new THREE.Mesh(mesh.geometry.clone(), [
+      wireframeMat,
+      eyeWireHide,
+      wireframeMat.clone(),
+    ]);
     overlay.position.copy(mesh.getWorldPosition(new THREE.Vector3()));
     overlay.quaternion.copy(mesh.getWorldQuaternion(new THREE.Quaternion()));
     overlay.scale.copy(mesh.getWorldScale(new THREE.Vector3()));
     scene.add(overlay);
   });
 
-  console.log(`Robot loaded — ${wireframeClones.length} meshes with wireframe overlay`);
+  console.log('Robot loaded — camera locked, controls removed');
 });
 
-/* ─── Post-Processing — strong bloom for the glow ─── */
+/* ─── Post-Processing — very subtle bloom ─── */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.4,   // strength — subtle glow on edges
-  0.6,   // radius
-  0.7    // threshold
+  0.15,  // strength
+  0.3,   // radius
+  0.92   // threshold
 );
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
@@ -187,6 +348,11 @@ window.addEventListener('resize', () => {
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  // Update camera readout
+  const p = camera.position;
+  const t = controls.target;
+  camPosEl.textContent = `${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`;
+  camTgtEl.textContent = `${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)}`;
   composer.render();
 }
 animate();
