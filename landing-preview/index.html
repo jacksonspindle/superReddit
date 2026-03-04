@@ -3091,6 +3091,81 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
 })();
 </script>
 
+<!-- TEMP: Drag tool for arrow -->
+<script>
+(function() {
+  const btn = document.createElement('button');
+  btn.textContent = 'DRAG MODE: OFF';
+  Object.assign(btn.style, {
+    position:'fixed',bottom:'20px',left:'20px',zIndex:'99999',
+    padding:'10px 18px',background:'#ff4422',color:'#fff',border:'none',
+    borderRadius:'8px',fontWeight:'700',fontSize:'14px',cursor:'pointer',fontFamily:'monospace'
+  });
+  document.body.appendChild(btn);
+
+  const coords = document.createElement('div');
+  Object.assign(coords.style, {
+    position:'fixed',bottom:'60px',left:'20px',zIndex:'99999',
+    padding:'12px 16px',background:'rgba(0,0,0,0.9)',color:'#0f0',border:'1px solid #333',
+    borderRadius:'8px',fontSize:'13px',fontFamily:'monospace',lineHeight:'1.6',
+    display:'none',whiteSpace:'pre'
+  });
+  document.body.appendChild(coords);
+
+  let dragOn = false;
+  const arrow = document.querySelector('.odometer-arrow');
+  if (!arrow) return;
+
+  // Make arrow absolutely positioned relative to odometer-wrap
+  function initArrow() {
+    const wrap = arrow.closest('.odometer-wrap');
+    const wrapRect = wrap.getBoundingClientRect();
+    const arrowRect = arrow.getBoundingClientRect();
+    arrow.style.position = 'absolute';
+    arrow.style.left = (arrowRect.left - wrapRect.left + arrowRect.width/2) + 'px';
+    arrow.style.top = (arrowRect.top - wrapRect.top) + 'px';
+    arrow.style.margin = '0';
+  }
+
+  function updateCoords() {
+    const wrap = arrow.closest('.odometer-wrap');
+    const wrapRect = wrap.getBoundingClientRect();
+    const arrowRect = arrow.getBoundingClientRect();
+    const marginTop = arrowRect.top - (wrapRect.top + 260); // 260 = window height
+    coords.textContent = `ARROW:\n  margin-top: ${Math.round(marginTop)}px\n  left offset from center: ${Math.round(arrowRect.left + arrowRect.width/2 - wrapRect.left - wrapRect.width/2)}px`;
+  }
+
+  btn.addEventListener('click', () => {
+    dragOn = !dragOn;
+    btn.textContent = dragOn ? 'DRAG MODE: ON' : 'DRAG MODE: OFF';
+    btn.style.background = dragOn ? '#00cc88' : '#ff4422';
+    coords.style.display = dragOn ? 'block' : 'none';
+    arrow.style.pointerEvents = dragOn ? 'auto' : 'none';
+    arrow.style.cursor = dragOn ? 'grab' : '';
+    arrow.style.outline = dragOn ? '2px dashed rgba(255,255,255,0.5)' : '';
+    if (dragOn) { initArrow(); updateCoords(); }
+  });
+
+  let dragging = false, startX, startY, origLeft, origTop;
+  arrow.addEventListener('mousedown', (e) => {
+    if (!dragOn) return;
+    e.preventDefault();
+    dragging = true;
+    arrow.style.cursor = 'grabbing';
+    startX = e.clientX; startY = e.clientY;
+    origLeft = parseInt(arrow.style.left); origTop = parseInt(arrow.style.top);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    arrow.style.left = (origLeft + e.clientX - startX) + 'px';
+    arrow.style.top = (origTop + e.clientY - startY) + 'px';
+    updateCoords();
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; arrow.style.cursor = 'grab'; updateCoords(); }
+  });
+})();
+</script>
 
 </body>
 </html>
