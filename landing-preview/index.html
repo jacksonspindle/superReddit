@@ -245,7 +245,7 @@
   }
 
   /* ---- Features section: 2D tiles with 3D keycap look ---- */
-  .features { padding: 0; background: #08060f; position: relative; overflow: hidden; height: 100vh; }
+  .features { padding: 0; background: #070712; position: relative; overflow: hidden; height: 100vh; }
 
   .features .container { position: relative; z-index: 2; }
 
@@ -2336,18 +2336,31 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     f3d.appendChild(fRenderer.domElement);
 
     const fScene = new THREE.Scene();
-    fScene.background = new THREE.Color(0x050510);
+    fScene.background = new THREE.Color(0x070712);
 
     const fCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
+
+    // ── Camera Controls — orbit, zoom, pan ──
+    const fControls = new OrbitControls(fCamera, fRenderer.domElement);
+    fControls.target.set(0.47, -0.28, -1.30);
+    fControls.enableDamping = true;
+    fControls.dampingFactor = 0.05;
+
+    // Prevent page scroll when hovering features canvas (zoom instead)
+    fRenderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+
+    // State for floor editing
+    let fFloorRef = null;
+    let fGridHelper = null;
 
     // ── Lighting — light-driven, no HDRI ──
 
     // Minimal environment map — just enough for material reflections
     const fEnvScene = new THREE.Scene();
-    fEnvScene.background = new THREE.Color(0x050510);
+    fEnvScene.background = new THREE.Color(0x070712);
     fEnvScene.add(new THREE.Mesh(
       new THREE.SphereGeometry(20, 32, 32),
-      new THREE.MeshBasicMaterial({ color: 0x050510, side: THREE.BackSide })
+      new THREE.MeshBasicMaterial({ color: 0x070712, side: THREE.BackSide })
     ));
     // Single white light for subtle reflection
     const envKey = new THREE.PointLight(0xffffff, 15, 100);
@@ -2362,8 +2375,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     pmremGen.dispose();
     fScene.environment = fEnvMap;
 
-    // Key light: white, strong, upper right
-    const fKeyLight = new THREE.DirectionalLight(0xffffff, 5);
+    // Key light: white, moderate, upper right
+    const fKeyLight = new THREE.DirectionalLight(0xffffff, 2.5);
     fKeyLight.position.set(6, 8, 6);
     fKeyLight.castShadow = true;
     fKeyLight.shadow.mapSize.set(2048, 2048);
@@ -2381,27 +2394,37 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     fRimLight.position.set(0, 6, -8);
     fScene.add(fRimLight);
 
-    // Floor wash: multiple spotlights for gradient hue pool on ground
-    // Main magenta wash — front-left, wide cone
-    const fFloorWash = new THREE.SpotLight(0xff2ca0, 25, 60, Math.PI / 3.5, 0.7, 1.2);
-    fFloorWash.position.set(-3, 8, 3);
-    fFloorWash.target.position.set(0, 0, 0);
-    fScene.add(fFloorWash);
-    fScene.add(fFloorWash.target);
+    // Spotlight 1: Purple — from the left, pointing down at floor
+    const fSpotPurple = new THREE.SpotLight(
+      0x883FE0,        // purple
+      150,             // intensity
+      40,              // distance
+      Math.PI / 6,     // 30° cone angle
+      0.50,            // penumbra (soft edge)
+      1                // decay
+    );
+    fSpotPurple.castShadow = true;
+    fSpotPurple.shadow.mapSize.set(2048, 2048);
+    fSpotPurple.shadow.radius = 4;
+    fSpotPurple.shadow.bias = -0.001;
+    fScene.add(fSpotPurple);
+    fScene.add(fSpotPurple.target);
 
-    // Deep purple wash — back-right, overlapping for gradient blend
-    const fFloorWash2 = new THREE.SpotLight(0x6622cc, 20, 60, Math.PI / 3, 0.8, 1.2);
-    fFloorWash2.position.set(4, 8, -2);
-    fFloorWash2.target.position.set(0, 0, 0);
-    fScene.add(fFloorWash2);
-    fScene.add(fFloorWash2.target);
-
-    // Hot pink accent — tight, directly above for center glow
-    const fFloorWash3 = new THREE.SpotLight(0xdd1188, 15, 50, Math.PI / 5, 0.5, 1.5);
-    fFloorWash3.position.set(0, 10, 1);
-    fFloorWash3.target.position.set(0, 0, 0);
-    fScene.add(fFloorWash3);
-    fScene.add(fFloorWash3.target);
+    // Spotlight 2: Salmon — from the right, pointing down at floor
+    const fSpotSalmon = new THREE.SpotLight(
+      0xF37E7E,        // salmon/coral
+      150,             // intensity
+      40,              // distance
+      Math.PI / 6,     // 30° cone angle
+      0.50,            // penumbra
+      1                // decay
+    );
+    fSpotSalmon.castShadow = true;
+    fSpotSalmon.shadow.mapSize.set(2048, 2048);
+    fSpotSalmon.shadow.radius = 4;
+    fSpotSalmon.shadow.bias = -0.001;
+    fScene.add(fSpotSalmon);
+    fScene.add(fSpotSalmon.target);
 
     // ── Post-processing: subtle bloom ──
     const fComposer = new EffectComposer(fRenderer);
@@ -2433,12 +2456,14 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         clearcoat: 0.6, clearcoatRoughness: 0.08,
       });
       const eyeMat = new THREE.MeshPhysicalMaterial({
-        color: 0xf0eeec, roughness: 0.12, metalness: 0.05,
-        clearcoat: 0.8, clearcoatRoughness: 0.04,
+        color: 0xd0ccc8, roughness: 0.3, metalness: 0.05,
+        clearcoat: 0.5, clearcoatRoughness: 0.1,
+        envMapIntensity: 0.3,
       });
       const facePlateMat = new THREE.MeshPhysicalMaterial({
-        color: 0xd4cec8, roughness: 0.32, metalness: 0.15,
-        clearcoat: 0.3,
+        color: 0xb0aaa0, roughness: 0.45, metalness: 0.1,
+        clearcoat: 0.2,
+        envMapIntensity: 0.3,
       });
       const buttonMat = new THREE.MeshPhysicalMaterial({
         color: 0xff6b35, roughness: 0.2, metalness: 0.0,
@@ -2447,6 +2472,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       });
       const groundMat = new THREE.MeshStandardMaterial({
         color: 0x070712, roughness: 0.85, metalness: 0.05,
+        envMapIntensity: 0.0,
       });
       const neckMat = new THREE.MeshPhysicalMaterial({
         color: 0x0a0a14, roughness: 0.18, metalness: 0.85,
@@ -2473,10 +2499,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         } else if (parentName === 'button' || grandparentName === 'button') {
           child.visible = false;
         } else if (name === 'plane' || parentName === 'plane') {
-          child.material = groundMat;
-          child.position.set(16.334, -241.727, -15.525);
-          child.scale.set(57.3, 57.3, 57.3);
-          child.rotation.set(-1.6858, 0.2200, -1.8258);
+          child.visible = false;
         } else {
           child.material = bodyMat;
         }
@@ -2499,22 +2522,45 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         box.getSize(size);
       }
 
-      // Locked camera position
+      // Initial camera position (draggable via OrbitControls)
       fCamera.position.set(-6.64, 1.49, 4.21);
-      fCamera.lookAt(0.47, -0.28, -1.30);
+      fControls.target.set(0.47, -0.28, -1.30);
+      fControls.update();
 
       // Position lights relative to model
       fKeyLight.position.set(center.x + 6, center.y + 6, center.z + 6);
       fFillLight.position.set(center.x - 4, center.y + 2, center.z + 3);
       fRimLight.position.set(center.x, center.y + 4, center.z - 8);
-      // Floor wash spotlights — aimed at floor level
+
+      // Custom floor plane at model base
       const floorY = box.min.y;
-      fFloorWash.position.set(center.x - 3, floorY + 8, center.z + 3);
-      fFloorWash.target.position.set(center.x - 1, floorY, center.z);
-      fFloorWash2.position.set(center.x + 4, floorY + 8, center.z - 2);
-      fFloorWash2.target.position.set(center.x + 1, floorY, center.z);
-      fFloorWash3.position.set(center.x, floorY + 10, center.z + 1);
-      fFloorWash3.target.position.set(center.x, floorY, center.z);
+      const floorGeo = new THREE.PlaneGeometry(80, 80);
+      const floorMesh = new THREE.Mesh(floorGeo, groundMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.position.set(center.x, floorY, center.z);
+      floorMesh.receiveShadow = true;
+      fScene.add(floorMesh);
+      fFloorRef = floorMesh;
+
+      // Grid helper for visibility during editing
+      fGridHelper = new THREE.GridHelper(80, 80, 0x222244, 0x111133);
+      fGridHelper.position.set(center.x, floorY + 0.01, center.z);
+      fGridHelper.visible = false;
+      fScene.add(fGridHelper);
+
+      // Position spotlights — from opposite sides, pointing down at floor
+      fSpotPurple.position.set(center.x - 6, floorY + 2, center.z + 2);
+      fSpotPurple.target.position.set(center.x + 1, floorY, center.z);
+      fSpotSalmon.position.set(center.x + 6, floorY + 2, center.z - 2);
+      fSpotSalmon.target.position.set(center.x - 1, floorY, center.z);
+
+      // Shadow camera config
+      fKeyLight.shadow.camera.near = 0.5;
+      fKeyLight.shadow.camera.far = 50;
+      fKeyLight.shadow.camera.left = -10;
+      fKeyLight.shadow.camera.right = 10;
+      fKeyLight.shadow.camera.top = 10;
+      fKeyLight.shadow.camera.bottom = -10;
 
       // Disable GLTF embedded lights
       robotModel.traverse((child) => {
@@ -2522,6 +2568,181 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       });
 
       fNeedsRender = true;
+    });
+
+    // ── Editing Controls: Camera readout + Draw-to-Clip tool ──
+    let fDrawMode = false;
+    let fDrawPoints = [];
+    let fDrawMarkers = [];
+    let fDrawLine = null;
+    const fRaycaster = new THREE.Raycaster();
+    const fMouseVec = new THREE.Vector2();
+    let fMouseDownXY = null;
+
+    // Control panel
+    const fPanel = document.createElement('div');
+    fPanel.style.cssText = 'position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(10,8,20,0.95); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:12px 20px; color:#ccc; font-size:12px; z-index:9999; display:flex; align-items:center; gap:12px; font-family:-apple-system,sans-serif; font-variant-numeric:tabular-nums; flex-wrap:wrap; max-width:96vw;';
+    const bs = 'border:none; color:white; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;';
+    fPanel.innerHTML = `
+      Cam: <b id="f-cp" style="color:#ff6b35">—</b>
+      &nbsp;Tgt: <b id="f-ct" style="color:#ff6b35">—</b>
+      <button id="f-cc" style="background:#ff6b35;${bs}">Copy Cam</button>
+      <span style="border-left:1px solid rgba(255,255,255,0.2);height:20px;"></span>
+      <button id="f-dm" style="background:#883FE0;${bs}">Draw Clip</button>
+      <span id="f-di" style="color:#666;font-size:11px;">—</span>
+      <button id="f-ub" style="background:#666;${bs} display:none;">Undo</button>
+      <button id="f-cb" style="background:#34a853;${bs} display:none;">Close Shape</button>
+      <button id="f-clb" style="background:#ea4335;${bs} display:none;">Clear</button>
+      <button id="f-csb" style="background:#4285f4;${bs} display:none;">Copy Shape</button>
+      <span style="border-left:1px solid rgba(255,255,255,0.2);height:20px;"></span>
+      <button id="f-gb" style="background:#333;${bs}">Grid</button>
+    `;
+    document.body.appendChild(fPanel);
+
+    function updateDrawUI() {
+      const n = fDrawPoints.length;
+      document.getElementById('f-ub').style.display = (fDrawMode && n > 0) ? '' : 'none';
+      document.getElementById('f-cb').style.display = (fDrawMode && n >= 3) ? '' : 'none';
+      document.getElementById('f-clb').style.display = (fDrawMode && n > 0) ? '' : 'none';
+    }
+
+    // Copy camera values
+    document.getElementById('f-cc').addEventListener('click', () => {
+      const p = fCamera.position, t = fControls.target;
+      navigator.clipboard.writeText(
+        `fCamera.position.set(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)});\nfControls.target.set(${t.x.toFixed(3)}, ${t.y.toFixed(3)}, ${t.z.toFixed(3)});`
+      );
+      const b = document.getElementById('f-cc'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy Cam', 1200);
+    });
+
+    // Toggle grid
+    document.getElementById('f-gb').addEventListener('click', () => {
+      if (fGridHelper) {
+        fGridHelper.visible = !fGridHelper.visible;
+        document.getElementById('f-gb').style.background = fGridHelper.visible ? '#ff6b35' : '#333';
+        fNeedsRender = true;
+      }
+    });
+
+    // Toggle draw mode
+    document.getElementById('f-dm').addEventListener('click', () => {
+      fDrawMode = !fDrawMode;
+      const btn = document.getElementById('f-dm');
+      btn.textContent = fDrawMode ? 'Drawing...' : 'Draw Clip';
+      btn.style.background = fDrawMode ? '#ea4335' : '#883FE0';
+      document.getElementById('f-di').textContent = fDrawMode
+        ? 'Click on floor to place clip points'
+        : (fDrawPoints.length > 0 ? `${fDrawPoints.length} pts` : '—');
+      updateDrawUI();
+    });
+
+    // Track mousedown to distinguish clicks from drags
+    fRenderer.domElement.addEventListener('mousedown', (e) => {
+      fMouseDownXY = { x: e.clientX, y: e.clientY };
+    });
+
+    // Click to place point on floor
+    fRenderer.domElement.addEventListener('click', (e) => {
+      if (!fDrawMode || !fFloorRef || !fMouseDownXY) return;
+      const dx = e.clientX - fMouseDownXY.x, dy = e.clientY - fMouseDownXY.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 5) return; // was a drag, not a click
+
+      const rect = fRenderer.domElement.getBoundingClientRect();
+      fMouseVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      fMouseVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      fRaycaster.setFromCamera(fMouseVec, fCamera);
+      const hits = fRaycaster.intersectObject(fFloorRef);
+      if (hits.length === 0) return;
+
+      const pt = hits[0].point.clone();
+      fDrawPoints.push(pt);
+
+      // Orange marker sphere
+      const m = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff6b35 })
+      );
+      m.position.set(pt.x, pt.y + 0.08, pt.z);
+      fScene.add(m);
+      fDrawMarkers.push(m);
+
+      rebuildDrawLine();
+      document.getElementById('f-di').textContent = `${fDrawPoints.length} pts placed`;
+      updateDrawUI();
+      fNeedsRender = true;
+    });
+
+    function rebuildDrawLine() {
+      if (fDrawLine) { fScene.remove(fDrawLine); fDrawLine.geometry.dispose(); fDrawLine = null; }
+      if (fDrawPoints.length < 2) return;
+      const verts = fDrawPoints.map(p => new THREE.Vector3(p.x, p.y + 0.06, p.z));
+      fDrawLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(verts),
+        new THREE.LineBasicMaterial({ color: 0xff6b35 })
+      );
+      fScene.add(fDrawLine);
+    }
+
+    // Undo last point
+    document.getElementById('f-ub').addEventListener('click', () => {
+      if (fDrawPoints.length === 0) return;
+      fDrawPoints.pop();
+      const m = fDrawMarkers.pop();
+      if (m) { fScene.remove(m); m.geometry.dispose(); m.material.dispose(); }
+      rebuildDrawLine();
+      document.getElementById('f-di').textContent = fDrawPoints.length > 0 ? `${fDrawPoints.length} pts placed` : 'Click to place points';
+      updateDrawUI();
+      fNeedsRender = true;
+    });
+
+    // Close shape — clip floor to drawn polygon
+    document.getElementById('f-cb').addEventListener('click', () => {
+      if (fDrawPoints.length < 3 || !fFloorRef) return;
+      const fp = fFloorRef.position;
+      const shape = new THREE.Shape();
+      // Floor rotated -PI/2 on X: world (wx, floorY, wz) → local (wx-cx, -(wz-cz))
+      const pts2d = fDrawPoints.map(p => ({ x: p.x - fp.x, y: -(p.z - fp.z) }));
+      shape.moveTo(pts2d[0].x, pts2d[0].y);
+      for (let i = 1; i < pts2d.length; i++) shape.lineTo(pts2d[i].x, pts2d[i].y);
+      shape.closePath();
+      const oldGeo = fFloorRef.geometry;
+      fFloorRef.geometry = new THREE.ShapeGeometry(shape);
+      oldGeo.dispose();
+      document.getElementById('f-di').textContent = 'Shape applied!';
+      document.getElementById('f-csb').style.display = '';
+      fNeedsRender = true;
+    });
+
+    // Clear all
+    document.getElementById('f-clb').addEventListener('click', () => {
+      fDrawMarkers.forEach(m => { fScene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+      fDrawMarkers = [];
+      if (fDrawLine) { fScene.remove(fDrawLine); fDrawLine.geometry.dispose(); fDrawLine = null; }
+      fDrawPoints = [];
+      if (fFloorRef) {
+        const old = fFloorRef.geometry;
+        fFloorRef.geometry = new THREE.PlaneGeometry(80, 80);
+        old.dispose();
+      }
+      document.getElementById('f-di').textContent = 'Cleared';
+      document.getElementById('f-csb').style.display = 'none';
+      updateDrawUI();
+      fNeedsRender = true;
+    });
+
+    // Copy shape code
+    document.getElementById('f-csb').addEventListener('click', () => {
+      if (!fFloorRef || fDrawPoints.length < 3) return;
+      const fp = fFloorRef.position;
+      const pts = fDrawPoints.map(p => ({
+        x: (p.x - fp.x).toFixed(3),
+        y: (-(p.z - fp.z)).toFixed(3)
+      }));
+      let code = `const floorShape = new THREE.Shape();\nfloorShape.moveTo(${pts[0].x}, ${pts[0].y});\n`;
+      code += pts.slice(1).map(p => `floorShape.lineTo(${p.x}, ${p.y});`).join('\n');
+      code += `\nfloorShape.closePath();\nconst floorGeo = new THREE.ShapeGeometry(floorShape);`;
+      navigator.clipboard.writeText(code);
+      const b = document.getElementById('f-csb'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy Shape', 1200);
     });
 
     // ── Sizing ──
@@ -2549,6 +2770,12 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // ── Render loop ──
     function featuresLoop() {
       requestAnimationFrame(featuresLoop);
+      fControls.update();
+      // Camera readout
+      const p = fCamera.position, t = fControls.target;
+      const cpEl = document.getElementById('f-cp'), ctEl = document.getElementById('f-ct');
+      if (cpEl) cpEl.textContent = `${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`;
+      if (ctEl) ctEl.textContent = `${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)}`;
       fComposer.render();
     }
     featuresLoop();
