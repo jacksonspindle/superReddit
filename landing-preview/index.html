@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SuperReddit — Landing Page</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@700&display=swap');
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --orange: #FF6B35; --orange-hover: #E85D2C;
@@ -269,12 +269,14 @@
 
   /* ---- Odometer ---- */
   .odometer-title {
-    font-size: 48px;
-    font-weight: 800;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 72px;
+    font-weight: 700;
     color: #ffffff;
-    margin: 0 0 20px 0;
-    letter-spacing: -0.03em;
+    margin: 0 0 24px 0;
+    letter-spacing: -0.04em;
     text-align: center;
+    text-transform: uppercase;
   }
 
   .odometer-wrap {
@@ -347,7 +349,7 @@
 
   /* ---- Odometer responsive ---- */
   @media (max-width: 768px) {
-    .odometer-title { font-size: 36px; }
+    .odometer-title { font-size: 52px; }
     .odometer-wrap {
       width: 320px;
       right: 4%;
@@ -361,7 +363,7 @@
     }
   }
   @media (max-width: 480px) {
-    .odometer-title { font-size: 32px; }
+    .odometer-title { font-size: 40px; }
     .odometer-wrap {
       width: 90%;
       right: auto;
