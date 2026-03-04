@@ -2737,8 +2737,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     }
 
     // ── All 4 characters — wave order: Purple → Green → Blue → Orange ──
-    let ldVisible = false, ldHasTriggered = false, ldAnimT = 0;
+    // ldAnimDir: 1 = entering, -1 = exiting, 0 = idle
+    let ldVisible = false, ldAnimDir = 0, ldAnimT = 0;
     const CHAR_DUR = 0.5;
+    const LD_ANIM_SPEED = 0.012;
 
     const ldChars = [
       { idx: 12, skin: 0x8855cc, sc: 0.350, delay: 0.00,
@@ -2768,17 +2770,20 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         group.rotation.set(...def.start.rot);
         ldGroups[i] = { group, def };
         ldLoadCount++;
-        if (ldVisible && !ldHasTriggered && ldLoadCount === ldChars.length) {
-          ldHasTriggered = true; ldAnimT = 0;
+        if (ldVisible && ldAnimDir === 0 && ldLoadCount === ldChars.length) {
+          ldAnimDir = 1;
         }
       });
     });
 
-    // Visibility observer
+    // Visibility observer — triggers enter and exit
     const ldObserver = new IntersectionObserver(([entry]) => {
       ldVisible = entry.isIntersecting;
-      if (ldVisible && !ldHasTriggered && ldLoadCount === ldChars.length) {
-        ldHasTriggered = true; ldAnimT = 0;
+      if (ldLoadCount < ldChars.length) return;
+      if (ldVisible && ldAnimDir !== 1) {
+        ldAnimDir = 1; // start entering (or reverse mid-exit)
+      } else if (!ldVisible && ldAnimDir !== -1 && ldAnimT > 0) {
+        ldAnimDir = -1; // start exiting (or reverse mid-enter)
       }
     }, { threshold: 0.05 });
     ldObserver.observe(ldSection);
@@ -2798,13 +2803,17 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
     const ldMaxT = ldChars[ldChars.length - 1].delay + CHAR_DUR;
 
-    // Render loop — wave stagger animation + idle bob
+    // Render loop — wave stagger animation + idle bob (bidirectional)
     function ldLoop() {
       requestAnimationFrame(ldLoop);
       const now = Date.now() * 0.001;
 
-      if (ldHasTriggered) {
-        ldAnimT = Math.min(ldAnimT + 0.012, ldMaxT);
+      if (ldAnimDir !== 0) {
+        ldAnimT = ldAnimT + LD_ANIM_SPEED * ldAnimDir;
+
+        // Clamp and stop at boundaries
+        if (ldAnimT >= ldMaxT) { ldAnimT = ldMaxT; ldAnimDir = 0; }
+        if (ldAnimT <= 0)      { ldAnimT = 0;      ldAnimDir = 0; }
 
         ldGroups.forEach((fg, i) => {
           if (!fg) return;
@@ -2815,7 +2824,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           const px = d.start.pos[0] + (d.end.pos[0] - d.start.pos[0]) * e;
           const py = d.start.pos[1] + (d.end.pos[1] - d.start.pos[1]) * e;
           const pz = d.start.pos[2] + (d.end.pos[2] - d.start.pos[2]) * e;
-          const bob = charT >= 1.0 ? Math.sin(now * 1.2 + i * 1.7) * 0.015 : 0;
+          const bob = (ldAnimDir === 0 && ldAnimT === ldMaxT) ? Math.sin(now * 1.2 + i * 1.7) * 0.015 : 0;
 
           fg.group.position.set(px, py + bob, pz);
           fg.group.rotation.set(
@@ -2823,6 +2832,14 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             d.start.rot[1] + (d.end.rot[1] - d.start.rot[1]) * e,
             d.start.rot[2] + (d.end.rot[2] - d.start.rot[2]) * e
           );
+        });
+      } else if (ldAnimT === ldMaxT) {
+        // Idle bob when fully entered
+        ldGroups.forEach((fg, i) => {
+          if (!fg) return;
+          const d = fg.def;
+          const bob = Math.sin(now * 1.2 + i * 1.7) * 0.015;
+          fg.group.position.y = d.end.pos[1] + bob;
         });
       }
 
