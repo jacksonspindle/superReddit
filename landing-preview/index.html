@@ -245,7 +245,7 @@
   }
 
   /* ---- Features section: 2D tiles with 3D keycap look ---- */
-  .features { padding: 0; background: #070712; position: relative; overflow: hidden; height: 100vh; }
+  .features { padding: 0; background: #000000; position: relative; overflow: hidden; height: 100vh; }
 
   .features .container { position: relative; z-index: 2; }
 
@@ -2336,11 +2336,12 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     f3d.appendChild(fRenderer.domElement);
 
     const fScene = new THREE.Scene();
-    fScene.background = new THREE.Color(0x070712);
+    fScene.background = new THREE.Color(0x000000);
 
     const fCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
 
     // ── Camera Controls — orbit, zoom, pan ──
+    fCamera.layers.enable(1); // See both layer 0 (robot) and layer 1 (floor)
     const fControls = new OrbitControls(fCamera, fRenderer.domElement);
     fControls.target.set(0.47, -0.28, -1.30);
     fControls.enableDamping = true;
@@ -2397,32 +2398,38 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // Spotlight 1: Purple — from the left, pointing down at floor
     const fSpotPurple = new THREE.SpotLight(
       0x883FE0,        // purple
-      150,             // intensity
-      40,              // distance
-      Math.PI / 6,     // 30° cone angle
-      0.50,            // penumbra (soft edge)
+      160,             // intensity
+      80,              // distance
+      26.0 * Math.PI / 180, // cone angle
+      0.70,            // penumbra
       1                // decay
     );
     fSpotPurple.castShadow = true;
-    fSpotPurple.shadow.mapSize.set(2048, 2048);
-    fSpotPurple.shadow.radius = 4;
-    fSpotPurple.shadow.bias = -0.001;
+    fSpotPurple.shadow.mapSize.set(4096, 4096);
+    fSpotPurple.shadow.radius = 20;
+    fSpotPurple.shadow.bias = -0.0005;
+    fSpotPurple.shadow.camera.near = 0.5;
+    fSpotPurple.shadow.camera.far = 50;
+    fSpotPurple.layers.enable(1); // Layer 0+1: lights both robot and floor
     fScene.add(fSpotPurple);
     fScene.add(fSpotPurple.target);
 
     // Spotlight 2: Salmon — from the right, pointing down at floor
     const fSpotSalmon = new THREE.SpotLight(
       0xF37E7E,        // salmon/coral
-      150,             // intensity
-      40,              // distance
-      Math.PI / 6,     // 30° cone angle
-      0.50,            // penumbra
+      50,              // intensity
+      80,              // distance
+      10.0 * Math.PI / 180, // cone angle
+      0.00,            // penumbra
       1                // decay
     );
     fSpotSalmon.castShadow = true;
-    fSpotSalmon.shadow.mapSize.set(2048, 2048);
-    fSpotSalmon.shadow.radius = 4;
-    fSpotSalmon.shadow.bias = -0.001;
+    fSpotSalmon.shadow.mapSize.set(4096, 4096);
+    fSpotSalmon.shadow.radius = 20;
+    fSpotSalmon.shadow.bias = -0.0005;
+    fSpotSalmon.shadow.camera.near = 0.5;
+    fSpotSalmon.shadow.camera.far = 50;
+    fSpotSalmon.layers.enable(1); // Layer 0+1: lights both robot and floor
     fScene.add(fSpotSalmon);
     fScene.add(fSpotSalmon.target);
 
@@ -2471,14 +2478,17 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         clearcoat: 0.5, clearcoatRoughness: 0.05,
       });
       const groundMat = new THREE.MeshStandardMaterial({
-        color: 0x070712, roughness: 0.85, metalness: 0.05,
-        envMapIntensity: 0.0,
+        color: 0x999999,      // silver-gray base for rich spotlight colors
+        roughness: 0.40,       // polished
+        metalness: 1.0,        // full metallic
+        envMapIntensity: 0.0,  // no env reflections — only spotlight light reaches floor
       });
       const neckMat = new THREE.MeshPhysicalMaterial({
         color: 0x0a0a14, roughness: 0.18, metalness: 0.85,
         clearcoat: 0.4,
       });
 
+      const meshesToRemove = [];
       robotModel.traverse((child) => {
         if (!child.isMesh) return;
         child.castShadow = true;
@@ -2497,15 +2507,18 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         } else if (grandparentName === 'cuerpo' || parentName === 'cuerpo') {
           child.material = bodyMat;
         } else if (parentName === 'button' || grandparentName === 'button') {
-          child.visible = false;
+          meshesToRemove.push(child);
         } else if (name === 'plane' || parentName === 'plane') {
-          child.visible = false;
+          meshesToRemove.push(child);
         } else {
           child.material = bodyMat;
         }
       });
 
-      // Compute bounding box to find the model
+      // Remove hidden meshes entirely so they don't skew the bounding box
+      meshesToRemove.forEach(m => m.parent?.remove(m));
+
+      // Compute bounding box from visible robot parts only
       const box = new THREE.Box3().setFromObject(robotModel);
       const center = new THREE.Vector3();
       const size = new THREE.Vector3();
@@ -2523,8 +2536,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       }
 
       // Initial camera position (draggable via OrbitControls)
-      fCamera.position.set(-7.385, 1.742, 3.143);
-      fControls.target.set(0.449, -0.627, -1.020);
+      fCamera.position.set(-4.839, 2.384, 1.912);
+      fControls.target.set(1.095, -0.744, -1.280);
       fControls.update();
 
       // Position lights relative to model
@@ -2532,14 +2545,30 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       fFillLight.position.set(center.x - 4, center.y + 2, center.z + 3);
       fRimLight.position.set(center.x, center.y + 4, center.z - 8);
 
-      // Floor plane removed — no plane in scene
+      // Floor plane — layer 1 only (isolated from key/fill/rim on layer 0)
       const floorY = box.min.y;
+      const floorGeo = new THREE.PlaneGeometry(200, 200);
+      const floorMesh = new THREE.Mesh(floorGeo, groundMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.position.set(center.x, floorY, center.z);
+      floorMesh.receiveShadow = true;
+      floorMesh.layers.set(1); // ONLY layer 1 — key/fill/rim (layer 0) cannot reach this
+      fScene.add(floorMesh);
+      fFloorRef = floorMesh;
 
-      // Position spotlights — from opposite sides, pointing down
-      fSpotPurple.position.set(center.x - 6, floorY + 2, center.z + 2);
-      fSpotPurple.target.position.set(center.x + 1, floorY, center.z);
-      fSpotSalmon.position.set(center.x + 6, floorY + 2, center.z - 2);
-      fSpotSalmon.target.position.set(center.x - 1, floorY, center.z);
+      // Position spotlights — raised high for wide cone, from opposite sides
+      // Store center offsets so sliders work relative to model center
+      fSpotPurple._centerX = center.x;
+      fSpotPurple._centerZ = center.z;
+      fSpotPurple._floorY = floorY;
+      fSpotSalmon._centerX = center.x;
+      fSpotSalmon._centerZ = center.z;
+      fSpotSalmon._floorY = floorY;
+
+      fSpotPurple.position.set(1.50, 6.06, 1.45);
+      fSpotPurple.target.position.set(-0.00, -2.44, -2.05);
+      fSpotSalmon.position.set(-3.50, 15.06, 5.95);
+      fSpotSalmon.target.position.set(-0.00, -2.44, -2.05);
 
       // Shadow camera config
       fKeyLight.shadow.camera.near = 0.5;
@@ -2585,6 +2614,113 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       <button id="f-gb" style="background:#333;${bs}">Grid</button>
     `;
     document.body.appendChild(fPanel);
+
+    // ── Lighting Controls Panel ──
+    const fLightPanel = document.createElement('div');
+    fLightPanel.style.cssText = 'position:fixed; top:20px; right:20px; background:rgba(10,8,20,0.95); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:14px 20px; color:#ccc; font-size:11px; z-index:9999; font-family:-apple-system,sans-serif; max-width:420px; display:none;';
+    const sliderCSS = 'width:120px; height:4px; accent-color:#ff6b35; cursor:pointer; vertical-align:middle;';
+    fLightPanel.innerHTML = `
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+        <b style="color:#883FE0;">Purple Spot</b>
+        <span style="flex:1;"></span>
+        <button id="fl-copy" style="background:#ff6b35;${bs}">Copy All</button>
+      </div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
+        <label>X <input type="range" id="fl-px" min="-20" max="20" step="0.5" value="-4" style="${sliderCSS}"> <span id="fl-px-v">-4</span></label>
+        <label>Y <input type="range" id="fl-py" min="1" max="20" step="0.5" value="8" style="${sliderCSS}"> <span id="fl-py-v">8</span></label>
+        <label>Z <input type="range" id="fl-pz" min="-20" max="20" step="0.5" value="4" style="${sliderCSS}"> <span id="fl-pz-v">4</span></label>
+        <label>Int <input type="range" id="fl-pi" min="50" max="800" step="10" value="300" style="${sliderCSS}"> <span id="fl-pi-v">300</span></label>
+        <label>Angle <input type="range" id="fl-pa" min="10" max="60" step="1" value="30" style="${sliderCSS}"> <span id="fl-pa-v">30</span></label>
+        <label>Penumbra <input type="range" id="fl-pp" min="0" max="1" step="0.05" value="0.70" style="${sliderCSS}"> <span id="fl-pp-v">0.70</span></label>
+        <label>ShadowBlur <input type="range" id="fl-pr" min="0" max="20" step="1" value="8" style="${sliderCSS}"> <span id="fl-pr-v">8</span></label>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+        <b style="color:#F37E7E;">Salmon Spot</b>
+      </div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
+        <label>X <input type="range" id="fl-sx" min="-20" max="20" step="0.5" value="4" style="${sliderCSS}"> <span id="fl-sx-v">4</span></label>
+        <label>Y <input type="range" id="fl-sy" min="1" max="20" step="0.5" value="8" style="${sliderCSS}"> <span id="fl-sy-v">8</span></label>
+        <label>Z <input type="range" id="fl-sz" min="-20" max="20" step="0.5" value="-3" style="${sliderCSS}"> <span id="fl-sz-v">-3</span></label>
+        <label>Int <input type="range" id="fl-si" min="50" max="800" step="10" value="300" style="${sliderCSS}"> <span id="fl-si-v">300</span></label>
+        <label>Angle <input type="range" id="fl-sa" min="10" max="60" step="1" value="30" style="${sliderCSS}"> <span id="fl-sa-v">30</span></label>
+        <label>Penumbra <input type="range" id="fl-sp" min="0" max="1" step="0.05" value="0.70" style="${sliderCSS}"> <span id="fl-sp-v">0.70</span></label>
+        <label>ShadowBlur <input type="range" id="fl-sr" min="0" max="20" step="1" value="8" style="${sliderCSS}"> <span id="fl-sr-v">8</span></label>
+      </div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap;">
+        <b style="color:#ccc;">Floor</b>
+        <label>Rough <input type="range" id="fl-fr" min="0" max="1" step="0.05" value="0.45" style="${sliderCSS}"> <span id="fl-fr-v">0.45</span></label>
+        <label>Metal <input type="range" id="fl-fm" min="0" max="1" step="0.05" value="0.40" style="${sliderCSS}"> <span id="fl-fm-v">0.40</span></label>
+      </div>
+    `;
+    document.body.appendChild(fLightPanel);
+
+    // Toggle light panel visibility from main bar — add button
+    const fLightBtn = document.createElement('button');
+    fLightBtn.id = 'f-lb';
+    fLightBtn.textContent = 'Lights';
+    fLightBtn.style.cssText = `background:#883FE0;${bs}`;
+    fPanel.querySelector('#f-gb').after(fLightBtn);
+    fLightBtn.addEventListener('click', () => {
+      const vis = fLightPanel.style.display === 'none';
+      fLightPanel.style.display = vis ? '' : 'none';
+      fLightBtn.style.background = vis ? '#ff6b35' : '#883FE0';
+    });
+
+    // Wire up purple spotlight sliders
+    function wireSlider(id, cb) {
+      const el = document.getElementById(id);
+      el.addEventListener('input', () => {
+        document.getElementById(id + '-v').textContent = el.value;
+        cb(parseFloat(el.value));
+        fNeedsRender = true;
+      });
+    }
+    wireSlider('fl-px', v => fSpotPurple.position.x = v + (fSpotPurple._centerX || 0));
+    wireSlider('fl-py', v => fSpotPurple.position.y = v + (fSpotPurple._floorY || 0));
+    wireSlider('fl-pz', v => fSpotPurple.position.z = v + (fSpotPurple._centerZ || 0));
+    wireSlider('fl-pi', v => fSpotPurple.intensity = v);
+    wireSlider('fl-pa', v => fSpotPurple.angle = v * Math.PI / 180);
+    wireSlider('fl-pp', v => fSpotPurple.penumbra = v);
+    wireSlider('fl-pr', v => fSpotPurple.shadow.radius = v);
+
+    // Wire up salmon spotlight sliders
+    wireSlider('fl-sx', v => fSpotSalmon.position.x = v + (fSpotSalmon._centerX || 0));
+    wireSlider('fl-sy', v => fSpotSalmon.position.y = v + (fSpotSalmon._floorY || 0));
+    wireSlider('fl-sz', v => fSpotSalmon.position.z = v + (fSpotSalmon._centerZ || 0));
+    wireSlider('fl-si', v => fSpotSalmon.intensity = v);
+    wireSlider('fl-sa', v => fSpotSalmon.angle = v * Math.PI / 180);
+    wireSlider('fl-sp', v => fSpotSalmon.penumbra = v);
+    wireSlider('fl-sr', v => fSpotSalmon.shadow.radius = v);
+
+    // Wire up floor material sliders
+    wireSlider('fl-fr', v => { if (fFloorRef) fFloorRef.material.roughness = v; });
+    wireSlider('fl-fm', v => { if (fFloorRef) fFloorRef.material.metalness = v; });
+
+    // Copy all light values
+    document.getElementById('fl-copy').addEventListener('click', () => {
+      const pp = fSpotPurple.position, pt = fSpotPurple.target.position;
+      const sp = fSpotSalmon.position, st = fSpotSalmon.target.position;
+      const code = [
+        `// Purple spotlight`,
+        `fSpotPurple.position.set(${pp.x.toFixed(2)}, ${pp.y.toFixed(2)}, ${pp.z.toFixed(2)});`,
+        `fSpotPurple.target.position.set(${pt.x.toFixed(2)}, ${pt.y.toFixed(2)}, ${pt.z.toFixed(2)});`,
+        `fSpotPurple.intensity = ${fSpotPurple.intensity};`,
+        `fSpotPurple.angle = ${(fSpotPurple.angle * 180 / Math.PI).toFixed(1)} * Math.PI / 180;`,
+        `fSpotPurple.penumbra = ${fSpotPurple.penumbra.toFixed(2)};`,
+        `fSpotPurple.shadow.radius = ${fSpotPurple.shadow.radius};`,
+        `// Salmon spotlight`,
+        `fSpotSalmon.position.set(${sp.x.toFixed(2)}, ${sp.y.toFixed(2)}, ${sp.z.toFixed(2)});`,
+        `fSpotSalmon.target.position.set(${st.x.toFixed(2)}, ${st.y.toFixed(2)}, ${st.z.toFixed(2)});`,
+        `fSpotSalmon.intensity = ${fSpotSalmon.intensity};`,
+        `fSpotSalmon.angle = ${(fSpotSalmon.angle * 180 / Math.PI).toFixed(1)} * Math.PI / 180;`,
+        `fSpotSalmon.penumbra = ${fSpotSalmon.penumbra.toFixed(2)};`,
+        `fSpotSalmon.shadow.radius = ${fSpotSalmon.shadow.radius};`,
+        `// Floor material`,
+        `roughness: ${fFloorRef?.material.roughness.toFixed(2)}, metalness: ${fFloorRef?.material.metalness.toFixed(2)}`,
+      ].join('\n');
+      navigator.clipboard.writeText(code);
+      const b = document.getElementById('fl-copy'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy All', 1200);
+    });
 
     function updateDrawUI() {
       const n = fDrawPoints.length;
