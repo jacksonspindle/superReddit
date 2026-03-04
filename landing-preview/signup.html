@@ -311,7 +311,10 @@
   // Supabase public credentials (safe to expose — RLS protects data)
   const SUPABASE_URL = 'https://oxihivtuniifrygozwde.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94aWhpdnR1bmlpZnJ5Z296d2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTg2OTcsImV4cCI6MjA4NjA3NDY5N30.bD7VrQ6n-eSxYpT654fNdWkeRHK96TjRTRIPIEZU2Ic';
-  const APP_URL = 'https://app.superreddit.ai';
+  // Local dev → localhost:3000, production → your deployed app URL
+  const APP_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : 'https://app.superreddit.ai';
 
   let _supabase = null;
   function getSupabase() {
