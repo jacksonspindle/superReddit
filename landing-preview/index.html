@@ -101,7 +101,7 @@
   #flat-video-container .unmute-prompt { position: absolute; bottom: 16px; right: 16px; background: rgba(0,0,0,0.7); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; z-index: 2; }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
-  #scroll-video-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; display: none; }
+  #scroll-video-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; display: none; will-change: transform; }
   #laptop-light-rays {
     position: fixed;
     bottom: 5%; left: 50%;
@@ -1300,9 +1300,10 @@ let scrollCanvasCtx = null;
 if (USE_SCROLL_VIDEO) {
   const scrollCanvas = document.getElementById('scroll-video-canvas');
   if (scrollCanvas) {
-    // Set canvas internal resolution to match viewport
-    scrollCanvas.width = window.innerWidth * window.devicePixelRatio;
-    scrollCanvas.height = window.innerHeight * window.devicePixelRatio;
+    // Match frame source resolution (1920x1080) — no need for Retina scaling
+    // since we're just displaying pre-rendered images. CSS stretches to viewport.
+    scrollCanvas.width = 1920;
+    scrollCanvas.height = 1080;
     scrollCanvasCtx = scrollCanvas.getContext('2d');
   }
 
@@ -1339,7 +1340,7 @@ if (USE_SCROLL_VIDEO) {
     });
   }
 
-  // Load first 10 immediately, rest via requestIdleCallback
+  // Load first 10 immediately, rest in background batches
   (async () => {
     // Critical path: first 10 frames
     const critical = [];
@@ -1349,30 +1350,29 @@ if (USE_SCROLL_VIDEO) {
     await Promise.all(critical);
     console.log('Scroll video: first 10 frames loaded');
 
-    // Background: remaining frames
+    // Background: remaining frames in batches of 10 via setTimeout
+    // (requestIdleCallback is not supported in Safari)
     let nextFrame = 10;
-    function loadNextBatch(deadline) {
-      while (nextFrame < SCROLL_FRAME_COUNT && (deadline.timeRemaining() > 5 || deadline.didTimeout)) {
-        loadFrame(nextFrame);
+    function loadNextBatch() {
+      const batchEnd = Math.min(nextFrame + 10, SCROLL_FRAME_COUNT);
+      const batch = [];
+      while (nextFrame < batchEnd) {
+        batch.push(loadFrame(nextFrame));
         nextFrame++;
       }
       if (nextFrame < SCROLL_FRAME_COUNT) {
-        requestIdleCallback(loadNextBatch, { timeout: 200 });
+        setTimeout(loadNextBatch, 0);
       } else {
-        console.log('Scroll video: all frames loaded');
+        Promise.all(batch).then(() => console.log('Scroll video: all frames loaded'));
       }
     }
-    if (nextFrame < SCROLL_FRAME_COUNT) {
-      requestIdleCallback(loadNextBatch, { timeout: 200 });
-    }
+    loadNextBatch();
   })();
 
-  // Resize handler for scroll canvas
+  // Resize handler — canvas stays at frame resolution, CSS handles viewport fit
   window.addEventListener('resize', () => {
     const sc = document.getElementById('scroll-video-canvas');
     if (sc) {
-      sc.width = window.innerWidth * window.devicePixelRatio;
-      sc.height = window.innerHeight * window.devicePixelRatio;
       scrollCanvasCtx = sc.getContext('2d');
     }
   });
@@ -1800,6 +1800,10 @@ if (USE_SCROLL_VIDEO) {
   let videoLocked = false;
   const VIDEO_UNLOCK_THRESHOLD = 0.80;
 
+  // Track scroll progress in scroll handler, render in rAF for smooth Safari performance
+  let svScrollProgress = 0;
+  let svNeedsRender = false;
+
   window.addEventListener('scroll', () => {
     const heroSection = document.querySelector('.hero');
     const demoSection = document.getElementById('laptop-demo');
@@ -1822,7 +1826,18 @@ if (USE_SCROLL_VIDEO) {
     const startThreshold = viewH * 0.8;
     const scrollDistance = viewH * 0.8;
     const rawProgress = (startThreshold - demoTop) / scrollDistance;
-    const scrollProgress = Math.max(0, Math.min(1, rawProgress));
+    svScrollProgress = Math.max(0, Math.min(1, rawProgress));
+    svNeedsRender = true;
+  }, { passive: true });
+
+  // rAF render loop — draws frames at 60fps regardless of scroll event rate
+  let svLastRenderedFrame = -1;
+  function svRenderLoop() {
+    requestAnimationFrame(svRenderLoop);
+    if (!svNeedsRender) return;
+    svNeedsRender = false;
+
+    const scrollProgress = svScrollProgress;
 
     // Lock/unlock logic
     if (scrollProgress >= 0.99) {
@@ -1898,13 +1913,17 @@ if (USE_SCROLL_VIDEO) {
         scrollCanvas.style.display = 'block';
         scrollCanvas.style.opacity = String(canvasOpacity);
 
-        // Draw frame
-        scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
-        scrollCanvasCtx.drawImage(scrollFrames[frameIndex], 0, 0, scrollCanvas.width, scrollCanvas.height);
+        // Only redraw if frame changed (avoid redundant draws)
+        if (frameIndex !== svLastRenderedFrame) {
+          scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+          scrollCanvasCtx.drawImage(scrollFrames[frameIndex], 0, 0, scrollCanvas.width, scrollCanvas.height);
+          svLastRenderedFrame = frameIndex;
+        }
       }
     } else if (!shouldShow) {
       scrollCanvas.style.display = 'none';
       scrollCanvas.style.opacity = '0';
+      svLastRenderedFrame = -1;
     }
 
     // CSS floor glow (#laptop-light-rays) — same timing as original
@@ -1985,7 +2004,8 @@ if (USE_SCROLL_VIDEO) {
         text.style.pointerEvents = 'none';
       }
     }
-  }, { passive: true });
+  }
+  svRenderLoop();
 }
 
 // ── Old Scroll Listener (real-time 3D overlay system) ──
