@@ -245,11 +245,17 @@
   }
 
   /* ---- Features section: 2D tiles with 3D keycap look ---- */
-  .features { padding: 60px 0 80px; background: linear-gradient(to bottom, #ffffff 0%, #ff6b35 100%); position: relative; overflow: hidden; }
+  .features { padding: 0; background: #0a0814; position: relative; overflow: hidden; }
 
   .features .container { position: relative; z-index: 2; }
 
-  #features-3d { display: none; }
+  #features-3d {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .features { min-height: 700px; }
 
   .features-grid {
     display: grid;
@@ -327,9 +333,10 @@
     position: relative; z-index: 1;
   }
 
-  .features .section-label { color: var(--orange); }
-  .features .section-title { color: #1a1a1a; }
-  .features .section-subtitle { color: #666; margin-bottom: 0; }
+  .features .section-label { color: var(--orange); position: relative; z-index: 2; }
+  .features .container { padding-top: 60px; }
+  .features .section-title { color: #ffffff; }
+  .features .section-subtitle { color: rgba(255,255,255,0.6); margin-bottom: 0; }
 
   @media (max-width: 1024px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 640px) { .features-grid { grid-template-columns: 1fr; } }
@@ -500,14 +507,6 @@
     <div class="section-label fade-in">Features</div>
     <h2 class="section-title fade-in delay-1">Everything you need</h2>
     <p class="section-subtitle fade-in delay-2">A complete toolkit for Reddit-powered growth.</p>
-    <div class="features-grid">
-      <div class="feature-card fade-in delay-2"><div class="feature-icon orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></div><h3>Visual Canvas</h3><p>A node-based whiteboard to map your Reddit strategy. Connect products to subreddits to examples to generated posts.</p></div>
-      <div class="feature-card fade-in delay-3"><div class="feature-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Inspiration Engine</h3><p>Browse top posts from any subreddit with filters for Hot, Top, Rising. Find what works in your niche.</p></div>
-      <div class="feature-card fade-in delay-4"><div class="feature-icon purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div><h3>AI Generation</h3><p>Claude AI analyzes winning posts and generates Reddit-native content for your product. No marketing speak.</p></div>
-      <div class="feature-card fade-in delay-2"><div class="feature-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h3>AI Chat Mode</h3><p>Chat with an AI Reddit strategist. Get advice on subreddit targeting, timing, and engagement strategies.</p></div>
-      <div class="feature-card fade-in delay-3"><div class="feature-icon yellow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h3>Smart Rewrite</h3><p>Rewrite generated content in different tones — Humorous, Engaging, Sarcastic, Concise, and more.</p></div>
-      <div class="feature-card fade-in delay-4"><div class="feature-icon red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div><h3>Ban Prevention</h3><p>Built-in knowledge about Reddit policies. Our AI avoids patterns that get flagged as spam.</p></div>
-    </div>
   </div>
   <div id="features-3d"></div>
 </section>
@@ -2317,310 +2316,157 @@ window.addEventListener('resize', () => {
 // ── Prevent scroll zoom ──
 container.addEventListener('wheel', (e) => e.stopPropagation());
 
-// ── Features Section: 3D Metallic Keycap Tiles + CSS3D Text ──
+// ── Features Section: Robot Scene Pro ──
 {
   const featuresSection = document.getElementById('features');
   const f3d = document.getElementById('features-3d');
-  if (f3d && f3d.offsetParent !== null) {  // skip if hidden (display:none)
-    // ── WebGL Renderer (clay tiles) ──
+  if (f3d) {
     const fRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     fRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     fRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    fRenderer.toneMappingExposure = 1.15;
+    fRenderer.toneMappingExposure = 1.1;
     fRenderer.physicallyCorrectLights = true;
+    fRenderer.shadowMap.enabled = true;
+    fRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     fRenderer.domElement.style.position = 'absolute';
     fRenderer.domElement.style.top = '0';
     fRenderer.domElement.style.left = '0';
     f3d.appendChild(fRenderer.domElement);
 
-    // ── CSS3D Renderer (text cards on tile faces) ──
-    const cssRenderer = new CSS3DRenderer();
-    cssRenderer.domElement.style.position = 'absolute';
-    cssRenderer.domElement.style.top = '0';
-    cssRenderer.domElement.style.left = '0';
-    cssRenderer.domElement.style.pointerEvents = 'none';
-    f3d.appendChild(cssRenderer.domElement);
-
     const fScene = new THREE.Scene();
-    const fCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    fCamera.position.set(0, 0, 11);
-    fCamera.lookAt(0, 0, 0);
+    const fCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
+    fCamera.position.set(0, 3, 12);
+    fCamera.lookAt(0, 1, 0);
 
-    // ── Environment Map — warm neutral studio for clay tiles ──
+    // ── Lighting — studio 3-point for robot scene ──
+    const fHemi = new THREE.HemisphereLight(0xffffff, 0xf5e0c8, 0.8);
+    fScene.add(fHemi);
+
+    const fKeyLight = new THREE.DirectionalLight(0xfff8f0, 3.0);
+    fKeyLight.position.set(-4, 8, 6);
+    fKeyLight.castShadow = true;
+    fKeyLight.shadow.mapSize.set(1024, 1024);
+    fKeyLight.shadow.bias = -0.002;
+    fKeyLight.shadow.radius = 4;
+    fScene.add(fKeyLight);
+
+    const fRimLight = new THREE.DirectionalLight(0xaa3388, 1.5);
+    fRimLight.position.set(4, 4, -4);
+    fScene.add(fRimLight);
+
+    const fFrontFill = new THREE.DirectionalLight(0xf0f0ff, 0.6);
+    fFrontFill.position.set(0, 0, 10);
+    fScene.add(fFrontFill);
+
+    const fAmbient = new THREE.AmbientLight(0xf5efe8, 0.4);
+    fScene.add(fAmbient);
+
+    // ── Environment Map ──
     const fEnvScene = new THREE.Scene();
-    fEnvScene.background = new THREE.Color(0xfaf6f0);
-    // Rich studio env map — 6 lights for premium reflections
-    const envLights = [
-      { color: 0xffffff, intensity: 50, pos: [5, 6, 5] },    // bright key
-      { color: 0xffddbb, intensity: 35, pos: [-5, 4, -3] },  // warm fill
-      { color: 0xfff0dd, intensity: 25, pos: [0, -4, 5] },   // bottom bounce
-      { color: 0xffffff, intensity: 40, pos: [0, 9, 0] },    // overhead
-      { color: 0xffccaa, intensity: 20, pos: [-6, 0, 4] },   // warm side
-      { color: 0xffeedd, intensity: 30, pos: [6, 2, -4] },   // rim accent
-    ];
-    envLights.forEach(l => {
+    fEnvScene.background = new THREE.Color(0x1a1030);
+    [
+      { color: 0x4422aa, intensity: 20, pos: [-5, 3, 3] },
+      { color: 0xcc3388, intensity: 15, pos: [4, -2, -3] },
+      { color: 0xffeedd, intensity: 25, pos: [3, 5, 4] },
+      { color: 0x201040, intensity: 10, pos: [0, 6, -5] },
+    ].forEach(l => {
       const pl = new THREE.PointLight(l.color, l.intensity, 100);
       pl.position.set(...l.pos);
       fEnvScene.add(pl);
     });
-    const fEnvSphere = new THREE.Mesh(
+    fEnvScene.add(new THREE.Mesh(
       new THREE.SphereGeometry(20, 32, 32),
-      new THREE.MeshBasicMaterial({ color: 0xfaf6f0, side: THREE.BackSide })
-    );
-    fEnvScene.add(fEnvSphere);
-
+      new THREE.MeshBasicMaterial({ color: 0x1a1030, side: THREE.BackSide })
+    ));
     const pmremGen = new THREE.PMREMGenerator(fRenderer);
     pmremGen.compileEquirectangularShader();
     const fEnvMap = pmremGen.fromScene(fEnvScene, 0.04).texture;
     pmremGen.dispose();
     fScene.environment = fEnvMap;
-    // No background — transparent so CSS gradient shows through
 
-    // ── Premium lighting rig — dramatic directional with cast shadows ──
+    // ── Load Robot Scene Pro GLTF ──
+    let robotModel = null;
+    const fGltfLoader = new GLTFLoader();
+    fGltfLoader.load('models/robotscenepro.gltf', (gltf) => {
+      robotModel = gltf.scene;
+      fScene.add(robotModel);
 
-    // Enable shadow maps on the renderer
-    fRenderer.shadowMap.enabled = true;
-    fRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // Assign materials based on node names (GLTF has none)
+      const bodyMat = new THREE.MeshPhysicalMaterial({
+        color: 0x14102a, roughness: 0.1, metalness: 1.0,
+        clearcoat: 1.0, clearcoatRoughness: 0.03, envMapIntensity: 1.8,
+      });
+      const eyeMat = new THREE.MeshStandardMaterial({
+        color: 0xe0dcd8, roughness: 0.9, metalness: 0.0, envMapIntensity: 0.2,
+      });
+      const buttonMat = new THREE.MeshPhysicalMaterial({
+        color: 0xff6b35, roughness: 0.3, metalness: 0.0,
+        emissive: 0xff6b35, emissiveIntensity: 0.3,
+        clearcoat: 0.8, clearcoatRoughness: 0.1,
+      });
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: 0x0e0c14, roughness: 0.7, metalness: 0.0,
+      });
+      const defaultMat = new THREE.MeshPhysicalMaterial({
+        color: 0x14102a, roughness: 0.15, metalness: 0.9,
+        clearcoat: 0.8, clearcoatRoughness: 0.05, envMapIntensity: 1.5,
+      });
 
-    // 1. Hemisphere — bright sky, warm ground bounce
-    const fHemi = new THREE.HemisphereLight(0xffffff, 0xf5e0c8, 0.6);
-    fScene.add(fHemi);
+      robotModel.traverse((child) => {
+        if (!child.isMesh) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
 
-    // 2. Key light — strong top-left to create dramatic edge highlights
-    const fKeyLight = new THREE.DirectionalLight(0xfff8f0, 2.5);
-    fKeyLight.position.set(-4, 8, 6);
-    fKeyLight.castShadow = true;
-    fKeyLight.shadow.mapSize.set(1024, 1024);
-    fKeyLight.shadow.camera.near = 0.5;
-    fKeyLight.shadow.camera.far = 30;
-    fKeyLight.shadow.camera.left = -10;
-    fKeyLight.shadow.camera.right = 10;
-    fKeyLight.shadow.camera.top = 10;
-    fKeyLight.shadow.camera.bottom = -10;
-    fKeyLight.shadow.bias = -0.002;
-    fKeyLight.shadow.radius = 4;
-    fScene.add(fKeyLight);
+        // Find the parent group name for context
+        const name = child.name || '';
+        const parentName = child.parent?.name || '';
+        const grandparentName = child.parent?.parent?.name || '';
 
-    // 3. Rim light — warm orange from top-right edge for premium glow
-    const fRimLight = new THREE.DirectionalLight(0xffb880, 1.2);
-    fRimLight.position.set(6, 5, -2);
-    fScene.add(fRimLight);
-
-    // 4. Front fill — soft, slightly cool to add depth contrast
-    const fFrontFill = new THREE.DirectionalLight(0xf0f0ff, 0.5);
-    fFrontFill.position.set(0, 0, 10);
-    fScene.add(fFrontFill);
-
-    // 5. Bottom kick — warm uplight to illuminate underside edges
-    const fBottomKick = new THREE.DirectionalLight(0xffd4a8, 0.4);
-    fBottomKick.position.set(0, -6, 4);
-    fScene.add(fBottomKick);
-
-    // 6. Side accent — subtle left-side color for dimension
-    const fSideAccent = new THREE.DirectionalLight(0xffe0cc, 0.3);
-    fSideAccent.position.set(-8, 0, 2);
-    fScene.add(fSideAccent);
-
-    // 7. Ambient — low, just enough to prevent pure black shadows
-    const fAmbient = new THREE.AmbientLight(0xf5efe8, 0.25);
-    fScene.add(fAmbient);
-
-    // ── Keycap tile geometry — front-facing, thick for 3D pop ──
-    const tileW = 2.8, tileH = 2.2, tileDepth = 0.7;
-    const tileGeo = new RoundedBoxGeometry(tileW, tileH, tileDepth, 6, 0.15);
-
-    // Premium glossy keycap tile material — slight sheen for luxurious look
-    const metalMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf5f0ea,
-      roughness: 0.35,
-      metalness: 0.02,
-      envMapIntensity: 0.8,
-      clearcoat: 0.4,
-      clearcoatRoughness: 0.2,
-      reflectivity: 0.5,
-      sheen: 0.1,
-      sheenColor: new THREE.Color(0xffe8d0),
-    });
-
-    // ── Build grouped 3x2 grid — tiles face the camera (X-Y layout) ──
-    const gridGroup = new THREE.Group();
-    gridGroup.position.y = 0.8;
-    fScene.add(gridGroup);
-
-    const cols = 3, rows = 2;
-    const gapX = 3.2, gapY = 2.8;
-    const offsetX = ((cols - 1) * gapX) / 2;
-    const offsetY = ((rows - 1) * gapY) / 2;
-    const cards = Array.from(featuresSection.querySelectorAll('.feature-card'));
-    const cardPx = 280;
-    const scaleFactor = tileW / cardPx;
-
-    // 3D icon definitions — punchy saturated colors, strong emissive
-    // Index 2 (AI Generation) uses a GLTF robot model, Index 5 uses shield model
-    const iconDefs = [
-      { color: 0xff4422, emissive: 0xff4422, geo: new THREE.TorusGeometry(0.14, 0.05, 16, 32) },       // Visual Canvas — ring
-      { color: 0x2288ff, emissive: 0x2288ff, geo: new THREE.SphereGeometry(0.15, 32, 32) },             // Inspiration Engine — sphere
-      { color: 0x8833ee, emissive: 0x8833ee, geo: null, gltf: 'models/robot.glb' },                     // AI Generation — robot model
-      { color: 0x00cc88, emissive: 0x00cc88, geo: new THREE.BoxGeometry(0.22, 0.18, 0.10, 1, 1, 1) },  // AI Chat — speech box
-      { color: 0xffaa00, emissive: 0xffaa00, geo: new THREE.ConeGeometry(0.12, 0.26, 6) },              // Smart Rewrite — bolt
-      { color: 0xff2255, emissive: 0xff2255, geo: null, gltf: 'models/shield.glb' },                    // Ban Prevention — shield model
-    ];
-    const iconMeshes = [];
-    const tileGroups = [];
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const i = r * cols + c;
-        const tileGroup = new THREE.Group();
-        tileGroup.position.set(c * gapX - offsetX, -(r * gapY - offsetY), 0);
-        tileGroups.push(tileGroup);
-
-        // Tile mesh — with shadow casting for depth
-        const tile = new THREE.Mesh(tileGeo, metalMat);
-        tile.castShadow = true;
-        tile.receiveShadow = true;
-        tileGroup.add(tile);
-
-        // 3D icon protruding from tile face
-        const def = iconDefs[i];
-        const iconZ = tileDepth / 2 + 0.3;  // push well in front of tile face
-        if (def.geo) {
-          // Primitive geometry icon — saturated, self-lit, candy gloss
-          const iconMat = new THREE.MeshPhysicalMaterial({
-            color: def.color,
-            emissive: def.emissive,
-            emissiveIntensity: 0.6,
-            roughness: 0.15,
-            metalness: 0.0,
-            envMapIntensity: 1.5,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.05,
-          });
-          const iconMesh = new THREE.Mesh(def.geo, iconMat);
-          iconMesh.castShadow = true;
-          iconMesh.position.set(-tileW / 2 + 0.45, tileH / 2 - 0.45, iconZ);
-          iconMesh.userData.baseZ = iconMesh.position.z;
-          iconMesh.userData.phase = i * 0.9;
-          tileGroup.add(iconMesh);
-          iconMeshes.push(iconMesh);
+        if (grandparentName === 'Ojos' || parentName === 'Ojos') {
+          child.material = eyeMat;
+        } else if (grandparentName === 'Cabeza' || parentName === 'Cabeza') {
+          child.material = bodyMat;
+        } else if (grandparentName === 'Cuerpo' || parentName === 'Cuerpo') {
+          child.material = bodyMat;
+        } else if (parentName === 'Button' || grandparentName === 'Button') {
+          child.material = buttonMat;
+        } else if (name === 'Plane' || parentName === 'Plane') {
+          child.material = groundMat;
         } else {
-          // GLTF model — placeholder group, sits in front of tile
-          const iconGroup = new THREE.Group();
-          iconGroup.position.set(-tileW / 2 + 0.45, tileH / 2 - 0.45, iconZ);
-          iconGroup.userData.baseZ = iconGroup.position.z;
-          iconGroup.userData.phase = i * 0.9;
-          tileGroup.add(iconGroup);
-          iconMeshes.push(iconGroup);
+          child.material = defaultMat;
         }
+      });
 
-        // CSS3D text card on the front face of the tile
-        if (cards[i]) {
-          // Hide the CSS icon badge since we have 3D icons now
-          const badge = cards[i].querySelector('.feature-icon');
-          if (badge) badge.style.display = 'none';
-          cards[i].style.width = cardPx + 'px';
-          cards[i].style.boxSizing = 'border-box';
-          const cssObj = new CSS3DObject(cards[i]);
-          cssObj.position.set(0, 0, tileDepth / 2 + 0.01);
-          cssObj.scale.setScalar(scaleFactor);
-          tileGroup.add(cssObj);
+      // Auto-frame camera to fit the scene
+      const box = new THREE.Box3().setFromObject(robotModel);
+      const center = new THREE.Vector3();
+      const size = new THREE.Vector3();
+      box.getCenter(center);
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const dist = maxDim / (2 * Math.tan((fCamera.fov * Math.PI / 180) / 2));
+
+      fCamera.position.set(center.x, center.y + maxDim * 0.2, center.z + dist * 1.3);
+      fCamera.lookAt(center);
+
+      // Boost GLTF spot lights if present
+      robotModel.traverse((child) => {
+        if (child.isLight) {
+          child.intensity *= 500;
         }
-
-        gridGroup.add(tileGroup);
-      }
-    }
-
-    // ── Load GLTF robot model for AI Generation tile (index 2) ──
-    {
-      const robotIdx = 2;
-      const robotIconGroup = iconMeshes[robotIdx];
-      const fGltfLoader = new GLTFLoader();
-      fGltfLoader.load('models/robot.glb', (gltf) => {
-        const model = gltf.scene;
-        // Compute bounding box to normalize size
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        // Scale to match smaller icon sizes
-        const targetSize = 0.28;
-        const sc = targetSize / maxDim;
-        model.scale.setScalar(sc);
-        // Center the model
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        model.position.set(-center.x * sc, -center.y * sc, -center.z * sc);
-        // Saturated self-lit candy gloss material
-        const rDef = iconDefs[robotIdx];
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.material = new THREE.MeshPhysicalMaterial({
-              color: rDef.color,
-              emissive: rDef.emissive,
-              emissiveIntensity: 0.6,
-              roughness: 0.15,
-              metalness: 0.0,
-              envMapIntensity: 1.5,
-              clearcoat: 1.0,
-              clearcoatRoughness: 0.05,
-            });
-          }
-        });
-        robotIconGroup.add(model);
       });
-    }
 
-    // ── Load GLTF shield model for Ban Prevention tile (index 5) ──
-    {
-      const shieldIdx = 5;
-      const shieldIconGroup = iconMeshes[shieldIdx];
-      const sLoader = new GLTFLoader();
-      sLoader.load('models/shield.glb', (gltf) => {
-        const model = gltf.scene;
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const targetSize = 0.30;
-        const sc = targetSize / maxDim;
-        model.scale.setScalar(sc);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        model.position.set(-center.x * sc, -center.y * sc, -center.z * sc);
-        const sDef = iconDefs[shieldIdx];
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.material = new THREE.MeshPhysicalMaterial({
-              color: sDef.color,
-              emissive: sDef.emissive,
-              emissiveIntensity: 0.6,
-              roughness: 0.15,
-              metalness: 0.0,
-              envMapIntensity: 1.5,
-              clearcoat: 1.0,
-              clearcoatRoughness: 0.05,
-            });
-          }
-        });
-        shieldIconGroup.add(model);
-      });
-    }
-
-    // ── Drag controls — drag the whole grid to position it ──
-    const dragControls = new DragControls([gridGroup], fCamera, fRenderer.domElement);
-    dragControls.transformGroup = true;
-    dragControls.addEventListener('drag', () => { fNeedsRender = true; });
+      fNeedsRender = true;
+      console.log(`Robot scene loaded — size: ${size.x.toFixed(1)}x${size.y.toFixed(1)}x${size.z.toFixed(1)}`);
+    });
 
     // ── Sizing ──
     let fNeedsRender = true;
     let fVisible = false;
 
     function resizeFeatures() {
-      const rect = featuresSection.getBoundingClientRect();
+      const rect = f3d.getBoundingClientRect();
       fRenderer.setSize(rect.width, rect.height);
-      cssRenderer.setSize(rect.width, rect.height);
       fCamera.aspect = rect.width / rect.height;
       fCamera.updateProjectionMatrix();
       fNeedsRender = true;
@@ -2635,20 +2481,16 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     window.addEventListener('resize', resizeFeatures);
     resizeFeatures();
 
-    // ── Render loop — icon float + slow rotation ──
+    // ── Render loop ──
     const fClock = new THREE.Clock();
     function featuresLoop() {
       requestAnimationFrame(featuresLoop);
       if (!fVisible) return;
       const t = fClock.getElapsedTime();
 
-      iconMeshes.forEach(m => {
-        m.position.z = m.userData.baseZ + Math.sin(t * 1.2 + m.userData.phase) * 0.04;
-        m.rotation.y = t * 0.5 + m.userData.phase;
-      });
+      // Static — no rotation
 
       fRenderer.render(fScene, fCamera);
-      cssRenderer.render(fScene, fCamera);
     }
     featuresLoop();
   }
