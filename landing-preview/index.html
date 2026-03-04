@@ -267,24 +267,16 @@
     height: 100%;
   }
 
-  /* ---- Features header ---- */
-  .features-header {
-    position: absolute;
-    right: 6%;
-    top: 14%;
-    z-index: 2;
-    width: 420px;
-    pointer-events: none;
-  }
-  .features-header h2 {
+  /* ---- Odometer ---- */
+  .odometer-title {
     font-size: 48px;
     font-weight: 800;
     color: #ffffff;
-    margin: 0;
+    margin: 0 0 20px 0;
     letter-spacing: -0.03em;
+    text-align: center;
   }
 
-  /* ---- Odometer ---- */
   .odometer-wrap {
     position: absolute;
     right: 6%;
@@ -353,13 +345,9 @@
     margin: 0;
   }
 
-  /* ---- Features header + odometer responsive ---- */
+  /* ---- Odometer responsive ---- */
   @media (max-width: 768px) {
-    .features-header {
-      width: 320px;
-      right: 4%;
-    }
-    .features-header h2 { font-size: 36px; }
+    .odometer-title { font-size: 36px; }
     .odometer-wrap {
       width: 320px;
       right: 4%;
@@ -373,14 +361,7 @@
     }
   }
   @media (max-width: 480px) {
-    .features-header {
-      width: 90%;
-      right: auto;
-      left: 50%;
-      top: 6%;
-      transform: translateX(-50%);
-    }
-    .features-header h2 { font-size: 32px; text-align: center; }
+    .odometer-title { font-size: 32px; }
     .odometer-wrap {
       width: 90%;
       right: auto;
@@ -443,7 +424,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .features-header { display: none; } .odometer-wrap { display: none; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .odometer-wrap { display: none; } }
 </style>
 </head>
 <body>
@@ -572,11 +553,8 @@
   <div class="features-sticky">
     <div id="features-3d"></div>
 
-    <div class="features-header">
-      <h2>Features</h2>
-    </div>
-
     <div class="odometer-wrap">
+      <h2 class="odometer-title">Features</h2>
       <div class="odometer-window">
         <div class="odometer-track">
 
