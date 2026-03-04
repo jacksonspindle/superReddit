@@ -245,7 +245,7 @@
   }
 
   /* ---- Features section: 2D tiles with 3D keycap look ---- */
-  .features { padding: 0; background: #0a0814; position: relative; overflow: hidden; }
+  .features { padding: 0; background: #08060f; position: relative; overflow: hidden; height: 100vh; }
 
   .features .container { position: relative; z-index: 2; }
 
@@ -255,7 +255,6 @@
     width: 100%;
     height: 100%;
   }
-  .features { min-height: 700px; }
 
   .features-grid {
     display: grid;
@@ -544,6 +543,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { DragControls } from 'three/addons/controls/DragControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ── Feature flag: scroll-driven pre-rendered frames vs real-time 3D overlay ──
 const USE_SCROLL_VIDEO = true;
@@ -2321,68 +2321,97 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
   const featuresSection = document.getElementById('features');
   const f3d = document.getElementById('features-3d');
   if (f3d) {
+    console.log('Features 3D: initializing...');
     const fRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     fRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     fRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    fRenderer.toneMappingExposure = 1.1;
+    fRenderer.toneMappingExposure = 1.05;
     fRenderer.physicallyCorrectLights = true;
     fRenderer.shadowMap.enabled = true;
     fRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    fRenderer.outputColorSpace = THREE.SRGBColorSpace;
     fRenderer.domElement.style.position = 'absolute';
     fRenderer.domElement.style.top = '0';
     fRenderer.domElement.style.left = '0';
     f3d.appendChild(fRenderer.domElement);
 
     const fScene = new THREE.Scene();
-    const fCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
-    fCamera.position.set(0, 3, 12);
-    fCamera.lookAt(0, 1, 0);
+    fScene.background = new THREE.Color(0x050510);
 
-    // ── Lighting — studio 3-point for robot scene ──
-    const fHemi = new THREE.HemisphereLight(0xffffff, 0xf5e0c8, 0.8);
-    fScene.add(fHemi);
+    const fCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
 
-    const fKeyLight = new THREE.DirectionalLight(0xfff8f0, 3.0);
-    fKeyLight.position.set(-4, 8, 6);
-    fKeyLight.castShadow = true;
-    fKeyLight.shadow.mapSize.set(1024, 1024);
-    fKeyLight.shadow.bias = -0.002;
-    fKeyLight.shadow.radius = 4;
-    fScene.add(fKeyLight);
+    // ── Lighting — light-driven, no HDRI ──
 
-    const fRimLight = new THREE.DirectionalLight(0xaa3388, 1.5);
-    fRimLight.position.set(4, 4, -4);
-    fScene.add(fRimLight);
-
-    const fFrontFill = new THREE.DirectionalLight(0xf0f0ff, 0.6);
-    fFrontFill.position.set(0, 0, 10);
-    fScene.add(fFrontFill);
-
-    const fAmbient = new THREE.AmbientLight(0xf5efe8, 0.4);
-    fScene.add(fAmbient);
-
-    // ── Environment Map ──
+    // Minimal environment map — just enough for material reflections
     const fEnvScene = new THREE.Scene();
-    fEnvScene.background = new THREE.Color(0x1a1030);
-    [
-      { color: 0x4422aa, intensity: 20, pos: [-5, 3, 3] },
-      { color: 0xcc3388, intensity: 15, pos: [4, -2, -3] },
-      { color: 0xffeedd, intensity: 25, pos: [3, 5, 4] },
-      { color: 0x201040, intensity: 10, pos: [0, 6, -5] },
-    ].forEach(l => {
-      const pl = new THREE.PointLight(l.color, l.intensity, 100);
-      pl.position.set(...l.pos);
-      fEnvScene.add(pl);
-    });
+    fEnvScene.background = new THREE.Color(0x050510);
     fEnvScene.add(new THREE.Mesh(
       new THREE.SphereGeometry(20, 32, 32),
-      new THREE.MeshBasicMaterial({ color: 0x1a1030, side: THREE.BackSide })
+      new THREE.MeshBasicMaterial({ color: 0x050510, side: THREE.BackSide })
     ));
+    // Single white light for subtle reflection
+    const envKey = new THREE.PointLight(0xffffff, 15, 100);
+    envKey.position.set(5, 5, 5);
+    fEnvScene.add(envKey);
+    const envPurple = new THREE.PointLight(0x4422aa, 8, 100);
+    envPurple.position.set(-5, 3, -3);
+    fEnvScene.add(envPurple);
     const pmremGen = new THREE.PMREMGenerator(fRenderer);
     pmremGen.compileEquirectangularShader();
     const fEnvMap = pmremGen.fromScene(fEnvScene, 0.04).texture;
     pmremGen.dispose();
     fScene.environment = fEnvMap;
+
+    // Key light: white, strong, upper right
+    const fKeyLight = new THREE.DirectionalLight(0xffffff, 5);
+    fKeyLight.position.set(6, 8, 6);
+    fKeyLight.castShadow = true;
+    fKeyLight.shadow.mapSize.set(2048, 2048);
+    fKeyLight.shadow.radius = 3;
+    fKeyLight.shadow.bias = -0.0005;
+    fScene.add(fKeyLight);
+
+    // Fill light: soft blue, subtle
+    const fFillLight = new THREE.DirectionalLight(0x6c7cff, 1.2);
+    fFillLight.position.set(-4, 3, 3);
+    fScene.add(fFillLight);
+
+    // Rim light: magenta, behind — creates pink edge highlight
+    const fRimLight = new THREE.DirectionalLight(0xff2ca0, 3.5);
+    fRimLight.position.set(0, 6, -8);
+    fScene.add(fRimLight);
+
+    // Floor wash: multiple spotlights for gradient hue pool on ground
+    // Main magenta wash — front-left, wide cone
+    const fFloorWash = new THREE.SpotLight(0xff2ca0, 25, 60, Math.PI / 3.5, 0.7, 1.2);
+    fFloorWash.position.set(-3, 8, 3);
+    fFloorWash.target.position.set(0, 0, 0);
+    fScene.add(fFloorWash);
+    fScene.add(fFloorWash.target);
+
+    // Deep purple wash — back-right, overlapping for gradient blend
+    const fFloorWash2 = new THREE.SpotLight(0x6622cc, 20, 60, Math.PI / 3, 0.8, 1.2);
+    fFloorWash2.position.set(4, 8, -2);
+    fFloorWash2.target.position.set(0, 0, 0);
+    fScene.add(fFloorWash2);
+    fScene.add(fFloorWash2.target);
+
+    // Hot pink accent — tight, directly above for center glow
+    const fFloorWash3 = new THREE.SpotLight(0xdd1188, 15, 50, Math.PI / 5, 0.5, 1.5);
+    fFloorWash3.position.set(0, 10, 1);
+    fFloorWash3.target.position.set(0, 0, 0);
+    fScene.add(fFloorWash3);
+    fScene.add(fFloorWash3.target);
+
+    // ── Post-processing: subtle bloom ──
+    const fComposer = new EffectComposer(fRenderer);
+    fComposer.addPass(new RenderPass(fScene, fCamera));
+    const fBloom = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.18, 0.25, 0.88
+    );
+    fComposer.addPass(fBloom);
+    fComposer.addPass(new OutputPass());
 
     // ── Load Robot Scene Pro GLTF ──
     let robotModel = null;
@@ -2391,25 +2420,37 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       robotModel = gltf.scene;
       fScene.add(robotModel);
 
-      // Assign materials based on node names (GLTF has none)
-      const bodyMat = new THREE.MeshPhysicalMaterial({
-        color: 0x14102a, roughness: 0.1, metalness: 1.0,
-        clearcoat: 1.0, clearcoatRoughness: 0.03, envMapIntensity: 1.8,
+      // Log all mesh names for debugging material assignment
+      robotModel.traverse((child) => {
+        if (child.isMesh) {
+          console.log(`MESH: "${child.name}" parent="${child.parent?.name}" grandparent="${child.parent?.parent?.name}"`);
+        }
       });
-      const eyeMat = new THREE.MeshStandardMaterial({
-        color: 0xe0dcd8, roughness: 0.9, metalness: 0.0, envMapIntensity: 0.2,
+
+      // STEP 3: Materials — glossy plastic, not chrome
+      const bodyMat = new THREE.MeshPhysicalMaterial({
+        color: 0x1b0f3a, roughness: 0.28, metalness: 0.35,
+        clearcoat: 0.6, clearcoatRoughness: 0.08,
+      });
+      const eyeMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf0eeec, roughness: 0.12, metalness: 0.05,
+        clearcoat: 0.8, clearcoatRoughness: 0.04,
+      });
+      const facePlateMat = new THREE.MeshPhysicalMaterial({
+        color: 0xd4cec8, roughness: 0.32, metalness: 0.15,
+        clearcoat: 0.3,
       });
       const buttonMat = new THREE.MeshPhysicalMaterial({
-        color: 0xff6b35, roughness: 0.3, metalness: 0.0,
-        emissive: 0xff6b35, emissiveIntensity: 0.3,
-        clearcoat: 0.8, clearcoatRoughness: 0.1,
+        color: 0xff6b35, roughness: 0.2, metalness: 0.0,
+        emissive: 0xff5530, emissiveIntensity: 0.4,
+        clearcoat: 0.5, clearcoatRoughness: 0.05,
       });
       const groundMat = new THREE.MeshStandardMaterial({
-        color: 0x0e0c14, roughness: 0.7, metalness: 0.0,
+        color: 0x070712, roughness: 0.85, metalness: 0.05,
       });
-      const defaultMat = new THREE.MeshPhysicalMaterial({
-        color: 0x14102a, roughness: 0.15, metalness: 0.9,
-        clearcoat: 0.8, clearcoatRoughness: 0.05, envMapIntensity: 1.5,
+      const neckMat = new THREE.MeshPhysicalMaterial({
+        color: 0x0a0a14, roughness: 0.18, metalness: 0.85,
+        clearcoat: 0.4,
       });
 
       robotModel.traverse((child) => {
@@ -2417,47 +2458,70 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         child.castShadow = true;
         child.receiveShadow = true;
 
-        // Find the parent group name for context
-        const name = child.name || '';
-        const parentName = child.parent?.name || '';
-        const grandparentName = child.parent?.parent?.name || '';
+        const name = (child.name || '').toLowerCase();
+        const parentName = (child.parent?.name || '').toLowerCase();
+        const grandparentName = (child.parent?.parent?.name || '').toLowerCase();
 
-        if (grandparentName === 'Ojos' || parentName === 'Ojos') {
+        if (grandparentName === 'ojos' || parentName === 'ojos') {
           child.material = eyeMat;
-        } else if (grandparentName === 'Cabeza' || parentName === 'Cabeza') {
+        } else if (name.includes('boolean') || name.includes('face')) {
+          child.material = facePlateMat;
+        } else if (grandparentName === 'cabeza' || parentName === 'cabeza') {
           child.material = bodyMat;
-        } else if (grandparentName === 'Cuerpo' || parentName === 'Cuerpo') {
+        } else if (grandparentName === 'cuerpo' || parentName === 'cuerpo') {
           child.material = bodyMat;
-        } else if (parentName === 'Button' || grandparentName === 'Button') {
-          child.material = buttonMat;
-        } else if (name === 'Plane' || parentName === 'Plane') {
+        } else if (parentName === 'button' || grandparentName === 'button') {
+          child.visible = false;
+        } else if (name === 'plane' || parentName === 'plane') {
           child.material = groundMat;
+          child.position.set(16.334, -241.727, -15.525);
+          child.scale.set(57.3, 57.3, 57.3);
+          child.rotation.set(-1.6858, 0.2200, -1.8258);
         } else {
-          child.material = defaultMat;
+          child.material = bodyMat;
         }
       });
 
-      // Auto-frame camera to fit the scene
+      // Compute bounding box to find the model
       const box = new THREE.Box3().setFromObject(robotModel);
       const center = new THREE.Vector3();
       const size = new THREE.Vector3();
       box.getCenter(center);
       box.getSize(size);
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const dist = maxDim / (2 * Math.tan((fCamera.fov * Math.PI / 180) / 2));
+      console.log(`Model size: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}, center: ${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`);
 
-      fCamera.position.set(center.x, center.y + maxDim * 0.2, center.z + dist * 1.3);
-      fCamera.lookAt(center);
+      // Scale up if model is tiny
+      if (size.y < 1) {
+        console.warn('Model is very small — scaling up 5x');
+        robotModel.scale.setScalar(5);
+        box.setFromObject(robotModel);
+        box.getCenter(center);
+        box.getSize(size);
+      }
 
-      // Boost GLTF spot lights if present
+      // Locked camera position
+      fCamera.position.set(-6.64, 1.49, 4.21);
+      fCamera.lookAt(0.47, -0.28, -1.30);
+
+      // Position lights relative to model
+      fKeyLight.position.set(center.x + 6, center.y + 6, center.z + 6);
+      fFillLight.position.set(center.x - 4, center.y + 2, center.z + 3);
+      fRimLight.position.set(center.x, center.y + 4, center.z - 8);
+      // Floor wash spotlights — aimed at floor level
+      const floorY = box.min.y;
+      fFloorWash.position.set(center.x - 3, floorY + 8, center.z + 3);
+      fFloorWash.target.position.set(center.x - 1, floorY, center.z);
+      fFloorWash2.position.set(center.x + 4, floorY + 8, center.z - 2);
+      fFloorWash2.target.position.set(center.x + 1, floorY, center.z);
+      fFloorWash3.position.set(center.x, floorY + 10, center.z + 1);
+      fFloorWash3.target.position.set(center.x, floorY, center.z);
+
+      // Disable GLTF embedded lights
       robotModel.traverse((child) => {
-        if (child.isLight) {
-          child.intensity *= 500;
-        }
+        if (child.isLight) child.visible = false;
       });
 
       fNeedsRender = true;
-      console.log(`Robot scene loaded — size: ${size.x.toFixed(1)}x${size.y.toFixed(1)}x${size.z.toFixed(1)}`);
     });
 
     // ── Sizing ──
@@ -2467,6 +2531,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     function resizeFeatures() {
       const rect = f3d.getBoundingClientRect();
       fRenderer.setSize(rect.width, rect.height);
+      fComposer.setSize(rect.width, rect.height);
       fCamera.aspect = rect.width / rect.height;
       fCamera.updateProjectionMatrix();
       fNeedsRender = true;
@@ -2482,15 +2547,9 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     resizeFeatures();
 
     // ── Render loop ──
-    const fClock = new THREE.Clock();
     function featuresLoop() {
       requestAnimationFrame(featuresLoop);
-      if (!fVisible) return;
-      const t = fClock.getElapsedTime();
-
-      // Static — no rotation
-
-      fRenderer.render(fScene, fCamera);
+      fComposer.render();
     }
     featuresLoop();
   }
