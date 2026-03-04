@@ -267,32 +267,37 @@
     height: 100%;
   }
 
-  /* ---- Odometer ---- */
+  /* ---- Features title — top right ---- */
   .odometer-title {
+    position: absolute;
+    top: 8%;
+    right: 6%;
+    z-index: 2;
     font-family: 'Space Grotesk', sans-serif;
     font-size: 72px;
     font-weight: 700;
     color: #ffffff;
-    margin: 0 0 24px 0;
+    margin: 0;
     letter-spacing: -0.04em;
-    text-align: center;
     text-transform: uppercase;
+    pointer-events: none;
   }
 
+  /* ---- Odometer ---- */
   .odometer-wrap {
     position: absolute;
     right: 6%;
     top: 55%;
     transform: translateY(-50%);
     z-index: 2;
-    width: 420px;
+    width: 520px;
     pointer-events: none;
   }
 
   .odometer-window {
     position: relative;
     overflow: hidden;
-    height: 200px;
+    height: 260px;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
     mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
   }
@@ -317,25 +322,25 @@
   .odometer-card {
     background: none;
     border: none;
-    padding: 28px 16px;
+    padding: 32px 20px;
     box-sizing: border-box;
-    height: 200px;
+    height: 260px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
     flex-shrink: 0;
   }
 
   .odometer-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
-  .odometer-icon svg { width: 24px; height: 24px; }
+  .odometer-icon svg { width: 30px; height: 30px; }
   .odometer-icon.orange { background: #ff4422; }
   .odometer-icon.blue { background: #2288ff; }
   .odometer-icon.purple { background: #8833ee; }
@@ -344,14 +349,14 @@
   .odometer-icon.red { background: #ff2255; }
 
   .odometer-text h3 {
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: #ffffff;
-    margin: 0 0 8px 0;
+    margin: 0 0 10px 0;
     letter-spacing: -0.01em;
   }
   .odometer-text p {
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     color: rgba(255,255,255,0.6);
     line-height: 1.55;
     margin: 0;
@@ -359,21 +364,21 @@
 
   /* ---- Odometer responsive ---- */
   @media (max-width: 768px) {
-    .odometer-title { font-size: 52px; }
+    .odometer-title { font-size: 48px; right: 4%; }
     .odometer-wrap {
-      width: 320px;
+      width: 360px;
       right: 4%;
     }
     .odometer-card {
-      padding: 20px 24px;
-      height: 180px;
+      padding: 22px 16px;
+      height: 220px;
     }
     .odometer-window {
-      height: 180px;
+      height: 220px;
     }
   }
   @media (max-width: 480px) {
-    .odometer-title { font-size: 40px; }
+    .odometer-title { font-size: 36px; right: auto; left: 50%; transform: translateX(-50%); text-align: center; }
     .odometer-wrap {
       width: 90%;
       right: auto;
@@ -436,7 +441,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .odometer-wrap { display: none; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .odometer-title { display: none; } .odometer-wrap { display: none; } }
 </style>
 </head>
 <body>
@@ -564,9 +569,9 @@
 <section class="features" id="features">
   <div class="features-sticky">
     <div id="features-3d"></div>
+    <h2 class="odometer-title">Features</h2>
 
     <div class="odometer-wrap">
-      <h2 class="odometer-title">Features</h2>
       <div class="odometer-window">
         <div class="odometer-track">
 
