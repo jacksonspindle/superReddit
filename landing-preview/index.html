@@ -267,11 +267,37 @@
     height: 100%;
   }
 
+  /* ---- Features header ---- */
+  .features-header {
+    position: absolute;
+    right: 6%;
+    top: 18%;
+    z-index: 2;
+    width: 420px;
+    pointer-events: none;
+  }
+  .features-header .section-label {
+    text-align: left;
+    color: var(--orange);
+  }
+  .features-header .section-title {
+    text-align: left;
+    color: #ffffff;
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+  .features-header .section-subtitle {
+    text-align: left;
+    color: rgba(255,255,255,0.5);
+    font-size: 15px;
+    margin: 0;
+  }
+
   /* ---- Odometer ---- */
   .odometer-wrap {
     position: absolute;
     right: 6%;
-    top: 50%;
+    top: 55%;
     transform: translateY(-50%);
     z-index: 2;
     width: 420px;
@@ -336,8 +362,13 @@
     margin: 0;
   }
 
-  /* ---- Odometer responsive ---- */
+  /* ---- Features header + odometer responsive ---- */
   @media (max-width: 768px) {
+    .features-header {
+      width: 320px;
+      right: 4%;
+    }
+    .features-header .section-title { font-size: 26px; }
     .odometer-wrap {
       width: 320px;
       right: 4%;
@@ -351,6 +382,18 @@
     }
   }
   @media (max-width: 480px) {
+    .features-header {
+      width: 90%;
+      right: auto;
+      left: 50%;
+      top: 6%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+    .features-header .section-label,
+    .features-header .section-title,
+    .features-header .section-subtitle { text-align: center; }
+    .features-header .section-subtitle { margin: 0 auto; }
     .odometer-wrap {
       width: 90%;
       right: auto;
@@ -413,7 +456,7 @@
   .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } }
-  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .odometer-wrap { display: none; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-links { display: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .features-header { display: none; } .odometer-wrap { display: none; } }
 </style>
 </head>
 <body>
@@ -541,6 +584,12 @@
 <section class="features" id="features">
   <div class="features-sticky">
     <div id="features-3d"></div>
+
+    <div class="features-header">
+      <p class="section-label">Features</p>
+      <h2 class="section-title">Everything you need to <span class="accent">win on Reddit</span></h2>
+      <p class="section-subtitle">Six tools working together to find, create, and post content that converts.</p>
+    </div>
 
     <div class="odometer-wrap">
       <div class="odometer-window">
