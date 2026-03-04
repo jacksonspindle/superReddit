@@ -531,6 +531,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -735,12 +736,13 @@ window.addEventListener('mousemove', (e) => {
 
 // ── Load GLTF and apply materials ──
 const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
 const headGroups = [];
 const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
 let colorIndex = 0;
 let heroLaptopNode = null; // reference to laptop in hero scene for visibility toggle
 
-loader.load('./scene.gltf', (gltf) => {
+loader.load('./scene-optimized.glb', (gltf) => {
   const model = gltf.scene;
 
   function isInHeadGroup(node) {
@@ -1325,7 +1327,7 @@ if (USE_SCROLL_VIDEO) {
         if (ext === 'webp') {
           img.onload = () => { scrollFramesLoaded++; resolve(); };
           img.onerror = () => { scrollFramesLoaded++; resolve(); }; // skip broken frame
-          img.src = `./frames/frame-${String(i).padStart(3, '0')}.png`;
+          img.src = `./frames/frame-${String(i).padStart(3, '0')}.webp`;
         } else {
           scrollFramesLoaded++;
           resolve();
@@ -1447,7 +1449,8 @@ function setupOverlayCanvas() {
 
   // Load same GLTF, extract only laptop
   const oLoader = new GLTFLoader();
-  oLoader.load('./scene.gltf', (gltf) => {
+  oLoader.setMeshoptDecoder(MeshoptDecoder);
+  oLoader.load('./scene-optimized.glb', (gltf) => {
     const model = gltf.scene;
 
     // Find laptop root node
@@ -2450,7 +2453,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // ── Load Robot Scene Pro GLTF ──
     let robotModel = null;
     const fGltfLoader = new GLTFLoader();
-    fGltfLoader.load('models/robotscenepro.gltf', (gltf) => { try {
+    fGltfLoader.setMeshoptDecoder(MeshoptDecoder);
+    fGltfLoader.load('models/robotscenepro-optimized.glb', (gltf) => { try {
       robotModel = gltf.scene;
       fScene.add(robotModel);
 
@@ -2666,7 +2670,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // Character loader with head tilt + pupil gaze
     function loadLDChar(headIdx, skinColor, scaleVal, headTilt, pupilDir, onDone) {
       const loader = new GLTFLoader();
-      loader.load('./scene.gltf', (gltf) => {
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      loader.load('./scene-optimized.glb', (gltf) => {
         const model = gltf.scene;
         model.updateMatrixWorld(true);
         function isInHeadGroup(n) { let p = n.parent; while (p) { if (p.name === 'Heads') return true; p = p.parent; } return false; }
