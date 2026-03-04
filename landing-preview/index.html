@@ -293,6 +293,16 @@
     pointer-events: none;
   }
 
+  .odometer-arrow {
+    display: block;
+    margin: 10px auto 0;
+    width: 20px;
+    height: 20px;
+    border-right: 2px solid rgba(255,255,255,0.3);
+    border-bottom: 2px solid rgba(255,255,255,0.3);
+    transform: rotate(45deg);
+  }
+
   .odometer-window {
     position: relative;
     overflow: hidden;
@@ -624,6 +634,7 @@
 
         </div>
       </div>
+      <span class="odometer-arrow"></span>
     </div>
   </div>
 </section>
