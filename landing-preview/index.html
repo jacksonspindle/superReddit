@@ -2523,8 +2523,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       }
 
       // Initial camera position (draggable via OrbitControls)
-      fCamera.position.set(-6.64, 1.49, 4.21);
-      fControls.target.set(0.47, -0.28, -1.30);
+      fCamera.position.set(-7.385, 1.742, 3.143);
+      fControls.target.set(0.449, -0.627, -1.020);
       fControls.update();
 
       // Position lights relative to model
@@ -2532,23 +2532,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       fFillLight.position.set(center.x - 4, center.y + 2, center.z + 3);
       fRimLight.position.set(center.x, center.y + 4, center.z - 8);
 
-      // Custom floor plane at model base
+      // Floor plane removed — no plane in scene
       const floorY = box.min.y;
-      const floorGeo = new THREE.PlaneGeometry(80, 80);
-      const floorMesh = new THREE.Mesh(floorGeo, groundMat);
-      floorMesh.rotation.x = -Math.PI / 2;
-      floorMesh.position.set(center.x, floorY, center.z);
-      floorMesh.receiveShadow = true;
-      fScene.add(floorMesh);
-      fFloorRef = floorMesh;
 
-      // Grid helper for visibility during editing
-      fGridHelper = new THREE.GridHelper(80, 80, 0x222244, 0x111133);
-      fGridHelper.position.set(center.x, floorY + 0.01, center.z);
-      fGridHelper.visible = false;
-      fScene.add(fGridHelper);
-
-      // Position spotlights — from opposite sides, pointing down at floor
+      // Position spotlights — from opposite sides, pointing down
       fSpotPurple.position.set(center.x - 6, floorY + 2, center.z + 2);
       fSpotPurple.target.position.set(center.x + 1, floorY, center.z);
       fSpotSalmon.position.set(center.x + 6, floorY + 2, center.z - 2);
