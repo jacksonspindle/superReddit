@@ -271,26 +271,17 @@
   .features-header {
     position: absolute;
     right: 6%;
-    top: 18%;
+    top: 14%;
     z-index: 2;
     width: 420px;
     pointer-events: none;
   }
-  .features-header .section-label {
-    text-align: left;
-    color: var(--orange);
-  }
-  .features-header .section-title {
-    text-align: left;
+  .features-header h2 {
+    font-size: 48px;
+    font-weight: 800;
     color: #ffffff;
-    font-size: 32px;
-    margin-bottom: 8px;
-  }
-  .features-header .section-subtitle {
-    text-align: left;
-    color: rgba(255,255,255,0.5);
-    font-size: 15px;
     margin: 0;
+    letter-spacing: -0.03em;
   }
 
   /* ---- Odometer ---- */
@@ -368,7 +359,7 @@
       width: 320px;
       right: 4%;
     }
-    .features-header .section-title { font-size: 26px; }
+    .features-header h2 { font-size: 36px; }
     .odometer-wrap {
       width: 320px;
       right: 4%;
@@ -388,12 +379,8 @@
       left: 50%;
       top: 6%;
       transform: translateX(-50%);
-      text-align: center;
     }
-    .features-header .section-label,
-    .features-header .section-title,
-    .features-header .section-subtitle { text-align: center; }
-    .features-header .section-subtitle { margin: 0 auto; }
+    .features-header h2 { font-size: 32px; text-align: center; }
     .odometer-wrap {
       width: 90%;
       right: auto;
@@ -586,9 +573,7 @@
     <div id="features-3d"></div>
 
     <div class="features-header">
-      <p class="section-label">Features</p>
-      <h2 class="section-title">Everything you need to <span class="accent">win on Reddit</span></h2>
-      <p class="section-subtitle">Six tools working together to find, create, and post content that converts.</p>
+      <h2>Features</h2>
     </div>
 
     <div class="odometer-wrap">
