@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Robot Lighting Test</title>
+<title>Robot — Static Hologram</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; overflow: hidden; }
@@ -33,23 +33,20 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.2;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 /* ─── Scene ─── */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
-// No fog — let it fall to pure black
+scene.background = new THREE.Color(0x050008);
 
-/* ─── Camera — slightly below center, looking up at robot ─── */
+/* ─── Camera ─── */
 const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(0, 1.2, 6.5);
 camera.lookAt(0, 1.0, 0);
 
-/* ─── Orbit controls (for testing) ─── */
+/* ─── Orbit controls ─── */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 1.0, 0);
 controls.enableDamping = true;
@@ -58,18 +55,15 @@ controls.dampingFactor = 0.05;
 /* ─── Environment Map — Dark purple/magenta PMREM ─── */
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
-
 const envScene = new THREE.Scene();
 envScene.background = new THREE.Color(0x050008);
-
-const envLights = [
-  { color: 0xaa44ff, intensity: 60, pos: [-5, 3, 3] },    // strong magenta-purple key
-  { color: 0xff4488, intensity: 30, pos: [4, -2, -3] },    // warm pink fill
-  { color: 0x6622cc, intensity: 40, pos: [0, 6, -5] },     // deep purple overhead
-  { color: 0xffffff, intensity: 15, pos: [3, 5, 5] },      // subtle white edge catch
-  { color: 0xcc2288, intensity: 25, pos: [-3, -4, 2] },    // magenta floor bounce
-];
-envLights.forEach(l => {
+[
+  { color: 0xaa44ff, intensity: 60, pos: [-5, 3, 3] },
+  { color: 0xff4488, intensity: 30, pos: [4, -2, -3] },
+  { color: 0x6622cc, intensity: 40, pos: [0, 6, -5] },
+  { color: 0xffffff, intensity: 15, pos: [3, 5, 5] },
+  { color: 0xcc2288, intensity: 25, pos: [-3, -4, 2] },
+].forEach(l => {
   const pl = new THREE.PointLight(l.color, l.intensity, 100);
   pl.position.set(...l.pos);
   envScene.add(pl);
@@ -78,168 +72,105 @@ envScene.add(new THREE.Mesh(
   new THREE.SphereGeometry(20, 32, 32),
   new THREE.MeshBasicMaterial({ color: 0x050008, side: THREE.BackSide })
 ));
-
 const envMap = pmrem.fromScene(envScene, 0.04).texture;
 scene.environment = envMap;
 pmrem.dispose();
 
-/* ─── Lighting Rig ─── */
-
-// 1. HERO SPOTLIGHT — strong magenta/purple from above-left-behind
-//    This is THE dominant light — creates the big visible pool on the ground
-const heroSpot = new THREE.SpotLight(0x9933dd, 50, 50, Math.PI / 5, 0.4, 0.6);
+/* ─── Lighting (for ground plane + ambient color) ─── */
+// Purple spotlight from above-left
+const heroSpot = new THREE.SpotLight(0x9933dd, 40, 50, Math.PI / 5, 0.4, 0.6);
 heroSpot.position.set(-3, 8, -2);
 heroSpot.target.position.set(0.5, 0, 1);
-heroSpot.castShadow = true;
-heroSpot.shadow.mapSize.set(2048, 2048);
-heroSpot.shadow.camera.near = 1;
-heroSpot.shadow.camera.far = 25;
-heroSpot.shadow.radius = 4;
-heroSpot.shadow.bias = -0.001;
-scene.add(heroSpot);
-scene.add(heroSpot.target);
+scene.add(heroSpot); scene.add(heroSpot.target);
 
-// 2. Purple rim — strong left edge highlight (the bright purple edge in the ref)
-const purpleRim = new THREE.SpotLight(0x7722cc, 35, 35, Math.PI / 5, 0.5, 0.7);
-purpleRim.position.set(-5, 2, 0);
-purpleRim.target.position.set(0, 1, 0);
-scene.add(purpleRim);
-scene.add(purpleRim.target);
-
-// 3. Magenta ground wash — behind the robot, lights up the floor magenta/pink
-const magentaWash = new THREE.SpotLight(0xcc2288, 30, 30, Math.PI / 3, 0.3, 0.5);
+// Magenta wash from behind
+const magentaWash = new THREE.SpotLight(0xcc2288, 25, 30, Math.PI / 3, 0.3, 0.5);
 magentaWash.position.set(1, 6, -4);
 magentaWash.target.position.set(0, -0.5, 0);
-magentaWash.castShadow = false;
-scene.add(magentaWash);
-scene.add(magentaWash.target);
+scene.add(magentaWash); scene.add(magentaWash.target);
 
-// 4. Warm rim — faint orange-red edge on upper-right (visible in ref)
-const warmRim = new THREE.PointLight(0xff5533, 5, 20);
-warmRim.position.set(4, 4, 1);
-scene.add(warmRim);
+// Warm rim upper-right
+scene.add(new THREE.PointLight(0xff5533, 4, 20).translateX(4).translateY(4).translateZ(1));
 
-// 5. Very faint front fill — just enough to read the silhouette, not flatten
-const coolFill = new THREE.DirectionalLight(0x221133, 0.1);
-coolFill.position.set(0, 1, 8);
-scene.add(coolFill);
-
-// NO ambient light — shadows go to pure black
-
-/* ─── Ground Plane — slightly reflective to catch colored light pools ─── */
+/* ─── Ground Plane ─── */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({
-    color: 0x1a1a1a,
-    roughness: 0.4,
-    metalness: 0.1,
-  })
+  new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.1 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.01;
 ground.receiveShadow = true;
 scene.add(ground);
 
+/* ─── Dark purple chrome — same as robot-editor.html ─── */
+const bodyMat = new THREE.MeshPhysicalMaterial({
+  color: 0x14102a,
+  roughness: 0.1,
+  metalness: 1.0,
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.03,
+  envMapIntensity: 2.5,
+  emissive: 0x0a0818,
+  emissiveIntensity: 0.15,
+});
+
 /* ─── Load Robot ─── */
 const loader = new GLTFLoader();
 loader.load('models/robot.glb', (gltf) => {
   const model = gltf.scene;
 
-  // Scale to ~2 units tall
+  // Scale
   const box = new THREE.Box3().setFromObject(model);
-  const size = new THREE.Vector3();
-  box.getSize(size);
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const targetSize = 2.0;
-  const sc = targetSize / maxDim;
+  const size = new THREE.Vector3(); box.getSize(size);
+  const sc = 2.0 / Math.max(size.x, size.y, size.z);
   model.scale.setScalar(sc);
 
-  // Center horizontally, sit on ground
-  const center = new THREE.Vector3();
-  box.getCenter(center);
+  const center = new THREE.Vector3(); box.getCenter(center);
   model.position.set(-center.x * sc, -box.min.y * sc, -center.z * sc);
 
-  // Dark purple chrome — like the reference (not pure black, dark violet metallic)
-  const bodyMat = new THREE.MeshPhysicalMaterial({
-    color: 0x14102a,
-    roughness: 0.1,
-    metalness: 1.0,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.03,
-    envMapIntensity: 2.5,
-    emissive: 0x0a0818,
-    emissiveIntensity: 0.15,
+  // Wireframe overlay material — same as robot-editor showOutline()
+  const wireframeMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.3,
   });
 
-  // White glossy eye material
-  const eyeMat = new THREE.MeshPhysicalMaterial({
-    color: 0xdddddd,
-    roughness: 0.2,
-    metalness: 0.0,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.1,
-    emissive: 0x444444,
-    emissiveIntensity: 0.3,
-  });
-
+  // Apply dark purple chrome + wireframe overlay to all meshes
+  const wireframeClones = [];
   model.traverse((child) => {
     if (!child.isMesh) return;
     child.castShadow = true;
     child.receiveShadow = true;
+    child.material = bodyMat.clone();
 
-    // Detect eyes by geometry size (small spheres) or name
-    const bbox = new THREE.Box3().setFromObject(child);
-    const s = new THREE.Vector3();
-    bbox.getSize(s);
-    const childMaxDim = Math.max(s.x, s.y, s.z);
-    const name = (child.name || '').toLowerCase();
-
-    if (name.includes('eye') || name.includes('pupil') ||
-        (childMaxDim < 0.15 * sc && s.x / s.y > 0.6 && s.x / s.y < 1.5)) {
-      child.material = eyeMat;
-    } else {
-      child.material = bodyMat;
-    }
+    // Clone geometry for wireframe overlay
+    wireframeClones.push(child);
   });
 
   scene.add(model);
-  console.log('Robot loaded — orbit with mouse to inspect');
-},
-(progress) => {},
-(error) => {
-  console.error('GLB failed to load (likely CORS on file://):', error);
-  console.log('Run a local server: cd landing-preview && python3 -m http.server 8080');
-  // Fallback placeholder so you can still see the lighting
-  const placeholderBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, 0.8, 0.8),
-    bodyMat
-  );
-  placeholderBody.position.y = 0.4;
-  placeholderBody.castShadow = true;
-  scene.add(placeholderBody);
-  const placeholderHead = new THREE.Mesh(
-    new THREE.BoxGeometry(1.0, 0.6, 0.5),
-    bodyMat
-  );
-  placeholderHead.position.y = 1.4;
-  placeholderHead.castShadow = true;
-  scene.add(placeholderHead);
-  const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), eyeMat);
-  eye1.position.set(-0.2, 1.4, 0.26);
-  scene.add(eye1);
-  const eye2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), eyeMat);
-  eye2.position.set(0.2, 1.4, 0.26);
-  scene.add(eye2);
+
+  // Add wireframe overlays after model is in scene (so world transforms are correct)
+  wireframeClones.forEach((mesh) => {
+    const geo = mesh.geometry.clone();
+    const overlay = new THREE.Mesh(geo, wireframeMat);
+    overlay.position.copy(mesh.getWorldPosition(new THREE.Vector3()));
+    overlay.quaternion.copy(mesh.getWorldQuaternion(new THREE.Quaternion()));
+    overlay.scale.copy(mesh.getWorldScale(new THREE.Vector3()));
+    scene.add(overlay);
+  });
+
+  console.log(`Robot loaded — ${wireframeClones.length} meshes with wireframe overlay`);
 });
 
-/* ─── Post-Processing (subtle bloom for light spill) ─── */
+/* ─── Post-Processing — strong bloom for the glow ─── */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.5,   // strength — visible glow on bright spots
-  1.0,   // radius — soft spread
-  0.6    // threshold — catch the hot purple highlights
+  0.4,   // strength — subtle glow on edges
+  0.6,   // radius
+  0.7    // threshold
 );
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
