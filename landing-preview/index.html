@@ -290,11 +290,22 @@
   }
 
   .odometer-window {
+    position: relative;
     overflow: hidden;
     height: 200px;
-    border-radius: 16px;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  }
+  /* Center reading line — mimics the odometer slot */
+  .odometer-window::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+    z-index: 1;
+    pointer-events: none;
   }
 
   .odometer-track {
@@ -304,10 +315,9 @@
   }
 
   .odometer-card {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px;
-    padding: 28px 32px;
+    background: none;
+    border: none;
+    padding: 28px 16px;
     box-sizing: border-box;
     height: 200px;
     display: flex;
