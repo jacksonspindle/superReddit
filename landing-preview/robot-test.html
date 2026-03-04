@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robot Scene Pro</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
+  canvas { display: block; }
+  #cam-info {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,8,20,0.9);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 12px 20px;
+    color: #ccc;
+    font-size: 12px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  #cam-info span { color: #ff6b35; font-weight: 600; }
+  #cam-info button {
+    background: #ff6b35;
+    border: none;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #cam-info button:hover { background: #e85d2c; }
+</style>
+</head>
+<body>
+<div id="cam-info">
+  Pos: <span id="cam-pos">—</span> &nbsp; Target: <span id="cam-tgt">—</span>
+  <button id="cam-copy">Copy to Clipboard</button>
+</div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ─── Renderer ─── */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.physicallyCorrectLights = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+/* ─── Scene ─── */
+const scene = new THREE.Scene();
+
+/* ─── Camera ─── */
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.01, 1000);
+camera.position.set(0, 2, 10);
+camera.lookAt(0, 0, 0);
+
+/* ─── Orbit Controls ─── */
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+/* ─── Camera readout ─── */
+const camPosEl = document.getElementById('cam-pos');
+const camTgtEl = document.getElementById('cam-tgt');
+document.getElementById('cam-copy').addEventListener('click', () => {
+  const p = camera.position;
+  const t = controls.target;
+  const text = `camera.position.set(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)});\ncamera.lookAt(${t.x.toFixed(3)}, ${t.y.toFixed(3)}, ${t.z.toFixed(3)});`;
+  navigator.clipboard.writeText(text);
+  document.getElementById('cam-copy').textContent = 'Copied!';
+  setTimeout(() => document.getElementById('cam-copy').textContent = 'Copy to Clipboard', 1500);
+});
+
+/* ─── Load Scene ─── */
+const loader = new GLTFLoader();
+loader.load('models/robotscenepro.gltf', (gltf) => {
+  scene.add(gltf.scene);
+
+  // Enable shadows on all meshes
+  gltf.scene.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  // Auto-frame: compute bounding box and position camera to see the whole scene
+  const box = new THREE.Box3().setFromObject(gltf.scene);
+  const center = new THREE.Vector3();
+  const size = new THREE.Vector3();
+  box.getCenter(center);
+  box.getSize(size);
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2));
+
+  camera.position.set(center.x, center.y + maxDim * 0.3, center.z + dist * 1.2);
+  camera.lookAt(center);
+  controls.target.copy(center);
+
+  console.log(`Scene loaded — bounds: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}, center: ${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${center.z.toFixed(1)}`);
+});
+
+/* ─── Post-Processing — subtle bloom ─── */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.15,  // strength
+  0.3,   // radius
+  0.92   // threshold
+);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ─── Resize ─── */
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ─── Animate ─── */
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  // Update camera readout
+  const p = camera.position;
+  const t = controls.target;
+  camPosEl.textContent = `${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`;
+  camTgtEl.textContent = `${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)}`;
+  composer.render();
+}
+animate();
+</script>
+</body>
+</html>
