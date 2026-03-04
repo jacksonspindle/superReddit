@@ -2340,19 +2340,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
     const fCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
 
-    // ── Camera Controls — orbit, zoom, pan ──
-    fCamera.layers.enable(1); // See both layer 0 (robot) and layer 1 (floor)
-    const fControls = new OrbitControls(fCamera, fRenderer.domElement);
-    fControls.target.set(0.47, -0.28, -1.30);
-    fControls.enableDamping = true;
-    fControls.dampingFactor = 0.05;
-
-    // Prevent page scroll when hovering features canvas (zoom instead)
-    fRenderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
-
-    // State for floor editing
-    let fFloorRef = null;
-    let fGridHelper = null;
+    // Camera sees both layer 0 (robot) and layer 1 (floor)
+    fCamera.layers.enable(1);
 
     // ── Lighting — light-driven, no HDRI ──
 
@@ -2535,10 +2524,9 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         box.getSize(size);
       }
 
-      // Initial camera position (draggable via OrbitControls)
+      // Locked camera position
       fCamera.position.set(-4.907, 2.351, 1.817);
-      fControls.target.set(1.095, -0.744, -1.280);
-      fControls.update();
+      fCamera.lookAt(1.095, -0.744, -1.280);
 
       // Position lights relative to model
       fKeyLight.position.set(center.x + 6, center.y + 6, center.z + 6);
@@ -2556,15 +2544,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       fScene.add(floorMesh);
       fFloorRef = floorMesh;
 
-      // Position spotlights — raised high for wide cone, from opposite sides
-      // Store center offsets so sliders work relative to model center
-      fSpotPurple._centerX = center.x;
-      fSpotPurple._centerZ = center.z;
-      fSpotPurple._floorY = floorY;
-      fSpotSalmon._centerX = center.x;
-      fSpotSalmon._centerZ = center.z;
-      fSpotSalmon._floorY = floorY;
-
+      // Locked spotlight positions
       fSpotPurple.position.set(1.50, 6.06, 1.45);
       fSpotPurple.target.position.set(-0.00, -2.44, -2.05);
       fSpotSalmon.position.set(-3.50, 15.06, 5.95);
@@ -2584,288 +2564,6 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       });
 
       fNeedsRender = true;
-    });
-
-    // ── Editing Controls: Camera readout + Draw-to-Clip tool ──
-    let fDrawMode = false;
-    let fDrawPoints = [];
-    let fDrawMarkers = [];
-    let fDrawLine = null;
-    const fRaycaster = new THREE.Raycaster();
-    const fMouseVec = new THREE.Vector2();
-    let fMouseDownXY = null;
-
-    // Control panel
-    const fPanel = document.createElement('div');
-    fPanel.style.cssText = 'position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(10,8,20,0.95); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:12px 20px; color:#ccc; font-size:12px; z-index:9999; display:flex; align-items:center; gap:12px; font-family:-apple-system,sans-serif; font-variant-numeric:tabular-nums; flex-wrap:wrap; max-width:96vw;';
-    const bs = 'border:none; color:white; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;';
-    fPanel.innerHTML = `
-      Cam: <b id="f-cp" style="color:#ff6b35">—</b>
-      &nbsp;Tgt: <b id="f-ct" style="color:#ff6b35">—</b>
-      <button id="f-cc" style="background:#ff6b35;${bs}">Copy Cam</button>
-      <span style="border-left:1px solid rgba(255,255,255,0.2);height:20px;"></span>
-      <button id="f-dm" style="background:#883FE0;${bs}">Draw Clip</button>
-      <span id="f-di" style="color:#666;font-size:11px;">—</span>
-      <button id="f-ub" style="background:#666;${bs} display:none;">Undo</button>
-      <button id="f-cb" style="background:#34a853;${bs} display:none;">Close Shape</button>
-      <button id="f-clb" style="background:#ea4335;${bs} display:none;">Clear</button>
-      <button id="f-csb" style="background:#4285f4;${bs} display:none;">Copy Shape</button>
-      <span style="border-left:1px solid rgba(255,255,255,0.2);height:20px;"></span>
-      <button id="f-gb" style="background:#333;${bs}">Grid</button>
-    `;
-    document.body.appendChild(fPanel);
-
-    // ── Lighting Controls Panel ──
-    const fLightPanel = document.createElement('div');
-    fLightPanel.style.cssText = 'position:fixed; top:20px; right:20px; background:rgba(10,8,20,0.95); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:14px 20px; color:#ccc; font-size:11px; z-index:9999; font-family:-apple-system,sans-serif; max-width:420px; display:none;';
-    const sliderCSS = 'width:120px; height:4px; accent-color:#ff6b35; cursor:pointer; vertical-align:middle;';
-    fLightPanel.innerHTML = `
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-        <b style="color:#883FE0;">Purple Spot</b>
-        <span style="flex:1;"></span>
-        <button id="fl-copy" style="background:#ff6b35;${bs}">Copy All</button>
-      </div>
-      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
-        <label>X <input type="range" id="fl-px" min="-20" max="20" step="0.5" value="-4" style="${sliderCSS}"> <span id="fl-px-v">-4</span></label>
-        <label>Y <input type="range" id="fl-py" min="1" max="20" step="0.5" value="8" style="${sliderCSS}"> <span id="fl-py-v">8</span></label>
-        <label>Z <input type="range" id="fl-pz" min="-20" max="20" step="0.5" value="4" style="${sliderCSS}"> <span id="fl-pz-v">4</span></label>
-        <label>Int <input type="range" id="fl-pi" min="50" max="800" step="10" value="300" style="${sliderCSS}"> <span id="fl-pi-v">300</span></label>
-        <label>Angle <input type="range" id="fl-pa" min="10" max="60" step="1" value="30" style="${sliderCSS}"> <span id="fl-pa-v">30</span></label>
-        <label>Penumbra <input type="range" id="fl-pp" min="0" max="1" step="0.05" value="0.70" style="${sliderCSS}"> <span id="fl-pp-v">0.70</span></label>
-        <label>ShadowBlur <input type="range" id="fl-pr" min="0" max="20" step="1" value="8" style="${sliderCSS}"> <span id="fl-pr-v">8</span></label>
-      </div>
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-        <b style="color:#F37E7E;">Salmon Spot</b>
-      </div>
-      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
-        <label>X <input type="range" id="fl-sx" min="-20" max="20" step="0.5" value="4" style="${sliderCSS}"> <span id="fl-sx-v">4</span></label>
-        <label>Y <input type="range" id="fl-sy" min="1" max="20" step="0.5" value="8" style="${sliderCSS}"> <span id="fl-sy-v">8</span></label>
-        <label>Z <input type="range" id="fl-sz" min="-20" max="20" step="0.5" value="-3" style="${sliderCSS}"> <span id="fl-sz-v">-3</span></label>
-        <label>Int <input type="range" id="fl-si" min="50" max="800" step="10" value="300" style="${sliderCSS}"> <span id="fl-si-v">300</span></label>
-        <label>Angle <input type="range" id="fl-sa" min="10" max="60" step="1" value="30" style="${sliderCSS}"> <span id="fl-sa-v">30</span></label>
-        <label>Penumbra <input type="range" id="fl-sp" min="0" max="1" step="0.05" value="0.70" style="${sliderCSS}"> <span id="fl-sp-v">0.70</span></label>
-        <label>ShadowBlur <input type="range" id="fl-sr" min="0" max="20" step="1" value="8" style="${sliderCSS}"> <span id="fl-sr-v">8</span></label>
-      </div>
-      <div style="display:flex; gap:16px; flex-wrap:wrap;">
-        <b style="color:#ccc;">Floor</b>
-        <label>Rough <input type="range" id="fl-fr" min="0" max="1" step="0.05" value="0.45" style="${sliderCSS}"> <span id="fl-fr-v">0.45</span></label>
-        <label>Metal <input type="range" id="fl-fm" min="0" max="1" step="0.05" value="0.40" style="${sliderCSS}"> <span id="fl-fm-v">0.40</span></label>
-      </div>
-    `;
-    document.body.appendChild(fLightPanel);
-
-    // Toggle light panel visibility from main bar — add button
-    const fLightBtn = document.createElement('button');
-    fLightBtn.id = 'f-lb';
-    fLightBtn.textContent = 'Lights';
-    fLightBtn.style.cssText = `background:#883FE0;${bs}`;
-    fPanel.querySelector('#f-gb').after(fLightBtn);
-    fLightBtn.addEventListener('click', () => {
-      const vis = fLightPanel.style.display === 'none';
-      fLightPanel.style.display = vis ? '' : 'none';
-      fLightBtn.style.background = vis ? '#ff6b35' : '#883FE0';
-    });
-
-    // Wire up purple spotlight sliders
-    function wireSlider(id, cb) {
-      const el = document.getElementById(id);
-      el.addEventListener('input', () => {
-        document.getElementById(id + '-v').textContent = el.value;
-        cb(parseFloat(el.value));
-        fNeedsRender = true;
-      });
-    }
-    wireSlider('fl-px', v => fSpotPurple.position.x = v + (fSpotPurple._centerX || 0));
-    wireSlider('fl-py', v => fSpotPurple.position.y = v + (fSpotPurple._floorY || 0));
-    wireSlider('fl-pz', v => fSpotPurple.position.z = v + (fSpotPurple._centerZ || 0));
-    wireSlider('fl-pi', v => fSpotPurple.intensity = v);
-    wireSlider('fl-pa', v => fSpotPurple.angle = v * Math.PI / 180);
-    wireSlider('fl-pp', v => fSpotPurple.penumbra = v);
-    wireSlider('fl-pr', v => fSpotPurple.shadow.radius = v);
-
-    // Wire up salmon spotlight sliders
-    wireSlider('fl-sx', v => fSpotSalmon.position.x = v + (fSpotSalmon._centerX || 0));
-    wireSlider('fl-sy', v => fSpotSalmon.position.y = v + (fSpotSalmon._floorY || 0));
-    wireSlider('fl-sz', v => fSpotSalmon.position.z = v + (fSpotSalmon._centerZ || 0));
-    wireSlider('fl-si', v => fSpotSalmon.intensity = v);
-    wireSlider('fl-sa', v => fSpotSalmon.angle = v * Math.PI / 180);
-    wireSlider('fl-sp', v => fSpotSalmon.penumbra = v);
-    wireSlider('fl-sr', v => fSpotSalmon.shadow.radius = v);
-
-    // Wire up floor material sliders
-    wireSlider('fl-fr', v => { if (fFloorRef) fFloorRef.material.roughness = v; });
-    wireSlider('fl-fm', v => { if (fFloorRef) fFloorRef.material.metalness = v; });
-
-    // Copy all light values
-    document.getElementById('fl-copy').addEventListener('click', () => {
-      const pp = fSpotPurple.position, pt = fSpotPurple.target.position;
-      const sp = fSpotSalmon.position, st = fSpotSalmon.target.position;
-      const code = [
-        `// Purple spotlight`,
-        `fSpotPurple.position.set(${pp.x.toFixed(2)}, ${pp.y.toFixed(2)}, ${pp.z.toFixed(2)});`,
-        `fSpotPurple.target.position.set(${pt.x.toFixed(2)}, ${pt.y.toFixed(2)}, ${pt.z.toFixed(2)});`,
-        `fSpotPurple.intensity = ${fSpotPurple.intensity};`,
-        `fSpotPurple.angle = ${(fSpotPurple.angle * 180 / Math.PI).toFixed(1)} * Math.PI / 180;`,
-        `fSpotPurple.penumbra = ${fSpotPurple.penumbra.toFixed(2)};`,
-        `fSpotPurple.shadow.radius = ${fSpotPurple.shadow.radius};`,
-        `// Salmon spotlight`,
-        `fSpotSalmon.position.set(${sp.x.toFixed(2)}, ${sp.y.toFixed(2)}, ${sp.z.toFixed(2)});`,
-        `fSpotSalmon.target.position.set(${st.x.toFixed(2)}, ${st.y.toFixed(2)}, ${st.z.toFixed(2)});`,
-        `fSpotSalmon.intensity = ${fSpotSalmon.intensity};`,
-        `fSpotSalmon.angle = ${(fSpotSalmon.angle * 180 / Math.PI).toFixed(1)} * Math.PI / 180;`,
-        `fSpotSalmon.penumbra = ${fSpotSalmon.penumbra.toFixed(2)};`,
-        `fSpotSalmon.shadow.radius = ${fSpotSalmon.shadow.radius};`,
-        `// Floor material`,
-        `roughness: ${fFloorRef?.material.roughness.toFixed(2)}, metalness: ${fFloorRef?.material.metalness.toFixed(2)}`,
-      ].join('\n');
-      navigator.clipboard.writeText(code);
-      const b = document.getElementById('fl-copy'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy All', 1200);
-    });
-
-    function updateDrawUI() {
-      const n = fDrawPoints.length;
-      document.getElementById('f-ub').style.display = (fDrawMode && n > 0) ? '' : 'none';
-      document.getElementById('f-cb').style.display = (fDrawMode && n >= 3) ? '' : 'none';
-      document.getElementById('f-clb').style.display = (fDrawMode && n > 0) ? '' : 'none';
-    }
-
-    // Copy camera values
-    document.getElementById('f-cc').addEventListener('click', () => {
-      const p = fCamera.position, t = fControls.target;
-      navigator.clipboard.writeText(
-        `fCamera.position.set(${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)});\nfControls.target.set(${t.x.toFixed(3)}, ${t.y.toFixed(3)}, ${t.z.toFixed(3)});`
-      );
-      const b = document.getElementById('f-cc'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy Cam', 1200);
-    });
-
-    // Toggle grid
-    document.getElementById('f-gb').addEventListener('click', () => {
-      if (fGridHelper) {
-        fGridHelper.visible = !fGridHelper.visible;
-        document.getElementById('f-gb').style.background = fGridHelper.visible ? '#ff6b35' : '#333';
-        fNeedsRender = true;
-      }
-    });
-
-    // Toggle draw mode
-    document.getElementById('f-dm').addEventListener('click', () => {
-      fDrawMode = !fDrawMode;
-      const btn = document.getElementById('f-dm');
-      btn.textContent = fDrawMode ? 'Drawing...' : 'Draw Clip';
-      btn.style.background = fDrawMode ? '#ea4335' : '#883FE0';
-      document.getElementById('f-di').textContent = fDrawMode
-        ? 'Click on floor to place clip points'
-        : (fDrawPoints.length > 0 ? `${fDrawPoints.length} pts` : '—');
-      updateDrawUI();
-    });
-
-    // Track mousedown to distinguish clicks from drags
-    fRenderer.domElement.addEventListener('mousedown', (e) => {
-      fMouseDownXY = { x: e.clientX, y: e.clientY };
-    });
-
-    // Click to place point on floor
-    fRenderer.domElement.addEventListener('click', (e) => {
-      if (!fDrawMode || !fFloorRef || !fMouseDownXY) return;
-      const dx = e.clientX - fMouseDownXY.x, dy = e.clientY - fMouseDownXY.y;
-      if (Math.sqrt(dx * dx + dy * dy) > 5) return; // was a drag, not a click
-
-      const rect = fRenderer.domElement.getBoundingClientRect();
-      fMouseVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      fMouseVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      fRaycaster.setFromCamera(fMouseVec, fCamera);
-      const hits = fRaycaster.intersectObject(fFloorRef);
-      if (hits.length === 0) return;
-
-      const pt = hits[0].point.clone();
-      fDrawPoints.push(pt);
-
-      // Orange marker sphere
-      const m = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0xff6b35 })
-      );
-      m.position.set(pt.x, pt.y + 0.08, pt.z);
-      fScene.add(m);
-      fDrawMarkers.push(m);
-
-      rebuildDrawLine();
-      document.getElementById('f-di').textContent = `${fDrawPoints.length} pts placed`;
-      updateDrawUI();
-      fNeedsRender = true;
-    });
-
-    function rebuildDrawLine() {
-      if (fDrawLine) { fScene.remove(fDrawLine); fDrawLine.geometry.dispose(); fDrawLine = null; }
-      if (fDrawPoints.length < 2) return;
-      const verts = fDrawPoints.map(p => new THREE.Vector3(p.x, p.y + 0.06, p.z));
-      fDrawLine = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(verts),
-        new THREE.LineBasicMaterial({ color: 0xff6b35 })
-      );
-      fScene.add(fDrawLine);
-    }
-
-    // Undo last point
-    document.getElementById('f-ub').addEventListener('click', () => {
-      if (fDrawPoints.length === 0) return;
-      fDrawPoints.pop();
-      const m = fDrawMarkers.pop();
-      if (m) { fScene.remove(m); m.geometry.dispose(); m.material.dispose(); }
-      rebuildDrawLine();
-      document.getElementById('f-di').textContent = fDrawPoints.length > 0 ? `${fDrawPoints.length} pts placed` : 'Click to place points';
-      updateDrawUI();
-      fNeedsRender = true;
-    });
-
-    // Close shape — clip floor to drawn polygon
-    document.getElementById('f-cb').addEventListener('click', () => {
-      if (fDrawPoints.length < 3 || !fFloorRef) return;
-      const fp = fFloorRef.position;
-      const shape = new THREE.Shape();
-      // Floor rotated -PI/2 on X: world (wx, floorY, wz) → local (wx-cx, -(wz-cz))
-      const pts2d = fDrawPoints.map(p => ({ x: p.x - fp.x, y: -(p.z - fp.z) }));
-      shape.moveTo(pts2d[0].x, pts2d[0].y);
-      for (let i = 1; i < pts2d.length; i++) shape.lineTo(pts2d[i].x, pts2d[i].y);
-      shape.closePath();
-      const oldGeo = fFloorRef.geometry;
-      fFloorRef.geometry = new THREE.ShapeGeometry(shape);
-      oldGeo.dispose();
-      document.getElementById('f-di').textContent = 'Shape applied!';
-      document.getElementById('f-csb').style.display = '';
-      fNeedsRender = true;
-    });
-
-    // Clear all
-    document.getElementById('f-clb').addEventListener('click', () => {
-      fDrawMarkers.forEach(m => { fScene.remove(m); m.geometry.dispose(); m.material.dispose(); });
-      fDrawMarkers = [];
-      if (fDrawLine) { fScene.remove(fDrawLine); fDrawLine.geometry.dispose(); fDrawLine = null; }
-      fDrawPoints = [];
-      if (fFloorRef) {
-        const old = fFloorRef.geometry;
-        fFloorRef.geometry = new THREE.PlaneGeometry(80, 80);
-        old.dispose();
-      }
-      document.getElementById('f-di').textContent = 'Cleared';
-      document.getElementById('f-csb').style.display = 'none';
-      updateDrawUI();
-      fNeedsRender = true;
-    });
-
-    // Copy shape code
-    document.getElementById('f-csb').addEventListener('click', () => {
-      if (!fFloorRef || fDrawPoints.length < 3) return;
-      const fp = fFloorRef.position;
-      const pts = fDrawPoints.map(p => ({
-        x: (p.x - fp.x).toFixed(3),
-        y: (-(p.z - fp.z)).toFixed(3)
-      }));
-      let code = `const floorShape = new THREE.Shape();\nfloorShape.moveTo(${pts[0].x}, ${pts[0].y});\n`;
-      code += pts.slice(1).map(p => `floorShape.lineTo(${p.x}, ${p.y});`).join('\n');
-      code += `\nfloorShape.closePath();\nconst floorGeo = new THREE.ShapeGeometry(floorShape);`;
-      navigator.clipboard.writeText(code);
-      const b = document.getElementById('f-csb'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy Shape', 1200);
     });
 
     // ── Sizing ──
@@ -2893,12 +2591,6 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // ── Render loop ──
     function featuresLoop() {
       requestAnimationFrame(featuresLoop);
-      fControls.update();
-      // Camera readout
-      const p = fCamera.position, t = fControls.target;
-      const cpEl = document.getElementById('f-cp'), ctEl = document.getElementById('f-ct');
-      if (cpEl) cpEl.textContent = `${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}`;
-      if (ctEl) ctEl.textContent = `${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)}`;
       fComposer.render();
     }
     featuresLoop();
