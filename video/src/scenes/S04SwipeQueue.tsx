@@ -124,7 +124,8 @@ export const S04SwipeQueue: React.FC = () => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          padding: "30px 60px",
+          justifyContent: "center",
+          padding: "20px 60px",
           opacity: uiOpacity,
         }}
       >
