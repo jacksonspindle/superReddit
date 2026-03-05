@@ -1962,6 +1962,7 @@ function setupOverlayCanvas() {
 }
 
 // ── Video mute toggle ──
+window.toggleMute = toggleMute;
 function toggleMute() {
   const video = document.getElementById('demo-video-player');
   const prompt = document.getElementById('unmute-prompt');
@@ -1972,6 +1973,7 @@ function toggleMute() {
 
 // ── Video expand/collapse ──
 let videoExpanded = false;
+window.toggleVideoExpand = toggleVideoExpand;
 function toggleVideoExpand() {
   videoExpanded = !videoExpanded;
   const wrap = document.getElementById('flat-video-wrap');
