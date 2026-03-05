@@ -29,14 +29,16 @@ const POSTS = [
   {
     sub: "r/SaaS",
     title: 'Looking for an alternative to Zendesk that doesn\'t cost a fortune',
+    body: "Small biz with 3 support agents. Zendesk wants $89/agent/month which is wild for our volume.",
     time: "1h ago",
-    upvotes: 34,
-    comments: 15,
+    upvotes: 142,
+    comments: 47,
     keyword: "alternative to",
   },
   {
     sub: "r/smallbusiness",
     title: 'Any good alternative to Calendly for scheduling?',
+    body: "Free tier is too limited and the paid plans are pricey for a solo consultant.",
     time: "2h ago",
     upvotes: 67,
     comments: 28,
@@ -45,6 +47,7 @@ const POSTS = [
   {
     sub: "r/startups",
     title: 'Need an alternative to Asana — their pricing is insane now',
+    body: "We're a 12-person agency. Asana wants us on Business tier at $25/user/month just for timeline view.",
     time: "4h ago",
     upvotes: 45,
     comments: 19,
@@ -53,6 +56,7 @@ const POSTS = [
   {
     sub: "r/webdev",
     title: 'Free alternative to Figma for solo designers?',
+    body: "Now that Figma is pushing teams pricing, I need something for personal projects. Penpot looks promising.",
     time: "6h ago",
     upvotes: 112,
     comments: 41,
@@ -61,6 +65,7 @@ const POSTS = [
   {
     sub: "r/SaaS",
     title: 'Open source alternative to Intercom for customer chat?',
+    body: "We're bootstrapped and paying $74/mo for Intercom is eating our runway.",
     time: "8h ago",
     upvotes: 89,
     comments: 36,
@@ -69,6 +74,7 @@ const POSTS = [
   {
     sub: "r/SEO",
     title: 'Cheap alternative to Ahrefs for SEO research?',
+    body: "I'm a freelancer and can't justify $99/mo for Ahrefs. Mainly need keyword research and backlink checking.",
     time: "12h ago",
     upvotes: 71,
     comments: 29,
@@ -549,7 +555,7 @@ export const S03Alerts: React.FC = () => {
           style={{
             position: "absolute",
             inset: 0,
-            padding: "40px 50px",
+            padding: "28px 40px",
             opacity: pageSectionOpacity,
             display: "flex",
             flexDirection: "column",
@@ -562,12 +568,12 @@ export const S03Alerts: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 22,
+                marginBottom: 12,
               }}
             >
               <div
                 style={{
-                  fontSize: 22,
+                  fontSize: 28,
                   fontWeight: 700,
                   color: COLORS.fg,
                 }}
@@ -576,7 +582,7 @@ export const S03Alerts: React.FC = () => {
               </div>
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: 16,
                   color: COLORS.fgMuted,
                 }}
               >
@@ -589,8 +595,8 @@ export const S03Alerts: React.FC = () => {
           <div
             style={{
               display: "flex",
-              gap: 10,
-              marginBottom: 20,
+              gap: 12,
+              marginBottom: 10,
               transform: `translateY(${keywordStripSlide}px)`,
               opacity: interpolate(frame, [80, 95], [0, 1], {
                 extrapolateLeft: "clamp",
@@ -614,15 +620,15 @@ export const S03Alerts: React.FC = () => {
                   key={i}
                   style={{
                     flex: 1,
-                    padding: "14px 16px",
+                    padding: "16px 20px",
                     background: isActive
                       ? "linear-gradient(135deg, rgba(167,139,250,0.05), transparent)"
                       : COLORS.surface,
                     border: `1px solid ${isActive ? "rgba(167,139,250,0.25)" : COLORS.border}`,
-                    borderRadius: 12,
+                    borderRadius: 14,
                     display: "flex",
                     flexDirection: "column",
-                    gap: 6,
+                    gap: 8,
                     position: "relative",
                     opacity: interpolate(pillSpring, [0, 1], [0, 1]),
                     transform: `translateY(${interpolate(pillSpring, [0, 1], [15, 0])}px) scale(${
@@ -638,7 +644,7 @@ export const S03Alerts: React.FC = () => {
                 >
                   <div
                     style={{
-                      fontSize: 13,
+                      fontSize: 17,
                       fontWeight: 600,
                       color: COLORS.fg,
                     }}
@@ -649,19 +655,19 @@ export const S03Alerts: React.FC = () => {
                     style={{
                       display: "flex",
                       alignItems: "baseline",
-                      gap: 6,
+                      gap: 8,
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 22,
+                        fontSize: 28,
                         fontWeight: 700,
                         color: isActive ? COLORS.accent : COLORS.fg,
                       }}
                     >
                       {kw.count}
                     </div>
-                    <div style={{ fontSize: 10, color: COLORS.fgDim }}>
+                    <div style={{ fontSize: 13, color: COLORS.fgDim }}>
                       catches
                     </div>
                   </div>
@@ -669,7 +675,7 @@ export const S03Alerts: React.FC = () => {
                   <div
                     style={{
                       width: "100%",
-                      height: 3,
+                      height: 4,
                       background: COLORS.bgMuted,
                       borderRadius: 2,
                       overflow: "hidden",
@@ -692,7 +698,7 @@ export const S03Alerts: React.FC = () => {
                         bottom: -1,
                         left: "20%",
                         right: "20%",
-                        height: 2,
+                        height: 3,
                         background: COLORS.accent,
                         borderRadius: 2,
                         opacity: clickProgress,
@@ -708,9 +714,9 @@ export const S03Alerts: React.FC = () => {
           <FadeSlide delay={100} distance={8}>
             <div
               style={{
-                fontSize: 12,
+                fontSize: 15,
                 color: COLORS.fgMuted,
-                marginBottom: 16,
+                marginBottom: 10,
               }}
             >
               Showing{" "}
@@ -725,40 +731,56 @@ export const S03Alerts: React.FC = () => {
             </div>
           </FadeSlide>
 
-          {/* Post grid — 2 columns */}
+          {/* Post grid — 3 columns, fills remaining space */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: 10,
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateRows: "1fr 1fr",
+              gap: 12,
               opacity: gridOpacity,
               flex: 1,
-              overflow: "hidden",
             }}
           >
             {POSTS.map((post, i) => (
-              <FadeSlide key={i} delay={112 + i * 6} distance={12}>
+              <FadeSlide key={i} delay={112 + i * 5} distance={10} style={{ display: "flex" }}>
                 <div
                   style={{
                     background: COLORS.surface,
                     border: `1px solid ${COLORS.border}`,
-                    borderRadius: 12,
-                    padding: "16px 18px",
+                    borderRadius: 14,
+                    padding: "18px 20px",
                     display: "flex",
                     flexDirection: "column",
                     gap: 10,
+                    flex: 1,
                   }}
                 >
                   {/* Title with highlighted keyword */}
                   <div
                     style={{
-                      fontSize: 13,
+                      fontSize: 17,
                       fontWeight: 500,
                       color: COLORS.fg,
-                      lineHeight: 1.45,
+                      lineHeight: 1.4,
                     }}
                   >
                     {highlightKeyword(post.title, post.keyword)}
+                  </div>
+
+                  {/* Body preview */}
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: COLORS.fgDim,
+                      lineHeight: 1.5,
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {post.body}
                   </div>
 
                   {/* Meta row */}
@@ -766,8 +788,8 @@ export const S03Alerts: React.FC = () => {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      fontSize: 10,
+                      gap: 8,
+                      fontSize: 13,
                       color: COLORS.fgDim,
                     }}
                   >
@@ -793,21 +815,22 @@ export const S03Alerts: React.FC = () => {
                       justifyContent: "space-between",
                       paddingTop: 10,
                       borderTop: "1px solid rgba(255,255,255,0.03)",
-                      fontSize: 10,
+                      fontSize: 13,
                       color: COLORS.fgDim,
+                      marginTop: "auto",
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
-                        gap: 10,
+                        gap: 12,
                       }}
                     >
                       <span
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 3,
+                          gap: 4,
                           color:
                             post.upvotes >= 80 ? COLORS.orange : COLORS.fgDim,
                           fontWeight: post.upvotes >= 80 ? 600 : 400,
@@ -819,7 +842,7 @@ export const S03Alerts: React.FC = () => {
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 3,
+                          gap: 4,
                         }}
                       >
                         {"💬"} {post.comments}
@@ -827,11 +850,12 @@ export const S03Alerts: React.FC = () => {
                     </div>
                     <span
                       style={{
-                        padding: "1px 7px",
-                        borderRadius: 4,
+                        padding: "2px 10px",
+                        borderRadius: 5,
                         background: COLORS.accentBg,
                         color: COLORS.accent,
                         fontWeight: 500,
+                        fontSize: 12,
                       }}
                     >
                       {post.keyword}
