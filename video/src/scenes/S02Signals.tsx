@@ -32,14 +32,14 @@ const OdometerDigit: React.FC<{
     { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.quad) }
   );
 
-  const yOffset = interpolate(rollProgress, [0, 1], [0, -40]);
+  const yOffset = interpolate(rollProgress, [0, 1], [0, -56]);
 
   return (
     <div
       style={{
         overflow: "hidden",
-        height: 48,
-        width: 32,
+        height: 64,
+        width: 42,
         position: "relative",
         display: "flex",
         alignItems: "center",
@@ -49,11 +49,11 @@ const OdometerDigit: React.FC<{
       <div style={{ position: "absolute", transform: `translateY(${yOffset}px)` }}>
         <div
           style={{
-            height: 40,
+            height: 56,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 36,
+            fontSize: 48,
             fontWeight: 800,
             color,
             lineHeight: 1,
@@ -63,11 +63,11 @@ const OdometerDigit: React.FC<{
         </div>
         <div
           style={{
-            height: 40,
+            height: 56,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 36,
+            fontSize: 48,
             fontWeight: 800,
             color,
             lineHeight: 1,
@@ -120,27 +120,27 @@ const OdometerCounter: React.FC<{
         background: COLORS.bgCard,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 14,
-        padding: "18px 20px",
+        padding: "22px 24px",
         display: "flex",
         flexDirection: "column",
-        gap: 8,
+        gap: 10,
         transform: `scale(${entryScale * pulseScale})`,
         transformOrigin: "center",
       }}
     >
       <div
         style={{
-          fontSize: 11,
+          fontSize: 15,
           color: COLORS.fgMuted,
           fontWeight: 600,
           textTransform: "uppercase",
           letterSpacing: 0.8,
           display: "flex",
           alignItems: "center",
-          gap: 6,
+          gap: 8,
         }}
       >
-        <span style={{ fontSize: 14 }}>{icon}</span>
+        <span style={{ fontSize: 18 }}>{icon}</span>
         {label}
       </div>
       <div style={{ display: "flex", gap: 2 }}>
@@ -207,29 +207,29 @@ const PhoneNotification: React.FC<{
         transform: `translateX(-50%) translateY(${slideDown}px)`,
         opacity,
         zIndex: 100,
-        width: 620,
+        width: 860,
         background: "rgba(30,30,30,0.95)",
         backdropFilter: "blur(20px)",
         border: `1px solid rgba(255,255,255,0.12)`,
-        borderRadius: 20,
-        padding: "22px 28px",
+        borderRadius: 24,
+        padding: "32px 36px",
         display: "flex",
         alignItems: "center",
-        gap: 20,
-        boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
+        gap: 24,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
       }}
     >
       {/* App icon */}
       <div
         style={{
-          width: 56,
-          height: 56,
-          borderRadius: 14,
+          width: 72,
+          height: 72,
+          borderRadius: 18,
           background: `linear-gradient(135deg, ${COLORS.orange}, #ea580c)`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 22,
+          fontSize: 28,
           fontWeight: 800,
           color: "white",
           flexShrink: 0,
@@ -243,15 +243,15 @@ const PhoneNotification: React.FC<{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 6,
+            marginBottom: 8,
           }}
         >
-          <span style={{ fontSize: 18, fontWeight: 700, color: COLORS.fg }}>
+          <span style={{ fontSize: 24, fontWeight: 700, color: COLORS.fg }}>
             SuperReddit
           </span>
-          <span style={{ fontSize: 13, color: COLORS.fgDim }}>now</span>
+          <span style={{ fontSize: 16, color: COLORS.fgDim }}>now</span>
         </div>
-        <div style={{ fontSize: 16, color: COLORS.fgMuted, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 22, color: COLORS.fgMuted, lineHeight: 1.5 }}>
           {"🔥"} <span style={{ color: COLORS.hot, fontWeight: 600 }}>Hot lead</span>{" "}
           detected in r/SaaS — u/startup_mike is looking for an outreach tool
         </div>
@@ -288,12 +288,12 @@ const RedditPost: React.FC<{
       style={{
         background: COLORS.bgCard,
         border: `1px solid ${hot ? `${COLORS.hot}44` : COLORS.border}`,
-        borderRadius: 10,
-        padding: "14px 16px",
+        borderRadius: 12,
+        padding: "18px 20px",
         transform: `translateY(${y}px)`,
         opacity,
         display: "flex",
-        gap: 14,
+        gap: 16,
       }}
     >
       {/* Upvote column */}
@@ -302,15 +302,15 @@ const RedditPost: React.FC<{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 2,
-          minWidth: 36,
+          gap: 3,
+          minWidth: 44,
         }}
       >
-        <span style={{ fontSize: 14, color: COLORS.orange }}>{"▲"}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.fg }}>
+        <span style={{ fontSize: 18, color: COLORS.orange }}>{"▲"}</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: COLORS.fg }}>
           {upvotes}
         </span>
-        <span style={{ fontSize: 14, color: COLORS.fgDim }}>{"▽"}</span>
+        <span style={{ fontSize: 18, color: COLORS.fgDim }}>{"▽"}</span>
       </div>
 
       {/* Content */}
@@ -319,39 +319,39 @@ const RedditPost: React.FC<{
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            marginBottom: 6,
+            gap: 10,
+            marginBottom: 8,
           }}
         >
           <div
             style={{
-              width: 20,
-              height: 20,
+              width: 26,
+              height: 26,
               borderRadius: "50%",
               background: COLORS.reddit,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: 800,
               color: "white",
             }}
           >
             r/
           </div>
-          <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.fgMuted }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.fgMuted }}>
             r/{subreddit}
           </span>
-          <span style={{ fontSize: 10, color: COLORS.fgDim }}>{"·"} {time}</span>
+          <span style={{ fontSize: 13, color: COLORS.fgDim }}>{"·"} {time}</span>
           {hot && (
             <span
               style={{
-                padding: "2px 8px",
+                padding: "3px 10px",
                 background: COLORS.hotBg,
                 color: COLORS.hot,
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: 700,
-                borderRadius: 4,
+                borderRadius: 5,
                 marginLeft: "auto",
               }}
             >
@@ -361,7 +361,7 @@ const RedditPost: React.FC<{
         </div>
         <div
           style={{
-            fontSize: 13,
+            fontSize: 17,
             fontWeight: 500,
             color: COLORS.fg,
             lineHeight: 1.5,
@@ -372,9 +372,9 @@ const RedditPost: React.FC<{
         <div
           style={{
             display: "flex",
-            gap: 16,
-            marginTop: 8,
-            fontSize: 11,
+            gap: 20,
+            marginTop: 10,
+            fontSize: 14,
             color: COLORS.fgDim,
           }}
         >
@@ -516,7 +516,7 @@ export const S02Signals: React.FC = () => {
         >
           Every Hot Lead, Caught
           <br />
-          <span style={{ color: COLORS.orange }}>The Moment It Drops</span>
+          <span style={{ color: COLORS.orange }}>The Moment They're Looking</span>
         </div>
       </AbsoluteFill>
 
@@ -588,12 +588,12 @@ export const S02Signals: React.FC = () => {
         <FadeSlide delay={190} distance={10}>
           <div
             style={{
-              fontSize: 13,
+              fontSize: 17,
               fontWeight: 600,
               color: COLORS.fgDim,
               textTransform: "uppercase",
-              letterSpacing: 1,
-              marginBottom: 14,
+              letterSpacing: 1.5,
+              marginBottom: 16,
             }}
           >
             Latest Signals
