@@ -1982,12 +1982,14 @@ function toggleVideoExpand() {
   if (!wrap || !demoSection) return;
 
   if (videoExpanded) {
-    // Expand to fill the section
+    // Expand to fill the viewport
+    wrap.style.position = 'fixed';
     wrap.style.top = '0';
     wrap.style.left = '0';
-    wrap.style.width = '100%';
-    wrap.style.height = '100%';
+    wrap.style.width = '100vw';
+    wrap.style.height = '100vh';
     wrap.style.transform = 'none';
+    wrap.style.zIndex = '9999';
     if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
     if (expandIcon) expandIcon.style.display = 'none';
     if (collapseIcon) collapseIcon.style.display = 'block';
@@ -1997,11 +1999,13 @@ function toggleVideoExpand() {
     const videoH = viewH * 0.6;
     const videoW = videoH * (16/9);
     const videoTop = (viewH - videoH) / 2;
+    wrap.style.position = 'absolute';
     wrap.style.top = videoTop + 'px';
     wrap.style.left = '50%';
     wrap.style.width = videoW + 'px';
     wrap.style.height = videoH + 'px';
     wrap.style.transform = 'translateX(-50%)';
+    wrap.style.zIndex = '10';
     if (text) {
       text.style.top = (videoTop + videoH + 12) + 'px';
       text.style.opacity = '1';
