@@ -662,8 +662,45 @@ export const S02Signals: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
+  // PHASE 4: Zoom into first post + comment area after click (frame 230+)
+  const zoomScale = interpolate(frame, [230, 255], [1, 1.3], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.quad),
+  });
+
+  // Follow the typing cursor — estimate cursor X/Y based on chars typed
+  // Reply text is ~185 chars, starts typing at frame 244 (delay 232 + 12), ends ~302
+  // At 15px font, ~8px per char, line width ~1060px (1280-60-60-38 padding) ≈ ~132 chars/line
+  const replyText = "Hey! We actually built a tool specifically for Reddit outreach — handles lead detection, drafting, and sending all in one place. Happy to show you a quick demo if you're interested!";
+  const charsTyped = interpolate(frame, [244, 302], [0, replyText.length], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const lineWidth = 1060; // approx pixels per line
+  const charWidth = 7.5; // approx px per char at 15px font
+  const charsPerLine = Math.floor(lineWidth / charWidth);
+  const currentLine = Math.floor(charsTyped / charsPerLine);
+  const cursorXInLine = (charsTyped % charsPerLine) * charWidth;
+
+  // Smooth line progress (fractional) so transitions between lines aren't jarring
+  const smoothLine = charsTyped / charsPerLine;
+
+  // Pan: follow cursor X relative to center, smooth Y for line wraps
+  const cursorScreenX = 60 + 38 + cursorXInLine;
+  const followX = interpolate(cursorScreenX, [0, 640, 1280], [80, 0, -80]);
+  const followY = smoothLine * -24;
+
   return (
     <AbsoluteFill style={{ background: COLORS.bg, fontFamily }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `scale(${zoomScale}) translate(${frame >= 244 ? followX : 0}px, ${frame >= 244 ? followY : 0}px)`,
+          transformOrigin: "50% 400px",
+        }}
+      >
       {/* Subtle gradient overlay */}
       <div
         style={{
@@ -851,6 +888,7 @@ export const S02Signals: React.FC = () => {
         moveEnd={228}
         clickFrame={228}
       />
+      </div>
     </AbsoluteFill>
   );
 };
