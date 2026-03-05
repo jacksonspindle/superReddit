@@ -16,81 +16,72 @@ const { fontFamily } = loadFont("normal", {
   subsets: ["latin"],
 });
 
-// ── Odometer digit component ──
+// ── Odometer digit — scrolls through all intermediate values ──
+const DIGIT_H = 56;
 const OdometerDigit: React.FC<{
-  value: number;
-  prevValue: number;
+  fromDigit: number;
+  toDigit: number;
+  /** How many full 0-9 wraps to add for spin effect */
+  extraSpins: number;
   triggerFrame: number;
+  duration: number;
   color: string;
-}> = ({ value, prevValue, triggerFrame, color }) => {
+}> = ({ fromDigit, toDigit, extraSpins, triggerFrame, duration, color }) => {
   const frame = useCurrentFrame();
 
-  const rollProgress = interpolate(
+  // Total steps to scroll through
+  const totalSteps = extraSpins * 10 + ((toDigit - fromDigit + 10) % 10);
+
+  const progress = interpolate(
     frame,
-    [triggerFrame, triggerFrame + 18],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.quad) }
+    [triggerFrame, triggerFrame + duration],
+    [0, totalSteps],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }
   );
 
-  const yOffset = interpolate(rollProgress, [0, 1], [0, -56]);
+  // Current visible digit
+  const currentDigit = (fromDigit + Math.floor(progress)) % 10;
+  const nextDigit = (currentDigit + 1) % 10;
+  const fractional = progress - Math.floor(progress);
+  const yOffset = -fractional * DIGIT_H;
 
   return (
-    <div
-      style={{
-        overflow: "hidden",
-        height: 64,
-        width: 42,
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div style={{ position: "absolute", transform: `translateY(${yOffset}px)` }}>
-        <div
-          style={{
-            height: 56,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 48,
-            fontWeight: 800,
-            color,
-            lineHeight: 1,
-          }}
-        >
-          {prevValue}
-        </div>
-        <div
-          style={{
-            height: 56,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 48,
-            fontWeight: 800,
-            color,
-            lineHeight: 1,
-          }}
-        >
-          {value}
-        </div>
+    <div style={{ overflow: "hidden", height: DIGIT_H, width: 42, position: "relative" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, transform: `translateY(${yOffset}px)` }}>
+        {[currentDigit, nextDigit].map((d, idx) => (
+          <div
+            key={idx}
+            style={{
+              height: DIGIT_H,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 48,
+              fontWeight: 800,
+              color,
+              lineHeight: 1,
+            }}
+          >
+            {d}
+          </div>
+        ))}
       </div>
     </div>
   );
 };
 
-// ── Odometer counter (multi-digit) ──
+// ── Odometer counter (multi-digit, spins all at once) ──
 const OdometerCounter: React.FC<{
   from: number;
   to: number;
   triggerFrame: number;
+  spinDuration: number;
   label: string;
   color: string;
   bgColor: string;
   icon: string;
   delay?: number;
-}> = ({ from, to, triggerFrame, label, color, bgColor, icon, delay = 0 }) => {
+}> = ({ from, to, triggerFrame, spinDuration, label, color, bgColor, icon, delay = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -101,15 +92,13 @@ const OdometerCounter: React.FC<{
     config: { damping: 15, stiffness: 200 },
   });
 
-  const fromDigits = String(from).split("").map(Number);
-  const toDigits = String(to).split("").map(Number);
-  // Pad to same length
-  while (fromDigits.length < toDigits.length) fromDigits.unshift(0);
+  const fromStr = String(from).padStart(String(to).length, "0");
+  const toStr = String(to);
 
-  // Pulse effect when counter ticks
+  // Pulse effect at end of spin
   const pulseScale = interpolate(
     frame,
-    [triggerFrame, triggerFrame + 6, triggerFrame + 18],
+    [triggerFrame + spinDuration - 4, triggerFrame + spinDuration, triggerFrame + spinDuration + 12],
     [1, 1.08, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
@@ -144,15 +133,23 @@ const OdometerCounter: React.FC<{
         {label}
       </div>
       <div style={{ display: "flex", gap: 2 }}>
-        {toDigits.map((digit, i) => (
-          <OdometerDigit
-            key={i}
-            value={digit}
-            prevValue={fromDigits[i]}
-            triggerFrame={triggerFrame}
-            color={color}
-          />
-        ))}
+        {toStr.split("").map((_, i) => {
+          const fd = Number(fromStr[i]);
+          const td = Number(toStr[i]);
+          // More extra spins for rightmost digits (faster feel)
+          const spins = i === toStr.length - 1 ? 2 : i === toStr.length - 2 ? 1 : 0;
+          return (
+            <OdometerDigit
+              key={i}
+              fromDigit={fd}
+              toDigit={td}
+              extraSpins={spins}
+              triggerFrame={triggerFrame}
+              duration={spinDuration}
+              color={color}
+            />
+          );
+        })}
       </div>
       <div
         style={{
@@ -195,10 +192,23 @@ const PhoneNotification: React.FC<{
 
   const opacity = interpolate(
     frame,
-    [delay, delay + 5, delay + 110, delay + 125],
+    [delay, delay + 5, 58, 70],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
+
+  // Slide back up when counters take over
+  const exitY = interpolate(frame, [58, 70], [0, -100], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+
+  // Red blinking outline
+  const blinkPhase = frame - delay;
+  const blinkAlpha = blinkPhase > 0
+    ? interpolate(Math.sin(blinkPhase * 0.5), [-1, 1], [0.15, 0.7])
+    : 0;
 
   if (frame < delay) return null;
 
@@ -208,19 +218,19 @@ const PhoneNotification: React.FC<{
         position: "absolute",
         top: 24,
         left: "50%",
-        transform: `translateX(-50%) translateY(${slideDown}px)`,
+        transform: `translateX(-50%) translateY(${slideDown + exitY}px)`,
         opacity,
         zIndex: 100,
         width: 860,
         background: "rgba(30,30,30,0.95)",
         backdropFilter: "blur(20px)",
-        border: `1px solid rgba(255,255,255,0.12)`,
+        border: `2px solid rgba(239,68,68,${blinkAlpha})`,
         borderRadius: 24,
         padding: "32px 36px",
         display: "flex",
         alignItems: "center",
         gap: 24,
-        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        boxShadow: `0 20px 60px rgba(0,0,0,0.5), 0 0 20px rgba(239,68,68,${blinkAlpha * 0.4})`,
       }}
     >
       {/* App icon */}
@@ -451,23 +461,31 @@ export const S02Signals: React.FC = () => {
   });
 
   // Headline fades out before counters section takes over
-  const headlineFadeOut = interpolate(frame, [120, 150], [1, 0], {
+  const headlineFadeOut = interpolate(frame, [42, 58], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // PHASE 2: Notification + counters (frames 50+)
-  // PHASE 3: Posts (frames 180+)
+  // PHASE 2: Counters (frames 55+)
+  // PHASE 3: Posts (frames 90+)
 
-  // Counter section slides up
-  const counterSectionOpacity = interpolate(frame, [130, 160], [0, 1], {
+  // Counters fade in
+  const counterSectionOpacity = interpolate(frame, [69, 84], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const counterSectionY = interpolate(frame, [130, 160], [40, 0], {
+
+  // Counters start centered, then slide up to top after frame 118
+  const countersVerticalY = interpolate(frame, [118, 138], [380, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.quad),
+  });
+
+  // Posts section fades in after counters move up
+  const postsSectionOpacity = interpolate(frame, [138, 152], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
 
   return (
@@ -524,72 +542,87 @@ export const S02Signals: React.FC = () => {
         </div>
       </AbsoluteFill>
 
-      {/* Phone notification — drops in at frame 24 */}
-      <PhoneNotification delay={24} />
+      {/* Phone notification — drops in at frame 22 */}
+      <PhoneNotification delay={22} />
 
-      {/* PHASE 2: Counters + Posts dashboard */}
-      <AbsoluteFill
+      {/* PHASE 2: Counters — start centered, slide to top */}
+      <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          padding: "50px 60px",
+          position: "absolute",
+          left: 60,
+          right: 60,
+          top: 50,
           opacity: counterSectionOpacity,
-          transform: `translateY(${counterSectionY}px)`,
+          transform: `translateY(${countersVerticalY}px)`,
         }}
       >
-        {/* Odometer counters row */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: 14,
-            marginBottom: 24,
           }}
         >
           <OdometerCounter
-            from={11}
+            from={4}
             to={12}
-            triggerFrame={170}
+            triggerFrame={75}
+            spinDuration={38}
             label="Hot Leads"
             color={COLORS.hot}
             bgColor={COLORS.hotBg}
             icon="🔥"
-            delay={140}
+            delay={72}
           />
           <OdometerCounter
-            from={33}
+            from={26}
             to={34}
-            triggerFrame={175}
+            triggerFrame={75}
+            spinDuration={38}
             label="Warm Leads"
             color={COLORS.warm}
             bgColor={COLORS.warmBg}
             icon="☀️"
-            delay={145}
+            delay={72}
           />
           <OdometerCounter
-            from={19}
+            from={12}
             to={19}
-            triggerFrame={9999}
+            triggerFrame={75}
+            spinDuration={38}
             label="Unseen"
             color={COLORS.blue}
             bgColor={COLORS.blueBg}
             icon="👁️"
-            delay={150}
+            delay={72}
           />
           <OdometerCounter
-            from={186}
+            from={178}
             to={187}
-            triggerFrame={178}
+            triggerFrame={75}
+            spinDuration={38}
             label="Total"
             color={COLORS.fg}
             bgColor={COLORS.bgMuted}
             icon="📊"
-            delay={155}
+            delay={72}
           />
         </div>
+      </div>
 
-        {/* Section label */}
-        <FadeSlide delay={190} distance={10}>
+      {/* PHASE 3: Posts — appear after counters slide up */}
+      <div
+        style={{
+          position: "absolute",
+          left: 60,
+          right: 60,
+          top: 220,
+          bottom: 50,
+          opacity: postsSectionOpacity,
+          overflow: "hidden",
+        }}
+      >
+        <FadeSlide delay={138} distance={10}>
           <div
             style={{
               fontSize: 17,
@@ -604,17 +637,16 @@ export const S02Signals: React.FC = () => {
           </div>
         </FadeSlide>
 
-        {/* Reddit-style posts */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {POSTS.map((post, i) => (
             <RedditPost
               key={i}
               {...post}
-              delay={200 + i * 18}
+              delay={148 + i * 12}
             />
           ))}
         </div>
-      </AbsoluteFill>
+      </div>
     </AbsoluteFill>
   );
 };
