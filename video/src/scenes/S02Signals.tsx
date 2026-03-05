@@ -502,6 +502,28 @@ const CommentReply: React.FC<{
 
   const typedText = replyText.slice(0, charsVisible);
   const showCaret = frame >= delay + 12 && frame < delay + 75;
+  const typingDone = charsVisible >= replyText.length;
+
+  // Send button appears after typing finishes
+  const sendButtonOpacity = interpolate(frame, [delay + 73, delay + 80], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Send button click effect at frame 343
+  const sendClicked = frame >= 343;
+  const sendButtonScale = sendClicked
+    ? interpolate(frame, [343, 346, 350], [1, 0.9, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
+
+  // After send click, button turns green with checkmark
+  const sendBg = sendClicked
+    ? COLORS.green
+    : COLORS.orange;
+  const sendLabel = sendClicked ? "Sent!" : "Send Reply";
 
   if (frame < delay) return null;
 
@@ -509,7 +531,7 @@ const CommentReply: React.FC<{
     <div
       style={{
         overflow: "hidden",
-        height,
+        height: interpolate(expandProgress, [0, 1], [0, 320]),
         opacity,
         borderTop: `1px solid ${COLORS.border}`,
         padding: charsVisible > 0 ? "16px 20px" : "0 20px",
@@ -540,19 +562,23 @@ const CommentReply: React.FC<{
         >
           SR
         </div>
-        <span style={{ fontSize: 14, fontWeight: 600, color: COLORS.orange }}>
+        <span style={{ fontSize: 18, fontWeight: 600, color: COLORS.orange }}>
           u/your_agency
         </span>
-        <span style={{ fontSize: 12, color: COLORS.fgDim }}>replying now...</span>
+        <span style={{ fontSize: 15, color: COLORS.fgDim }}>replying now...</span>
       </div>
 
       {/* Typed reply */}
       <div
         style={{
-          fontSize: 15,
+          fontSize: 20,
           color: COLORS.fgMuted,
           lineHeight: 1.6,
           paddingLeft: 38,
+          paddingRight: 20,
+          wordWrap: "break-word",
+          overflowWrap: "break-word",
+          maxWidth: 900,
         }}
       >
         {typedText}
@@ -569,6 +595,35 @@ const CommentReply: React.FC<{
             }}
           />
         )}
+      </div>
+
+      {/* Send button */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-start",
+          paddingLeft: 38,
+          marginTop: 16,
+          opacity: sendButtonOpacity,
+        }}
+      >
+        <div
+          style={{
+            padding: "10px 28px",
+            background: sendBg,
+            borderRadius: 10,
+            fontSize: 16,
+            fontWeight: 700,
+            color: "white",
+            transform: `scale(${sendButtonScale})`,
+            boxShadow: sendClicked
+              ? `0 4px 16px rgba(34,197,94,0.4)`
+              : `0 4px 16px ${COLORS.orangeGlow}`,
+            transition: "none",
+          }}
+        >
+          {sendClicked && "✓ "}{sendLabel}
+        </div>
       </div>
     </div>
   );
@@ -662,34 +717,12 @@ export const S02Signals: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // PHASE 4: Zoom into first post + comment area after click (frame 230+)
-  const zoomScale = interpolate(frame, [230, 255], [1, 1.3], {
+  // PHASE 4: Zoom into comment area after click (frame 230+)
+  const zoomScale = interpolate(frame, [230, 255], [1, 1.35], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.inOut(Easing.quad),
   });
-
-  // Follow the typing cursor — estimate cursor X/Y based on chars typed
-  // Reply text is ~185 chars, starts typing at frame 244 (delay 232 + 12), ends ~302
-  // At 15px font, ~8px per char, line width ~1060px (1280-60-60-38 padding) ≈ ~132 chars/line
-  const replyText = "Hey! We actually built a tool specifically for Reddit outreach — handles lead detection, drafting, and sending all in one place. Happy to show you a quick demo if you're interested!";
-  const charsTyped = interpolate(frame, [244, 302], [0, replyText.length], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const lineWidth = 1060; // approx pixels per line
-  const charWidth = 7.5; // approx px per char at 15px font
-  const charsPerLine = Math.floor(lineWidth / charWidth);
-  const currentLine = Math.floor(charsTyped / charsPerLine);
-  const cursorXInLine = (charsTyped % charsPerLine) * charWidth;
-
-  // Smooth line progress (fractional) so transitions between lines aren't jarring
-  const smoothLine = charsTyped / charsPerLine;
-
-  // Pan: follow cursor X relative to center, smooth Y for line wraps
-  const cursorScreenX = 60 + 38 + cursorXInLine;
-  const followX = interpolate(cursorScreenX, [0, 640, 1280], [80, 0, -80]);
-  const followY = smoothLine * -24;
 
   return (
     <AbsoluteFill style={{ background: COLORS.bg, fontFamily }}>
@@ -697,8 +730,8 @@ export const S02Signals: React.FC = () => {
         style={{
           position: "absolute",
           inset: 0,
-          transform: `scale(${zoomScale}) translate(${frame >= 244 ? followX : 0}px, ${frame >= 244 ? followY : 0}px)`,
-          transformOrigin: "50% 400px",
+          transform: `scale(${zoomScale})`,
+          transformOrigin: "25% 450px",
         }}
       >
       {/* Subtle gradient overlay */}
@@ -887,6 +920,17 @@ export const S02Signals: React.FC = () => {
         moveStart={218}
         moveEnd={228}
         clickFrame={228}
+      />
+
+      {/* Cursor — moves to send button and clicks at frame 343 */}
+      <AnimatedCursor
+        startX={400}
+        startY={450}
+        endX={200}
+        endY={620}
+        moveStart={333}
+        moveEnd={343}
+        clickFrame={343}
       />
       </div>
     </AbsoluteFill>
