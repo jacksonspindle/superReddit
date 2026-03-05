@@ -5,6 +5,7 @@ import {
   useVideoConfig,
   interpolate,
   spring,
+  Easing,
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import { SwipeCard } from "../components/SwipeCard";
@@ -49,15 +50,33 @@ export const S04SwipeQueue: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Card 1: swipe RIGHT at frame 70
-  // Card 2: swipe LEFT at frame 120
-  // Card 3: quick swipe RIGHT at frame 165
+  // ── PHASE 1: Headline (frames 0–50) ──
+  const headlineOpacity = interpolate(frame, [0, 10, 38, 50], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const headlineY = interpolate(frame, [0, 12], [20, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+
+  // ── PHASE 2: DM Queue UI (frames 45+) ──
+  const uiOpacity = interpolate(frame, [45, 60], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Offset: all card timings shifted +50
+  // Card 1: swipe RIGHT at frame 120
+  // Card 2: swipe LEFT at frame 170
+  // Card 3: quick swipe RIGHT at frame 215
 
   const activeCardIndex =
-    frame < 82 ? 0 : frame < 132 ? 1 : 2;
+    frame < 132 ? 0 : frame < 182 ? 1 : 2;
 
   // Progress bar
-  const sentCount = frame < 82 ? 0 : frame < 165 ? 1 : 2;
+  const sentCount = frame < 132 ? 0 : frame < 215 ? 1 : 2;
   const totalLeads = 12;
 
   const progressBarWidth = interpolate(sentCount, [0, totalLeads], [0, 100]);
@@ -66,39 +85,68 @@ export const S04SwipeQueue: React.FC = () => {
   const counterScale = spring({
     frame: sentCount > 0 ? frame : 0,
     fps,
-    delay: sentCount > 0 ? (sentCount === 1 ? 82 : 165) : 99999,
+    delay: sentCount > 0 ? (sentCount === 1 ? 132 : 215) : 99999,
     config: { damping: 12, stiffness: 200 },
   });
 
   return (
     <AbsoluteFill style={{ background: COLORS.bg, fontFamily }}>
+      {/* ══════ PHASE 1: Headline ══════ */}
+      {frame < 55 && (
+        <AbsoluteFill
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: headlineOpacity,
+            transform: `translateY(${headlineY}px)`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 72,
+              fontWeight: 800,
+              color: COLORS.fg,
+              textAlign: "center",
+              lineHeight: 1.15,
+              maxWidth: 900,
+            }}
+          >
+            Quickly Qualify Everyone{" "}
+            <span style={{ color: COLORS.accent }}>You Interact With</span>
+          </div>
+        </AbsoluteFill>
+      )}
+
+      {/* ══════ PHASE 2: DM Queue UI ══════ */}
       <AbsoluteFill
         style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          padding: "40px 60px",
+          padding: "30px 60px",
+          opacity: uiOpacity,
         }}
       >
         {/* Header */}
-        <FadeSlide delay={0}>
+        <FadeSlide delay={50}>
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              marginBottom: 6,
+              gap: 16,
+              marginBottom: 8,
             }}
           >
-            <span style={{ fontSize: 24, fontWeight: 700, color: COLORS.fg }}>
+            <span style={{ fontSize: 32, fontWeight: 700, color: COLORS.fg }}>
               {"💬"} DM Queue
             </span>
             <div
               style={{
-                padding: "3px 10px",
+                padding: "5px 14px",
                 background: COLORS.orangeBg,
-                borderRadius: 12,
-                fontSize: 12,
+                borderRadius: 14,
+                fontSize: 16,
                 fontWeight: 600,
                 color: COLORS.orange,
               }}
@@ -109,20 +157,20 @@ export const S04SwipeQueue: React.FC = () => {
         </FadeSlide>
 
         {/* Progress bar */}
-        <FadeSlide delay={8}>
+        <FadeSlide delay={58}>
           <div
             style={{
-              width: 420,
-              marginBottom: 30,
+              width: 700,
+              marginBottom: 24,
             }}
           >
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                fontSize: 11,
+                fontSize: 15,
                 color: COLORS.fgDim,
-                marginBottom: 6,
+                marginBottom: 8,
               }}
             >
               <span>Progress</span>
@@ -133,7 +181,7 @@ export const S04SwipeQueue: React.FC = () => {
             <div
               style={{
                 width: "100%",
-                height: 4,
+                height: 6,
                 background: COLORS.bgMuted,
                 borderRadius: 4,
                 overflow: "hidden",
@@ -155,8 +203,8 @@ export const S04SwipeQueue: React.FC = () => {
         <div
           style={{
             position: "relative",
-            width: 420,
-            height: 500,
+            width: 700,
+            height: 580,
           }}
         >
           {/* Background cards (stack effect) */}
@@ -164,13 +212,13 @@ export const S04SwipeQueue: React.FC = () => {
             <div
               style={{
                 position: "absolute",
-                top: 12,
-                left: 8,
-                right: 8,
-                height: 400,
+                top: 14,
+                left: 10,
+                right: 10,
+                height: 500,
                 background: COLORS.bgCard,
                 border: `1px solid ${COLORS.border}`,
-                borderRadius: 16,
+                borderRadius: 20,
                 opacity: 0.4,
               }}
             />
@@ -179,13 +227,13 @@ export const S04SwipeQueue: React.FC = () => {
             <div
               style={{
                 position: "absolute",
-                top: 24,
-                left: 16,
-                right: 16,
-                height: 400,
+                top: 28,
+                left: 20,
+                right: 20,
+                height: 500,
                 background: COLORS.bgCard,
                 border: `1px solid ${COLORS.border}`,
-                borderRadius: 16,
+                borderRadius: 20,
                 opacity: 0.2,
               }}
             />
@@ -196,84 +244,84 @@ export const S04SwipeQueue: React.FC = () => {
             {activeCardIndex === 0 && (
               <SwipeCard
                 {...CARDS[0]}
-                swipeDirection={frame >= 70 ? "right" : null}
-                swipeStartFrame={70}
-                delay={15}
+                swipeDirection={frame >= 120 ? "right" : null}
+                swipeStartFrame={120}
+                delay={65}
               />
             )}
             {activeCardIndex === 1 && (
               <SwipeCard
                 {...CARDS[1]}
-                swipeDirection={frame >= 120 ? "left" : null}
-                swipeStartFrame={120}
-                delay={85}
+                swipeDirection={frame >= 170 ? "left" : null}
+                swipeStartFrame={170}
+                delay={135}
               />
             )}
             {activeCardIndex === 2 && (
               <SwipeCard
                 {...CARDS[2]}
-                swipeDirection={frame >= 165 ? "right" : null}
-                swipeStartFrame={165}
-                delay={135}
+                swipeDirection={frame >= 215 ? "right" : null}
+                swipeStartFrame={215}
+                delay={185}
               />
             )}
           </div>
         </div>
 
-        {/* Action buttons hint */}
-        <FadeSlide delay={20} style={{ marginTop: -60 }}>
-          <div style={{ display: "flex", gap: 40, alignItems: "center" }}>
+        {/* Action buttons */}
+        <FadeSlide delay={70} style={{ marginTop: -40 }}>
+          <div style={{ display: "flex", gap: 60, alignItems: "center" }}>
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 6,
+                gap: 8,
               }}
             >
               <div
                 style={{
-                  width: 48,
-                  height: 48,
+                  width: 64,
+                  height: 64,
                   borderRadius: "50%",
                   background: COLORS.redBg,
                   border: `2px solid ${COLORS.red}44`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 20,
+                  fontSize: 28,
                   color: COLORS.red,
                 }}
               >
                 {"✕"}
               </div>
-              <span style={{ fontSize: 10, color: COLORS.fgDim }}>Skip</span>
+              <span style={{ fontSize: 14, color: COLORS.fgDim }}>Skip</span>
             </div>
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 6,
+                gap: 8,
               }}
             >
               <div
                 style={{
-                  width: 56,
-                  height: 56,
+                  width: 72,
+                  height: 72,
                   borderRadius: "50%",
                   background: COLORS.greenBg,
                   border: `2px solid ${COLORS.green}44`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 24,
+                  fontSize: 32,
                   color: COLORS.green,
                 }}
               >
                 {"→"}
               </div>
-              <span style={{ fontSize: 10, color: COLORS.fgDim }}>Send</span>
+              <span style={{ fontSize: 14, color: COLORS.fgDim }}>Send</span>
             </div>
           </div>
         </FadeSlide>

@@ -45,7 +45,7 @@ export const SwipeCard: React.FC<{
     );
 
     const direction = swipeDirection === "right" ? 1 : -1;
-    swipeX = direction * swipeProgress * 800;
+    swipeX = direction * swipeProgress * 900;
     swipeRotation = direction * swipeProgress * 12;
     swipeOpacity = interpolate(swipeProgress, [0.5, 1], [1, 0], {
       extrapolateLeft: "clamp",
@@ -60,11 +60,11 @@ export const SwipeCard: React.FC<{
   return (
     <div
       style={{
-        width: 420,
+        width: 700,
         background: COLORS.bgCard,
         border: `1px solid ${COLORS.borderStrong}`,
-        borderRadius: 16,
-        padding: 24,
+        borderRadius: 20,
+        padding: 32,
         transform: `translateX(${swipeX}px) rotate(${swipeRotation}deg) scale(${entryProgress})`,
         opacity: swipeOpacity * entryProgress,
         position: "relative",
@@ -85,16 +85,16 @@ export const SwipeCard: React.FC<{
             alignItems: "center",
             justifyContent: "center",
             zIndex: 2,
-            borderRadius: 16,
+            borderRadius: 20,
           }}
         >
           <div
             style={{
-              fontSize: 32,
+              fontSize: 48,
               fontWeight: 800,
               color: swipeDirection === "right" ? COLORS.green : COLORS.red,
               opacity: overlayOpacity,
-              letterSpacing: 4,
+              letterSpacing: 6,
             }}
           >
             {swipeDirection === "right" ? "SEND" : "SKIP"}
@@ -103,17 +103,17 @@ export const SwipeCard: React.FC<{
       )}
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
         <div
           style={{
-            width: 40,
-            height: 40,
+            width: 56,
+            height: 56,
             borderRadius: "50%",
             background: `linear-gradient(135deg, ${COLORS.orange}, ${COLORS.purple})`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 16,
+            fontSize: 22,
             fontWeight: 700,
             color: "white",
           }}
@@ -121,19 +121,19 @@ export const SwipeCard: React.FC<{
           {username[0].toUpperCase()}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.fg }}>
+          <div style={{ fontSize: 20, fontWeight: 600, color: COLORS.fg }}>
             u/{username}
           </div>
-          <div style={{ fontSize: 11, color: COLORS.fgDim }}>r/{subreddit}</div>
+          <div style={{ fontSize: 15, color: COLORS.fgDim }}>r/{subreddit}</div>
         </div>
         <div
           style={{
-            padding: "3px 8px",
+            padding: "5px 14px",
             background: COLORS.greenBg,
             color: COLORS.green,
-            fontSize: 10,
+            fontSize: 14,
             fontWeight: 600,
-            borderRadius: 6,
+            borderRadius: 8,
           }}
         >
           {permissionBadge}
@@ -143,43 +143,43 @@ export const SwipeCard: React.FC<{
       {/* Quote */}
       <div
         style={{
-          padding: 12,
+          padding: 18,
           background: COLORS.bgMuted,
-          borderRadius: 8,
-          borderLeft: `3px solid ${COLORS.orange}`,
-          fontSize: 12,
+          borderRadius: 12,
+          borderLeft: `4px solid ${COLORS.orange}`,
+          fontSize: 17,
           color: COLORS.fgMuted,
-          lineHeight: 1.5,
-          marginBottom: 14,
+          lineHeight: 1.55,
+          marginBottom: 20,
         }}
       >
         "{quote}"
       </div>
 
       {/* AI Draft */}
-      <div style={{ marginBottom: 4 }}>
+      <div>
         <div
           style={{
-            fontSize: 10,
+            fontSize: 14,
             color: COLORS.accent,
             fontWeight: 600,
-            marginBottom: 6,
+            marginBottom: 10,
             display: "flex",
             alignItems: "center",
-            gap: 4,
+            gap: 6,
           }}
         >
           {"✨"} AI Draft
         </div>
         <div
           style={{
-            padding: 12,
+            padding: 18,
             background: "rgba(167,139,250,0.06)",
             border: `1px solid rgba(167,139,250,0.15)`,
-            borderRadius: 8,
-            fontSize: 12,
+            borderRadius: 12,
+            fontSize: 17,
             color: COLORS.fg,
-            lineHeight: 1.5,
+            lineHeight: 1.55,
           }}
         >
           {aiDraft}
