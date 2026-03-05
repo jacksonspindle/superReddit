@@ -3413,10 +3413,12 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
   const title = document.querySelector('.odometer-title');
   const wrap = document.querySelector('.odometer-wrap');
   const arrow = document.querySelector('.odometer-arrow');
+  const icons = document.querySelectorAll('.odometer-icon');
   const targets = [
     { el: title, label: 'TITLE' },
     { el: wrap, label: 'ODOMETER' },
-    { el: arrow, label: 'ARROW' }
+    { el: arrow, label: 'ARROW' },
+    ...Array.from(icons).map((ic, i) => ({ el: ic, label: 'ICON-' + i }))
   ].filter(t => t.el);
 
   function updateCoords() {
@@ -3454,7 +3456,8 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
       dragging.style.cursor = 'grabbing';
       const rect = dragging.getBoundingClientRect();
       const isArrow = dragging.classList.contains('odometer-arrow');
-      const parent = isArrow ? dragging.closest('.odometer-wrap') : dragging.closest('.features-sticky');
+      const isIcon = dragging.classList.contains('odometer-icon');
+      const parent = isIcon ? dragging.closest('.odometer-card') : isArrow ? dragging.closest('.odometer-wrap') : dragging.closest('.features-sticky');
       const ref = parent ? parent.getBoundingClientRect() : { top: 0, left: 0 };
       dragging.style.right = 'auto';
       if (!isArrow) dragging.style.transform = 'none';
