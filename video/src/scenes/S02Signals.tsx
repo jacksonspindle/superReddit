@@ -514,9 +514,9 @@ export const S02Signals: React.FC = () => {
             transform: `translateY(${headlineY}px)`,
           }}
         >
-          Know Where Hot Leads Appear
+          Every Hot Lead, Caught
           <br />
-          <span style={{ color: COLORS.orange }}>As They Appear</span>
+          <span style={{ color: COLORS.orange }}>The Moment It Drops</span>
         </div>
       </AbsoluteFill>
 
