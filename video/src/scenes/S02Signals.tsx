@@ -207,29 +207,29 @@ const PhoneNotification: React.FC<{
         transform: `translateX(-50%) translateY(${slideDown}px)`,
         opacity,
         zIndex: 100,
-        width: 420,
+        width: 620,
         background: "rgba(30,30,30,0.95)",
         backdropFilter: "blur(20px)",
         border: `1px solid rgba(255,255,255,0.12)`,
-        borderRadius: 16,
-        padding: "14px 18px",
+        borderRadius: 20,
+        padding: "22px 28px",
         display: "flex",
         alignItems: "center",
-        gap: 14,
-        boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+        gap: 20,
+        boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
       }}
     >
       {/* App icon */}
       <div
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 10,
+          width: 56,
+          height: 56,
+          borderRadius: 14,
           background: `linear-gradient(135deg, ${COLORS.orange}, #ea580c)`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 16,
+          fontSize: 22,
           fontWeight: 800,
           color: "white",
           flexShrink: 0,
@@ -243,15 +243,15 @@ const PhoneNotification: React.FC<{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 3,
+            marginBottom: 6,
           }}
         >
-          <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.fg }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: COLORS.fg }}>
             SuperReddit
           </span>
-          <span style={{ fontSize: 10, color: COLORS.fgDim }}>now</span>
+          <span style={{ fontSize: 13, color: COLORS.fgDim }}>now</span>
         </div>
-        <div style={{ fontSize: 12, color: COLORS.fgMuted, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 16, color: COLORS.fgMuted, lineHeight: 1.5 }}>
           {"🔥"} <span style={{ color: COLORS.hot, fontWeight: 600 }}>Hot lead</span>{" "}
           detected in r/SaaS — u/startup_mike is looking for an outreach tool
         </div>
