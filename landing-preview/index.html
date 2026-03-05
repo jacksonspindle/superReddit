@@ -1995,8 +1995,8 @@ function toggleVideoExpand() {
     wrap.style.width = videoW + 'px';
     wrap.style.height = videoH + 'px';
     wrap.style.transform = 'translateX(-50%)';
-    wrap.style.zIndex = '10';
-    if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
+    wrap.style.zIndex = '20';
+    if (text) { text.style.display = 'none'; }
     if (expandIcon) expandIcon.style.display = 'none';
     if (collapseIcon) collapseIcon.style.display = 'block';
   } else {
@@ -2012,6 +2012,7 @@ function toggleVideoExpand() {
     wrap.style.transform = 'translateX(-50%)';
     wrap.style.zIndex = '10';
     if (text) {
+      text.style.display = 'block';
       text.style.top = (videoTop + videoH + 12) + 'px';
       text.style.opacity = '1';
       text.style.pointerEvents = 'auto';
