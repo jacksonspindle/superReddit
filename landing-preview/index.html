@@ -3436,28 +3436,22 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
     if (dragOn) updateCoords();
   });
 
-  let dragging = null, startX, startY, origLeft, origTop;
+  let dragging = null, startX, startY, dx = 0, dy = 0;
   icons.forEach(icon => {
     icon.addEventListener('mousedown', (e) => {
       if (!dragOn) return;
       e.preventDefault();
       dragging = icon;
       dragging.style.cursor = 'grabbing';
-      const rect = icon.getBoundingClientRect();
-      const card = icon.closest('.odometer-card');
-      const ref = card.getBoundingClientRect();
-      dragging.style.position = 'absolute';
-      dragging.style.left = (rect.left - ref.left) + 'px';
-      dragging.style.top = (rect.top - ref.top) + 'px';
-      dragging.style.margin = '0';
       startX = e.clientX; startY = e.clientY;
-      origLeft = rect.left - ref.left; origTop = rect.top - ref.top;
+      dx = 0; dy = 0;
     });
   });
   window.addEventListener('mousemove', (e) => {
     if (!dragging) return;
-    dragging.style.left = (origLeft + e.clientX - startX) + 'px';
-    dragging.style.top = (origTop + e.clientY - startY) + 'px';
+    dx = e.clientX - startX;
+    dy = e.clientY - startY;
+    dragging.style.transform = `translate(${dx}px, ${dy}px)`;
     updateCoords();
   });
   window.addEventListener('mouseup', () => {
