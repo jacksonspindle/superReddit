@@ -1985,18 +1985,22 @@ function toggleVideoExpand() {
 
   const viewH = window.innerHeight;
   if (videoExpanded) {
-    // Expand larger — 75% of viewport height, centered
+    // Expand larger — 75% of viewport height, positioned above the text
     const videoH = viewH * 0.75;
     const videoW = videoH * (16/9);
-    const videoTop = (viewH - videoH) / 2;
+    const videoTop = viewH * 0.04;
     wrap.style.position = 'absolute';
     wrap.style.top = videoTop + 'px';
     wrap.style.left = '50%';
     wrap.style.width = videoW + 'px';
     wrap.style.height = videoH + 'px';
     wrap.style.transform = 'translateX(-50%)';
-    wrap.style.zIndex = '20';
-    if (text) { text.style.display = 'none'; }
+    wrap.style.zIndex = '10';
+    if (text) {
+      text.style.top = (videoTop + videoH + 12) + 'px';
+      text.style.opacity = '1';
+      text.style.pointerEvents = 'auto';
+    }
     if (expandIcon) expandIcon.style.display = 'none';
     if (collapseIcon) collapseIcon.style.display = 'block';
   } else {
