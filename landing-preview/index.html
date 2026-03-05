@@ -2898,10 +2898,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         const parentName = (child.parent?.name || '').toLowerCase();
         const grandparentName = (child.parent?.parent?.name || '').toLowerCase();
 
-        if (grandparentName === 'ojos' || parentName === 'ojos') {
-          child.material = eyeMat;
-        } else if (name.includes('boolean') || name.includes('face')) {
+        if (name.includes('boolean') || name.includes('face')) {
           child.material = facePlateMat;
+        } else if (grandparentName === 'ojos' || parentName === 'ojos') {
+          child.material = eyeMat;
         } else if (grandparentName === 'cabeza' || parentName === 'cabeza') {
           child.material = bodyMat;
         } else if (grandparentName === 'cuerpo' || parentName === 'cuerpo') {
