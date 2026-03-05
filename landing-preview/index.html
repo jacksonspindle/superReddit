@@ -1985,10 +1985,12 @@ function toggleVideoExpand() {
 
   const viewH = window.innerHeight;
   if (videoExpanded) {
-    // Expand larger — 75% of viewport height, positioned above the text
+    // Expand larger — 75% of viewport height, 5:4 ratio to match video
     const videoH = viewH * 0.75;
-    const videoW = videoH * (16/9);
+    const videoW = videoH * (5/4);
     const videoTop = viewH * 0.04;
+    const vid = document.getElementById('demo-video-player');
+    if (vid) vid.style.objectFit = 'contain';
     wrap.style.position = 'absolute';
     wrap.style.top = videoTop + 'px';
     wrap.style.left = '50%';
@@ -2005,6 +2007,8 @@ function toggleVideoExpand() {
     if (collapseIcon) collapseIcon.style.display = 'block';
   } else {
     // Restore original placement — 60% of viewport height
+    const vid = document.getElementById('demo-video-player');
+    if (vid) vid.style.objectFit = 'cover';
     const videoH = viewH * 0.6;
     const videoW = videoH * (16/9);
     const videoTop = (viewH - videoH) / 2;
