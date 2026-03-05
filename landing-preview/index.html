@@ -3412,46 +3412,90 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
   document.body.appendChild(coords);
 
   let dragOn = false;
+  const title = document.querySelector('.odometer-title');
+  const wrap = document.querySelector('.odometer-wrap');
+  const arrow = document.querySelector('.odometer-arrow');
   const icons = document.querySelectorAll('.odometer-icon');
-  if (!icons.length) return;
+
+  // Elements that use absolute positioning (title, wrap, arrow)
+  const absTargets = [
+    { el: title, label: 'TITLE' },
+    { el: wrap, label: 'ODOMETER' },
+    { el: arrow, label: 'ARROW' }
+  ].filter(t => t.el);
+
+  // Elements that use transform (icons — stay in flex flow)
+  const transformTargets = Array.from(icons).map((ic, i) => ({ el: ic, label: 'ICON-' + i }));
+
+  const allTargets = [...absTargets, ...transformTargets];
 
   function updateCoords() {
-    const icon = icons[0];
-    const card = icon.closest('.odometer-card');
-    const cardRect = card.getBoundingClientRect();
-    const iconRect = icon.getBoundingClientRect();
-    coords.textContent = `ICON offset from card:\n  left: ${Math.round(iconRect.left - cardRect.left)}px\n  top: ${Math.round(iconRect.top - cardRect.top)}px`;
+    const vh = window.innerHeight, vw = window.innerWidth;
+    let txt = '';
+    absTargets.forEach(t => {
+      const r = t.el.getBoundingClientRect();
+      txt += `${t.label}:  top: ${((r.top / vh) * 100).toFixed(1)}%  left: ${((r.left / vw) * 100).toFixed(1)}%\n`;
+    });
+    if (icons[0]) {
+      const r = icons[0].getBoundingClientRect();
+      const card = icons[0].closest('.odometer-card').getBoundingClientRect();
+      txt += `ICON:  offset left: ${Math.round(r.left - card.left)}px  top: ${Math.round(r.top - card.top)}px`;
+    }
+    coords.textContent = txt;
   }
 
   btn.addEventListener('click', () => {
     dragOn = !dragOn;
-    btn.textContent = dragOn ? 'DRAG ICON: ON' : 'DRAG ICON: OFF';
+    btn.textContent = dragOn ? 'DRAG MODE: ON' : 'DRAG MODE: OFF';
     btn.style.background = dragOn ? '#00cc88' : '#ff4422';
     coords.style.display = dragOn ? 'block' : 'none';
-    icons.forEach(ic => {
-      ic.style.pointerEvents = dragOn ? 'auto' : 'none';
-      ic.style.cursor = dragOn ? 'grab' : '';
-      ic.style.outline = dragOn ? '2px dashed rgba(255,255,255,0.5)' : '';
+    allTargets.forEach(t => {
+      t.el.style.pointerEvents = dragOn ? 'auto' : 'none';
+      t.el.style.cursor = dragOn ? 'grab' : '';
+      t.el.style.outline = dragOn ? '2px dashed rgba(255,255,255,0.3)' : '';
     });
     if (dragOn) updateCoords();
   });
 
-  let dragging = null, startX, startY, dx = 0, dy = 0;
-  icons.forEach(icon => {
-    icon.addEventListener('mousedown', (e) => {
+  let dragging = null, startX, startY, origLeft, origTop, useTransform = false;
+
+  allTargets.forEach(t => {
+    t.el.addEventListener('mousedown', (e) => {
       if (!dragOn) return;
       e.preventDefault();
-      dragging = icon;
+      dragging = t.el;
       dragging.style.cursor = 'grabbing';
       startX = e.clientX; startY = e.clientY;
-      dx = 0; dy = 0;
+
+      useTransform = transformTargets.some(tt => tt.el === dragging);
+      if (useTransform) {
+        origLeft = 0; origTop = 0;
+      } else {
+        const rect = dragging.getBoundingClientRect();
+        const isArrow = dragging.classList.contains('odometer-arrow');
+        const parent = dragging.closest('.features-sticky');
+        const ref = parent ? parent.getBoundingClientRect() : { top: 0, left: 0 };
+        dragging.style.right = 'auto';
+        if (!isArrow) dragging.style.transform = 'none';
+        dragging.style.position = 'absolute';
+        dragging.style.left = (rect.left - ref.left) + 'px';
+        dragging.style.top = (rect.top - ref.top) + 'px';
+        dragging.style.margin = '0';
+        origLeft = rect.left - ref.left;
+        origTop = rect.top - ref.top;
+      }
     });
   });
+
   window.addEventListener('mousemove', (e) => {
     if (!dragging) return;
-    dx = e.clientX - startX;
-    dy = e.clientY - startY;
-    dragging.style.transform = `translate(${dx}px, ${dy}px)`;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (useTransform) {
+      dragging.style.transform = `translate(${dx}px, ${dy}px)`;
+    } else {
+      dragging.style.left = (origLeft + dx) + 'px';
+      dragging.style.top = (origTop + dy) + 'px';
+    }
     updateCoords();
   });
   window.addEventListener('mouseup', () => {
