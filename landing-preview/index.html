@@ -3393,5 +3393,117 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
 </script>
 
 
+<!-- TEMP: Drag tool -->
+<script>
+(function() {
+  const btn = document.createElement('button');
+  btn.textContent = 'DRAG MODE: OFF';
+  Object.assign(btn.style, {
+    position:'fixed',bottom:'20px',left:'20px',zIndex:'99999',
+    padding:'10px 18px',background:'#ff4422',color:'#fff',border:'none',
+    borderRadius:'8px',fontWeight:'700',fontSize:'14px',cursor:'pointer',fontFamily:'monospace'
+  });
+  document.body.appendChild(btn);
+
+  const coords = document.createElement('div');
+  Object.assign(coords.style, {
+    position:'fixed',bottom:'60px',left:'20px',zIndex:'99999',
+    padding:'12px 16px',background:'rgba(0,0,0,0.9)',color:'#0f0',border:'1px solid #333',
+    borderRadius:'8px',fontSize:'13px',fontFamily:'monospace',lineHeight:'1.6',
+    display:'none',whiteSpace:'pre'
+  });
+  document.body.appendChild(coords);
+
+  let dragOn = false;
+  const title = document.querySelector('.odometer-title');
+  const wrap = document.querySelector('.odometer-wrap');
+  const arrow = document.querySelector('.odometer-arrow');
+  const icons = document.querySelectorAll('.odometer-icon');
+
+  const targets = [];
+  if (title) targets.push({ el: title, label: 'TITLE', mode: 'abs' });
+  if (wrap) targets.push({ el: wrap, label: 'ODOMETER', mode: 'abs' });
+  if (arrow) targets.push({ el: arrow, label: 'ARROW', mode: 'abs' });
+  icons.forEach((ic, i) => targets.push({ el: ic, label: 'ICON-' + i, mode: 'icon' }));
+
+  function updateCoords() {
+    const vh = window.innerHeight, vw = window.innerWidth;
+    let txt = '';
+    targets.forEach(t => {
+      const r = t.el.getBoundingClientRect();
+      if (t.mode === 'abs') {
+        txt += `${t.label}:  top: ${((r.top / vh) * 100).toFixed(1)}%  left: ${((r.left / vw) * 100).toFixed(1)}%\n`;
+      } else {
+        const card = t.el.closest('.odometer-card').getBoundingClientRect();
+        txt += `${t.label}:  left: ${Math.round(r.left - card.left)}px  top: ${Math.round(r.top - card.top)}px\n`;
+      }
+    });
+    coords.textContent = txt;
+  }
+
+  btn.addEventListener('click', () => {
+    dragOn = !dragOn;
+    btn.textContent = dragOn ? 'DRAG MODE: ON' : 'DRAG MODE: OFF';
+    btn.style.background = dragOn ? '#00cc88' : '#ff4422';
+    coords.style.display = dragOn ? 'block' : 'none';
+    targets.forEach(t => {
+      t.el.style.pointerEvents = dragOn ? 'auto' : 'none';
+      t.el.style.cursor = dragOn ? 'grab' : '';
+      t.el.style.outline = dragOn ? '2px dashed rgba(255,255,255,0.3)' : '';
+    });
+    if (dragOn) updateCoords();
+  });
+
+  let dragging = null, dragTarget = null, startX, startY, origLeft, origTop;
+
+  targets.forEach(t => {
+    t.el.addEventListener('mousedown', (e) => {
+      if (!dragOn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = t.el;
+      dragTarget = t;
+      dragging.style.cursor = 'grabbing';
+      startX = e.clientX; startY = e.clientY;
+
+      if (t.mode === 'icon') {
+        origLeft = parseInt(getComputedStyle(t.el).left) || 20;
+        origTop = t.el.getBoundingClientRect().top - t.el.closest('.odometer-card').getBoundingClientRect().top;
+      } else {
+        const rect = t.el.getBoundingClientRect();
+        const isArrow = t.el.classList.contains('odometer-arrow');
+        const sticky = t.el.closest('.features-sticky');
+        const ref = sticky ? sticky.getBoundingClientRect() : { top: 0, left: 0 };
+        t.el.style.right = 'auto';
+        if (!isArrow) t.el.style.transform = 'none';
+        t.el.style.position = 'absolute';
+        t.el.style.left = (rect.left - ref.left) + 'px';
+        t.el.style.top = (rect.top - ref.top) + 'px';
+        t.el.style.margin = '0';
+        origLeft = rect.left - ref.left;
+        origTop = rect.top - ref.top;
+      }
+    });
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging || !dragTarget) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (dragTarget.mode === 'icon') {
+      dragging.style.left = (origLeft + dx) + 'px';
+      dragging.style.top = (origTop + dy) + 'px';
+      dragging.style.transform = 'none';
+    } else {
+      dragging.style.left = (origLeft + dx) + 'px';
+      dragging.style.top = (origTop + dy) + 'px';
+    }
+    updateCoords();
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging.style.cursor = 'grab'; dragging = null; dragTarget = null; updateCoords(); }
+  });
+})();
+</script>
+
 </body>
 </html>
