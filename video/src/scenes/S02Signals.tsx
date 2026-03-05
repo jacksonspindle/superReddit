@@ -384,6 +384,196 @@ const RedditPost: React.FC<{
   );
 };
 
+// ── Animated cursor ──
+const AnimatedCursor: React.FC<{
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  moveStart: number;
+  moveEnd: number;
+  clickFrame: number;
+}> = ({ startX, startY, endX, endY, moveStart, moveEnd, clickFrame }) => {
+  const frame = useCurrentFrame();
+
+  if (frame < moveStart) return null;
+
+  const x = interpolate(frame, [moveStart, moveEnd], [startX, endX], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.quad),
+  });
+  const y = interpolate(frame, [moveStart, moveEnd], [startY, endY], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.quad),
+  });
+
+  // Click pulse
+  const clickScale = frame >= clickFrame && frame < clickFrame + 8
+    ? interpolate(frame, [clickFrame, clickFrame + 4, clickFrame + 8], [1, 0.7, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
+
+  // Fade out after click
+  const opacity = interpolate(frame, [clickFrame + 15, clickFrame + 25], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: x,
+        top: y,
+        zIndex: 200,
+        opacity,
+        transform: `scale(${clickScale})`,
+        pointerEvents: "none",
+      }}
+    >
+      {/* Cursor SVG */}
+      <svg width="24" height="28" viewBox="0 0 24 28" fill="none">
+        <path
+          d="M5 2L5 20L9.5 15.5L13.5 23L16.5 21.5L12.5 13.5L18 12L5 2Z"
+          fill="white"
+          stroke="#333"
+          strokeWidth="1.5"
+        />
+      </svg>
+      {/* Click ripple */}
+      {frame >= clickFrame && frame < clickFrame + 12 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: interpolate(frame, [clickFrame, clickFrame + 12], [8, 40], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+            height: interpolate(frame, [clickFrame, clickFrame + 12], [8, 40], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+            borderRadius: "50%",
+            border: `2px solid ${COLORS.orange}`,
+            opacity: interpolate(frame, [clickFrame, clickFrame + 12], [0.8, 0], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+            transform: "translate(-50%, -50%)",
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// ── Comment reply overlay ──
+const CommentReply: React.FC<{
+  delay: number;
+}> = ({ delay }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const expandProgress = spring({
+    frame,
+    fps,
+    delay,
+    config: { damping: 18, stiffness: 160 },
+  });
+
+  const height = interpolate(expandProgress, [0, 1], [0, 180]);
+  const opacity = interpolate(expandProgress, [0, 0.3], [0, 1]);
+
+  const replyText = "Hey! We actually built a tool specifically for Reddit outreach — handles lead detection, drafting, and sending all in one place. Happy to show you a quick demo if you're interested!";
+
+  // Typewriter effect
+  const charsVisible = Math.floor(
+    interpolate(frame, [delay + 12, delay + 70], [0, replyText.length], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    })
+  );
+
+  const typedText = replyText.slice(0, charsVisible);
+  const showCaret = frame >= delay + 12 && frame < delay + 75;
+
+  if (frame < delay) return null;
+
+  return (
+    <div
+      style={{
+        overflow: "hidden",
+        height,
+        opacity,
+        borderTop: `1px solid ${COLORS.border}`,
+        padding: charsVisible > 0 ? "16px 20px" : "0 20px",
+      }}
+    >
+      {/* Reply header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            background: `linear-gradient(135deg, ${COLORS.orange}, #ea580c)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 10,
+            fontWeight: 800,
+            color: "white",
+          }}
+        >
+          SR
+        </div>
+        <span style={{ fontSize: 14, fontWeight: 600, color: COLORS.orange }}>
+          u/your_agency
+        </span>
+        <span style={{ fontSize: 12, color: COLORS.fgDim }}>replying now...</span>
+      </div>
+
+      {/* Typed reply */}
+      <div
+        style={{
+          fontSize: 15,
+          color: COLORS.fgMuted,
+          lineHeight: 1.6,
+          paddingLeft: 38,
+        }}
+      >
+        {typedText}
+        {showCaret && (
+          <span
+            style={{
+              display: "inline-block",
+              width: 2,
+              height: 16,
+              background: COLORS.orange,
+              marginLeft: 2,
+              verticalAlign: "text-bottom",
+              opacity: Math.sin(frame * 0.4) > 0 ? 1 : 0,
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── Reddit posts data ──
 const POSTS = [
   {
@@ -535,7 +725,7 @@ export const S02Signals: React.FC = () => {
           position: "absolute",
           left: 60,
           right: 60,
-          top: 50,
+          top: 16,
           opacity: counterSectionOpacity,
           transform: `translateY(${countersVerticalY}px)`,
         }}
@@ -616,7 +806,7 @@ export const S02Signals: React.FC = () => {
           position: "absolute",
           left: 60,
           right: 60,
-          top: 220,
+          top: 280,
           bottom: 50,
           opacity: postsSectionOpacity,
           overflow: "hidden",
@@ -639,14 +829,28 @@ export const S02Signals: React.FC = () => {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {POSTS.map((post, i) => (
-            <RedditPost
-              key={i}
-              {...post}
-              delay={148 + i * 12}
-            />
+            <div key={i}>
+              <RedditPost
+                {...post}
+                delay={148 + i * 12}
+              />
+              {/* Comment reply expands under the first post after cursor click */}
+              {i === 0 && <CommentReply delay={232} />}
+            </div>
           ))}
         </div>
       </div>
+
+      {/* Cursor — moves to first post and clicks at frame 228 */}
+      <AnimatedCursor
+        startX={640}
+        startY={600}
+        endX={400}
+        endY={360}
+        moveStart={218}
+        moveEnd={228}
+        clickFrame={228}
+      />
     </AbsoluteFill>
   );
 };
