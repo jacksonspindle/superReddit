@@ -1983,21 +1983,32 @@ function toggleVideoExpand() {
   const demoSection = document.getElementById('laptop-demo');
   if (!wrap || !demoSection) return;
 
+  const viewH = window.innerHeight;
   if (videoExpanded) {
-    // Expand to fill the viewport
-    wrap.style.position = 'fixed';
-    wrap.style.top = '0';
-    wrap.style.left = '0';
-    wrap.style.width = '100vw';
-    wrap.style.height = '100vh';
-    wrap.style.transform = 'none';
-    wrap.style.zIndex = '9999';
-    if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
+    // Expand larger — 75% of viewport height, 5:4 ratio to match video
+    const videoH = viewH * 0.75;
+    const videoW = videoH * (5/4);
+    const videoTop = viewH * 0.04;
+    const vid = document.getElementById('demo-video-player');
+    if (vid) vid.style.objectFit = 'contain';
+    wrap.style.position = 'absolute';
+    wrap.style.top = videoTop + 'px';
+    wrap.style.left = '50%';
+    wrap.style.width = videoW + 'px';
+    wrap.style.height = videoH + 'px';
+    wrap.style.transform = 'translateX(-50%)';
+    wrap.style.zIndex = '10';
+    if (text) {
+      text.style.top = (videoTop + videoH + 12) + 'px';
+      text.style.opacity = '1';
+      text.style.pointerEvents = 'auto';
+    }
     if (expandIcon) expandIcon.style.display = 'none';
     if (collapseIcon) collapseIcon.style.display = 'block';
   } else {
-    // Restore original placement
-    const viewH = window.innerHeight;
+    // Restore original placement — 60% of viewport height
+    const vid = document.getElementById('demo-video-player');
+    if (vid) vid.style.objectFit = 'cover';
     const videoH = viewH * 0.6;
     const videoW = videoH * (16/9);
     const videoTop = (viewH - videoH) / 2;
@@ -2009,6 +2020,7 @@ function toggleVideoExpand() {
     wrap.style.transform = 'translateX(-50%)';
     wrap.style.zIndex = '10';
     if (text) {
+      text.style.display = 'block';
       text.style.top = (videoTop + videoH + 12) + 'px';
       text.style.opacity = '1';
       text.style.pointerEvents = 'auto';

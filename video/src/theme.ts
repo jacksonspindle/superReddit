@@ -49,14 +49,14 @@ export const COMP = {
   width: 1280,
   height: 1024,
   fps: 30,
-  totalFrames: 1500,
+  totalFrames: 1580,
 } as const;
 
 // Scene durations (adjusted for 15-frame cross-fades between scenes)
-// Total visible = sum(durations) - 6*15 = 1590 - 90 = 1500
+// Total visible = sum(durations) - 6*15 = 1670 - 90 = 1580
 export const SCENES = {
   S01: { duration: 225, label: "Opening" },
-  S02: { duration: 285, label: "Signals" },
+  S02: { duration: 365, label: "Signals" },
   S03: { duration: 255, label: "Alerts" },
   S04: { duration: 255, label: "Swipe Queue" },
   S05: { duration: 255, label: "Chat Overlay" },
