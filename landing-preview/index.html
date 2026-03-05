@@ -3007,13 +3007,12 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
       // Smooth cursor-driven head movement
       if (robotHead && headBaseRotation) {
-        const lerp = 0.05;
+        const lerp = 0.08;
         fMouseSmoothedX += (fMouseX - fMouseSmoothedX) * lerp;
         fMouseSmoothedY += (fMouseY - fMouseSmoothedY) * lerp;
 
-        // Very slight side-to-side (Y-axis), more noticeable up/down (X-axis)
-        robotHead.rotation.x = headBaseRotation.x + fMouseSmoothedY * 0.12;
-        robotHead.rotation.y = headBaseRotation.y + fMouseSmoothedX * 0.05;
+        robotHead.rotation.x = headBaseRotation.x + fMouseSmoothedY * 0.35;
+        robotHead.rotation.y = headBaseRotation.y + fMouseSmoothedX * 0.2;
       }
 
       fComposer.render();
