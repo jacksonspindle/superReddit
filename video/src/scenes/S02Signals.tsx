@@ -181,17 +181,21 @@ const PhoneNotification: React.FC<{
   delay: number;
 }> = ({ delay }) => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
 
-  const slideDown = interpolate(
+  // Spring-based slide for fluid motion
+  const springProgress = spring({
     frame,
-    [delay, delay + 12],
-    [-100, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.quad) }
-  );
+    fps,
+    delay,
+    config: { damping: 14, stiffness: 220 },
+  });
+
+  const slideDown = interpolate(springProgress, [0, 1], [-80, 0]);
 
   const opacity = interpolate(
     frame,
-    [delay, delay + 8, delay + 110, delay + 125],
+    [delay, delay + 5, delay + 110, delay + 125],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
@@ -435,12 +439,12 @@ export const S02Signals: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // PHASE 1: Headline (frames 0–45)
-  const headlineOpacity = interpolate(frame, [0, 25], [0, 1], {
+  // PHASE 1: Headline (frames 0–45) — snappy entrance
+  const headlineOpacity = interpolate(frame, [0, 10], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const headlineY = interpolate(frame, [0, 25], [30, 0], {
+  const headlineY = interpolate(frame, [0, 12], [20, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.quad),
@@ -490,12 +494,12 @@ export const S02Signals: React.FC = () => {
       >
         <div
           style={{
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 600,
             color: COLORS.orange,
             textTransform: "uppercase",
-            letterSpacing: 3,
-            marginBottom: 20,
+            letterSpacing: 4,
+            marginBottom: 24,
             opacity: headlineOpacity,
             transform: `translateY(${headlineY}px)`,
           }}
@@ -504,7 +508,7 @@ export const S02Signals: React.FC = () => {
         </div>
         <div
           style={{
-            fontSize: 44,
+            fontSize: 56,
             fontWeight: 800,
             color: COLORS.fg,
             textAlign: "center",
