@@ -524,8 +524,8 @@ export const S02Signals: React.FC = () => {
         </div>
       </AbsoluteFill>
 
-      {/* Phone notification — drops in at frame 55 */}
-      <PhoneNotification delay={55} />
+      {/* Phone notification — drops in at frame 24 */}
+      <PhoneNotification delay={24} />
 
       {/* PHASE 2: Counters + Posts dashboard */}
       <AbsoluteFill
