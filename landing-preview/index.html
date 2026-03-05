@@ -1985,8 +1985,8 @@ function toggleVideoExpand() {
 
   const viewH = window.innerHeight;
   if (videoExpanded) {
-    // Expand larger — 90% of viewport height, centered
-    const videoH = viewH * 0.9;
+    // Expand larger — 75% of viewport height, centered
+    const videoH = viewH * 0.75;
     const videoW = videoH * (16/9);
     const videoTop = (viewH - videoH) / 2;
     wrap.style.position = 'absolute';
