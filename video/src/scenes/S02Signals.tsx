@@ -16,39 +16,20 @@ const { fontFamily } = loadFont("normal", {
   subsets: ["latin"],
 });
 
-// ── Odometer digit — scrolls through all intermediate values ──
+// ── Single odometer digit — only scrolls upward ──
 const DIGIT_H = 56;
 const OdometerDigit: React.FC<{
-  fromDigit: number;
-  toDigit: number;
-  /** How many full 0-9 wraps to add for spin effect */
-  extraSpins: number;
-  triggerFrame: number;
-  duration: number;
+  digit: number;
+  nextDigit: number;
+  fractional: number;
   color: string;
-}> = ({ fromDigit, toDigit, extraSpins, triggerFrame, duration, color }) => {
-  const frame = useCurrentFrame();
-
-  // Total steps to scroll through
-  const totalSteps = extraSpins * 10 + ((toDigit - fromDigit + 10) % 10);
-
-  const progress = interpolate(
-    frame,
-    [triggerFrame, triggerFrame + duration],
-    [0, totalSteps],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }
-  );
-
-  // Current visible digit
-  const currentDigit = (fromDigit + Math.floor(progress)) % 10;
-  const nextDigit = (currentDigit + 1) % 10;
-  const fractional = progress - Math.floor(progress);
+}> = ({ digit, nextDigit, fractional, color }) => {
   const yOffset = -fractional * DIGIT_H;
 
   return (
     <div style={{ overflow: "hidden", height: DIGIT_H, width: 42, position: "relative" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, transform: `translateY(${yOffset}px)` }}>
-        {[currentDigit, nextDigit].map((d, idx) => (
+        {[digit, nextDigit].map((d, idx) => (
           <div
             key={idx}
             style={{
@@ -70,7 +51,7 @@ const OdometerDigit: React.FC<{
   );
 };
 
-// ── Odometer counter (multi-digit, spins all at once) ──
+// ── Odometer counter — animates whole number upward from→to ──
 const OdometerCounter: React.FC<{
   from: number;
   to: number;
@@ -92,8 +73,19 @@ const OdometerCounter: React.FC<{
     config: { damping: 15, stiffness: 200 },
   });
 
-  const fromStr = String(from).padStart(String(to).length, "0");
-  const toStr = String(to);
+  // Animate the whole number from → to (always goes up)
+  const rawValue = interpolate(
+    frame,
+    [triggerFrame, triggerFrame + spinDuration],
+    [from, to],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) }
+  );
+
+  const currentValue = Math.floor(rawValue);
+  const fractional = rawValue - currentValue;
+  const numDigits = String(to).length;
+  const currentStr = String(currentValue).padStart(numDigits, "0");
+  const nextStr = String(Math.min(currentValue + 1, to)).padStart(numDigits, "0");
 
   // Pulse effect at end of spin
   const pulseScale = interpolate(
@@ -133,23 +125,15 @@ const OdometerCounter: React.FC<{
         {label}
       </div>
       <div style={{ display: "flex", gap: 2 }}>
-        {toStr.split("").map((_, i) => {
-          const fd = Number(fromStr[i]);
-          const td = Number(toStr[i]);
-          // More extra spins for rightmost digits (faster feel)
-          const spins = i === toStr.length - 1 ? 2 : i === toStr.length - 2 ? 1 : 0;
-          return (
-            <OdometerDigit
-              key={i}
-              fromDigit={fd}
-              toDigit={td}
-              extraSpins={spins}
-              triggerFrame={triggerFrame}
-              duration={spinDuration}
-              color={color}
-            />
-          );
-        })}
+        {currentStr.split("").map((d, i) => (
+          <OdometerDigit
+            key={i}
+            digit={Number(d)}
+            nextDigit={Number(nextStr[i])}
+            fractional={Number(d) !== Number(nextStr[i]) ? fractional : 0}
+            color={color}
+          />
+        ))}
       </div>
       <div
         style={{
@@ -556,6 +540,22 @@ export const S02Signals: React.FC = () => {
           transform: `translateY(${countersVerticalY}px)`,
         }}
       >
+        {/* Headline above counters — fades out as counters move up */}
+        <div
+          style={{
+            fontSize: 44,
+            fontWeight: 700,
+            color: COLORS.fg,
+            textAlign: "center",
+            marginBottom: 28,
+            opacity: interpolate(frame, [69, 78, 115, 122], [0, 1, 1, 0], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+          }}
+        >
+          Your Pipeline, <span style={{ color: COLORS.orange }}>Updating Live</span>
+        </div>
         <div
           style={{
             display: "grid",
