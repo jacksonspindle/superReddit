@@ -394,16 +394,16 @@
 
   .testimonial-viewport {
     position: relative;
-    flex: 1;
     overflow: hidden;
   }
 
   .testimonial-card {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 20px;
@@ -427,7 +427,7 @@
     font-weight: 400;
     color: rgba(255,255,255,0.85);
     line-height: 1.7;
-    margin: 0 0 32px 0;
+    margin: 0 0 20px 0;
     font-style: italic;
   }
   .testimonial-quote::before { content: '\201C'; }
@@ -3256,12 +3256,21 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
   }
 }
 
-// ── Features Odometer: scroll-driven card switching ──
 // ── Testimonial carousel ──
 {
   const cards = document.querySelectorAll('.testimonial-card');
   const dots = document.querySelectorAll('.testimonial-dot');
-  if (cards.length) {
+  const viewport = document.querySelector('.testimonial-viewport');
+  if (cards.length && viewport) {
+    // Size viewport to tallest card
+    let maxH = 0;
+    cards.forEach(c => {
+      c.style.position = 'relative';
+      maxH = Math.max(maxH, c.offsetHeight);
+      c.style.position = '';
+    });
+    viewport.style.height = maxH + 'px';
+
     let current = 0;
     let timer = null;
 
