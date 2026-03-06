@@ -379,25 +379,12 @@
   }
 
   /* ---- Testimonials title ---- */
-  .testimonials-title {
-    position: absolute;
-    top: 12%;
-    left: 52%;
-    z-index: 2;
-    font-size: 40px;
-    font-weight: 800;
-    color: #ffffff;
-    margin: 0;
-    letter-spacing: -0.03em;
-    pointer-events: none;
-  }
-
   /* ---- Testimonial carousel ---- */
   .testimonial-wrap {
     position: absolute;
     left: 52%;
     right: 4%;
-    top: 30%;
+    top: 15%;
     bottom: 12%;
     z-index: 2;
     display: flex;
@@ -420,7 +407,7 @@
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 20px;
-    padding: 40px;
+    padding: 24px 32px;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     opacity: 0;
@@ -498,7 +485,6 @@
 
   /* ---- Testimonials responsive ---- */
   @media (max-width: 768px) {
-    .testimonials-title { font-size: 48px; left: 50%; transform: translateX(-50%); text-align: center; }
     .testimonial-wrap {
       left: 5%;
       right: 5%;
@@ -508,7 +494,6 @@
     .testimonial-quote { font-size: 1.15rem; }
   }
   @media (max-width: 480px) {
-    .testimonials-title { font-size: 36px; }
     .testimonial-wrap { top: 45%; }
     .testimonial-quote { font-size: 1rem; }
     .testimonial-avatar { width: 40px; height: 40px; font-size: 16px; }
@@ -886,7 +871,7 @@
 <section class="features" id="features">
   <div class="features-sticky">
     <div id="features-3d"></div>
-    <h2 class="testimonials-title">Testimonials</h2>
+
 
     <div class="testimonial-wrap">
       <div class="testimonial-viewport">
