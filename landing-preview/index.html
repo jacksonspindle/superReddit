@@ -2442,25 +2442,25 @@ if (USE_SCROLL_VIDEO) {
       const ep = svExpandProgress;
       const ease = ep < 0.5 ? 2 * ep * ep : 1 - Math.pow(-2 * ep + 2, 2) / 2;
 
-      // When shrinking back (ease < 1), show the scroll canvas with the last
-      // laptop frame underneath so the wrap can crossfade into it seamlessly.
+      // Laptop canvas: only visible when wrap is near laptop-screen size (ease ≈ 0).
+      // Fades out quickly as the wrap grows beyond the screen, fades back in only
+      // when the wrap shrinks back to match the laptop screen exactly.
       const scrollCanvas = document.getElementById('scroll-video-canvas');
-      if (ease >= 1) {
-        if (scrollCanvas) { scrollCanvas.style.display = 'none'; scrollCanvas.style.opacity = '0'; }
-      } else {
-        // Draw the last laptop frame on the canvas behind the fading wrap
-        if (scrollCanvas && scrollCanvasCtx) {
-          const lastFrame = SCROLL_FRAME_COUNT - 1;
-          if (scrollFrames[lastFrame] && scrollFrames[lastFrame].complete) {
-            scrollCanvas.style.display = 'block';
-            scrollCanvas.style.opacity = '1';
-            if (svLastRenderedFrame !== lastFrame) {
-              scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
-              scrollCanvasCtx.drawImage(scrollFrames[lastFrame], 0, 0, scrollCanvas.width, scrollCanvas.height);
-              svLastRenderedFrame = lastFrame;
-            }
+      const canvasOpacity = 1 - Math.min(1, ease * 10);
+      if (canvasOpacity > 0.01 && scrollCanvas && scrollCanvasCtx) {
+        const lastFrame = SCROLL_FRAME_COUNT - 1;
+        if (scrollFrames[lastFrame] && scrollFrames[lastFrame].complete) {
+          scrollCanvas.style.display = 'block';
+          scrollCanvas.style.opacity = String(canvasOpacity);
+          if (svLastRenderedFrame !== lastFrame) {
+            scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+            scrollCanvasCtx.drawImage(scrollFrames[lastFrame], 0, 0, scrollCanvas.width, scrollCanvas.height);
+            svLastRenderedFrame = lastFrame;
           }
         }
+      } else if (scrollCanvas) {
+        scrollCanvas.style.display = 'none';
+        scrollCanvas.style.opacity = '0';
       }
 
       // Lerp from laptop-screen size → fullscreen
