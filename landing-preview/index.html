@@ -2434,8 +2434,6 @@ if (USE_SCROLL_VIDEO) {
 
     // While locked, keep showing the video + text — skip all frame/canvas logic
     if (videoLocked) {
-      const scrollCanvas = document.getElementById('scroll-video-canvas');
-      if (scrollCanvas) { scrollCanvas.style.display = 'none'; scrollCanvas.style.opacity = '0'; }
       if (heroLaptopNode) heroLaptopNode.visible = false;
       const rays = document.getElementById('laptop-light-rays');
       if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
@@ -2443,6 +2441,27 @@ if (USE_SCROLL_VIDEO) {
       const vw = window.innerWidth, vh = window.innerHeight;
       const ep = svExpandProgress;
       const ease = ep < 0.5 ? 2 * ep * ep : 1 - Math.pow(-2 * ep + 2, 2) / 2;
+
+      // When shrinking back (ease < 1), show the scroll canvas with the last
+      // laptop frame underneath so the wrap can crossfade into it seamlessly.
+      const scrollCanvas = document.getElementById('scroll-video-canvas');
+      if (ease >= 1) {
+        if (scrollCanvas) { scrollCanvas.style.display = 'none'; scrollCanvas.style.opacity = '0'; }
+      } else {
+        // Draw the last laptop frame on the canvas behind the fading wrap
+        if (scrollCanvas && scrollCanvasCtx) {
+          const lastFrame = SCROLL_FRAME_COUNT - 1;
+          if (scrollFrames[lastFrame] && scrollFrames[lastFrame].complete) {
+            scrollCanvas.style.display = 'block';
+            scrollCanvas.style.opacity = '1';
+            if (svLastRenderedFrame !== lastFrame) {
+              scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+              scrollCanvasCtx.drawImage(scrollFrames[lastFrame], 0, 0, scrollCanvas.width, scrollCanvas.height);
+              svLastRenderedFrame = lastFrame;
+            }
+          }
+        }
+      }
 
       // Lerp from laptop-screen size → fullscreen
       const startW = vw * SCREEN_WIDTH_FRAC;
@@ -2457,13 +2476,14 @@ if (USE_SCROLL_VIDEO) {
       const curTop = startTop + (endTop - startTop) * ease;
       const borderR = Math.round(8 * (1 - ease));
 
+      // Fade the entire wrap out when shrinking so the laptop frame shows through
+      const wrapOpacity = ease >= 1 ? 1 : Math.min(1, ease * 2.5);
+
       const wrap = document.getElementById('flat-video-wrap');
       const demoSection = document.getElementById('laptop-demo');
 
       if (ease >= 1) {
         // Fully expanded — switch to absolute so it scrolls naturally with the section.
-        // Cache the position at the transition moment so it doesn't recalculate every frame
-        // (which would keep it viewport-fixed instead of letting it scroll away).
         if (expandLockedAbsTop === null) {
           const sectionRect = demoSection ? demoSection.getBoundingClientRect() : { top: 0 };
           expandLockedAbsTop = Math.round(-sectionRect.top);
@@ -2482,12 +2502,13 @@ if (USE_SCROLL_VIDEO) {
           top: ${curTop}px; left: 50%; transform: translateX(-50%);
           width: ${curW}px; height: ${curH}px;
           z-index: 45; pointer-events: auto;
+          opacity: ${wrapOpacity};
         `;
       }
       const container = document.getElementById('flat-video-container');
       if (container) {
         container.style.borderRadius = borderR + 'px';
-        // Fade content out quickly when screen is shrinking (scrolling back up)
+        // Fade content out even faster than the wrap
         const contentOpacity = ease >= 1 ? 1 : Math.min(1, ease * 3);
         container.style.opacity = contentOpacity;
       }
