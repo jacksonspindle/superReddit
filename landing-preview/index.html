@@ -235,7 +235,7 @@
     display: flex; align-items: center; gap: 6px;
   }
   .ld-reddit-dot {
-    display: inline-block; width: 14px; height: 14px; flex-shrink: 0;
+    display: inline-block; width: 22px; height: 22px; flex-shrink: 0;
     background: url('models/redditlogo.webp') center/contain no-repeat;
   }
   .ld-feed-score {
@@ -450,25 +450,26 @@
   .cta-card p { font-size: 16px; color: #2a2a44; margin-bottom: 32px; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
 
   /* ---- Pricing section ---- */
-  .pricing { padding: 100px 0; background: #000000; }
+  .pricing { padding: 100px 0; background: #ffffff; }
   .pricing .section-label { color: var(--orange); }
-  .pricing .section-title { color: #ffffff; }
-  .pricing .section-subtitle { color: rgba(255,255,255,0.5); }
+  .pricing .section-title { color: var(--gray-900); }
+  .pricing .section-subtitle { color: var(--gray-400); }
 
   .pricing-toggle {
     display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 56px;
   }
   .pricing-toggle-label {
-    font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.5); transition: color 0.2s;
+    font-size: 15px; font-weight: 600; color: var(--gray-400); transition: color 0.2s;
   }
-  .pricing-toggle-label.active { color: #ffffff; }
+  .pricing-toggle-label.active { color: var(--gray-900); }
   .pricing-toggle-switch {
-    position: relative; width: 52px; height: 28px; background: rgba(255,255,255,0.15);
+    position: relative; width: 52px; height: 28px; background: var(--gray-100);
     border-radius: 14px; cursor: pointer; border: none; transition: background 0.2s;
   }
   .pricing-toggle-switch::after {
     content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
     background: #ffffff; border-radius: 50%; transition: transform 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
   }
   .pricing[data-billing="yearly"] .pricing-toggle-switch {
     background: var(--orange);
@@ -482,72 +483,59 @@
   }
 
   .pricing-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1040px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px; max-width: 760px; margin: 0 auto;
+    perspective: 1000px;
   }
 
   .pricing-card {
-    background:
-      linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 50%, rgba(255,255,255,0.15) 100%),
-      linear-gradient(180deg, #f8f4ee 0%, #f2ede5 50%, #ece6dc 100%);
-    border: none; border-radius: 20px; padding: 36px 28px; position: relative; overflow: hidden;
+    background: #ffffff;
+    border: 1px solid var(--gray-100);
+    border-radius: 20px; padding: 36px 28px; position: relative; overflow: hidden;
+    transform: rotateY(-4deg) rotateX(2deg);
+    transform-style: preserve-3d;
     box-shadow:
-      inset 0 2px 0 0 rgba(255,255,255,0.6),
-      inset 0 4px 8px 0 rgba(255,255,255,0.3),
-      inset 2px 0 0 0 rgba(255,255,255,0.2),
-      inset 0 -3px 0 0 rgba(80,60,40,0.1),
-      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
-      0 2px 4px rgba(0,0,0,0.06),
-      0 8px 24px rgba(0,0,0,0.08),
-      0 20px 48px rgba(0,0,0,0.06);
+      0 8px 32px rgba(0,0,0,0.12),
+      0 24px 64px rgba(0,0,0,0.08),
+      -8px 16px 40px rgba(0,0,0,0.06);
+    border-left: 2px solid rgba(255,255,255,0.5);
+    border-top: 1px solid rgba(255,255,255,0.3);
     transition: transform 0.25s ease, box-shadow 0.25s ease;
     display: flex; flex-direction: column;
   }
+  .pricing-card:nth-child(2) {
+    transform: rotateY(4deg) rotateX(2deg);
+    border-left: none;
+    border-right: 2px solid rgba(255,255,255,0.5);
+  }
   .pricing-card:hover {
-    transform: translateY(-4px);
+    transform: rotateY(-2deg) rotateX(1deg) translateY(-4px);
     box-shadow:
-      inset 0 2px 0 0 rgba(255,255,255,0.6),
-      inset 0 4px 8px 0 rgba(255,255,255,0.3),
-      inset 2px 0 0 0 rgba(255,255,255,0.2),
-      inset 0 -3px 0 0 rgba(80,60,40,0.1),
-      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
-      0 4px 8px rgba(0,0,0,0.08),
-      0 16px 32px rgba(0,0,0,0.1),
-      0 28px 56px rgba(0,0,0,0.08);
+      0 16px 40px rgba(0,0,0,0.15),
+      0 32px 72px rgba(0,0,0,0.1),
+      -8px 24px 48px rgba(0,0,0,0.08);
+  }
+  .pricing-card:nth-child(2):hover {
+    transform: rotateY(2deg) rotateX(1deg) translateY(-4px);
   }
   .pricing-card::before {
     content: ''; position: absolute; inset: 0; border-radius: 20px;
-    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.2) 55%, transparent 70%);
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.4) 55%, transparent 70%);
     pointer-events: none;
-  }
-  .pricing-card::after {
-    content: ''; position: absolute; inset: 0; border-radius: 20px;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5 0.08' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 300px 300px; opacity: 0.04; mix-blend-mode: overlay; pointer-events: none;
   }
 
   .pricing-card.featured {
     border: 2px solid var(--orange);
     box-shadow:
-      inset 0 2px 0 0 rgba(255,255,255,0.6),
-      inset 0 4px 8px 0 rgba(255,255,255,0.3),
-      inset 2px 0 0 0 rgba(255,255,255,0.2),
-      inset 0 -3px 0 0 rgba(80,60,40,0.1),
-      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
-      0 2px 4px rgba(0,0,0,0.06),
-      0 8px 24px rgba(0,0,0,0.08),
-      0 20px 48px rgba(0,0,0,0.06),
+      0 8px 32px rgba(0,0,0,0.12),
+      0 24px 64px rgba(0,0,0,0.08),
+      -8px 16px 40px rgba(0,0,0,0.06),
       0 0 40px rgba(255,107,53,0.15);
   }
   .pricing-card.featured:hover {
     box-shadow:
-      inset 0 2px 0 0 rgba(255,255,255,0.6),
-      inset 0 4px 8px 0 rgba(255,255,255,0.3),
-      inset 2px 0 0 0 rgba(255,255,255,0.2),
-      inset 0 -3px 0 0 rgba(80,60,40,0.1),
-      inset 0 -6px 12px 0 rgba(80,60,40,0.05),
-      0 4px 8px rgba(0,0,0,0.08),
-      0 16px 32px rgba(0,0,0,0.1),
-      0 28px 56px rgba(0,0,0,0.08),
+      0 16px 40px rgba(0,0,0,0.15),
+      0 32px 72px rgba(0,0,0,0.1),
+      -8px 24px 48px rgba(0,0,0,0.08),
       0 0 50px rgba(255,107,53,0.2);
   }
 
@@ -591,7 +579,34 @@
   .pricing-features li.disabled { color: #bbb; text-decoration: line-through; }
   .pricing-features li.disabled svg { color: #ccc; }
 
-  @media (max-width: 1024px) { .pricing-grid { grid-template-columns: repeat(2, 1fr); } }
+  .pricing-banner {
+    max-width: 760px; margin: 0 auto 48px;
+    background: linear-gradient(135deg, var(--orange), #e85d04);
+    border-radius: 16px; padding: 20px 32px;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .pricing-banner::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%);
+    pointer-events: none;
+  }
+  .pricing-banner-title {
+    font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
+    margin-bottom: 4px; position: relative; z-index: 1;
+  }
+  .pricing-banner-sub {
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.85);
+    position: relative; z-index: 1;
+  }
+  .pricing-old-price {
+    text-decoration: line-through; color: #999; font-size: 28px; font-weight: 700;
+    margin-right: 12px; position: relative; z-index: 1;
+  }
+  .pricing-free {
+    font-size: 48px; font-weight: 800; color: #22c55e; letter-spacing: -0.03em;
+    line-height: 1; position: relative; z-index: 1;
+  }
+
   @media (max-width: 640px) { .pricing-grid { grid-template-columns: 1fr; } }
 
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
@@ -824,35 +839,20 @@
       <span class="pricing-save-badge">Save 20%</span>
     </div>
 
-    <div class="pricing-grid">
-      <!-- Free -->
-      <div class="pricing-card fade-in delay-1">
-        <div class="pricing-tier">Free</div>
-        <div class="pricing-desc">Perfect for trying out SuperReddit and exploring leads.</div>
-        <div class="pricing-price">
-          <span class="pricing-amount" data-monthly="$0" data-yearly="$0">$0</span>
-          <span class="pricing-period">/mo</span>
-        </div>
-        <a href="signup.html" class="btn-secondary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
-        <ul class="pricing-features">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>25 leads per month</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>1 project</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Basic AI post generation</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Email support</li>
-          <li class="disabled"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>Priority support</li>
-          <li class="disabled"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>API access</li>
-        </ul>
-      </div>
+    <div class="pricing-banner fade-in">
+      <div class="pricing-banner-title">Inner Circle &mdash; Limited to 100 Members</div>
+      <div class="pricing-banner-sub">Get full access free while we build in public. Lock in your spot.</div>
+    </div>
 
+    <div class="pricing-grid">
       <!-- Pro (featured) -->
-      <div class="pricing-card featured fade-in delay-2">
-        <span class="pricing-badge">Most Popular</span>
+      <div class="pricing-card featured fade-in delay-1">
+        <span class="pricing-badge">Inner Circle</span>
         <div class="pricing-tier">Pro</div>
         <div class="pricing-desc">For marketers and founders serious about Reddit growth.</div>
         <div class="pricing-price">
-          <span class="pricing-amount" data-monthly="$29" data-yearly="$23">$29</span>
-          <span class="pricing-period">/mo</span>
-          <div class="pricing-yearly-note">Billed $276/year</div>
+          <span class="pricing-old-price">$45/mo</span>
+          <span class="pricing-free">Free</span>
         </div>
         <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
         <ul class="pricing-features">
@@ -861,20 +861,18 @@
           <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
           <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
           <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Lead alerts</li>
-          <li class="disabled"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>API access</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API access</li>
         </ul>
       </div>
 
-      <!-- Scale -->
-      <div class="pricing-card fade-in delay-3">
-        <div class="pricing-tier">Scale</div>
+      <!-- Ultra -->
+      <div class="pricing-card fade-in delay-2">
+        <div class="pricing-tier">Ultra</div>
         <div class="pricing-desc">For teams and agencies managing multiple brands on Reddit.</div>
         <div class="pricing-price">
-          <span class="pricing-amount" data-monthly="$79" data-yearly="$63">$79</span>
-          <span class="pricing-period">/mo</span>
-          <div class="pricing-yearly-note">Billed $756/year</div>
+          <span class="pricing-amount" data-monthly="Custom" data-yearly="Custom" style="font-size: 2.5rem;">Custom</span>
         </div>
-        <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        <a href="mailto:team@superreddit.com" class="btn-primary" style="text-decoration:none;">Contact Us <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
         <ul class="pricing-features">
           <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
           <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited projects</li>
