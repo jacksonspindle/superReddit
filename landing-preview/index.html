@@ -2444,7 +2444,7 @@ if (USE_SCROLL_VIDEO) {
 
       // True crossfade: canvas and wrap use complementary opacity curves.
       // As one fades out, the other fades in at the same rate — no gap.
-      const crossfadeT = Math.min(1, ease * 30); // near-instant crossfade
+      const crossfadeT = ease > 0.001 ? 1 : 0; // instant crossfade
       const scrollCanvas = document.getElementById('scroll-video-canvas');
       const canvasOpacity = 1 - crossfadeT;
       if (canvasOpacity > 0.01 && scrollCanvas && scrollCanvasCtx) {
