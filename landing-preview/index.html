@@ -283,16 +283,26 @@
     font-size: 13px; font-weight: 600; letter-spacing: 0.1em;
     color: var(--gray-300); text-transform: uppercase;
   }
+  .team-logos-track {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+  }
   .team-logos {
-    display: flex; align-items: center; justify-content: center;
-    gap: 48px; flex-wrap: wrap;
+    display: flex; align-items: center;
+    gap: 64px;
+    width: max-content;
+    animation: marquee 20s linear infinite;
   }
   .team-logo {
     font-size: 20px; font-weight: 700; color: var(--gray-200);
-    letter-spacing: -0.02em; transition: color 0.3s ease;
-    white-space: nowrap;
+    letter-spacing: -0.02em;
+    white-space: nowrap; flex-shrink: 0;
   }
-  .team-logo:hover { color: var(--gray-400); }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
 
   @media (max-width: 768px) {
     .team-cred { padding: 60px 0; }
@@ -300,7 +310,7 @@
     .team-stats { grid-template-columns: repeat(2, 1fr); gap: 16px; }
     .team-stat { padding: 28px 16px; }
     .team-stat-value { font-size: 36px; }
-    .team-logos { gap: 32px; }
+    .team-logos { gap: 40px; }
   }
   @media (max-width: 480px) {
     .team-stats { grid-template-columns: 1fr; }
@@ -954,13 +964,21 @@
     <div class="team-logos-header fade-in">
       <p>Trusted by teams at</p>
     </div>
-    <div class="team-logos fade-in">
-      <span class="team-logo">Vercel</span>
-      <span class="team-logo">Supabase</span>
-      <span class="team-logo">Resend</span>
-      <span class="team-logo">Linear</span>
-      <span class="team-logo">Cal.com</span>
-      <span class="team-logo">Dub.co</span>
+    <div class="team-logos-track fade-in">
+      <div class="team-logos">
+        <span class="team-logo">Vercel</span>
+        <span class="team-logo">Supabase</span>
+        <span class="team-logo">Resend</span>
+        <span class="team-logo">Linear</span>
+        <span class="team-logo">Cal.com</span>
+        <span class="team-logo">Dub.co</span>
+        <span class="team-logo">Vercel</span>
+        <span class="team-logo">Supabase</span>
+        <span class="team-logo">Resend</span>
+        <span class="team-logo">Linear</span>
+        <span class="team-logo">Cal.com</span>
+        <span class="team-logo">Dub.co</span>
+      </div>
     </div>
   </div>
 </section>
