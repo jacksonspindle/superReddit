@@ -2377,10 +2377,7 @@ if (USE_SCROLL_VIDEO) {
   const SCREEN_HEIGHT_FRAC = 0.5906;
   const SCREEN_TOP_FRAC = 0.2047;
 
-  // Lock zone: once video appears, small scroll-ups don't reverse the animation.
-  // Only unlocks when scrollProgress drops below this threshold.
   let videoLocked = false;
-  const VIDEO_UNLOCK_THRESHOLD = 0.80;
 
   // Track scroll progress in scroll handler, render in rAF for smooth Safari performance
   let svScrollProgress = 0;
@@ -2431,14 +2428,9 @@ if (USE_SCROLL_VIDEO) {
 
     const scrollProgress = svScrollProgress;
 
-    // Lock/unlock logic
-    if (scrollProgress >= 0.99) {
-      videoLocked = true;
-    }
-    if (videoLocked && scrollProgress < VIDEO_UNLOCK_THRESHOLD) {
-      videoLocked = false;
-      expandLockedAbsTop = null;
-    }
+    // Lock/unlock — no buffer, unlocks immediately when scrolling back up
+    videoLocked = scrollProgress >= 0.99;
+    if (!videoLocked) expandLockedAbsTop = null;
 
     // While locked, keep showing the video + text — skip all frame/canvas logic
     if (videoLocked) {
