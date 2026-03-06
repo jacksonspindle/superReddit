@@ -384,13 +384,11 @@
     top: 12%;
     left: 52%;
     z-index: 2;
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 80px;
-    font-weight: 700;
+    font-size: 40px;
+    font-weight: 800;
     color: #ffffff;
     margin: 0;
-    letter-spacing: -0.04em;
-    text-transform: uppercase;
+    letter-spacing: -0.03em;
     pointer-events: none;
   }
 
@@ -421,12 +419,13 @@
     justify-content: center;
     opacity: 0;
     transform: translateY(20px);
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: none;
     pointer-events: none;
   }
   .testimonial-card.active {
     opacity: 1;
     transform: translateY(0);
+    transition: opacity 0.5s ease, transform 0.5s ease;
     pointer-events: auto;
   }
 
