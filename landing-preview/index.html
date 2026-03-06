@@ -90,10 +90,8 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 120vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 26%); overflow: hidden; }
-  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
-  .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
-  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); margin-bottom: 28px; }
+  .laptop-demo { position: relative; min-height: 175vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 16%); overflow: hidden; z-index: 1; }
+  .laptop-demo-text { display: none; }
 
   .btn-3d {
     display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700;
@@ -123,64 +121,92 @@
       inset 0 1px 0 rgba(255,255,255,0.3);
   }
   #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
-  #flat-video-container { width: 100%; height: 100%; background: #0a0a0f; border-radius: 8px; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: center; padding: 5% 4%; box-sizing: border-box; }
+  #flat-video-container { width: 100%; height: 100%; background: #0a0a0f; border-radius: 8px; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5% 6%; box-sizing: border-box; transition: border-radius 0.1s linear; }
+
+  /* Content inside laptop screen — fixed sizes, fade-in animations */
+  @keyframes screenFadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  #flat-video-container .screen-hiw-title,
+  #flat-video-container .screen-hiw-subtitle,
+  #flat-video-container .screen-hiw-card,
+  #flat-video-container .screen-hiw-cta {
+    opacity: 0; animation: screenFadeUp 0.7s ease forwards;
+  }
+  #flat-video-container .screen-hiw-title { animation-delay: 0.1s; }
+  #flat-video-container .screen-hiw-subtitle { animation-delay: 0.2s; }
+  #flat-video-container .screen-hiw-card:nth-child(1) { animation-delay: 0.3s; }
+  #flat-video-container .screen-hiw-card:nth-child(2) { animation-delay: 0.45s; }
+  #flat-video-container .screen-hiw-card:nth-child(3) { animation-delay: 0.6s; }
+  #flat-video-container .screen-hiw-cta { animation-delay: 0.75s; }
 
   .screen-hiw-title {
-    font-size: clamp(12px, 2vw, 22px); font-weight: 800; color: #ffffff; text-align: center;
-    letter-spacing: -0.02em; margin-bottom: 2%;
+    font-size: 40px; font-weight: 800; color: #ffffff; text-align: center;
+    letter-spacing: -0.03em; margin-bottom: 12px;
   }
   .screen-hiw-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .screen-hiw-subtitle {
-    font-size: clamp(8px, 1.2vw, 14px); color: rgba(255,255,255,0.45); text-align: center; margin-bottom: 5%;
+    font-size: 18px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: 40px;
   }
 
   .screen-hiw-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(6px, 1.2vw, 16px);
-    width: 100%;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    width: 100%; max-width: 1100px;
   }
   .screen-hiw-card {
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: clamp(6px, 1vw, 14px); overflow: hidden;
+    border-radius: 16px; overflow: hidden;
   }
   .screen-hiw-card-visual {
-    height: clamp(40px, 8vw, 100px); display: flex; align-items: center; justify-content: center;
+    height: 120px; display: flex; align-items: center; justify-content: center;
     background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06);
   }
   .screen-hiw-icon {
-    width: clamp(24px, 4vw, 48px); height: clamp(24px, 4vw, 48px);
-    border-radius: clamp(6px, 1vw, 12px); display: flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
   }
   .screen-hiw-icon.strategy { background: linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,107,53,0.05)); color: var(--orange); }
   .screen-hiw-icon.leads { background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.05)); color: #22c55e; }
   .screen-hiw-icon.convert { background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(99,102,241,0.05)); color: #6366f1; }
-  .screen-hiw-icon svg { width: clamp(14px, 2.5vw, 24px); height: clamp(14px, 2.5vw, 24px); }
+  .screen-hiw-icon svg { width: 28px; height: 28px; }
 
-  .screen-hiw-card-body { padding: clamp(6px, 1.2vw, 16px); }
-  .screen-hiw-step-label { display: flex; align-items: center; gap: clamp(4px, 0.6vw, 8px); margin-bottom: clamp(3px, 0.5vw, 8px); }
+  .screen-hiw-card-body { padding: 20px; }
+  .screen-hiw-step-label { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .screen-hiw-step-num {
-    width: clamp(14px, 2vw, 22px); height: clamp(14px, 2vw, 22px); border-radius: 50%;
+    width: 26px; height: 26px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: clamp(7px, 1vw, 11px); font-weight: 800; color: white; flex-shrink: 0;
+    font-size: 12px; font-weight: 800; color: white; flex-shrink: 0;
   }
   .screen-hiw-step-num.s1 { background: var(--orange); }
   .screen-hiw-step-num.s2 { background: #22c55e; }
   .screen-hiw-step-num.s3 { background: #6366f1; }
   .screen-hiw-step-title {
-    font-size: clamp(8px, 1.2vw, 14px); font-weight: 700; color: #ffffff;
-    letter-spacing: -0.01em; line-height: 1.2;
+    font-size: 16px; font-weight: 700; color: #ffffff;
+    letter-spacing: -0.01em; line-height: 1.3;
   }
   .screen-hiw-step-desc {
-    font-size: clamp(7px, 1vw, 12px); color: rgba(255,255,255,0.45); line-height: 1.5;
+    font-size: 14px; color: rgba(255,255,255,0.45); line-height: 1.6;
   }
   .screen-hiw-badge {
-    display: inline-block; font-size: clamp(6px, 0.8vw, 10px); font-weight: 700;
+    display: inline-block; font-size: 11px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.06em;
-    padding: clamp(2px, 0.3vw, 4px) clamp(4px, 0.6vw, 8px);
-    border-radius: 20px; margin-top: clamp(4px, 0.6vw, 10px);
+    padding: 4px 10px; border-radius: 20px; margin-top: 12px;
   }
   .screen-hiw-badge.support { color: var(--orange); background: rgba(255,107,53,0.12); }
   .screen-hiw-badge.realtime { color: #22c55e; background: rgba(34,197,94,0.12); }
   .screen-hiw-badge.ai { color: #6366f1; background: rgba(99,102,241,0.12); }
+
+  .screen-hiw-cta {
+    text-align: center; margin-top: 36px; position: relative; z-index: 1;
+  }
+  .screen-hiw-cta-title {
+    font-size: 28px; font-weight: 800; color: #ffffff;
+    letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  .screen-hiw-cta-desc {
+    font-size: 16px; color: rgba(255,255,255,0.45); margin-bottom: 20px;
+  }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
   #scroll-video-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; display: none; will-change: transform; }
@@ -202,6 +228,7 @@
     padding: 100px 0;
     background: #ffffff;
     position: relative;
+    z-index: 2;
   }
   .ld-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
@@ -788,12 +815,12 @@
           </div>
         </div>
       </div>
+      <div class="screen-hiw-cta">
+        <h3 class="screen-hiw-cta-title">See it in action</h3>
+        <p class="screen-hiw-cta-desc">Watch how SuperReddit finds your leads in seconds</p>
+        <a href="signup.html" class="btn-primary btn-primary-lg" style="text-decoration:none;">Get Started Now <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
     </div>
-  </div>
-  <div class="laptop-demo-text" id="laptop-demo-text">
-    <h2>See it in action</h2>
-    <p>Watch how SuperReddit finds your leads in seconds</p>
-    <a href="signup.html" class="btn-3d">Get Started Now &rarr;</a>
   </div>
 </section>
 
@@ -2357,7 +2384,9 @@ if (USE_SCROLL_VIDEO) {
 
   // Track scroll progress in scroll handler, render in rAF for smooth Safari performance
   let svScrollProgress = 0;
+  let svExpandProgress = 0;
   let svNeedsRender = false;
+  let expandLockedAbsTop = null; // cached absolute top for wrap when fully expanded
 
   window.addEventListener('scroll', () => {
     const heroSection = document.querySelector('.hero');
@@ -2382,6 +2411,14 @@ if (USE_SCROLL_VIDEO) {
     const scrollDistance = viewH * 0.8;
     const rawProgress = (startThreshold - demoTop) / scrollDistance;
     svScrollProgress = Math.max(0, Math.min(1, rawProgress));
+
+    // Phase 4: expand screen to fullscreen after laptop animation completes
+    // Kicks in after rawProgress hits 1.0, uses the extra scroll distance
+    const expandStart = scrollDistance;
+    const expandDistance = viewH * 0.7;
+    const expandRaw = (startThreshold - demoTop - expandStart) / expandDistance;
+    svExpandProgress = Math.max(0, Math.min(1, expandRaw));
+
     svNeedsRender = true;
   }, { passive: true });
 
@@ -2400,6 +2437,7 @@ if (USE_SCROLL_VIDEO) {
     }
     if (videoLocked && scrollProgress < VIDEO_UNLOCK_THRESHOLD) {
       videoLocked = false;
+      expandLockedAbsTop = null;
     }
 
     // While locked, keep showing the video + text — skip all frame/canvas logic
@@ -2410,31 +2448,53 @@ if (USE_SCROLL_VIDEO) {
       const rays = document.getElementById('laptop-light-rays');
       if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
 
-      // Ensure video + text are positioned (they may not have been set yet)
       const vw = window.innerWidth, vh = window.innerHeight;
-      const videoW = vw * SCREEN_WIDTH_FRAC;
-      const videoH = vh * SCREEN_HEIGHT_FRAC;
-      const videoTop = vh * SCREEN_TOP_FRAC;
+      const ep = svExpandProgress;
+      const ease = ep < 0.5 ? 2 * ep * ep : 1 - Math.pow(-2 * ep + 2, 2) / 2;
+
+      // Lerp from laptop-screen size → fullscreen
+      const startW = vw * SCREEN_WIDTH_FRAC;
+      const startH = vh * SCREEN_HEIGHT_FRAC;
+      const startTop = vh * SCREEN_TOP_FRAC;
+      const endW = vw;
+      const endH = vh;
+      const endTop = 0;
+
+      const curW = startW + (endW - startW) * ease;
+      const curH = startH + (endH - startH) * ease;
+      const curTop = startTop + (endTop - startTop) * ease;
+      const borderR = Math.round(8 * (1 - ease));
+
       const wrap = document.getElementById('flat-video-wrap');
-      if (wrap && wrap.style.display !== 'block') {
+      const demoSection = document.getElementById('laptop-demo');
+
+      if (ease >= 1) {
+        // Fully expanded — switch to absolute so it scrolls naturally with the section.
+        // Cache the position at the transition moment so it doesn't recalculate every frame
+        // (which would keep it viewport-fixed instead of letting it scroll away).
+        if (expandLockedAbsTop === null) {
+          const sectionRect = demoSection ? demoSection.getBoundingClientRect() : { top: 0 };
+          expandLockedAbsTop = Math.round(-sectionRect.top);
+        }
+        if (wrap) {
+          wrap.style.cssText = `
+            display: block; position: absolute;
+            top: ${expandLockedAbsTop}px; left: 0;
+            width: 100%; height: 100vh;
+            z-index: 10; pointer-events: auto;
+          `;
+        }
+      } else if (wrap) {
         wrap.style.cssText = `
-          display: block; position: absolute;
-          top: ${videoTop}px; left: 50%; transform: translateX(-50%);
-          width: ${videoW}px; height: ${videoH}px;
-          z-index: 10; pointer-events: auto;
+          display: block; position: fixed;
+          top: ${curTop}px; left: 50%; transform: translateX(-50%);
+          width: ${curW}px; height: ${curH}px;
+          z-index: 45; pointer-events: auto;
         `;
-        const video = document.getElementById('demo-video-player');
-        if (video && video.paused) video.play().catch(() => {});
       }
-      const text = document.getElementById('laptop-demo-text');
-      if (text && text.style.opacity !== '1') {
-        text.style.position = 'absolute';
-        text.style.top = (videoTop + videoH + 16) + 'px';
-        text.style.left = '0';
-        text.style.right = '0';
-        text.style.opacity = '1';
-        text.style.pointerEvents = 'auto';
-      }
+      const container = document.getElementById('flat-video-container');
+      if (container) container.style.borderRadius = borderR + 'px';
+
       return;
     }
 
@@ -2507,15 +2567,12 @@ if (USE_SCROLL_VIDEO) {
       }
     }
 
-    // At animation end: show flat video + demo text matching the screen rect from last frame
+    // At animation end: show flat content matching the screen rect from last frame
     const wrap = document.getElementById('flat-video-wrap');
-    const text = document.getElementById('laptop-demo-text');
     const viewHForVideo = window.innerHeight;
     const viewWForVideo = window.innerWidth;
 
     if (scrollProgress >= 0.95) {
-      // Position flat video to exactly match the laptop screen in the last frame.
-      // Show it early (0.95) so it's ready behind the scroll canvas before canvas hides at 0.99.
       const videoW = viewWForVideo * SCREEN_WIDTH_FRAC;
       const videoH = viewHForVideo * SCREEN_HEIGHT_FRAC;
       const videoTop = viewHForVideo * SCREEN_TOP_FRAC;
@@ -2523,40 +2580,19 @@ if (USE_SCROLL_VIDEO) {
       if (wrap) {
         wrap.style.cssText = `
           display: block;
-          position: absolute;
+          position: fixed;
           top: ${videoTop}px;
           left: 50%;
           transform: translateX(-50%);
           width: ${videoW}px;
           height: ${videoH}px;
-          z-index: 10;
+          z-index: 45;
           pointer-events: auto;
         `;
-        const video = document.getElementById('demo-video-player');
-        if (video && video.paused) video.play().catch(() => {});
-      }
-
-      // Text appears slightly later, once video is fully revealed
-      if (text) {
-        if (scrollProgress >= 0.99) {
-          text.style.position = 'absolute';
-          text.style.top = (videoTop + videoH + 16) + 'px';
-          text.style.left = '0';
-          text.style.right = '0';
-          text.style.opacity = '1';
-          text.style.pointerEvents = 'auto';
-        } else {
-          text.style.opacity = '0';
-          text.style.pointerEvents = 'none';
-        }
       }
     } else {
       if (wrap) {
         wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
-      }
-      if (text) {
-        text.style.opacity = '0';
-        text.style.pointerEvents = 'none';
       }
     }
   }
