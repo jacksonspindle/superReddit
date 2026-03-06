@@ -671,79 +671,90 @@
     position: relative; max-width: 1100px; margin: 0 auto;
     aspect-ratio: 16 / 10; overflow: hidden;
   }
-  #pricing-3d-canvas {
+  #pricing-spline {
     position: absolute; inset: 0; width: 100%; height: 100%;
   }
-  #pricing-3d-canvas canvas { display: block; width: 100%; height: 100%; }
   #pricing-overlay {
     position: absolute; inset: 0; pointer-events: none; z-index: 2;
   }
   .pricing-card-overlay {
     position: absolute; pointer-events: all;
-    display: flex; flex-direction: column; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; box-sizing: border-box;
   }
-  /* Card 1 (Basic) — left, shorter card */
-  #po-card1 { left: 5.5%; top: 44%; width: 26%; padding: 0 2.5% 0 3%; }
-  /* Card 2 (Pro) — center, taller card */
-  #po-card2 { left: 36%; top: 40%; width: 27.5%; padding: 0 2.5% 0 3%; }
-  /* Card 3 (Team) — right, shorter card */
-  #po-card3 { left: 66.5%; top: 44%; width: 26%; padding: 0 2.5% 0 3%; }
-  .po-badge {
-    display: inline-block; font-size: 10px; font-weight: 700; color: var(--orange);
-    background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.25);
-    padding: 2px 10px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.06em;
-    margin-bottom: 4px; width: fit-content;
+  /* Card positions — aligned over the 3D glass cards, lower half only */
+  #po-card1 { left: 5%; top: 38%; bottom: 5%; width: 27%; padding: 0 3%; }
+  #po-card2 { left: 36%; top: 34%; bottom: 3%; width: 28%; padding: 0 3%; }
+  #po-card3 { left: 67%; top: 38%; bottom: 5%; width: 27%; padding: 0 3%; overflow: hidden; border-radius: 0 0 16px 16px; }
+  /* Teal ambient glow on Team card */
+  #po-card3::before {
+    content: ''; position: absolute; bottom: -20%; left: 10%; right: 10%; height: 60%;
+    background: radial-gradient(ellipse at center bottom, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.08) 40%, transparent 70%);
+    filter: blur(20px); pointer-events: none; z-index: -1;
   }
   .po-plan {
-    font-size: clamp(14px, 1.4vw, 20px); font-weight: 800; color: rgba(255,255,255,0.85);
-    margin-bottom: 0; letter-spacing: -0.01em;
+    font-size: clamp(13px, 1.3vw, 18px); font-weight: 600; color: rgba(255,255,255,0.5);
+    margin-bottom: 4px; letter-spacing: 0.02em;
   }
-  .po-desc {
-    font-size: clamp(9px, 0.8vw, 12px); color: rgba(255,255,255,0.3);
-    line-height: 1.3; margin-bottom: 4px; display: none;
-  }
-  .po-price { margin-bottom: 2px; }
-  .po-old-price {
-    text-decoration: line-through; color: rgba(255,255,255,0.2); font-size: clamp(11px, 1vw, 16px);
-    font-weight: 600; margin-right: 4px;
-  }
+  .po-price { margin-bottom: 2px; display: flex; align-items: baseline; justify-content: center; }
   .po-amount {
-    font-size: clamp(28px, 3.2vw, 52px); font-weight: 800; color: #fff;
+    font-size: clamp(32px, 4vw, 64px); font-weight: 800; color: #fff;
     letter-spacing: -0.03em; line-height: 1;
   }
-  .po-amount.po-free { color: #22c55e; }
+  .po-amount.po-free { color: #fff; }
   .po-currency {
-    font-size: clamp(14px, 1.3vw, 22px); font-weight: 600; color: rgba(255,255,255,0.5);
-    vertical-align: super; margin-right: 2px;
+    font-size: clamp(16px, 1.6vw, 26px); font-weight: 600; color: rgba(255,255,255,0.4);
+    margin-right: 2px; align-self: flex-start; margin-top: 0.15em;
   }
   .po-period {
     font-size: clamp(9px, 0.75vw, 12px); color: rgba(255,255,255,0.3);
-    margin-bottom: 6px;
+    margin-bottom: 10px;
   }
   .po-features {
-    list-style: none; padding: 0; margin: 0 0 8px;
+    list-style: none; padding: 0; margin: 0 0 12px;
+    text-align: left; width: 100%;
   }
   .po-features li {
-    font-size: clamp(9px, 0.82vw, 13px); color: rgba(255,255,255,0.55);
-    padding: 1.5px 0; display: flex; align-items: center; gap: 6px; line-height: 1.4;
+    font-size: clamp(10px, 0.85vw, 13px); color: rgba(255,255,255,0.55);
+    padding: 2px 0; display: flex; align-items: center; gap: 8px; line-height: 1.5;
   }
-  .po-features li svg { flex-shrink: 0; width: 14px; height: 14px; }
+  .po-features li svg { flex-shrink: 0; width: 16px; height: 16px; }
   .po-btn {
-    display: inline-block; text-align: center; text-decoration: none;
-    font-size: clamp(10px, 0.9vw, 14px); font-weight: 600;
-    padding: 8px 0; border-radius: 10px; width: 100%; margin-top: auto;
-    transition: all 0.2s ease; cursor: pointer;
+    display: block; text-align: center; text-decoration: none;
+    font-size: clamp(11px, 0.95vw, 15px); font-weight: 600;
+    padding: 10px 0; border-radius: 10px; width: 100%; margin-top: auto;
+    transition: all 0.2s ease; cursor: pointer; box-sizing: border-box;
   }
-  .po-btn-primary {
-    background: linear-gradient(180deg, #ff7a45, #e85d20); color: #fff;
-    box-shadow: 0 2px 8px rgba(255,107,53,0.3);
+  /* Basic — dark indigo button */
+  .po-btn-dark {
+    background: rgba(30, 22, 55, 0.85); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.06);
   }
-  .po-btn-primary:hover { background: linear-gradient(180deg, #ff8855, #f06a2a); }
+  .po-btn-dark:hover { background: rgba(45, 35, 75, 0.9); color: #fff; }
+  /* Pro — dark neutral button */
   .po-btn-secondary {
     background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
     border: 1px solid rgba(255,255,255,0.1);
   }
   .po-btn-secondary:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  /* Team — button with teal glow */
+  .po-btn-glow {
+    position: relative;
+    background: rgba(20, 40, 35, 0.6); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  .po-btn-glow::after {
+    content: ''; position: absolute; inset: -6px -4px; border-radius: 14px;
+    background: radial-gradient(ellipse at center, rgba(34, 197, 94, 0.2) 0%, transparent 70%);
+    z-index: -1; filter: blur(10px); pointer-events: none;
+  }
+  .po-btn-glow:hover { background: rgba(30, 60, 50, 0.7); color: #fff; border-color: rgba(34, 197, 94, 0.35); }
+  .po-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; color: var(--orange);
+    background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.25);
+    padding: 2px 10px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
 
   .pricing-mobile-only { display: none; }
   @media (max-width: 768px) {
@@ -990,7 +1001,7 @@
 
     <!-- 3D Pricing (desktop) -->
     <div class="pricing-3d-wrap fade-in" id="pricing-3d-wrap">
-      <div id="pricing-3d-canvas"></div>
+      <spline-viewer url="./models/scene.splinecode" loading-anim-type="none" id="pricing-spline"></spline-viewer>
       <div id="pricing-overlay"></div>
     </div>
 
@@ -1063,6 +1074,7 @@
 <link rel="modulepreload" href="./js/three-core.min.js">
 <link rel="modulepreload" href="./js/three-addons.min.js">
 <link rel="preload" href="./scene-optimized.glb" as="fetch" crossorigin>
+<script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.59/build/spline-viewer.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "./js/three-core.min.js"
@@ -3526,354 +3538,72 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
   }
 }
 
-// ── Pricing Section: 3D GLTF Scene ──
+// ── Pricing Section: Spline Viewer + HTML Overlay ──
 {
-  const pricingSection = document.getElementById('pricing');
   const p3dWrap = document.getElementById('pricing-3d-wrap');
-  const p3dTarget = document.getElementById('pricing-3d-canvas');
 
-  if (p3dTarget && p3dWrap && window.innerWidth > 768) {
-    console.log('Pricing 3D: initializing...');
+  if (p3dWrap && window.innerWidth > 768) {
+    // Populate pricing overlay cards
+    const checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    const overlay = document.getElementById('pricing-overlay');
+    overlay.innerHTML = `
+      <div id="po-card1" class="pricing-card-overlay">
+        <div class="po-plan">Basic</div>
+        <div class="po-price">
+          <span class="po-amount po-free" data-monthly="Free" data-yearly="Free">Free</span>
+        </div>
+        <div class="po-period">per month, billed monthly</div>
+        <ul class="po-features">
+          <li>${checkSvg}10 leads / month</li>
+          <li>${checkSvg}1 project</li>
+          <li>${checkSvg}Basic search</li>
+        </ul>
+        <a href="signup.html" class="po-btn po-btn-dark">Get Started</a>
+      </div>
+      <div id="po-card2" class="pricing-card-overlay">
+        <span class="po-badge">Most Popular</span>
+        <div class="po-plan">Pro</div>
+        <div class="po-price">
+          <span class="po-currency">$</span><span class="po-amount" data-monthly="25" data-yearly="20">25</span>
+        </div>
+        <div class="po-period">per month, billed monthly</div>
+        <ul class="po-features">
+          <li>${checkSvg}Unlimited leads</li>
+          <li>${checkSvg}5 projects</li>
+          <li>${checkSvg}Full AI post generation</li>
+        </ul>
+        <a href="signup.html" class="po-btn po-btn-secondary">Subscribe</a>
+      </div>
+      <div id="po-card3" class="pricing-card-overlay">
+        <div class="po-plan">Team</div>
+        <div class="po-price">
+          <span class="po-currency">$</span><span class="po-amount" data-monthly="35" data-yearly="28">35</span>
+        </div>
+        <div class="po-period">per month, billed monthly</div>
+        <ul class="po-features">
+          <li>${checkSvg}Unlimited projects</li>
+          <li>${checkSvg}Dedicated support</li>
+          <li>${checkSvg}Custom integrations</li>
+        </ul>
+        <a href="signup.html" class="po-btn po-btn-secondary po-btn-glow">Upgrade</a>
+      </div>
+    `;
 
-    // Renderer
-    const pRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    pRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    pRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    pRenderer.toneMappingExposure = 1.6;
-    pRenderer.outputColorSpace = THREE.SRGBColorSpace;
-    pRenderer.domElement.style.display = 'block';
-    pRenderer.domElement.style.width = '100%';
-    pRenderer.domElement.style.height = '100%';
-    p3dTarget.appendChild(pRenderer.domElement);
-
-    // Scene
-    const pScene = new THREE.Scene();
-    pScene.background = new THREE.Color(0x0a0806);
-
-    // Orthographic Camera (from GLTF camera 0)
-    const xmag = 13.313;
-    const ymag = 8.977;
-    const pCamera = new THREE.OrthographicCamera(-xmag, xmag, ymag, -ymag, 0.01, 1000);
-    pCamera.position.set(0.25, 0.1528, 10);
-    pCamera.lookAt(0.25, 0.1528, 0);
-
-    // Environment map — teal-tinted for chrome reflections
-    const pEnvScene = new THREE.Scene();
-    pEnvScene.background = new THREE.Color(0x020208);
-    pEnvScene.add(new THREE.Mesh(
-      new THREE.SphereGeometry(20, 32, 32),
-      new THREE.MeshBasicMaterial({ color: 0x020208, side: THREE.BackSide })
-    ));
-    const envKey = new THREE.PointLight(0xaaddcc, 12, 100);
-    envKey.position.set(5, 5, 5);
-    pEnvScene.add(envKey);
-    const envTeal = new THREE.PointLight(0x00ffaa, 8, 100);
-    envTeal.position.set(-5, 3, -3);
-    pEnvScene.add(envTeal);
-    const pPmrem = new THREE.PMREMGenerator(pRenderer);
-    pPmrem.compileEquirectangularShader();
-    const pEnvMap = pPmrem.fromScene(pEnvScene, 0.04).texture;
-    pPmrem.dispose();
-    pScene.environment = pEnvMap;
-
-    // Lighting
-    const pAmbient = new THREE.AmbientLight(0x112222, 2.0);
-    pScene.add(pAmbient);
-
-    // Main directional — cool white, moderate
-    const pDirLight = new THREE.DirectionalLight(0xaabbcc, 2.0);
-    pDirLight.position.set(5, 8, 10);
-    pScene.add(pDirLight);
-
-    // Teal light on computer/stand
-    const pPointTeal = new THREE.PointLight(0x00ddaa, 6.0, 30);
-    pPointTeal.position.set(0, 2, 5);
-    pScene.add(pPointTeal);
-
-    // Secondary teal from left for ribbon
-    const pPointLeft = new THREE.PointLight(0x00cc88, 4.0, 40);
-    pPointLeft.position.set(-8, 0, 3);
-    pScene.add(pPointLeft);
-
-    // Post-processing
-    const pComposer = new EffectComposer(pRenderer);
-    pComposer.addPass(new RenderPass(pScene, pCamera));
-    const pBloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.4, 0.5, 0.6);
-    pComposer.addPass(pBloom);
-    pComposer.addPass(new OutputPass());
-
-    // Animation refs
-    let computerNode = null;
-    let glassElipseNodes = [];
-    let bgBlobNode = null;
-    let ribbonNode = null;
-    let computerBase = null;
-    let pLoaded = false;
-
-    // Nodes to hide completely: all text, all CTA buttons (Subscribe text + Button mesh), feature text, icons
-    // Based on GLTF node tree analysis:
-    // Text nodes: Per Month(1), Text(2,3), Subscribe(4,26,83), Period(19,41,95), Plan(20,42,96),
-    //   Currency(21,43), Price(22,44,97), Feature(9,13,17,31,35,39,89,93)
-    // CTA Button groups: nodes 6,28,85 (contain Subscribe + Button children)
-    // Feature Component groups containing text: 10,14,18,32,36,40,86,90,94
-    // Shape 0 (icon meshes): 7,11,15,29,33,37,87,91
-    const hideNames = new Set([
-      'per month', 'text', 'subscribe', 'period', 'plan', 'currency', 'price',
-      'feature', 'cta button', 'feature component', 'feature component instance',
-      'feature component instance 2', 'shape 0', 'icon'
-    ]);
-
-    function shouldHide(name) {
-      const lower = name.toLowerCase();
-      return hideNames.has(lower);
+    // Hide Spline watermark logo when viewer loads
+    const splineEl = document.getElementById('pricing-spline');
+    if (splineEl) {
+      const hideWatermark = () => {
+        const sr = splineEl.shadowRoot;
+        if (sr) {
+          const logo = sr.querySelector('#logo');
+          if (logo) logo.style.display = 'none';
+        }
+      };
+      // Try immediately and again after load
+      hideWatermark();
+      splineEl.addEventListener('load', hideWatermark);
+      setTimeout(hideWatermark, 3000);
     }
-
-    // Lazy load via IntersectionObserver
-    const pricingLazyObserver = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting || pLoaded) return;
-      pLoaded = true;
-      pricingLazyObserver.disconnect();
-      console.log('Pricing 3D: loading GLTF...');
-
-      const loader = new GLTFLoader();
-      loader.load('./models/3duipricing.gltf', (gltf) => {
-        try {
-          const model = gltf.scene;
-          pScene.add(model);
-
-          // First pass: hide text, buttons, features, icons
-          model.traverse((child) => {
-            const name = child.name || '';
-            if (shouldHide(name)) {
-              child.visible = false;
-              return;
-            }
-            // Also hide any GLTF lights — we use our own
-            if (child.isLight) {
-              child.visible = false;
-            }
-          });
-
-          // Second pass: apply materials to visible meshes
-          model.traverse((child) => {
-            if (!child.isMesh || !child.visible) return;
-            const lName = (child.name || '').toLowerCase();
-
-            // Glass Cards — dark, semi-transparent, ribbon visible through
-            if (lName.startsWith('glass card')) {
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x101018, roughness: 0.1, metalness: 0.05,
-                transparent: true, opacity: 0.7,
-                clearcoat: 1.0, clearcoatRoughness: 0.03,
-                envMapIntensity: 0.3,
-                side: THREE.DoubleSide,
-                depthWrite: false,
-              });
-              child.renderOrder = 10;
-            }
-            // Glass UI — lower card panels
-            else if (lName.startsWith('glass ui')) {
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x060610, roughness: 0.15, metalness: 0.05,
-                transparent: true, opacity: 0.4,
-                clearcoat: 0.8, clearcoatRoughness: 0.05,
-                envMapIntensity: 0.15,
-                depthWrite: false,
-              });
-              child.renderOrder = 11;
-            }
-            // Glass Ellipse (metallic stand under computer)
-            else if (lName.startsWith('glass-elipse')) {
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x445566, roughness: 0.05, metalness: 1.0,
-                clearcoat: 1.0, clearcoatRoughness: 0.01,
-                envMapIntensity: 3.0,
-              });
-              child.renderOrder = 20;
-            }
-            // Cube 9 (computer monitor body)
-            else if (lName === 'cube 9') {
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x1a1a2a, roughness: 0.2, metalness: 0.6,
-                clearcoat: 0.8, clearcoatRoughness: 0.05,
-                envMapIntensity: 1.0,
-              });
-              child.renderOrder = 20;
-            }
-            // Rectangle parts (computer screen, keyboard, details)
-            else if (lName.startsWith('rectangle')) {
-              const parent = child.parent;
-              const grandparent = parent ? parent.parent : null;
-              const inScreenGroup = (parent && parent.name === 'Group 11') ||
-                                    (grandparent && grandparent.name === 'Group 11');
-              if (inScreenGroup) {
-                child.material = new THREE.MeshPhysicalMaterial({
-                  color: 0x00ff88, roughness: 0.3, metalness: 0.0,
-                  emissive: 0x00ff66, emissiveIntensity: 1.5,
-                });
-              } else if (lName === 'rectangle 11') {
-                child.material = new THREE.MeshPhysicalMaterial({
-                  color: 0x151520, roughness: 0.15, metalness: 0.7,
-                  clearcoat: 0.8, clearcoatRoughness: 0.05,
-                  envMapIntensity: 1.5,
-                });
-              } else if (lName === 'rectangle 13') {
-                child.material = new THREE.MeshPhysicalMaterial({
-                  color: 0x020208, roughness: 0.1, metalness: 0.0,
-                  emissive: 0x003318, emissiveIntensity: 0.6,
-                });
-              } else if (lName === 'rectangle 12') {
-                child.material = new THREE.MeshPhysicalMaterial({
-                  color: 0x1a1a2a, roughness: 0.2, metalness: 0.5,
-                  clearcoat: 0.6, clearcoatRoughness: 0.05,
-                });
-              } else {
-                child.material = new THREE.MeshPhysicalMaterial({
-                  color: 0x202030, roughness: 0.25, metalness: 0.4,
-                  clearcoat: 0.5, clearcoatRoughness: 0.08,
-                });
-              }
-              child.renderOrder = 20;
-            }
-            // Background ribbon (Path 4) — self-lit teal, behind cards
-            else if (lName === 'path 4') {
-              child.material = new THREE.MeshStandardMaterial({
-                color: 0x00dd88,
-                emissive: 0x00ffaa,
-                emissiveIntensity: 3.0,
-                roughness: 0.3,
-                metalness: 0.0,
-                side: THREE.DoubleSide,
-              });
-              // Push ribbon behind the cards in z
-              child.position.z -= 200;
-              child.renderOrder = 1;
-            }
-            // Background blob (Cube) — hide it, it's just a dark block
-            else if (lName === 'cube') {
-              child.visible = false;
-            }
-          });
-
-          // Capture animation refs
-          model.traverse((child) => {
-            const name = (child.name || '');
-            if (name === 'Computer' && !computerNode) {
-              computerNode = child;
-              computerBase = {
-                px: child.position.x, py: child.position.y, pz: child.position.z,
-                rx: child.rotation.x, ry: child.rotation.y, rz: child.rotation.z,
-                sx: child.scale.x, sy: child.scale.y, sz: child.scale.z,
-              };
-            }
-            if (name === 'Glass-Elipse') {
-              glassElipseNodes.push({
-                node: child,
-                baseScale: { x: child.scale.x, y: child.scale.y, z: child.scale.z },
-              });
-            }
-            if (name === 'Cube' && !child.name.includes('9')) {
-              if (!bgBlobNode) bgBlobNode = child;
-            }
-            if (name === 'Path 4') {
-              ribbonNode = child;
-            }
-          });
-
-          console.log('Pricing 3D: loaded. computer:', !!computerNode, 'ellipses:', glassElipseNodes.length, 'blob:', !!bgBlobNode);
-          pNeedsRender = true;
-        } catch(e) { console.error('Pricing GLTF error:', e); }
-      });
-    }, { rootMargin: '200% 0px' });
-    pricingLazyObserver.observe(pricingSection);
-
-    // Sizing
-    let pNeedsRender = true;
-    let pVisible = false;
-
-    function resizePricing() {
-      const rect = p3dWrap.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-      pRenderer.setSize(w, h);
-      pComposer.setSize(w, h);
-
-      // Adjust ortho frustum to match canvas aspect
-      const canvasAspect = w / h;
-      const sceneAspect = xmag / ymag;
-      if (canvasAspect > sceneAspect) {
-        pCamera.left = -ymag * canvasAspect;
-        pCamera.right = ymag * canvasAspect;
-        pCamera.top = ymag;
-        pCamera.bottom = -ymag;
-      } else {
-        pCamera.left = -xmag;
-        pCamera.right = xmag;
-        pCamera.top = xmag / canvasAspect;
-        pCamera.bottom = -xmag / canvasAspect;
-      }
-      pCamera.updateProjectionMatrix();
-      pNeedsRender = true;
-    }
-
-    const pVisObserver = new IntersectionObserver(([entry]) => {
-      pVisible = entry.isIntersecting;
-      if (pVisible) {
-        pNeedsRender = true;
-        if (!pLoopRunning) pricingLoop();
-      }
-    }, { threshold: 0.05 });
-    pVisObserver.observe(pricingSection);
-
-    window.addEventListener('resize', resizePricing);
-    resizePricing();
-
-    // Animation helpers
-    function easeInOut(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
-
-    // Render loop
-    let pLoopRunning = false;
-    const pClock = { start: performance.now() };
-
-    function pricingLoop() {
-      if (!pVisible) { pLoopRunning = false; return; }
-      pLoopRunning = true;
-      requestAnimationFrame(pricingLoop);
-
-      const elapsed = performance.now() - pClock.start;
-
-      // Computer gentle float (slow, subtle bob)
-      if (computerNode && computerBase) {
-        const t = Math.sin(elapsed * 0.0008) * 0.5 + 0.5;
-        computerNode.rotation.x = computerBase.rx + (t - 0.5) * 0.12;
-        computerNode.rotation.y = computerBase.ry + (t - 0.5) * 0.10;
-        computerNode.position.y = computerBase.py + Math.sin(elapsed * 0.001) * 0.15;
-      }
-
-      // Glass-Elipse pulse (subtle 4% scale oscillation, 6s cycle)
-      for (let i = 0; i < glassElipseNodes.length; i++) {
-        const ge = glassElipseNodes[i];
-        const phase = elapsed * 0.001 * Math.PI / 3 + i * 1.2;
-        const pulse = 1 + Math.sin(phase) * 0.02;
-        ge.node.scale.set(
-          ge.baseScale.x * pulse,
-          ge.baseScale.y * pulse,
-          ge.baseScale.z * pulse
-        );
-      }
-
-      // Ribbon slow continuous rotation (45s full cycle)
-      if (ribbonNode) {
-        ribbonNode.rotation.z = (elapsed / 45000) * Math.PI * 2;
-      }
-      // Ribbon slow undulation
-      if (ribbonNode) {
-        ribbonNode.rotation.x = Math.sin(elapsed * 0.0003) * 0.05;
-      }
-
-      pComposer.render();
-    }
-    pricingLoop();
   }
 }
 </script>
