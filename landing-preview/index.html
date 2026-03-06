@@ -378,7 +378,28 @@
     height: 100%;
   }
 
-  /* ---- Testimonials title ---- */
+  /* ---- Testimonials header ---- */
+  .testimonial-header {
+    margin-bottom: 24px;
+  }
+  .testimonial-header h2 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.03em;
+    margin: 0 0 8px 0;
+    line-height: 1.15;
+  }
+  .testimonial-header h2 .accent {
+    color: var(--orange);
+  }
+  .testimonial-header p {
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.45);
+    margin: 0;
+    font-weight: 400;
+  }
+
   /* ---- Testimonial carousel ---- */
   .testimonial-wrap {
     position: absolute;
@@ -490,10 +511,14 @@
       top: 50%;
       bottom: 8%;
     }
+    .testimonial-header h2 { font-size: 1.8rem; }
+    .testimonial-header p { font-size: 0.95rem; }
     .testimonial-quote { font-size: 1.15rem; }
   }
   @media (max-width: 480px) {
     .testimonial-wrap { top: 45%; }
+    .testimonial-header h2 { font-size: 1.5rem; }
+    .testimonial-header { margin-bottom: 16px; }
     .testimonial-quote { font-size: 1rem; }
     .testimonial-avatar { width: 40px; height: 40px; font-size: 16px; }
   }
@@ -873,6 +898,10 @@
 
 
     <div class="testimonial-wrap">
+      <div class="testimonial-header">
+        <h2>Loved by <span class="accent">Founders</span></h2>
+        <p>Trusted by teams turning Reddit into revenue</p>
+      </div>
       <div class="testimonial-viewport">
 
         <div class="testimonial-card active" data-index="0">
