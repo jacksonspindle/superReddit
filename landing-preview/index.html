@@ -3,9 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SuperReddit — Landing Page</title>
+<title>SuperReddit — Reddit Lead Generation on Autopilot</title>
+<meta name="description" content="SuperReddit finds and qualifies Reddit leads automatically. AI-powered outreach, keyword alerts, and DM pipeline for marketers and founders.">
+<link rel="canonical" href="https://superreddit.com">
+<meta name="theme-color" content="#FF6B35">
+<meta property="og:title" content="SuperReddit — Reddit Lead Generation on Autopilot">
+<meta property="og:description" content="Find and qualify Reddit leads automatically. AI-powered outreach, keyword alerts, and DM pipeline.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://superreddit.com">
+<meta property="og:image" content="https://superreddit.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SuperReddit — Reddit Lead Generation on Autopilot">
+<meta name="twitter:description" content="Find and qualify Reddit leads automatically. AI-powered outreach, keyword alerts, and DM pipeline.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@700&display=swap">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@700&display=swap');
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --orange: #FF6B35; --orange-hover: #E85D2C;
@@ -622,6 +636,7 @@
 
   @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } }
   @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-hamburger { display: block; } .nav-links { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 12px 24px 16px; gap: 0; border-bottom: 1px solid var(--gray-200); box-shadow: 0 8px 24px rgba(0,0,0,0.08); } .nav-links.open { display: flex; } .nav-links a { padding: 12px 0; border-bottom: 1px solid var(--gray-100); font-size: 15px; } .nav-links a:last-child { border-bottom: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .odometer-title { display: none; } .odometer-wrap { display: none; } .pricing { padding: 64px 0; } .pricing-grid { grid-template-columns: 1fr; max-width: 400px; } .pricing-card { padding: 28px 24px; } .pricing-amount { font-size: 40px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
 </style>
 </head>
 <body>
@@ -643,8 +658,8 @@
       <img src="models/amazon-white.webp" alt="Amazon" style="height:16px; object-fit:contain; position:relative; top:3px;">
     </div>
   </div>
-  <canvas class="hero-gap-fill" id="gap-fill"></canvas>
-  <div class="hero-3d-container" id="three-container"></div>
+  <canvas class="hero-gap-fill" id="gap-fill" aria-label="3D animation"></canvas>
+  <div class="hero-3d-container" id="three-container" aria-label="3D animation"></div>
   <div class="hero-overlay">
     <h1>People are looking for<br><span class="accent">your product</span></h1>
     <p>We help you find them.</p>
@@ -661,12 +676,12 @@
 
 
 <div id="laptop-light-rays"></div>
-<canvas id="scroll-video-canvas"></canvas>
+<canvas id="scroll-video-canvas" aria-label="3D animation"></canvas>
 
 <section class="laptop-demo" id="laptop-demo">
   <div id="flat-video-wrap">
     <div id="flat-video-container">
-      <video id="demo-video-player" muted loop playsinline preload="auto">
+      <video id="demo-video-player" muted loop playsinline preload="none">
         <source src="./demo.mp4" type="video/mp4">
       </video>
       <button class="expand-btn" id="expand-video-btn" onclick="toggleVideoExpand()" title="Expand video">
@@ -1115,15 +1130,20 @@ window.addEventListener('mousemove', (e) => {
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 
+// ── Cache scene-optimized.glb — load ONCE, clone for overlay + lead discovery ──
+const _sceneGltfLoader = new GLTFLoader();
+_sceneGltfLoader.setMeshoptDecoder(MeshoptDecoder);
+const _cachedSceneGltf = new Promise((resolve, reject) => {
+  _sceneGltfLoader.load('./scene-optimized.glb', resolve, undefined, reject);
+});
+
 // ── Load GLTF and apply materials ──
-const loader = new GLTFLoader();
-loader.setMeshoptDecoder(MeshoptDecoder);
 const headGroups = [];
 const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
 let colorIndex = 0;
 let heroLaptopNode = null; // reference to laptop in hero scene for visibility toggle
 
-loader.load('./scene-optimized.glb', (gltf) => {
+_cachedSceneGltf.then((gltf) => {
   const model = gltf.scene;
 
   function isInHeadGroup(node) {
@@ -1656,7 +1676,7 @@ loader.load('./scene-optimized.glb', (gltf) => {
 
   // Set up fixed overlay canvas for laptop transition
   if (!USE_SCROLL_VIDEO) setupOverlayCanvas();
-}, undefined, (err) => {
+}).catch((err) => {
   console.error('GLTF load error:', err);
 });
 
@@ -1828,11 +1848,9 @@ function setupOverlayCanvas() {
   overlayScene.add(oOrangeSpot.target);
   window._orangeSpotlight = oOrangeSpot;
 
-  // Load same GLTF, extract only laptop
-  const oLoader = new GLTFLoader();
-  oLoader.setMeshoptDecoder(MeshoptDecoder);
-  oLoader.load('./scene-optimized.glb', (gltf) => {
-    const model = gltf.scene;
+  // Clone cached GLTF for overlay — extract only laptop
+  _cachedSceneGltf.then((gltf) => {
+    const model = gltf.scene.clone(true);
 
     // Find laptop root node
     let laptopRoot = null;
@@ -1892,6 +1910,8 @@ function setupOverlayCanvas() {
         window._overlayLogoMesh = node;
       }
       if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube3')) {
+        // Clone geometry before modifying index/groups — shared with hero via cache
+        node.geometry = node.geometry.clone();
         const geo = node.geometry;
         const idx = geo.index;
         const norms = geo.attributes.normal;
@@ -1934,10 +1954,9 @@ function setupOverlayCanvas() {
       }
     });
 
-    // Apply the same laptop Y raise as the hero scene
+    // Find laptop node — Y raise already applied by hero's cached GLTF modification
     model.traverse((node) => {
       if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
-        node.position.y += 80;
         overlayLaptopNode = node;
       }
     });
@@ -2910,9 +2929,15 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     let robotModel = null;
     let robotHead = null;
     let headBaseRotation = null;
-    const fGltfLoader = new GLTFLoader();
-    fGltfLoader.setMeshoptDecoder(MeshoptDecoder);
-    fGltfLoader.load('models/robotscenepro-optimized.glb', (gltf) => { try {
+    // Lazy-load robot GLB when Features section approaches viewport
+    let _robotLoaded = false;
+    const robotLazyObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || _robotLoaded) return;
+      _robotLoaded = true;
+      robotLazyObserver.disconnect();
+      const fGltfLoader = new GLTFLoader();
+      fGltfLoader.setMeshoptDecoder(MeshoptDecoder);
+      fGltfLoader.load('models/robotscenepro-optimized.glb', (gltf) => { try {
       robotModel = gltf.scene;
       fScene.add(robotModel);
 
@@ -3062,6 +3087,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
       fNeedsRender = true;
     } catch(e) { console.error('GLTF callback error:', e); } });
+    }, { rootMargin: '200% 0px' });
+    robotLazyObserver.observe(featuresSection);
 
     // ── Sizing ──
     let fNeedsRender = true;
@@ -3078,15 +3105,21 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
     const fObserver = new IntersectionObserver(([entry]) => {
       fVisible = entry.isIntersecting;
-      if (fVisible) fNeedsRender = true;
+      if (fVisible) {
+        fNeedsRender = true;
+        if (!fLoopRunning) featuresLoop();
+      }
     }, { threshold: 0.05 });
     fObserver.observe(featuresSection);
 
     window.addEventListener('resize', resizeFeatures);
     resizeFeatures();
 
-    // ── Render loop ──
+    // ── Render loop (pauses when section not visible) ──
+    let fLoopRunning = false;
     function featuresLoop() {
+      if (!fVisible) { fLoopRunning = false; return; }
+      fLoopRunning = true;
       requestAnimationFrame(featuresLoop);
 
       // Smooth cursor-driven head movement
@@ -3173,12 +3206,12 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     const ldOrangeBack = new THREE.PointLight(0xff6b35, 8.0, 40);
     ldOrangeBack.position.set(0, 3, -4); ldScene.add(ldOrangeBack);
 
-    // Character loader with head tilt + pupil gaze
+    // Character loader with head tilt + pupil gaze — clones from cached GLTF
     function loadLDChar(headIdx, skinColor, scaleVal, headTilt, pupilDir, onDone) {
-      const loader = new GLTFLoader();
-      loader.setMeshoptDecoder(MeshoptDecoder);
-      loader.load('./scene-optimized.glb', (gltf) => {
-        const model = gltf.scene;
+      _cachedSceneGltf.then((gltf) => {
+        const model = gltf.scene.clone(true);
+        // Clear userData flags from hero's traversal so this clone starts fresh
+        model.traverse(n => { n.userData = Object.assign({}, n.userData); delete n.userData._done; delete n.userData.skinAssigned; delete n.userData._vcMap; delete n.userData._vcIdx; });
         model.updateMatrixWorld(true);
         function isInHeadGroup(n) { let p = n.parent; while (p) { if (p.name === 'Heads') return true; p = p.parent; } return false; }
         function getHeadGroup(n) { let p = n.parent; while (p && p.parent) { if (p.parent.name === 'Heads') return p; p = p.parent; } return null; }
@@ -3288,8 +3321,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       if (ldLoadCount < ldChars.length) return;
       if (ldVisible && ldAnimDir !== 1) {
         ldAnimDir = 1; // start entering (or reverse mid-exit)
+        if (!ldLoopRunning) ldLoop();
       } else if (!ldVisible && ldAnimDir !== -1 && ldAnimT > 0) {
         ldAnimDir = -1; // start exiting (or reverse mid-enter)
+        if (!ldLoopRunning) ldLoop();
       }
     }, { threshold: 0.05 });
     ldObserver.observe(ldSection);
@@ -3310,7 +3345,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     const ldMaxT = ldChars[ldChars.length - 1].delay + CHAR_DUR;
 
     // Render loop — wave stagger animation + idle bob (bidirectional)
+    let ldLoopRunning = false;
     function ldLoop() {
+      if (!ldVisible && ldAnimDir === 0) { ldLoopRunning = false; return; }
+      ldLoopRunning = true;
       requestAnimationFrame(ldLoop);
       const now = Date.now() * 0.001;
 
