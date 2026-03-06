@@ -91,9 +91,7 @@
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
   .laptop-demo { position: relative; min-height: 200vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 16%); overflow: hidden; }
-  .laptop-demo-text { text-align: center; opacity: 0; pointer-events: none; padding: 12px 0 0; }
-  .laptop-demo-text h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); margin-bottom: 8px; }
-  .laptop-demo-text p { font-size: 18px; color: var(--gray-400); margin-bottom: 28px; }
+  .laptop-demo-text { display: none; }
 
   .btn-3d {
     display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700;
@@ -123,7 +121,7 @@
       inset 0 1px 0 rgba(255,255,255,0.3);
   }
   #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
-  #flat-video-container { width: 100%; height: 100%; background: #0a0a0f; border-radius: 8px; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: center; padding: 5% 4%; box-sizing: border-box; transition: border-radius 0.1s linear; }
+  #flat-video-container { width: 100%; height: 100%; background: #0a0a0f; border-radius: 8px; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5% 6%; box-sizing: border-box; transition: border-radius 0.1s linear; }
 
   .screen-hiw-title {
     font-size: clamp(12px, 2vw, 22px); font-weight: 800; color: #ffffff; text-align: center;
@@ -135,8 +133,8 @@
   }
 
   .screen-hiw-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(6px, 1.2vw, 16px);
-    width: 100%;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(6px, 1.2vw, 20px);
+    width: 100%; max-width: 1100px;
   }
   .screen-hiw-card {
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
@@ -181,6 +179,21 @@
   .screen-hiw-badge.support { color: var(--orange); background: rgba(255,107,53,0.12); }
   .screen-hiw-badge.realtime { color: #22c55e; background: rgba(34,197,94,0.12); }
   .screen-hiw-badge.ai { color: #6366f1; background: rgba(99,102,241,0.12); }
+
+  .screen-hiw-cta {
+    text-align: center; margin-top: 4%; position: relative; z-index: 1;
+  }
+  .screen-hiw-cta-title {
+    font-size: clamp(14px, 2.2vw, 28px); font-weight: 800; color: #ffffff;
+    letter-spacing: -0.02em; margin-bottom: clamp(4px, 0.5vw, 8px);
+  }
+  .screen-hiw-cta-desc {
+    font-size: clamp(9px, 1.2vw, 16px); color: rgba(255,255,255,0.45); margin-bottom: clamp(8px, 1.5vw, 20px);
+  }
+  .screen-hiw-cta .btn-primary-lg {
+    font-size: clamp(10px, 1.3vw, 16px);
+    padding: clamp(8px, 1.2vw, 16px) clamp(16px, 2.5vw, 36px);
+  }
 
   #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
   #scroll-video-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; display: none; will-change: transform; }
@@ -788,12 +801,12 @@
           </div>
         </div>
       </div>
+      <div class="screen-hiw-cta">
+        <h3 class="screen-hiw-cta-title">See it in action</h3>
+        <p class="screen-hiw-cta-desc">Watch how SuperReddit finds your leads in seconds</p>
+        <a href="signup.html" class="btn-primary btn-primary-lg" style="text-decoration:none;">Get Started Now <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
     </div>
-  </div>
-  <div class="laptop-demo-text" id="laptop-demo-text">
-    <h2>See it in action</h2>
-    <p>Watch how SuperReddit finds your leads in seconds</p>
-    <a href="signup.html" class="btn-3d">Get Started Now &rarr;</a>
   </div>
 </section>
 
@@ -2437,7 +2450,21 @@ if (USE_SCROLL_VIDEO) {
       const borderR = Math.round(8 * (1 - ease));
 
       const wrap = document.getElementById('flat-video-wrap');
-      if (wrap) {
+      const demoSection = document.getElementById('laptop-demo');
+
+      if (ease >= 1) {
+        // Fully expanded — switch to absolute so it's in-flow and doesn't block scrolling
+        const sectionRect = demoSection ? demoSection.getBoundingClientRect() : { top: 0 };
+        const absTop = window.scrollY + sectionRect.top + (demoSection ? demoSection.offsetHeight : vh) - vh;
+        if (wrap) {
+          wrap.style.cssText = `
+            display: block; position: absolute;
+            top: ${absTop}px; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 10; pointer-events: auto;
+          `;
+        }
+      } else if (wrap) {
         wrap.style.cssText = `
           display: block; position: fixed;
           top: ${curTop}px; left: 50%; transform: translateX(-50%);
@@ -2448,17 +2475,6 @@ if (USE_SCROLL_VIDEO) {
       const container = document.getElementById('flat-video-container');
       if (container) container.style.borderRadius = borderR + 'px';
 
-      const text = document.getElementById('laptop-demo-text');
-      if (text) {
-        text.style.opacity = String(Math.max(0, 1 - ease * 3));
-        text.style.pointerEvents = ease > 0.1 ? 'none' : 'auto';
-        if (ease < 0.1) {
-          text.style.position = 'absolute';
-          text.style.top = (curTop + curH + 16) + 'px';
-          text.style.left = '0';
-          text.style.right = '0';
-        }
-      }
       return;
     }
 
@@ -2531,15 +2547,12 @@ if (USE_SCROLL_VIDEO) {
       }
     }
 
-    // At animation end: show flat video + demo text matching the screen rect from last frame
+    // At animation end: show flat content matching the screen rect from last frame
     const wrap = document.getElementById('flat-video-wrap');
-    const text = document.getElementById('laptop-demo-text');
     const viewHForVideo = window.innerHeight;
     const viewWForVideo = window.innerWidth;
 
     if (scrollProgress >= 0.95) {
-      // Position flat video to exactly match the laptop screen in the last frame.
-      // Show it early (0.95) so it's ready behind the scroll canvas before canvas hides at 0.99.
       const videoW = viewWForVideo * SCREEN_WIDTH_FRAC;
       const videoH = viewHForVideo * SCREEN_HEIGHT_FRAC;
       const videoTop = viewHForVideo * SCREEN_TOP_FRAC;
@@ -2557,28 +2570,9 @@ if (USE_SCROLL_VIDEO) {
           pointer-events: auto;
         `;
       }
-
-      // Text appears slightly later, once video is fully revealed
-      if (text) {
-        if (scrollProgress >= 0.99) {
-          text.style.position = 'absolute';
-          text.style.top = (videoTop + videoH + 16) + 'px';
-          text.style.left = '0';
-          text.style.right = '0';
-          text.style.opacity = '1';
-          text.style.pointerEvents = 'auto';
-        } else {
-          text.style.opacity = '0';
-          text.style.pointerEvents = 'none';
-        }
-      }
     } else {
       if (wrap) {
         wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
-      }
-      if (text) {
-        text.style.opacity = '0';
-        text.style.pointerEvents = 'none';
       }
     }
   }
