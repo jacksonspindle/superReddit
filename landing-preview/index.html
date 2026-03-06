@@ -2377,10 +2377,7 @@ if (USE_SCROLL_VIDEO) {
   const SCREEN_HEIGHT_FRAC = 0.5906;
   const SCREEN_TOP_FRAC = 0.2047;
 
-  // Lock zone: once video appears, small scroll-ups don't reverse the animation.
-  // Only unlocks when scrollProgress drops below this threshold.
   let videoLocked = false;
-  const VIDEO_UNLOCK_THRESHOLD = 0.80;
 
   // Track scroll progress in scroll handler, render in rAF for smooth Safari performance
   let svScrollProgress = 0;
@@ -2431,19 +2428,12 @@ if (USE_SCROLL_VIDEO) {
 
     const scrollProgress = svScrollProgress;
 
-    // Lock/unlock logic
-    if (scrollProgress >= 0.99) {
-      videoLocked = true;
-    }
-    if (videoLocked && scrollProgress < VIDEO_UNLOCK_THRESHOLD) {
-      videoLocked = false;
-      expandLockedAbsTop = null;
-    }
+    // Lock/unlock — no buffer, unlocks immediately when scrolling back up
+    videoLocked = scrollProgress >= 0.99;
+    if (!videoLocked) expandLockedAbsTop = null;
 
     // While locked, keep showing the video + text — skip all frame/canvas logic
     if (videoLocked) {
-      const scrollCanvas = document.getElementById('scroll-video-canvas');
-      if (scrollCanvas) { scrollCanvas.style.display = 'none'; scrollCanvas.style.opacity = '0'; }
       if (heroLaptopNode) heroLaptopNode.visible = false;
       const rays = document.getElementById('laptop-light-rays');
       if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
@@ -2451,6 +2441,27 @@ if (USE_SCROLL_VIDEO) {
       const vw = window.innerWidth, vh = window.innerHeight;
       const ep = svExpandProgress;
       const ease = ep < 0.5 ? 2 * ep * ep : 1 - Math.pow(-2 * ep + 2, 2) / 2;
+
+      // True crossfade: canvas and wrap use complementary opacity curves.
+      // As one fades out, the other fades in at the same rate — no gap.
+      const crossfadeT = Math.min(1, ease * 5); // 0 at ease=0, 1 at ease=0.2
+      const scrollCanvas = document.getElementById('scroll-video-canvas');
+      const canvasOpacity = 1 - crossfadeT;
+      if (canvasOpacity > 0.01 && scrollCanvas && scrollCanvasCtx) {
+        const lastFrame = SCROLL_FRAME_COUNT - 1;
+        if (scrollFrames[lastFrame] && scrollFrames[lastFrame].complete) {
+          scrollCanvas.style.display = 'block';
+          scrollCanvas.style.opacity = String(canvasOpacity);
+          if (svLastRenderedFrame !== lastFrame) {
+            scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+            scrollCanvasCtx.drawImage(scrollFrames[lastFrame], 0, 0, scrollCanvas.width, scrollCanvas.height);
+            svLastRenderedFrame = lastFrame;
+          }
+        }
+      } else if (scrollCanvas) {
+        scrollCanvas.style.display = 'none';
+        scrollCanvas.style.opacity = '0';
+      }
 
       // Lerp from laptop-screen size → fullscreen
       const startW = vw * SCREEN_WIDTH_FRAC;
@@ -2465,13 +2476,14 @@ if (USE_SCROLL_VIDEO) {
       const curTop = startTop + (endTop - startTop) * ease;
       const borderR = Math.round(8 * (1 - ease));
 
+      // Wrap opacity is the complement of canvas — true crossfade
+      const wrapOpacity = ease >= 1 ? 1 : crossfadeT;
+
       const wrap = document.getElementById('flat-video-wrap');
       const demoSection = document.getElementById('laptop-demo');
 
       if (ease >= 1) {
         // Fully expanded — switch to absolute so it scrolls naturally with the section.
-        // Cache the position at the transition moment so it doesn't recalculate every frame
-        // (which would keep it viewport-fixed instead of letting it scroll away).
         if (expandLockedAbsTop === null) {
           const sectionRect = demoSection ? demoSection.getBoundingClientRect() : { top: 0 };
           expandLockedAbsTop = Math.round(-sectionRect.top);
@@ -2490,10 +2502,14 @@ if (USE_SCROLL_VIDEO) {
           top: ${curTop}px; left: 50%; transform: translateX(-50%);
           width: ${curW}px; height: ${curH}px;
           z-index: 45; pointer-events: auto;
+          opacity: ${wrapOpacity};
         `;
       }
       const container = document.getElementById('flat-video-container');
-      if (container) container.style.borderRadius = borderR + 'px';
+      if (container) {
+        container.style.borderRadius = borderR + 'px';
+        container.style.opacity = '1';
+      }
 
       return;
     }
