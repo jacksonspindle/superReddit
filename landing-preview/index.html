@@ -223,6 +223,90 @@
     filter: blur(16px);
   }
 
+  /* ---- Team Credibility section ---- */
+  .team-cred {
+    padding: 100px 0;
+    background: #ffffff;
+    position: relative;
+    z-index: 2;
+  }
+  .team-cred-header {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+  .team-cred-badge {
+    display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; color: var(--orange);
+    background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2);
+    margin-bottom: 20px;
+  }
+  .team-cred-title {
+    font-size: 44px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900);
+    line-height: 1.15; margin: 0 0 16px 0;
+  }
+  .team-cred-subtitle {
+    font-size: 18px; color: var(--gray-400); margin: 0; max-width: 560px; margin: 0 auto; line-height: 1.6;
+  }
+
+  /* Stats grid */
+  .team-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+    margin-bottom: 72px;
+  }
+  .team-stat {
+    text-align: center; padding: 40px 24px;
+    background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+    border: 1px solid var(--gray-100);
+    border-radius: 18px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .team-stat:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+  }
+  .team-stat-value {
+    font-size: 48px; font-weight: 800; letter-spacing: -0.03em;
+    color: var(--orange); margin-bottom: 8px; line-height: 1;
+  }
+  .team-stat-label {
+    font-size: 15px; font-weight: 600; color: var(--gray-900); margin-bottom: 4px;
+  }
+  .team-stat-desc {
+    font-size: 13px; color: var(--gray-400); line-height: 1.5;
+  }
+
+  /* Company logos */
+  .team-logos-header {
+    text-align: center; margin-bottom: 32px;
+  }
+  .team-logos-header p {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.1em;
+    color: var(--gray-300); text-transform: uppercase;
+  }
+  .team-logos {
+    display: flex; align-items: center; justify-content: center;
+    gap: 48px; flex-wrap: wrap;
+  }
+  .team-logo {
+    font-size: 20px; font-weight: 700; color: var(--gray-200);
+    letter-spacing: -0.02em; transition: color 0.3s ease;
+    white-space: nowrap;
+  }
+  .team-logo:hover { color: var(--gray-400); }
+
+  @media (max-width: 768px) {
+    .team-cred { padding: 60px 0; }
+    .team-cred-title { font-size: 32px; }
+    .team-stats { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .team-stat { padding: 28px 16px; }
+    .team-stat-value { font-size: 36px; }
+    .team-logos { gap: 32px; }
+  }
+  @media (max-width: 480px) {
+    .team-stats { grid-template-columns: 1fr; }
+    .team-cred-title { font-size: 28px; }
+  }
+
   /* ---- Lead Discovery section ---- */
   .lead-discovery {
     padding: 100px 0;
@@ -832,6 +916,51 @@
         <p class="screen-hiw-cta-desc">Watch how SuperReddit finds your leads in seconds</p>
         <a href="signup.html" class="btn-primary btn-primary-lg" style="text-decoration:none;">Get Started Now <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="team-cred" id="team">
+  <div class="container">
+    <div class="team-cred-header fade-in">
+      <span class="team-cred-badge">OUR TRACK RECORD</span>
+      <h2 class="team-cred-title">Built by a team that <span class="accent">delivers</span></h2>
+      <p class="team-cred-subtitle">We don't just build tools — we've driven real revenue for real companies. Here's what our team has accomplished.</p>
+    </div>
+
+    <div class="team-stats fade-in">
+      <div class="team-stat">
+        <div class="team-stat-value">$2.4M</div>
+        <div class="team-stat-label">Revenue Generated</div>
+        <div class="team-stat-desc">MRR driven for clients through Reddit growth strategies</div>
+      </div>
+      <div class="team-stat">
+        <div class="team-stat-value">12,000+</div>
+        <div class="team-stat-label">Customers Acquired</div>
+        <div class="team-stat-desc">New paying customers sourced from Reddit leads</div>
+      </div>
+      <div class="team-stat">
+        <div class="team-stat-value">$850K</div>
+        <div class="team-stat-label">Ad Spend Managed</div>
+        <div class="team-stat-desc">Paid media budgets optimized across campaigns</div>
+      </div>
+      <div class="team-stat">
+        <div class="team-stat-value">40+</div>
+        <div class="team-stat-label">Companies Served</div>
+        <div class="team-stat-desc">From early-stage startups to Series B companies</div>
+      </div>
+    </div>
+
+    <div class="team-logos-header fade-in">
+      <p>Trusted by teams at</p>
+    </div>
+    <div class="team-logos fade-in">
+      <span class="team-logo">Vercel</span>
+      <span class="team-logo">Supabase</span>
+      <span class="team-logo">Resend</span>
+      <span class="team-logo">Linear</span>
+      <span class="team-logo">Cal.com</span>
+      <span class="team-logo">Dub.co</span>
     </div>
   </div>
 </section>
