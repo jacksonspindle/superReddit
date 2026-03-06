@@ -2442,11 +2442,11 @@ if (USE_SCROLL_VIDEO) {
       const ep = svExpandProgress;
       const ease = ep < 0.5 ? 2 * ep * ep : 1 - Math.pow(-2 * ep + 2, 2) / 2;
 
-      // Laptop canvas: only visible when wrap is near laptop-screen size (ease ≈ 0).
-      // Fades out quickly as the wrap grows beyond the screen, fades back in only
-      // when the wrap shrinks back to match the laptop screen exactly.
+      // True crossfade: canvas and wrap use complementary opacity curves.
+      // As one fades out, the other fades in at the same rate — no gap.
+      const crossfadeT = Math.min(1, ease * 5); // 0 at ease=0, 1 at ease=0.2
       const scrollCanvas = document.getElementById('scroll-video-canvas');
-      const canvasOpacity = 1 - Math.min(1, ease * 10);
+      const canvasOpacity = 1 - crossfadeT;
       if (canvasOpacity > 0.01 && scrollCanvas && scrollCanvasCtx) {
         const lastFrame = SCROLL_FRAME_COUNT - 1;
         if (scrollFrames[lastFrame] && scrollFrames[lastFrame].complete) {
@@ -2476,8 +2476,8 @@ if (USE_SCROLL_VIDEO) {
       const curTop = startTop + (endTop - startTop) * ease;
       const borderR = Math.round(8 * (1 - ease));
 
-      // Fade the entire wrap out when shrinking so the laptop frame shows through
-      const wrapOpacity = ease >= 1 ? 1 : Math.min(1, ease * 2.5);
+      // Wrap opacity is the complement of canvas — true crossfade
+      const wrapOpacity = ease >= 1 ? 1 : crossfadeT;
 
       const wrap = document.getElementById('flat-video-wrap');
       const demoSection = document.getElementById('laptop-demo');
@@ -2508,9 +2508,7 @@ if (USE_SCROLL_VIDEO) {
       const container = document.getElementById('flat-video-container');
       if (container) {
         container.style.borderRadius = borderR + 'px';
-        // Fade content out even faster than the wrap
-        const contentOpacity = ease >= 1 ? 1 : Math.min(1, ease * 3);
-        container.style.opacity = contentOpacity;
+        container.style.opacity = '1';
       }
 
       return;
