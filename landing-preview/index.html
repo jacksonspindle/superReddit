@@ -2485,7 +2485,12 @@ if (USE_SCROLL_VIDEO) {
         `;
       }
       const container = document.getElementById('flat-video-container');
-      if (container) container.style.borderRadius = borderR + 'px';
+      if (container) {
+        container.style.borderRadius = borderR + 'px';
+        // Fade content out quickly when screen is shrinking (scrolling back up)
+        const contentOpacity = ease >= 1 ? 1 : Math.min(1, ease * 3);
+        container.style.opacity = contentOpacity;
+      }
 
       return;
     }
