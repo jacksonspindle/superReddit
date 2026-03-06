@@ -579,6 +579,34 @@
   .pricing-features li.disabled { color: #bbb; text-decoration: line-through; }
   .pricing-features li.disabled svg { color: #ccc; }
 
+  .pricing-banner {
+    max-width: 760px; margin: 0 auto 48px;
+    background: linear-gradient(135deg, var(--orange), #e85d04);
+    border-radius: 16px; padding: 20px 32px;
+    text-align: center; position: relative; overflow: hidden;
+  }
+  .pricing-banner::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%);
+    pointer-events: none;
+  }
+  .pricing-banner-title {
+    font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
+    margin-bottom: 4px; position: relative; z-index: 1;
+  }
+  .pricing-banner-sub {
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.85);
+    position: relative; z-index: 1;
+  }
+  .pricing-old-price {
+    text-decoration: line-through; color: #999; font-size: 28px; font-weight: 700;
+    margin-right: 12px; position: relative; z-index: 1;
+  }
+  .pricing-free {
+    font-size: 48px; font-weight: 800; color: #22c55e; letter-spacing: -0.03em;
+    line-height: 1; position: relative; z-index: 1;
+  }
+
   @media (max-width: 640px) { .pricing-grid { grid-template-columns: 1fr; } }
 
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
@@ -811,16 +839,20 @@
       <span class="pricing-save-badge">Save 20%</span>
     </div>
 
+    <div class="pricing-banner fade-in">
+      <div class="pricing-banner-title">Inner Circle &mdash; Limited to 100 Members</div>
+      <div class="pricing-banner-sub">Get full access free while we build in public. Lock in your spot.</div>
+    </div>
+
     <div class="pricing-grid">
       <!-- Pro (featured) -->
       <div class="pricing-card featured fade-in delay-1">
-        <span class="pricing-badge">Most Popular</span>
+        <span class="pricing-badge">Inner Circle</span>
         <div class="pricing-tier">Pro</div>
         <div class="pricing-desc">For marketers and founders serious about Reddit growth.</div>
         <div class="pricing-price">
-          <span class="pricing-amount" data-monthly="$45" data-yearly="$36">$45</span>
-          <span class="pricing-period">/mo</span>
-          <div class="pricing-yearly-note">Billed $432/year</div>
+          <span class="pricing-old-price">$45/mo</span>
+          <span class="pricing-free">Free</span>
         </div>
         <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
         <ul class="pricing-features">
