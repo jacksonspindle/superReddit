@@ -323,6 +323,7 @@
     background: #ffffff;
     position: relative;
     z-index: 2;
+    overflow: visible;
   }
   .ld-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
@@ -3642,6 +3643,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         ldLoadCount++;
         if (ldVisible && ldAnimDir === 0 && ldLoadCount === ldChars.length) {
           ldAnimDir = 1;
+          if (!ldLoopRunning) ldLoop();
         }
       });
     });
