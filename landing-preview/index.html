@@ -1074,7 +1074,7 @@
 <link rel="modulepreload" href="./js/three-core.min.js">
 <link rel="modulepreload" href="./js/three-addons.min.js">
 <link rel="preload" href="./scene-optimized.glb" as="fetch" crossorigin>
-<script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.59/build/spline-viewer.js"></script>
+<script type="module" src="./js/spline-viewer.min.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "./js/three-core.min.js"
@@ -3590,20 +3590,16 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     `;
 
     // Hide Spline watermark logo when viewer loads
-    // Hide Spline watermark (DOM overlay + canvas render pass)
+    // Hide Spline watermark + built-in text/button nodes
     const splineEl = document.getElementById('pricing-spline');
     if (splineEl) {
+      // Hide watermark logo
       const hideWatermark = () => {
         const sr = splineEl.shadowRoot;
         if (!sr) return;
-        // Hide the DOM logo overlay
-        const logo = sr.querySelector('#logo');
-        if (logo) logo.style.display = 'none';
-        // Also try class-based selector
-        sr.querySelectorAll('[id*="logo"], [class*="logo"], [class*="spline-logo"]').forEach(el => {
+        sr.querySelectorAll('#logo, [id*="logo"], [class*="logo"], [class*="spline-logo"]').forEach(el => {
           el.style.display = 'none';
         });
-        // Inject CSS into shadow DOM to hide it permanently
         if (!sr.querySelector('#hide-wm')) {
           const style = document.createElement('style');
           style.id = 'hide-wm';
@@ -3611,14 +3607,40 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           sr.appendChild(style);
         }
       };
-      // Retry aggressively since the viewer loads async
       hideWatermark();
       splineEl.addEventListener('load', hideWatermark);
-      const interval = setInterval(() => {
+      const wmInterval = setInterval(() => {
         hideWatermark();
-        if (splineEl.shadowRoot?.querySelector('#hide-wm')) clearInterval(interval);
+        if (splineEl.shadowRoot?.querySelector('#hide-wm')) clearInterval(wmInterval);
       }, 500);
-      setTimeout(() => clearInterval(interval), 15000);
+      setTimeout(() => clearInterval(wmInterval), 15000);
+
+      // Hide built-in text/button nodes so only our HTML overlays show
+      const hideTextNodes = () => {
+        const app = splineEl.spline;
+        if (!app) return false;
+        const hideNames = [
+          'Per Month', 'Text', 'Subscribe', 'Period', 'Plan', 'Currency', 'Price',
+          'Feature', 'CTA Button', 'Feature Component', 'Feature Component Instance',
+          'Feature Component Instance 2', 'Shape 0', 'Icon'
+        ];
+        let hidden = 0;
+        const allObjects = app.getAllObjects();
+        allObjects.forEach(obj => {
+          const name = obj.name || '';
+          if (hideNames.some(h => name.toLowerCase() === h.toLowerCase())) {
+            obj.visible = false;
+            hidden++;
+          }
+        });
+        if (hidden > 0) console.log('Pricing: hidden', hidden, 'text/button nodes');
+        return hidden > 0;
+      };
+      // The spline app loads async — poll until ready
+      const textInterval = setInterval(() => {
+        if (hideTextNodes()) clearInterval(textInterval);
+      }, 500);
+      setTimeout(() => clearInterval(textInterval), 15000);
     }
   }
 }
