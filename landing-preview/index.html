@@ -1001,7 +1001,7 @@
 
     <!-- 3D Pricing (desktop) -->
     <div class="pricing-3d-wrap fade-in" id="pricing-3d-wrap">
-      <spline-viewer url="./models/scene.splinecode" loading-anim-type="none" id="pricing-spline"></spline-viewer>
+      <spline-viewer url="./models/scene.splinecode" loading-anim-type="none" logo="false" id="pricing-spline"></spline-viewer>
       <div id="pricing-overlay"></div>
     </div>
 
@@ -3590,19 +3590,35 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     `;
 
     // Hide Spline watermark logo when viewer loads
+    // Hide Spline watermark (DOM overlay + canvas render pass)
     const splineEl = document.getElementById('pricing-spline');
     if (splineEl) {
       const hideWatermark = () => {
         const sr = splineEl.shadowRoot;
-        if (sr) {
-          const logo = sr.querySelector('#logo');
-          if (logo) logo.style.display = 'none';
+        if (!sr) return;
+        // Hide the DOM logo overlay
+        const logo = sr.querySelector('#logo');
+        if (logo) logo.style.display = 'none';
+        // Also try class-based selector
+        sr.querySelectorAll('[id*="logo"], [class*="logo"], [class*="spline-logo"]').forEach(el => {
+          el.style.display = 'none';
+        });
+        // Inject CSS into shadow DOM to hide it permanently
+        if (!sr.querySelector('#hide-wm')) {
+          const style = document.createElement('style');
+          style.id = 'hide-wm';
+          style.textContent = '#logo, .spline-logo, [id*="logo"] { display: none !important; opacity: 0 !important; pointer-events: none !important; }';
+          sr.appendChild(style);
         }
       };
-      // Try immediately and again after load
+      // Retry aggressively since the viewer loads async
       hideWatermark();
       splineEl.addEventListener('load', hideWatermark);
-      setTimeout(hideWatermark, 3000);
+      const interval = setInterval(() => {
+        hideWatermark();
+        if (splineEl.shadowRoot?.querySelector('#hide-wm')) clearInterval(interval);
+      }, 500);
+      setTimeout(() => clearInterval(interval), 15000);
     }
   }
 }
