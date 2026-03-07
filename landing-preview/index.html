@@ -559,140 +559,179 @@
   .cta-card p { font-size: 16px; color: #2a2a44; margin-bottom: 32px; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
 
   /* ---- Pricing section ---- */
-  .pricing { padding: 100px 0; background: #ffffff; }
+  .pricing {
+    padding: 120px 0 140px; position: relative; overflow: hidden;
+    background: #0a0806;
+  }
+  /* Warm amber glow from bottom center */
+  .pricing::before {
+    content: ''; position: absolute; bottom: -30%; left: 50%; transform: translateX(-50%);
+    width: 160%; height: 100%;
+    background: radial-gradient(ellipse 50% 50% at 50% 80%, rgba(200,120,30,0.25) 0%, rgba(160,80,15,0.12) 30%, rgba(100,50,10,0.05) 50%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  /* Subtle top glow for cards area */
+  .pricing::after {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; height: 60%;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(140,80,20,0.06) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
   .pricing .section-label { color: var(--orange); }
-  .pricing .section-title { color: var(--gray-900); }
-  .pricing .section-subtitle { color: var(--gray-400); }
+  .pricing .section-title { color: #ffffff; }
+  .pricing .section-subtitle { color: rgba(255,255,255,0.45); }
 
   .pricing-toggle {
     display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 56px;
   }
   .pricing-toggle-label {
-    font-size: 15px; font-weight: 600; color: var(--gray-400); transition: color 0.2s;
+    font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.4); transition: color 0.2s;
   }
-  .pricing-toggle-label.active { color: var(--gray-900); }
+  .pricing-toggle-label.active { color: #ffffff; }
   .pricing-toggle-switch {
-    position: relative; width: 52px; height: 28px; background: var(--gray-100);
+    position: relative; width: 52px; height: 28px; background: rgba(255,255,255,0.12);
     border-radius: 14px; cursor: pointer; border: none; transition: background 0.2s;
   }
   .pricing-toggle-switch::after {
     content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
-    background: #ffffff; border-radius: 50%; transition: transform 0.25s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    background: var(--orange); border-radius: 50%; transition: transform 0.25s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
   }
   .pricing[data-billing="yearly"] .pricing-toggle-switch {
-    background: var(--orange);
+    background: rgba(255,107,53,0.25);
   }
   .pricing[data-billing="yearly"] .pricing-toggle-switch::after {
     transform: translateX(24px);
   }
   .pricing-save-badge {
-    font-size: 12px; font-weight: 700; color: var(--orange); background: rgba(255,107,53,0.15);
-    padding: 4px 10px; border-radius: 20px; letter-spacing: 0.02em;
+    font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    padding: 3px 10px; border-radius: 6px; letter-spacing: 0.02em;
   }
 
   .pricing-grid {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px; max-width: 760px; margin: 0 auto;
-    perspective: 1000px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 760px; margin: 0 auto;
+    position: relative; z-index: 1;
   }
 
   .pricing-card {
-    background: #ffffff;
-    border: 1px solid var(--gray-100);
-    border-radius: 20px; padding: 36px 28px; position: relative; overflow: hidden;
-    transform: rotateY(-4deg) rotateX(2deg);
-    transform-style: preserve-3d;
-    box-shadow:
-      0 8px 32px rgba(0,0,0,0.12),
-      0 24px 64px rgba(0,0,0,0.08),
-      -8px 16px 40px rgba(0,0,0,0.06);
-    border-left: 2px solid rgba(255,255,255,0.5);
-    border-top: 1px solid rgba(255,255,255,0.3);
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    background: rgba(22,19,16,0.9);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 32px 28px; position: relative; overflow: hidden;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
     display: flex; flex-direction: column;
   }
-  .pricing-card:nth-child(2) {
-    transform: rotateY(4deg) rotateX(2deg);
-    border-left: none;
-    border-right: 2px solid rgba(255,255,255,0.5);
-  }
   .pricing-card:hover {
-    transform: rotateY(-2deg) rotateX(1deg) translateY(-4px);
-    box-shadow:
-      0 16px 40px rgba(0,0,0,0.15),
-      0 32px 72px rgba(0,0,0,0.1),
-      -8px 24px 48px rgba(0,0,0,0.08);
-  }
-  .pricing-card:nth-child(2):hover {
-    transform: rotateY(2deg) rotateX(1deg) translateY(-4px);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
   }
   .pricing-card::before {
-    content: ''; position: absolute; inset: 0; border-radius: 20px;
-    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.4) 55%, transparent 70%);
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 50%, transparent);
     pointer-events: none;
   }
 
   .pricing-card.featured {
-    border: 2px solid var(--orange);
-    box-shadow:
-      0 8px 32px rgba(0,0,0,0.12),
-      0 24px 64px rgba(0,0,0,0.08),
-      -8px 16px 40px rgba(0,0,0,0.06),
-      0 0 40px rgba(255,107,53,0.15);
+    border-color: rgba(255,107,53,0.2);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 60px rgba(255,107,53,0.06), inset 0 1px 0 rgba(255,107,53,0.15);
+  }
+  .pricing-card.featured::before {
+    height: 140px;
+    background:
+      linear-gradient(180deg, rgba(255,107,53,0.08) 0%, transparent 100%),
+      radial-gradient(circle 1.5px at 10% 20%, rgba(255,140,50,0.5) 0%, transparent 2px),
+      radial-gradient(circle 1px at 25% 35%, rgba(255,140,50,0.4) 0%, transparent 1.5px),
+      radial-gradient(circle 2px at 40% 15%, rgba(255,140,50,0.35) 0%, transparent 2.5px),
+      radial-gradient(circle 1px at 55% 40%, rgba(255,140,50,0.3) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 70% 25%, rgba(255,140,50,0.45) 0%, transparent 2px),
+      radial-gradient(circle 1px at 85% 10%, rgba(255,140,50,0.35) 0%, transparent 1.5px),
+      radial-gradient(circle 1px at 90% 45%, rgba(255,140,50,0.25) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 15% 50%, rgba(255,140,50,0.2) 0%, transparent 2px),
+      radial-gradient(circle 1px at 35% 55%, rgba(255,140,50,0.15) 0%, transparent 1.5px),
+      radial-gradient(circle 1px at 60% 55%, rgba(255,140,50,0.2) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 78% 48%, rgba(255,140,50,0.15) 0%, transparent 2px),
+      radial-gradient(circle 1px at 5% 42%, rgba(255,140,50,0.3) 0%, transparent 1.5px),
+      radial-gradient(circle 1px at 48% 8%, rgba(255,140,50,0.4) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 95% 30%, rgba(255,140,50,0.2) 0%, transparent 2px);
   }
   .pricing-card.featured:hover {
-    box-shadow:
-      0 16px 40px rgba(0,0,0,0.15),
-      0 32px 72px rgba(0,0,0,0.1),
-      -8px 24px 48px rgba(0,0,0,0.08),
-      0 0 50px rgba(255,107,53,0.2);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 80px rgba(255,107,53,0.08), inset 0 1px 0 rgba(255,107,53,0.15);
   }
 
   .pricing-badge {
-    display: inline-block; font-size: 12px; font-weight: 700; color: white; background: var(--orange);
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; color: var(--orange);
+    background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2);
     padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; position: relative; z-index: 1;
+    text-transform: uppercase; letter-spacing: 0.05em;
   }
   .pricing-tier {
-    font-size: 20px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; position: relative; z-index: 1;
+    font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; position: relative; z-index: 1;
     letter-spacing: -0.01em;
   }
   .pricing-desc {
-    font-size: 14px; color: #555; margin-bottom: 20px; position: relative; z-index: 1; line-height: 1.5;
+    font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 20px; position: relative; z-index: 1; line-height: 1.5;
   }
   .pricing-price {
     position: relative; z-index: 1; margin-bottom: 24px;
+    padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.06);
   }
   .pricing-amount {
-    font-size: 48px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.03em; line-height: 1;
+    font-size: 48px; font-weight: 800; color: #ffffff; letter-spacing: -0.03em; line-height: 1;
   }
   .pricing-period {
-    font-size: 16px; font-weight: 500; color: #888;
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.35);
   }
   .pricing-yearly-note {
     font-size: 13px; color: var(--orange); font-weight: 600; margin-top: 4px; display: none;
   }
   .pricing[data-billing="yearly"] .pricing-yearly-note { display: block; }
 
-  .pricing-card .btn-primary { width: 100%; justify-content: center; position: relative; z-index: 1; }
-  .pricing-card .btn-secondary { width: 100%; justify-content: center; position: relative; z-index: 1; }
+  .pricing-card .btn-primary {
+    width: 100%; justify-content: center; position: relative; z-index: 1;
+    background: linear-gradient(180deg, #ff7a45 0%, #e85d20 100%);
+    color: #fff; border: none; font-size: 15px; font-weight: 600;
+    padding: 14px 20px; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(255,107,53,0.3);
+  }
+  .pricing-card .btn-primary:hover {
+    background: linear-gradient(180deg, #ff8855 0%, #f06a2a 100%);
+    box-shadow: 0 4px 16px rgba(255,107,53,0.4);
+  }
+  .pricing-card .btn-secondary {
+    width: 100%; justify-content: center; position: relative; z-index: 1;
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 15px; font-weight: 600; padding: 14px 20px; border-radius: 12px;
+  }
+  .pricing-card .btn-secondary:hover {
+    background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.15);
+  }
 
   .pricing-features {
-    list-style: none; margin-top: 24px; padding-top: 24px;
-    border-top: 1px solid rgba(0,0,0,0.06); position: relative; z-index: 1;
+    list-style: none; margin-top: 0; position: relative; z-index: 1;
+    flex-grow: 1;
   }
+  .pricing-features-label {
+    font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 16px;
+    position: relative; z-index: 1;
+  }
+  .pricing-features-label strong { color: rgba(255,255,255,0.6); }
   .pricing-features li {
-    display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #444;
-    padding: 6px 0; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: rgba(255,255,255,0.6);
+    padding: 5px 0; line-height: 1.5;
   }
   .pricing-features li svg { flex-shrink: 0; margin-top: 2px; }
-  .pricing-features li.disabled { color: #bbb; text-decoration: line-through; }
-  .pricing-features li.disabled svg { color: #ccc; }
+  .pricing-features li.disabled { color: rgba(255,255,255,0.2); text-decoration: line-through; }
+  .pricing-features li.disabled svg { color: rgba(255,255,255,0.1); }
 
   .pricing-banner {
     max-width: 760px; margin: 0 auto 48px;
     background: linear-gradient(135deg, var(--orange), #e85d04);
     border-radius: 16px; padding: 20px 32px;
-    text-align: center; position: relative; overflow: hidden;
+    text-align: center; position: relative; overflow: hidden; z-index: 1;
   }
   .pricing-banner::before {
     content: ''; position: absolute; inset: 0;
@@ -708,7 +747,7 @@
     position: relative; z-index: 1;
   }
   .pricing-old-price {
-    text-decoration: line-through; color: #999; font-size: 28px; font-weight: 700;
+    text-decoration: line-through; color: rgba(255,255,255,0.3); font-size: 24px; font-weight: 600;
     margin-right: 12px; position: relative; z-index: 1;
   }
   .pricing-free {
@@ -717,6 +756,102 @@
   }
 
   @media (max-width: 640px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+  /* ── 3D Pricing Section ── */
+  .pricing-3d-wrap {
+    position: relative; max-width: 1100px; margin: 0 auto;
+    aspect-ratio: 16 / 10; overflow: hidden;
+  }
+  #pricing-3d-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  }
+  #pricing-overlay {
+    position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  }
+  .pricing-card-overlay {
+    position: absolute; pointer-events: all;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; box-sizing: border-box;
+  }
+  /* Card positions — aligned over the 3D glass cards, lower half only */
+  #po-card1 { left: 5%; top: 38%; bottom: 5%; width: 27%; padding: 0 3%; }
+  #po-card2 { left: 36%; top: 34%; bottom: 3%; width: 28%; padding: 0 3%; }
+  #po-card3 { left: 67%; top: 38%; bottom: 5%; width: 27%; padding: 0 3%; overflow: hidden; border-radius: 0 0 16px 16px; }
+  /* Teal ambient glow on Team card */
+  #po-card3::before {
+    content: ''; position: absolute; bottom: -20%; left: 10%; right: 10%; height: 60%;
+    background: radial-gradient(ellipse at center bottom, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.08) 40%, transparent 70%);
+    filter: blur(20px); pointer-events: none; z-index: -1;
+  }
+  .po-plan {
+    font-size: clamp(13px, 1.3vw, 18px); font-weight: 600; color: rgba(255,255,255,0.5);
+    margin-bottom: 4px; letter-spacing: 0.02em;
+  }
+  .po-price { margin-bottom: 2px; display: flex; align-items: baseline; justify-content: center; }
+  .po-amount {
+    font-size: clamp(32px, 4vw, 64px); font-weight: 800; color: #fff;
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .po-amount.po-free { color: #fff; }
+  .po-currency {
+    font-size: clamp(16px, 1.6vw, 26px); font-weight: 600; color: rgba(255,255,255,0.4);
+    margin-right: 2px; align-self: flex-start; margin-top: 0.15em;
+  }
+  .po-period {
+    font-size: clamp(9px, 0.75vw, 12px); color: rgba(255,255,255,0.3);
+    margin-bottom: 10px;
+  }
+  .po-features {
+    list-style: none; padding: 0; margin: 0 0 12px;
+    text-align: left; width: 100%;
+  }
+  .po-features li {
+    font-size: clamp(10px, 0.85vw, 13px); color: rgba(255,255,255,0.55);
+    padding: 2px 0; display: flex; align-items: center; gap: 8px; line-height: 1.5;
+  }
+  .po-features li svg { flex-shrink: 0; width: 16px; height: 16px; }
+  .po-btn {
+    display: block; text-align: center; text-decoration: none;
+    font-size: clamp(11px, 0.95vw, 15px); font-weight: 600;
+    padding: 10px 0; border-radius: 10px; width: 100%; margin-top: auto;
+    transition: all 0.2s ease; cursor: pointer; box-sizing: border-box;
+  }
+  /* Basic — dark indigo button */
+  .po-btn-dark {
+    background: rgba(30, 22, 55, 0.85); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .po-btn-dark:hover { background: rgba(45, 35, 75, 0.9); color: #fff; }
+  /* Pro — dark neutral button */
+  .po-btn-secondary {
+    background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .po-btn-secondary:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  /* Team — button with teal glow */
+  .po-btn-glow {
+    position: relative;
+    background: rgba(20, 40, 35, 0.6); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  .po-btn-glow::after {
+    content: ''; position: absolute; inset: -6px -4px; border-radius: 14px;
+    background: radial-gradient(ellipse at center, rgba(34, 197, 94, 0.2) 0%, transparent 70%);
+    z-index: -1; filter: blur(10px); pointer-events: none;
+  }
+  .po-btn-glow:hover { background: rgba(30, 60, 50, 0.7); color: #fff; border-color: rgba(34, 197, 94, 0.35); }
+  .po-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; color: var(--orange);
+    background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.25);
+    padding: 2px 10px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .pricing-mobile-only { display: none; }
+  @media (max-width: 768px) {
+    .pricing-3d-wrap { display: none; }
+    .pricing-mobile-only { display: grid; grid-template-columns: 1fr; max-width: 400px; }
+  }
 
   .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
   .footer .container { display: flex; align-items: center; justify-content: space-between; }
@@ -1005,9 +1140,26 @@
       <div class="pricing-banner-sub">Get full access free while we build in public. Lock in your spot.</div>
     </div>
 
-    <div class="pricing-grid">
-      <!-- Pro (featured) -->
-      <div class="pricing-card featured fade-in delay-1">
+    <!-- 3D Pricing (desktop) -->
+    <div class="pricing-3d-wrap fade-in" id="pricing-3d-wrap">
+      <canvas id="pricing-3d-canvas"></canvas>
+      <div id="pricing-overlay"></div>
+    </div>
+
+    <!-- Mobile fallback (3 cards) -->
+    <div class="pricing-grid pricing-mobile-only">
+      <div class="pricing-card fade-in delay-1">
+        <div class="pricing-tier">Basic</div>
+        <div class="pricing-desc">Get started with lead discovery on Reddit.</div>
+        <div class="pricing-price"><span class="pricing-free" style="font-size:40px;">Free</span></div>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>10 leads / month</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>1 project</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Basic search</li>
+        </ul>
+        <a href="signup.html" class="btn-secondary" style="text-decoration:none;">Get Started</a>
+      </div>
+      <div class="pricing-card featured fade-in delay-2">
         <span class="pricing-badge">Inner Circle</span>
         <div class="pricing-tier">Pro</div>
         <div class="pricing-desc">For marketers and founders serious about Reddit growth.</div>
@@ -1015,33 +1167,29 @@
           <span class="pricing-old-price">$45/mo</span>
           <span class="pricing-free">Free</span>
         </div>
-        <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Started <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
         <ul class="pricing-features">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>5 projects</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Lead alerts</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API access</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>5 projects</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Lead alerts</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API access</li>
         </ul>
+        <a href="signup.html" class="btn-primary" style="text-decoration:none;">Get Pro</a>
       </div>
-
-      <!-- Ultra -->
-      <div class="pricing-card fade-in delay-2">
-        <div class="pricing-tier">Ultra</div>
-        <div class="pricing-desc">For teams and agencies managing multiple brands on Reddit.</div>
+      <div class="pricing-card fade-in delay-3">
+        <div class="pricing-tier">Team</div>
+        <div class="pricing-desc">For teams and agencies managing multiple brands.</div>
         <div class="pricing-price">
           <span class="pricing-amount" data-monthly="Custom" data-yearly="Custom" style="font-size: 2.5rem;">Custom</span>
         </div>
-        <a href="mailto:team@superreddit.com" class="btn-primary" style="text-decoration:none;">Contact Us <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
         <ul class="pricing-features">
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited projects</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Dedicated support</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API access</li>
-          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00cc88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Custom integrations</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited projects</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Dedicated support</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Custom integrations</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>White-label reports</li>
         </ul>
+        <a href="mailto:team@superreddit.com" class="btn-secondary" style="text-decoration:none;">Contact Us</a>
       </div>
     </div>
   </div>
@@ -3576,6 +3724,441 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     ldLoop();
   }
 }
+
+// ── Pricing Section: Three.js Stencil Portal + HTML Overlay ──
+{
+  const p3dWrap = document.getElementById('pricing-3d-wrap');
+
+  if (p3dWrap && window.innerWidth > 768) {
+    // Populate pricing overlay cards
+    const checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    const overlay = document.getElementById('pricing-overlay');
+    overlay.innerHTML = `
+      <div id="po-card1" class="pricing-card-overlay">
+        <div class="po-price">
+          <span class="po-amount po-free" data-monthly="Free" data-yearly="Free">Free</span>
+        </div>
+        <ul class="po-features">
+          <li>${checkSvg}10 leads / month</li>
+          <li>${checkSvg}1 project</li>
+          <li>${checkSvg}Basic search</li>
+        </ul>
+        <a href="signup.html" class="po-btn po-btn-dark">Get Started</a>
+      </div>
+      <div id="po-card2" class="pricing-card-overlay">
+        <span class="po-badge">Most Popular</span>
+        <div class="po-price">
+          <span class="po-currency">$</span><span class="po-amount" data-monthly="25" data-yearly="20">25</span>
+        </div>
+        <ul class="po-features">
+          <li>${checkSvg}Unlimited leads</li>
+          <li>${checkSvg}5 projects</li>
+          <li>${checkSvg}Full AI post generation</li>
+        </ul>
+        <a href="signup.html" class="po-btn po-btn-secondary">Subscribe</a>
+      </div>
+      <div id="po-card3" class="pricing-card-overlay">
+        <div class="po-price">
+          <span class="po-currency">$</span><span class="po-amount" data-monthly="35" data-yearly="28">35</span>
+        </div>
+        <ul class="po-features">
+          <li>${checkSvg}Unlimited projects</li>
+          <li>${checkSvg}Dedicated support</li>
+          <li>${checkSvg}Custom integrations</li>
+        </ul>
+        <a href="signup.html" class="po-btn po-btn-secondary po-btn-glow">Upgrade</a>
+      </div>
+    `;
+
+    // ── Three.js Stencil Portal Renderer ──
+    const pCanvas = document.getElementById('pricing-3d-canvas');
+    const pRenderer = new THREE.WebGLRenderer({
+      canvas: pCanvas, antialias: true, alpha: false, stencil: true
+    });
+    pRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    pRenderer.setClearColor(0x0d0b1a, 1);
+    pRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    pRenderer.toneMappingExposure = 1.0;
+
+    // Sizing
+    const pRect = p3dWrap.getBoundingClientRect();
+    let pW = pRect.width, pH = pRect.height;
+    pRenderer.setSize(pW, pH);
+
+    // Orthographic camera matching GLTF specs
+    const halfH = 8.98;
+    let halfW = halfH * (pW / pH);
+    const pCamera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100);
+    pCamera.position.set(0.25, 0.153, 10.0);
+    pCamera.lookAt(0.25, 0.153, 0);
+
+    const pScene = new THREE.Scene();
+    pScene.background = new THREE.Color(0x0d0b1a);
+
+    // EffectComposer with stencil-enabled render target
+    const pRT = new THREE.WebGLRenderTarget(pW * pRenderer.getPixelRatio(), pH * pRenderer.getPixelRatio(), {
+      stencilBuffer: true, depthBuffer: true, type: THREE.HalfFloatType
+    });
+    const pComposer = new EffectComposer(pRenderer, pRT);
+    const pRenderPass = new RenderPass(pScene, pCamera);
+    pComposer.addPass(pRenderPass);
+    const pBloom = new UnrealBloomPass(new THREE.Vector2(pW, pH), 0.3, 0.4, 0.85);
+    pComposer.addPass(pBloom);
+    const pOutput = new OutputPass();
+    pComposer.addPass(pOutput);
+
+    // Lighting
+    const pAmbient = new THREE.AmbientLight(0xfff5e6, 0.8);
+    pScene.add(pAmbient);
+    const pDirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    pDirLight.position.set(5, 8, 10);
+    pScene.add(pDirLight);
+    const pPointLight = new THREE.PointLight(0x88bbff, 0.6, 30);
+    pPointLight.position.set(0, 2, 5);
+    pScene.add(pPointLight);
+
+    // PMREM environment map for reflections
+    const pPmremGen = new THREE.PMREMGenerator(pRenderer);
+    pPmremGen.compileEquirectangularShader();
+    const pEnvScene = new THREE.Scene();
+    pEnvScene.add(new THREE.PointLight(0x00ccaa, 8, 50).translateTo ? new THREE.PointLight(0x00ccaa, 8, 50) : (() => { const l = new THREE.PointLight(0x00ccaa, 8, 50); l.position.set(3, 5, -3); return l; })());
+    pEnvScene.add((() => { const l = new THREE.PointLight(0x4488ff, 6, 50); l.position.set(-3, 3, 5); return l; })());
+    pEnvScene.add((() => { const l = new THREE.PointLight(0x00aa88, 4, 50); l.position.set(0, -2, -5); return l; })());
+    const pEnvMap = pPmremGen.fromScene(pEnvScene, 0, 0.1, 100).texture;
+    pScene.environment = pEnvMap;
+    pPmremGen.dispose();
+
+    // Animation state
+    let pAnimStart = 0;
+    let pVisible = false;
+    let pLoaded = false;
+    let pWaveOriginal = null;
+    let pComputer = null, pComputerBase = null;
+    let pEllipses = [], pEllipseBases = [];
+    let pWaveMesh = null, pWaveBase = null;
+
+    // Names to hide (text/button/icon nodes replaced by HTML overlay)
+    const hideNames = [
+      'per month', 'text', 'subscribe', 'period', 'plan', 'currency', 'price',
+      'feature', 'cta button', 'feature component', 'feature component instance',
+      'feature component instance 2', 'shape 0', 'icon'
+    ];
+
+    // Glass card node indices (names from GLTF)
+    const glassCardNames = ['Glass Card', 'Glass Card 2', 'Glass Card 3'];
+    const glassUiNames = ['Glass UI', 'Glass UI 2', 'Glass UI 3'];
+
+    // Load GLTF lazily on intersection
+    const pLoadObs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !pLoaded) {
+        pLoaded = true;
+        pLoadObs.disconnect();
+        loadPricingGLTF();
+      }
+    }, { threshold: 0.01, rootMargin: '200px' });
+    pLoadObs.observe(p3dWrap);
+
+    function loadPricingGLTF() {
+      const loader = new GLTFLoader();
+      loader.load('./models/3duipricing.gltf', (gltf) => {
+        const root = gltf.scene;
+
+        const glassCards = [];
+        const glassUIs = [];
+        let waveMesh = null;
+        let computerGroup = null;
+        const ellipses = [];
+
+        // Traverse and classify nodes
+        root.traverse((node) => {
+          const name = (node.name || '').trim();
+          const nameLower = name.toLowerCase();
+
+          // Hide text/button/icon nodes
+          if (hideNames.some(h => nameLower === h)) {
+            node.visible = false;
+            return;
+          }
+
+          // Hide the Cube backdrop
+          if (name === 'Cube') { node.visible = false; return; }
+
+          // Hide embedded lights from GLTF
+          if (node.isLight) { node.visible = false; return; }
+
+          // Hide the GLTF camera
+          if (node.isCamera) { node.visible = false; return; }
+
+          // Identify glass cards
+          if (name === 'Glass Card' || name === 'Glass Card 2' || name === 'Glass Card 3') {
+            glassCards.push(node);
+          }
+
+          // Identify glass UI
+          if (name === 'Glass UI' || name === 'Glass UI 2' || name === 'Glass UI 3') {
+            glassUIs.push(node);
+          }
+
+          // Wave / ribbon
+          if (name === 'Path 4') { waveMesh = node; }
+
+          // Computer
+          if (name === 'Computer') { computerGroup = node; }
+
+          // Ellipses
+          if (name === 'Glass-Elipse') { ellipses.push(node); }
+        });
+
+        // ── Stencil Portal: Glass Cards as masks ──
+        glassCards.forEach((card) => {
+          if (!card.isMesh) {
+            card.traverse((child) => {
+              if (child.isMesh) applyStencilMask(child);
+            });
+          } else {
+            applyStencilMask(card);
+          }
+        });
+
+        function applyStencilMask(mesh) {
+          const stencilMat = new THREE.MeshBasicMaterial({
+            colorWrite: false,
+            depthWrite: false,
+            stencilWrite: true,
+            stencilRef: 1,
+            stencilFunc: THREE.AlwaysStencilFunc,
+            stencilZPass: THREE.ReplaceStencilOp,
+            stencilFail: THREE.KeepStencilOp,
+            stencilZFail: THREE.KeepStencilOp,
+          });
+          mesh.material = stencilMat;
+          mesh.renderOrder = 0;
+        }
+
+        // ── Wave (Path 4): only visible through stencil ──
+        if (waveMesh) {
+          const applyWave = (mesh) => {
+            mesh.material = new THREE.MeshStandardMaterial({
+              color: 0x00ccaa,
+              emissive: 0x00aa88,
+              emissiveIntensity: 0.6,
+              roughness: 0.3,
+              metalness: 0.1,
+              side: THREE.DoubleSide,
+              stencilWrite: true,
+              stencilRef: 1,
+              stencilFunc: THREE.EqualStencilFunc,
+              stencilFail: THREE.KeepStencilOp,
+              stencilZFail: THREE.KeepStencilOp,
+              stencilZPass: THREE.KeepStencilOp,
+            });
+            mesh.renderOrder = 1;
+
+            // Store original positions for wave animation
+            if (mesh.geometry && mesh.geometry.attributes.position) {
+              const pos = mesh.geometry.attributes.position;
+              pWaveOriginal = new Float32Array(pos.array);
+              pWaveMesh = mesh;
+            }
+          };
+
+          if (waveMesh.isMesh) {
+            applyWave(waveMesh);
+          } else {
+            waveMesh.traverse((child) => {
+              if (child.isMesh) applyWave(child);
+            });
+          }
+          pWaveBase = waveMesh.rotation ? { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x } : null;
+        }
+
+        // ── Glass overlay (transparent glass on top of cards) ──
+        glassCards.forEach((card) => {
+          const addGlassOverlay = (mesh) => {
+            const glassMesh = mesh.clone();
+            glassMesh.material = new THREE.MeshPhysicalMaterial({
+              color: 0x112233,
+              transparent: true,
+              opacity: 0.15,
+              clearcoat: 0.8,
+              clearcoatRoughness: 0.1,
+              roughness: 0.1,
+              metalness: 0.0,
+              depthWrite: false,
+              envMapIntensity: 1.5,
+            });
+            glassMesh.renderOrder = 2;
+            // Slight Z offset to sit on top of stencil
+            glassMesh.position.z += 0.01;
+            mesh.parent.add(glassMesh);
+          };
+
+          if (card.isMesh) {
+            addGlassOverlay(card);
+          } else {
+            card.traverse((child) => {
+              if (child.isMesh) addGlassOverlay(child);
+            });
+          }
+        });
+
+        // ── Glass UI elements: low-opacity decorative panels ──
+        glassUIs.forEach((ui) => {
+          ui.traverse((child) => {
+            if (child.isMesh) {
+              child.material = new THREE.MeshPhysicalMaterial({
+                color: 0x223344,
+                transparent: true,
+                opacity: 0.1,
+                roughness: 0.2,
+                metalness: 0.1,
+                depthWrite: false,
+              });
+              child.renderOrder = 2;
+            }
+          });
+        });
+
+        // ── Computer: dark body + green emissive screen ──
+        if (computerGroup) {
+          pComputer = computerGroup;
+          computerGroup.traverse((child) => {
+            if (child.isMesh) {
+              const name = (child.name || '').toLowerCase();
+              if (name.includes('screen') || name.includes('display') || name.includes('rectangle')) {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0x001100,
+                  emissive: 0x00ff66,
+                  emissiveIntensity: 0.4,
+                  roughness: 0.1,
+                  metalness: 0.5,
+                });
+              } else {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0x1a1a2e,
+                  roughness: 0.4,
+                  metalness: 0.6,
+                });
+              }
+              child.renderOrder = 3;
+            }
+          });
+        }
+
+        // ── Glass-Elipses: metallic with clearcoat ──
+        ellipses.forEach((e) => {
+          e.traverse((child) => {
+            if (child.isMesh) {
+              child.material = new THREE.MeshPhysicalMaterial({
+                color: 0x2a2a3e,
+                roughness: 0.2,
+                metalness: 0.8,
+                clearcoat: 0.6,
+                clearcoatRoughness: 0.1,
+                envMapIntensity: 1.2,
+              });
+              child.renderOrder = 3;
+            }
+          });
+        });
+
+        // Store animation bases
+        pEllipses = ellipses;
+        pEllipseBases = ellipses.map(e => ({
+          sx: e.scale.x, sy: e.scale.y, sz: e.scale.z,
+        }));
+        if (pComputer) {
+          pComputerBase = {
+            px: pComputer.position.x, py: pComputer.position.y, pz: pComputer.position.z,
+            rx: pComputer.rotation.x, ry: pComputer.rotation.y, rz: pComputer.rotation.z,
+          };
+        }
+
+        pScene.add(root);
+        pAnimStart = performance.now();
+        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
+
+        // Start render loop
+        pVisible = true;
+        pricingLoop();
+      }, undefined, (err) => {
+        console.error('Pricing GLTF load error:', err);
+      });
+    }
+
+    // Visibility observer for pausing
+    const pVisObs = new IntersectionObserver(([entry]) => {
+      const wasVisible = pVisible;
+      pVisible = entry.isIntersecting;
+      if (pVisible && !wasVisible && pLoaded) pricingLoop();
+    }, { threshold: 0.05 });
+    pVisObs.observe(p3dWrap);
+
+    function pricingLoop() {
+      if (!pVisible) return;
+      requestAnimationFrame(pricingLoop);
+      const elapsed = performance.now() - pAnimStart;
+      const t = elapsed * 0.001; // seconds
+
+      // Wave vertex animation
+      if (pWaveMesh && pWaveOriginal) {
+        const posAttr = pWaveMesh.geometry.attributes.position;
+        const arr = posAttr.array;
+        for (let i = 0; i < arr.length; i += 3) {
+          const ox = pWaveOriginal[i];
+          const oy = pWaveOriginal[i + 1];
+          const oz = pWaveOriginal[i + 2];
+          const wave = Math.sin(ox * 0.005 + t * 1.5) * 8
+                     + Math.sin(oy * 0.003 + t * 0.8) * 5
+                     + Math.sin((ox + oy) * 0.004 + t * 2.0) * 3;
+          arr[i + 2] = oz + wave;
+        }
+        posAttr.needsUpdate = true;
+      }
+
+      // Wave slow rotation
+      if (pWaveMesh && pWaveBase) {
+        pWaveMesh.rotation.z = pWaveBase.rz + (elapsed / 45000) * Math.PI * 2;
+        pWaveMesh.rotation.x = pWaveBase.rx + Math.sin(elapsed * 0.0003) * 0.05;
+      }
+
+      // Computer gentle float
+      if (pComputer && pComputerBase) {
+        const bob = Math.sin(elapsed * 0.001) * 0.05;
+        pComputer.position.y = pComputerBase.py + bob;
+        const swing = Math.sin(elapsed * 0.0008) * 0.5 + 0.5;
+        pComputer.rotation.x = pComputerBase.rx + (swing - 0.5) * 0.06;
+        pComputer.rotation.y = pComputerBase.ry + (swing - 0.5) * 0.05;
+      }
+
+      // Ellipse pulse
+      pEllipses.forEach((e, i) => {
+        const phase = elapsed * 0.001 * Math.PI / 3 + i * 1.2;
+        const pulse = 1 + Math.sin(phase) * 0.02;
+        e.scale.x = pEllipseBases[i].sx * pulse;
+        e.scale.y = pEllipseBases[i].sy * pulse;
+        e.scale.z = pEllipseBases[i].sz * pulse;
+      });
+
+      pComposer.render();
+    }
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      const rect = p3dWrap.getBoundingClientRect();
+      pW = rect.width; pH = rect.height;
+      if (pW === 0 || pH === 0) return;
+      pRenderer.setSize(pW, pH);
+      halfW = halfH * (pW / pH);
+      pCamera.left = -halfW; pCamera.right = halfW;
+      pCamera.top = halfH; pCamera.bottom = -halfH;
+      pCamera.updateProjectionMatrix();
+      const pr = pRenderer.getPixelRatio();
+      pComposer.setSize(pW * pr, pH * pr);
+      pBloom.resolution.set(pW, pH);
+    });
+  }
+}
 </script>
 
 <script>
@@ -3618,6 +4201,10 @@ document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
     lblMonthly.classList.toggle('active', isYearly);
     lblYearly.classList.toggle('active', !isYearly);
     document.querySelectorAll('.pricing-amount').forEach(el => {
+      el.textContent = isYearly ? el.dataset.monthly : el.dataset.yearly;
+    });
+    // Also update 3D overlay amounts
+    document.querySelectorAll('.po-amount[data-monthly]').forEach(el => {
       el.textContent = isYearly ? el.dataset.monthly : el.dataset.yearly;
     });
   });
