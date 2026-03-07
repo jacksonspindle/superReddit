@@ -671,8 +671,8 @@
     position: relative; max-width: 1100px; margin: 0 auto;
     aspect-ratio: 16 / 10; overflow: hidden;
   }
-  #pricing-spline {
-    position: absolute; inset: 0; width: 100%; height: 100%;
+  #pricing-3d-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   }
   #pricing-overlay {
     position: absolute; inset: 0; pointer-events: none; z-index: 2;
@@ -1001,7 +1001,7 @@
 
     <!-- 3D Pricing (desktop) -->
     <div class="pricing-3d-wrap fade-in" id="pricing-3d-wrap">
-      <spline-viewer url="./models/scene.splinecode" loading-anim-type="none" logo="false" id="pricing-spline"></spline-viewer>
+      <canvas id="pricing-3d-canvas"></canvas>
       <div id="pricing-overlay"></div>
     </div>
 
@@ -1074,7 +1074,6 @@
 <link rel="modulepreload" href="./js/three-core.min.js">
 <link rel="modulepreload" href="./js/three-addons.min.js">
 <link rel="preload" href="./scene-optimized.glb" as="fetch" crossorigin>
-<script type="module" src="./js/spline-viewer.min.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "./js/three-core.min.js"
@@ -3538,7 +3537,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
   }
 }
 
-// ── Pricing Section: Spline Viewer + HTML Overlay ──
+// ── Pricing Section: Three.js Stencil Portal + HTML Overlay ──
 {
   const p3dWrap = document.getElementById('pricing-3d-wrap');
 
@@ -3589,59 +3588,393 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       </div>
     `;
 
-    // Hide Spline watermark logo when viewer loads
-    // Hide Spline watermark + built-in text/button nodes
-    const splineEl = document.getElementById('pricing-spline');
-    if (splineEl) {
-      // Hide watermark logo
-      const hideWatermark = () => {
-        const sr = splineEl.shadowRoot;
-        if (!sr) return;
-        sr.querySelectorAll('#logo, [id*="logo"], [class*="logo"], [class*="spline-logo"]').forEach(el => {
-          el.style.display = 'none';
-        });
-        if (!sr.querySelector('#hide-wm')) {
-          const style = document.createElement('style');
-          style.id = 'hide-wm';
-          style.textContent = '#logo, .spline-logo, [id*="logo"] { display: none !important; opacity: 0 !important; pointer-events: none !important; }';
-          sr.appendChild(style);
-        }
-      };
-      hideWatermark();
-      splineEl.addEventListener('load', hideWatermark);
-      const wmInterval = setInterval(() => {
-        hideWatermark();
-        if (splineEl.shadowRoot?.querySelector('#hide-wm')) clearInterval(wmInterval);
-      }, 500);
-      setTimeout(() => clearInterval(wmInterval), 15000);
+    // ── Three.js Stencil Portal Renderer ──
+    const pCanvas = document.getElementById('pricing-3d-canvas');
+    const pRenderer = new THREE.WebGLRenderer({
+      canvas: pCanvas, antialias: true, alpha: false, stencil: true
+    });
+    pRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    pRenderer.setClearColor(0x0d0b1a, 1);
+    pRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    pRenderer.toneMappingExposure = 1.0;
 
-      // Hide built-in text/button nodes so only our HTML overlays show
-      const hideTextNodes = () => {
-        const app = splineEl.spline;
-        if (!app) return false;
-        const hideNames = [
-          'Per Month', 'Text', 'Subscribe', 'Period', 'Plan', 'Currency', 'Price',
-          'Feature', 'CTA Button', 'Feature Component', 'Feature Component Instance',
-          'Feature Component Instance 2', 'Shape 0', 'Icon'
-        ];
-        let hidden = 0;
-        const allObjects = app.getAllObjects();
-        allObjects.forEach(obj => {
-          const name = obj.name || '';
-          if (hideNames.some(h => name.toLowerCase() === h.toLowerCase())) {
-            obj.visible = false;
-            hidden++;
+    // Sizing
+    const pRect = p3dWrap.getBoundingClientRect();
+    let pW = pRect.width, pH = pRect.height;
+    pRenderer.setSize(pW, pH);
+
+    // Orthographic camera matching GLTF specs
+    const halfH = 8.98;
+    let halfW = halfH * (pW / pH);
+    const pCamera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100);
+    pCamera.position.set(0.25, 0.153, 10.0);
+    pCamera.lookAt(0.25, 0.153, 0);
+
+    const pScene = new THREE.Scene();
+    pScene.background = new THREE.Color(0x0d0b1a);
+
+    // EffectComposer with stencil-enabled render target
+    const pRT = new THREE.WebGLRenderTarget(pW * pRenderer.getPixelRatio(), pH * pRenderer.getPixelRatio(), {
+      stencilBuffer: true, depthBuffer: true, type: THREE.HalfFloatType
+    });
+    const pComposer = new EffectComposer(pRenderer, pRT);
+    const pRenderPass = new RenderPass(pScene, pCamera);
+    pComposer.addPass(pRenderPass);
+    const pBloom = new UnrealBloomPass(new THREE.Vector2(pW, pH), 0.3, 0.4, 0.85);
+    pComposer.addPass(pBloom);
+    const pOutput = new OutputPass();
+    pComposer.addPass(pOutput);
+
+    // Lighting
+    const pAmbient = new THREE.AmbientLight(0xfff5e6, 0.8);
+    pScene.add(pAmbient);
+    const pDirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    pDirLight.position.set(5, 8, 10);
+    pScene.add(pDirLight);
+    const pPointLight = new THREE.PointLight(0x88bbff, 0.6, 30);
+    pPointLight.position.set(0, 2, 5);
+    pScene.add(pPointLight);
+
+    // PMREM environment map for reflections
+    const pPmremGen = new THREE.PMREMGenerator(pRenderer);
+    pPmremGen.compileEquirectangularShader();
+    const pEnvScene = new THREE.Scene();
+    pEnvScene.add(new THREE.PointLight(0x00ccaa, 8, 50).translateTo ? new THREE.PointLight(0x00ccaa, 8, 50) : (() => { const l = new THREE.PointLight(0x00ccaa, 8, 50); l.position.set(3, 5, -3); return l; })());
+    pEnvScene.add((() => { const l = new THREE.PointLight(0x4488ff, 6, 50); l.position.set(-3, 3, 5); return l; })());
+    pEnvScene.add((() => { const l = new THREE.PointLight(0x00aa88, 4, 50); l.position.set(0, -2, -5); return l; })());
+    const pEnvMap = pPmremGen.fromScene(pEnvScene, 0, 0.1, 100).texture;
+    pScene.environment = pEnvMap;
+    pPmremGen.dispose();
+
+    // Animation state
+    let pAnimStart = 0;
+    let pVisible = false;
+    let pLoaded = false;
+    let pWaveOriginal = null;
+    let pComputer = null, pComputerBase = null;
+    let pEllipses = [], pEllipseBases = [];
+    let pWaveMesh = null, pWaveBase = null;
+
+    // Names to hide (text/button/icon nodes replaced by HTML overlay)
+    const hideNames = [
+      'per month', 'text', 'subscribe', 'period', 'plan', 'currency', 'price',
+      'feature', 'cta button', 'feature component', 'feature component instance',
+      'feature component instance 2', 'shape 0', 'icon'
+    ];
+
+    // Glass card node indices (names from GLTF)
+    const glassCardNames = ['Glass Card', 'Glass Card 2', 'Glass Card 3'];
+    const glassUiNames = ['Glass UI', 'Glass UI 2', 'Glass UI 3'];
+
+    // Load GLTF lazily on intersection
+    const pLoadObs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !pLoaded) {
+        pLoaded = true;
+        pLoadObs.disconnect();
+        loadPricingGLTF();
+      }
+    }, { threshold: 0.01, rootMargin: '200px' });
+    pLoadObs.observe(p3dWrap);
+
+    function loadPricingGLTF() {
+      const loader = new GLTFLoader();
+      loader.load('./models/3duipricing.gltf', (gltf) => {
+        const root = gltf.scene;
+
+        const glassCards = [];
+        const glassUIs = [];
+        let waveMesh = null;
+        let computerGroup = null;
+        const ellipses = [];
+
+        // Traverse and classify nodes
+        root.traverse((node) => {
+          const name = (node.name || '').trim();
+          const nameLower = name.toLowerCase();
+
+          // Hide text/button/icon nodes
+          if (hideNames.some(h => nameLower === h)) {
+            node.visible = false;
+            return;
+          }
+
+          // Hide the Cube backdrop
+          if (name === 'Cube') { node.visible = false; return; }
+
+          // Hide embedded lights from GLTF
+          if (node.isLight) { node.visible = false; return; }
+
+          // Hide the GLTF camera
+          if (node.isCamera) { node.visible = false; return; }
+
+          // Identify glass cards
+          if (name === 'Glass Card' || name === 'Glass Card 2' || name === 'Glass Card 3') {
+            glassCards.push(node);
+          }
+
+          // Identify glass UI
+          if (name === 'Glass UI' || name === 'Glass UI 2' || name === 'Glass UI 3') {
+            glassUIs.push(node);
+          }
+
+          // Wave / ribbon
+          if (name === 'Path 4') { waveMesh = node; }
+
+          // Computer
+          if (name === 'Computer') { computerGroup = node; }
+
+          // Ellipses
+          if (name === 'Glass-Elipse') { ellipses.push(node); }
+        });
+
+        // ── Stencil Portal: Glass Cards as masks ──
+        glassCards.forEach((card) => {
+          if (!card.isMesh) {
+            card.traverse((child) => {
+              if (child.isMesh) applyStencilMask(child);
+            });
+          } else {
+            applyStencilMask(card);
           }
         });
-        if (hidden > 0) console.log('Pricing: hidden', hidden, 'text/button nodes');
-        return hidden > 0;
-      };
-      // The spline app loads async — poll until ready
-      const textInterval = setInterval(() => {
-        if (hideTextNodes()) clearInterval(textInterval);
-      }, 500);
-      setTimeout(() => clearInterval(textInterval), 15000);
+
+        function applyStencilMask(mesh) {
+          const stencilMat = new THREE.MeshBasicMaterial({
+            colorWrite: false,
+            depthWrite: false,
+            stencilWrite: true,
+            stencilRef: 1,
+            stencilFunc: THREE.AlwaysStencilFunc,
+            stencilZPass: THREE.ReplaceStencilOp,
+            stencilFail: THREE.KeepStencilOp,
+            stencilZFail: THREE.KeepStencilOp,
+          });
+          mesh.material = stencilMat;
+          mesh.renderOrder = 0;
+        }
+
+        // ── Wave (Path 4): only visible through stencil ──
+        if (waveMesh) {
+          const applyWave = (mesh) => {
+            mesh.material = new THREE.MeshStandardMaterial({
+              color: 0x00ccaa,
+              emissive: 0x00aa88,
+              emissiveIntensity: 0.6,
+              roughness: 0.3,
+              metalness: 0.1,
+              side: THREE.DoubleSide,
+              stencilWrite: true,
+              stencilRef: 1,
+              stencilFunc: THREE.EqualStencilFunc,
+              stencilFail: THREE.KeepStencilOp,
+              stencilZFail: THREE.KeepStencilOp,
+              stencilZPass: THREE.KeepStencilOp,
+            });
+            mesh.renderOrder = 1;
+
+            // Store original positions for wave animation
+            if (mesh.geometry && mesh.geometry.attributes.position) {
+              const pos = mesh.geometry.attributes.position;
+              pWaveOriginal = new Float32Array(pos.array);
+              pWaveMesh = mesh;
+            }
+          };
+
+          if (waveMesh.isMesh) {
+            applyWave(waveMesh);
+          } else {
+            waveMesh.traverse((child) => {
+              if (child.isMesh) applyWave(child);
+            });
+          }
+          pWaveBase = waveMesh.rotation ? { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x } : null;
+        }
+
+        // ── Glass overlay (transparent glass on top of cards) ──
+        glassCards.forEach((card) => {
+          const addGlassOverlay = (mesh) => {
+            const glassMesh = mesh.clone();
+            glassMesh.material = new THREE.MeshPhysicalMaterial({
+              color: 0x112233,
+              transparent: true,
+              opacity: 0.15,
+              clearcoat: 0.8,
+              clearcoatRoughness: 0.1,
+              roughness: 0.1,
+              metalness: 0.0,
+              depthWrite: false,
+              envMapIntensity: 1.5,
+            });
+            glassMesh.renderOrder = 2;
+            // Slight Z offset to sit on top of stencil
+            glassMesh.position.z += 0.01;
+            mesh.parent.add(glassMesh);
+          };
+
+          if (card.isMesh) {
+            addGlassOverlay(card);
+          } else {
+            card.traverse((child) => {
+              if (child.isMesh) addGlassOverlay(child);
+            });
+          }
+        });
+
+        // ── Glass UI elements: low-opacity decorative panels ──
+        glassUIs.forEach((ui) => {
+          ui.traverse((child) => {
+            if (child.isMesh) {
+              child.material = new THREE.MeshPhysicalMaterial({
+                color: 0x223344,
+                transparent: true,
+                opacity: 0.1,
+                roughness: 0.2,
+                metalness: 0.1,
+                depthWrite: false,
+              });
+              child.renderOrder = 2;
+            }
+          });
+        });
+
+        // ── Computer: dark body + green emissive screen ──
+        if (computerGroup) {
+          pComputer = computerGroup;
+          computerGroup.traverse((child) => {
+            if (child.isMesh) {
+              const name = (child.name || '').toLowerCase();
+              if (name.includes('screen') || name.includes('display') || name.includes('rectangle')) {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0x001100,
+                  emissive: 0x00ff66,
+                  emissiveIntensity: 0.4,
+                  roughness: 0.1,
+                  metalness: 0.5,
+                });
+              } else {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0x1a1a2e,
+                  roughness: 0.4,
+                  metalness: 0.6,
+                });
+              }
+              child.renderOrder = 3;
+            }
+          });
+        }
+
+        // ── Glass-Elipses: metallic with clearcoat ──
+        ellipses.forEach((e) => {
+          e.traverse((child) => {
+            if (child.isMesh) {
+              child.material = new THREE.MeshPhysicalMaterial({
+                color: 0x2a2a3e,
+                roughness: 0.2,
+                metalness: 0.8,
+                clearcoat: 0.6,
+                clearcoatRoughness: 0.1,
+                envMapIntensity: 1.2,
+              });
+              child.renderOrder = 3;
+            }
+          });
+        });
+
+        // Store animation bases
+        pEllipses = ellipses;
+        pEllipseBases = ellipses.map(e => ({
+          sx: e.scale.x, sy: e.scale.y, sz: e.scale.z,
+        }));
+        if (pComputer) {
+          pComputerBase = {
+            px: pComputer.position.x, py: pComputer.position.y, pz: pComputer.position.z,
+            rx: pComputer.rotation.x, ry: pComputer.rotation.y, rz: pComputer.rotation.z,
+          };
+        }
+
+        pScene.add(root);
+        pAnimStart = performance.now();
+        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
+
+        // Start render loop
+        pVisible = true;
+        pricingLoop();
+      }, undefined, (err) => {
+        console.error('Pricing GLTF load error:', err);
+      });
     }
+
+    // Visibility observer for pausing
+    const pVisObs = new IntersectionObserver(([entry]) => {
+      const wasVisible = pVisible;
+      pVisible = entry.isIntersecting;
+      if (pVisible && !wasVisible && pLoaded) pricingLoop();
+    }, { threshold: 0.05 });
+    pVisObs.observe(p3dWrap);
+
+    function pricingLoop() {
+      if (!pVisible) return;
+      requestAnimationFrame(pricingLoop);
+      const elapsed = performance.now() - pAnimStart;
+      const t = elapsed * 0.001; // seconds
+
+      // Wave vertex animation
+      if (pWaveMesh && pWaveOriginal) {
+        const posAttr = pWaveMesh.geometry.attributes.position;
+        const arr = posAttr.array;
+        for (let i = 0; i < arr.length; i += 3) {
+          const ox = pWaveOriginal[i];
+          const oy = pWaveOriginal[i + 1];
+          const oz = pWaveOriginal[i + 2];
+          const wave = Math.sin(ox * 0.005 + t * 1.5) * 8
+                     + Math.sin(oy * 0.003 + t * 0.8) * 5
+                     + Math.sin((ox + oy) * 0.004 + t * 2.0) * 3;
+          arr[i + 2] = oz + wave;
+        }
+        posAttr.needsUpdate = true;
+      }
+
+      // Wave slow rotation
+      if (pWaveMesh && pWaveBase) {
+        pWaveMesh.rotation.z = pWaveBase.rz + (elapsed / 45000) * Math.PI * 2;
+        pWaveMesh.rotation.x = pWaveBase.rx + Math.sin(elapsed * 0.0003) * 0.05;
+      }
+
+      // Computer gentle float
+      if (pComputer && pComputerBase) {
+        const bob = Math.sin(elapsed * 0.001) * 0.05;
+        pComputer.position.y = pComputerBase.py + bob;
+        const swing = Math.sin(elapsed * 0.0008) * 0.5 + 0.5;
+        pComputer.rotation.x = pComputerBase.rx + (swing - 0.5) * 0.06;
+        pComputer.rotation.y = pComputerBase.ry + (swing - 0.5) * 0.05;
+      }
+
+      // Ellipse pulse
+      pEllipses.forEach((e, i) => {
+        const phase = elapsed * 0.001 * Math.PI / 3 + i * 1.2;
+        const pulse = 1 + Math.sin(phase) * 0.02;
+        e.scale.x = pEllipseBases[i].sx * pulse;
+        e.scale.y = pEllipseBases[i].sy * pulse;
+        e.scale.z = pEllipseBases[i].sz * pulse;
+      });
+
+      pComposer.render();
+    }
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      const rect = p3dWrap.getBoundingClientRect();
+      pW = rect.width; pH = rect.height;
+      if (pW === 0 || pH === 0) return;
+      pRenderer.setSize(pW, pH);
+      halfW = halfH * (pW / pH);
+      pCamera.left = -halfW; pCamera.right = halfW;
+      pCamera.top = halfH; pCamera.bottom = -halfH;
+      pCamera.updateProjectionMatrix();
+      const pr = pRenderer.getPixelRatio();
+      pComposer.setSize(pW * pr, pH * pr);
+      pBloom.resolution.set(pW, pH);
+    });
   }
 }
 </script>
