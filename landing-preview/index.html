@@ -3733,42 +3733,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     // Populate pricing overlay cards
     const checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
     const overlay = document.getElementById('pricing-overlay');
-    overlay.innerHTML = `
-      <div id="po-card1" class="pricing-card-overlay">
-        <div class="po-price">
-          <span class="po-amount po-free" data-monthly="Free" data-yearly="Free">Free</span>
-        </div>
-        <ul class="po-features">
-          <li>${checkSvg}10 leads / month</li>
-          <li>${checkSvg}1 project</li>
-          <li>${checkSvg}Basic search</li>
-        </ul>
-        <a href="signup.html" class="po-btn po-btn-dark">Get Started</a>
-      </div>
-      <div id="po-card2" class="pricing-card-overlay">
-        <span class="po-badge">Most Popular</span>
-        <div class="po-price">
-          <span class="po-currency">$</span><span class="po-amount" data-monthly="25" data-yearly="20">25</span>
-        </div>
-        <ul class="po-features">
-          <li>${checkSvg}Unlimited leads</li>
-          <li>${checkSvg}5 projects</li>
-          <li>${checkSvg}Full AI post generation</li>
-        </ul>
-        <a href="signup.html" class="po-btn po-btn-secondary">Subscribe</a>
-      </div>
-      <div id="po-card3" class="pricing-card-overlay">
-        <div class="po-price">
-          <span class="po-currency">$</span><span class="po-amount" data-monthly="35" data-yearly="28">35</span>
-        </div>
-        <ul class="po-features">
-          <li>${checkSvg}Unlimited projects</li>
-          <li>${checkSvg}Dedicated support</li>
-          <li>${checkSvg}Custom integrations</li>
-        </ul>
-        <a href="signup.html" class="po-btn po-btn-secondary po-btn-glow">Upgrade</a>
-      </div>
-    `;
+    overlay.style.display = 'none';
 
     // ── Three.js Stencil Portal Renderer ──
     const pCanvas = document.getElementById('pricing-3d-canvas');
@@ -3890,7 +3855,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           if (node.isCamera) { node.visible = false; return; }
 
           // Identify glass cards
-          if (name === 'Glass Card' || name === 'Glass Card 2' || name === 'Glass Card 3') {
+          if (name === 'Glass Card 1' || name === 'Glass Card 2' || name === 'Glass Card 3') {
             glassCards.push(node);
           }
 
@@ -3909,114 +3874,91 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           if (name === 'Glass-Elipse') { ellipses.push(node); }
         });
 
+        // ── Collect sets for targeted overrides ──
+        const glassCardMeshes = new Set();
+        const waveMeshes = new Set();
+        const computerMeshes = new Set();
+        const ellipseMeshes = new Set();
+        const hiddenNodes = new Set();
+
+        glassCards.forEach(c => c.traverse(n => { if (n.isMesh) glassCardMeshes.add(n); }));
+        if (waveMesh) waveMesh.traverse(n => { if (n.isMesh) waveMeshes.add(n); });
+        if (computerGroup) computerGroup.traverse(n => { if (n.isMesh) computerMeshes.add(n); });
+        ellipses.forEach(e => e.traverse(n => { if (n.isMesh) ellipseMeshes.add(n); }));
+        glassUIs.forEach(u => u.traverse(n => { if (n.isMesh) glassCardMeshes.add(n); }));
+
         // ── Stencil Portal: Glass Cards as masks ──
-        glassCards.forEach((card) => {
-          if (!card.isMesh) {
-            card.traverse((child) => {
-              if (child.isMesh) applyStencilMask(child);
-            });
-          } else {
-            applyStencilMask(card);
-          }
+        // ── Glass Cards: solid blue panels ──
+        glassCardMeshes.forEach((mesh) => {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0x2255dd,
+            emissive: 0x1144bb,
+            emissiveIntensity: 0.4,
+            roughness: 0.3,
+            metalness: 0.2,
+          });
+          mesh.renderOrder = 1;
         });
 
-        function applyStencilMask(mesh) {
-          const stencilMat = new THREE.MeshBasicMaterial({
-            colorWrite: false,
-            depthWrite: false,
-            stencilWrite: true,
-            stencilRef: 1,
-            stencilFunc: THREE.AlwaysStencilFunc,
-            stencilZPass: THREE.ReplaceStencilOp,
-            stencilFail: THREE.KeepStencilOp,
-            stencilZFail: THREE.KeepStencilOp,
+        // ── Wave (Path 4): red, no stencil, always visible ──
+        waveMeshes.forEach((mesh) => {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0xdd2200,
+            emissive: 0xcc1100,
+            emissiveIntensity: 0.6,
+            roughness: 0.3,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
           });
-          mesh.material = stencilMat;
           mesh.renderOrder = 0;
+
+          if (mesh.geometry && mesh.geometry.attributes.position && !pWaveMesh) {
+            const pos = mesh.geometry.attributes.position;
+            pWaveOriginal = new Float32Array(pos.array);
+            pWaveMesh = mesh;
+          }
+        });
+        if (waveMesh) {
+          pWaveBase = { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x };
         }
 
-        // ── Wave (Path 4): only visible through stencil ──
-        if (waveMesh) {
-          const applyWave = (mesh) => {
-            mesh.material = new THREE.MeshStandardMaterial({
-              color: 0x00ccaa,
-              emissive: 0x00aa88,
+        // ── Catch-all: override ALL remaining meshes by name ──
+        root.traverse((node) => {
+          if (!node.isMesh) return;
+          if (node.visible === false) return;
+          if (computerMeshes.has(node)) return;
+          if (ellipseMeshes.has(node)) return;
+
+          const n = (node.name || '').toLowerCase();
+          const pn = (node.parent?.name || '').toLowerCase();
+
+          // Wave = red
+          if (n.includes('path') || pn.includes('bg') || pn.includes('path')) {
+            node.material = new THREE.MeshStandardMaterial({
+              color: 0xdd2200,
+              emissive: 0xcc1100,
               emissiveIntensity: 0.6,
               roughness: 0.3,
               metalness: 0.1,
               side: THREE.DoubleSide,
-              stencilWrite: true,
-              stencilRef: 1,
-              stencilFunc: THREE.EqualStencilFunc,
-              stencilFail: THREE.KeepStencilOp,
-              stencilZFail: THREE.KeepStencilOp,
-              stencilZPass: THREE.KeepStencilOp,
             });
-            mesh.renderOrder = 1;
-
-            // Store original positions for wave animation
-            if (mesh.geometry && mesh.geometry.attributes.position) {
-              const pos = mesh.geometry.attributes.position;
-              pWaveOriginal = new Float32Array(pos.array);
-              pWaveMesh = mesh;
+            node.renderOrder = 0;
+            if (node.geometry?.attributes?.position && !pWaveMesh) {
+              pWaveOriginal = new Float32Array(node.geometry.attributes.position.array);
+              pWaveMesh = node;
             }
-          };
-
-          if (waveMesh.isMesh) {
-            applyWave(waveMesh);
-          } else {
-            waveMesh.traverse((child) => {
-              if (child.isMesh) applyWave(child);
-            });
+            return;
           }
-          pWaveBase = waveMesh.rotation ? { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x } : null;
-        }
 
-        // ── Glass overlay (transparent glass on top of cards) ──
-        glassCards.forEach((card) => {
-          const addGlassOverlay = (mesh) => {
-            const glassMesh = mesh.clone();
-            glassMesh.material = new THREE.MeshPhysicalMaterial({
-              color: 0x112233,
-              transparent: true,
-              opacity: 0.15,
-              clearcoat: 0.8,
-              clearcoatRoughness: 0.1,
-              roughness: 0.1,
-              metalness: 0.0,
-              depthWrite: false,
-              envMapIntensity: 1.5,
-            });
-            glassMesh.renderOrder = 2;
-            // Slight Z offset to sit on top of stencil
-            glassMesh.position.z += 0.01;
-            mesh.parent.add(glassMesh);
-          };
-
-          if (card.isMesh) {
-            addGlassOverlay(card);
-          } else {
-            card.traverse((child) => {
-              if (child.isMesh) addGlassOverlay(child);
-            });
-          }
-        });
-
-        // ── Glass UI elements: low-opacity decorative panels ──
-        glassUIs.forEach((ui) => {
-          ui.traverse((child) => {
-            if (child.isMesh) {
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x223344,
-                transparent: true,
-                opacity: 0.1,
-                roughness: 0.2,
-                metalness: 0.1,
-                depthWrite: false,
-              });
-              child.renderOrder = 2;
-            }
+          // Everything else = blue
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0x2255dd,
+            emissive: 0x1144bb,
+            emissiveIntensity: 0.4,
+            roughness: 0.3,
+            metalness: 0.2,
           });
+          node.renderOrder = 1;
         });
 
         // ── Computer: dark body + green emissive screen ──
