@@ -3958,9 +3958,13 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             return;
           }
 
-          // Everything else = stencil-writing blue panel + transparent glass clone on top
-          // Step 1: make original mesh a stencil mask (writes stencil but invisible)
-          const origGeo = node.geometry;
+          // Only Glass Card / Glass UI meshes become blue panels — hide everything else
+          if (!n.includes('glass')) {
+            node.visible = false;
+            return;
+          }
+
+          // Stencil-writing blue panel + transparent glass clone on top
           node.material = new THREE.MeshBasicMaterial({
             colorWrite: false,
             depthWrite: false,
@@ -3973,7 +3977,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           });
           node.renderOrder = 0;
 
-          // Step 2: clone as semi-transparent blue glass on top
+          // Clone as semi-transparent blue glass on top
           const blueClone = node.clone();
           blueClone.material = new THREE.MeshPhysicalMaterial({
             color: 0x2255dd,
