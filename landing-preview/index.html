@@ -3860,6 +3860,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             glassCards.push(node);
           }
 
+
           // Identify glass UI
           if (name === 'Glass UI' || name === 'Glass UI 2' || name === 'Glass UI 3') {
             glassUIs.push(node);
@@ -3993,8 +3994,19 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           blueClone.renderOrder = 2;
           blueClone.position.z += 0.01;
           node.parent.add(blueClone);
-          pPanelPairs.push({ mask: node, clone: blueClone, baseY: node.position.y });
         });
+
+        // ── Collect Card parent groups for bob animation ──
+        // Walk up from each glass card mesh to find the Card group
+        const bobGroupsSeen = new Set();
+        root.traverse((node) => {
+          const n = (node.name || '').trim();
+          if (n.startsWith('Card ') && !bobGroupsSeen.has(node)) {
+            bobGroupsSeen.add(node);
+            pPanelPairs.push({ group: node, baseY: node.position.y });
+          }
+        });
+        console.log('Bob groups found:', pPanelPairs.length, pPanelPairs.map(p => p.group.name));
 
         // ── Computer: dark body + green emissive screen ──
         if (computerGroup) {
@@ -4108,11 +4120,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         pComputer.rotation.y = pComputerBase.ry + (swing - 0.5) * 0.05;
       }
 
-      // Panel bob hover
+      // Panel bob hover (moves entire Card group)
       pPanelPairs.forEach((p, i) => {
-        const bob = Math.sin(elapsed * 0.0012 + i * 1.5) * 0.08;
-        p.mask.position.y = p.baseY + bob;
-        p.clone.position.y = p.baseY + bob;
+        const bob = Math.sin(elapsed * 0.0012 + i * 1.5) * 15;
+        p.group.position.y = p.baseY + bob;
       });
 
       // Ellipse pulse
