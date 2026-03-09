@@ -64,7 +64,7 @@
   @keyframes hero-spin { to { transform: rotate(360deg); } }
   .hero-loading.loaded { opacity: 0; transition: opacity 0.4s; pointer-events: none; }
   .hero-3d-container { position: absolute; inset: 0; z-index: 1; transform: translateY(12%); }
-  .hero-gap-fill { position: absolute; top: 0; left: 0; width: 100%; height: 14%; z-index: 1; pointer-events: none; background: #1a1050; }
+  .hero-gap-fill { position: absolute; top: 0; left: 0; width: 100%; height: 14%; z-index: 1; pointer-events: none; }
   .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -20vh; }
   .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
   .hero-overlay h1 .accent { color: white; -webkit-text-fill-color: white; }
@@ -2991,7 +2991,18 @@ function animate() {
   // Render through post-processing pipeline
   composer.render();
 
-  // Gap fill now handled by CSS background on #gap-fill
+  // Gap fill: copy top pixels from 3D canvas (throttled to once per 5 frames)
+  if (window._gapFrame === undefined) window._gapFrame = 0;
+  if (++window._gapFrame % 5 === 0) {
+    const gapCanvas = document.getElementById('gap-fill');
+    const gapCtx = gapCanvas.getContext('2d');
+    const srcCanvas = renderer.domElement;
+    if (gapCanvas.width !== srcCanvas.width || gapCanvas.height !== Math.round(srcCanvas.height * 0.14)) {
+      gapCanvas.width = srcCanvas.width;
+      gapCanvas.height = Math.round(srcCanvas.height * 0.14);
+    }
+    gapCtx.drawImage(srcCanvas, 0, 0, srcCanvas.width, 3, 0, 0, gapCanvas.width, gapCanvas.height);
+  }
 
   // Update numbered labels
   if (window._updateLabels) window._updateLabels();
