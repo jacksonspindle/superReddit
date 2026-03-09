@@ -3727,48 +3727,49 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
 
 // ── Pricing Section: Three.js Stencil Portal + HTML Overlay ──
 {
+  // ── Simplex 3D noise (compact implementation) ──
+  const _sGrad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+  const _sPerm = new Uint8Array(512);
+  {
+    const p = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,
+    247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,
+    74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,
+    65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,
+    52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,
+    119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,
+    218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,
+    157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180];
+    for (let i = 0; i < 256; i++) { _sPerm[i] = _sPerm[i + 256] = p[i]; }
+  }
+  function simplex3(x, y, z) {
+    const F3 = 1/3, G3 = 1/6;
+    const s = (x+y+z)*F3;
+    const i = Math.floor(x+s), j = Math.floor(y+s), k = Math.floor(z+s);
+    const t = (i+j+k)*G3;
+    const X0 = i-t, Y0 = j-t, Z0 = k-t;
+    const x0 = x-X0, y0 = y-Y0, z0 = z-Z0;
+    let i1,j1,k1,i2,j2,k2;
+    if(x0>=y0){if(y0>=z0){i1=1;j1=0;k1=0;i2=1;j2=1;k2=0;}else if(x0>=z0){i1=1;j1=0;k1=0;i2=1;j2=0;k2=1;}else{i1=0;j1=0;k1=1;i2=1;j2=0;k2=1;}}
+    else{if(y0<z0){i1=0;j1=0;k1=1;i2=0;j2=1;k2=1;}else if(x0<z0){i1=0;j1=1;k1=0;i2=0;j2=1;k2=1;}else{i1=0;j1=1;k1=0;i2=1;j2=1;k2=0;}}
+    const x1=x0-i1+G3,y1=y0-j1+G3,z1=z0-k1+G3;
+    const x2=x0-i2+2*G3,y2=y0-j2+2*G3,z2=z0-k2+2*G3;
+    const x3=x0-1+3*G3,y3=y0-1+3*G3,z3=z0-1+3*G3;
+    const ii=i&255,jj=j&255,kk=k&255;
+    let n0=0,n1=0,n2=0,n3=0;
+    let t0=0.6-x0*x0-y0*y0-z0*z0;if(t0>0){t0*=t0;const g=_sGrad3[_sPerm[ii+_sPerm[jj+_sPerm[kk]]]%12];n0=t0*t0*(g[0]*x0+g[1]*y0+g[2]*z0);}
+    let t1=0.6-x1*x1-y1*y1-z1*z1;if(t1>0){t1*=t1;const g=_sGrad3[_sPerm[ii+i1+_sPerm[jj+j1+_sPerm[kk+k1]]]%12];n1=t1*t1*(g[0]*x1+g[1]*y1+g[2]*z1);}
+    let t2=0.6-x2*x2-y2*y2-z2*z2;if(t2>0){t2*=t2;const g=_sGrad3[_sPerm[ii+i2+_sPerm[jj+j2+_sPerm[kk+k2]]]%12];n2=t2*t2*(g[0]*x2+g[1]*y2+g[2]*z2);}
+    let t3=0.6-x3*x3-y3*y3-z3*z3;if(t3>0){t3*=t3;const g=_sGrad3[_sPerm[ii+1+_sPerm[jj+1+_sPerm[kk+1]]]%12];n3=t3*t3*(g[0]*x3+g[1]*y3+g[2]*z3);}
+    return 32*(n0+n1+n2+n3); // range ~ -1 to 1
+  }
+
   const p3dWrap = document.getElementById('pricing-3d-wrap');
 
   if (p3dWrap && window.innerWidth > 768) {
     // Populate pricing overlay cards
     const checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
     const overlay = document.getElementById('pricing-overlay');
-    overlay.innerHTML = `
-      <div id="po-card1" class="pricing-card-overlay">
-        <div class="po-price">
-          <span class="po-amount po-free" data-monthly="Free" data-yearly="Free">Free</span>
-        </div>
-        <ul class="po-features">
-          <li>${checkSvg}10 leads / month</li>
-          <li>${checkSvg}1 project</li>
-          <li>${checkSvg}Basic search</li>
-        </ul>
-        <a href="signup.html" class="po-btn po-btn-dark">Get Started</a>
-      </div>
-      <div id="po-card2" class="pricing-card-overlay">
-        <span class="po-badge">Most Popular</span>
-        <div class="po-price">
-          <span class="po-currency">$</span><span class="po-amount" data-monthly="25" data-yearly="20">25</span>
-        </div>
-        <ul class="po-features">
-          <li>${checkSvg}Unlimited leads</li>
-          <li>${checkSvg}5 projects</li>
-          <li>${checkSvg}Full AI post generation</li>
-        </ul>
-        <a href="signup.html" class="po-btn po-btn-secondary">Subscribe</a>
-      </div>
-      <div id="po-card3" class="pricing-card-overlay">
-        <div class="po-price">
-          <span class="po-currency">$</span><span class="po-amount" data-monthly="35" data-yearly="28">35</span>
-        </div>
-        <ul class="po-features">
-          <li>${checkSvg}Unlimited projects</li>
-          <li>${checkSvg}Dedicated support</li>
-          <li>${checkSvg}Custom integrations</li>
-        </ul>
-        <a href="signup.html" class="po-btn po-btn-secondary po-btn-glow">Upgrade</a>
-      </div>
-    `;
+    overlay.style.display = 'none';
 
     // ── Three.js Stencil Portal Renderer ──
     const pCanvas = document.getElementById('pricing-3d-canvas');
@@ -3786,7 +3787,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     pRenderer.setSize(pW, pH);
 
     // Orthographic camera matching GLTF specs
-    const halfH = 8.98;
+    const halfH = 5.0;
     let halfW = halfH * (pW / pH);
     const pCamera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100);
     pCamera.position.set(0.25, 0.153, 10.0);
@@ -3835,7 +3836,8 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     let pWaveOriginal = null;
     let pComputer = null, pComputerBase = null;
     let pEllipses = [], pEllipseBases = [];
-    let pWaveMesh = null, pWaveBase = null;
+    let pWaveMesh = null, pWaveBase = null, pWaveParent = null, pWaveCenterX = 0, pWaveCenterY = 0, pWaveCenterZ = 0;
+    const pPanelPairs = []; // {mask, clone, baseY} for bob animation
 
     // Names to hide (text/button/icon nodes replaced by HTML overlay)
     const hideNames = [
@@ -3890,9 +3892,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           if (node.isCamera) { node.visible = false; return; }
 
           // Identify glass cards
-          if (name === 'Glass Card' || name === 'Glass Card 2' || name === 'Glass Card 3') {
+          if (name === 'Glass Card 1' || name === 'Glass Card 2' || name === 'Glass Card 3') {
             glassCards.push(node);
           }
+
 
           // Identify glass UI
           if (name === 'Glass UI' || name === 'Glass UI 2' || name === 'Glass UI 3') {
@@ -3909,19 +3912,112 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           if (name === 'Glass-Elipse') { ellipses.push(node); }
         });
 
+        // ── Collect sets for targeted overrides ──
+        const glassCardMeshes = new Set();
+        const waveMeshes = new Set();
+        const computerMeshes = new Set();
+        const ellipseMeshes = new Set();
+        const hiddenNodes = new Set();
+
+        glassCards.forEach(c => c.traverse(n => { if (n.isMesh) glassCardMeshes.add(n); }));
+        if (waveMesh) waveMesh.traverse(n => { if (n.isMesh) waveMeshes.add(n); });
+        if (computerGroup) computerGroup.traverse(n => { if (n.isMesh) computerMeshes.add(n); });
+        ellipses.forEach(e => e.traverse(n => { if (n.isMesh) ellipseMeshes.add(n); }));
+        glassUIs.forEach(u => u.traverse(n => { if (n.isMesh) glassCardMeshes.add(n); }));
+
         // ── Stencil Portal: Glass Cards as masks ──
-        glassCards.forEach((card) => {
-          if (!card.isMesh) {
-            card.traverse((child) => {
-              if (child.isMesh) applyStencilMask(child);
-            });
-          } else {
-            applyStencilMask(card);
-          }
+        // ── Glass Cards: solid blue panels ──
+        glassCardMeshes.forEach((mesh) => {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0x2255dd,
+            emissive: 0x1144bb,
+            emissiveIntensity: 0.4,
+            roughness: 0.3,
+            metalness: 0.2,
+          });
+          mesh.renderOrder = 1;
         });
 
-        function applyStencilMask(mesh) {
-          const stencilMat = new THREE.MeshBasicMaterial({
+        // ── Wave (Path 4): red, no stencil, always visible ──
+        waveMeshes.forEach((mesh) => {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0xdd2200,
+            emissive: 0xcc1100,
+            emissiveIntensity: 0.6,
+            roughness: 0.3,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
+          });
+          mesh.renderOrder = 0;
+
+          if (mesh.geometry && mesh.geometry.attributes.position && !pWaveMesh) {
+            const pos = mesh.geometry.attributes.position;
+            pWaveOriginal = new Float32Array(pos.array);
+            pWaveMesh = mesh;
+          }
+        });
+        if (waveMesh) {
+          pWaveParent = waveMesh;
+          pWaveBase = { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x, ry: waveMesh.rotation.y };
+        }
+
+        // ── Catch-all: override ALL remaining meshes by name ──
+        const waveMeshSet = new Set(); // track wave meshes found by catch-all
+        root.traverse((node) => {
+          if (!node.isMesh) return;
+          if (node.visible === false) return;
+          if (computerMeshes.has(node)) return;
+          if (ellipseMeshes.has(node)) return;
+
+          const n = (node.name || '').toLowerCase();
+          const pn = (node.parent?.name || '').toLowerCase();
+
+          // Wave = red, stencil-tested (only visible through panels)
+          if (n.includes('path') || pn.includes('bg') || pn.includes('path')) {
+            node.material = new THREE.MeshStandardMaterial({
+              color: 0xdd2200,
+              emissive: 0xcc1100,
+              emissiveIntensity: 0.5,
+              roughness: 0.35,
+              metalness: 0.15,
+              side: THREE.DoubleSide,
+              flatShading: false,
+              stencilWrite: true,
+              stencilRef: 1,
+              stencilFunc: THREE.EqualStencilFunc,
+              stencilFail: THREE.KeepStencilOp,
+              stencilZFail: THREE.KeepStencilOp,
+              stencilZPass: THREE.KeepStencilOp,
+            });
+            node.renderOrder = 1;
+            waveMeshSet.add(node);
+            if (node.geometry?.attributes?.position && !pWaveMesh) {
+              pWaveOriginal = new Float32Array(node.geometry.attributes.position.array);
+              pWaveMesh = node;
+              // Compute center X/Y/Z so twist rotates around the ribbon's own axis
+              let sumX = 0, sumY = 0, sumZ = 0, count = 0;
+              for (let vi = 0; vi < pWaveOriginal.length; vi += 3) {
+                sumX += pWaveOriginal[vi];
+                sumY += pWaveOriginal[vi + 1];
+                sumZ += pWaveOriginal[vi + 2];
+                count++;
+              }
+              pWaveCenterX = sumX / count;
+              pWaveCenterY = sumY / count;
+              pWaveCenterZ = sumZ / count;
+              console.log('Wave center X:', pWaveCenterX, 'Y:', pWaveCenterY, 'Z:', pWaveCenterZ, 'verts:', count);
+            }
+            return;
+          }
+
+          // Only Glass Card / Glass UI meshes become blue panels — hide everything else
+          if (!n.includes('glass')) {
+            node.visible = false;
+            return;
+          }
+
+          // Stencil-writing blue panel + transparent glass clone on top
+          node.material = new THREE.MeshBasicMaterial({
             colorWrite: false,
             depthWrite: false,
             stencilWrite: true,
@@ -3931,93 +4027,36 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             stencilFail: THREE.KeepStencilOp,
             stencilZFail: THREE.KeepStencilOp,
           });
-          mesh.material = stencilMat;
-          mesh.renderOrder = 0;
-        }
+          node.renderOrder = 0;
 
-        // ── Wave (Path 4): only visible through stencil ──
-        if (waveMesh) {
-          const applyWave = (mesh) => {
-            mesh.material = new THREE.MeshStandardMaterial({
-              color: 0x00ccaa,
-              emissive: 0x00aa88,
-              emissiveIntensity: 0.6,
-              roughness: 0.3,
-              metalness: 0.1,
-              side: THREE.DoubleSide,
-              stencilWrite: true,
-              stencilRef: 1,
-              stencilFunc: THREE.EqualStencilFunc,
-              stencilFail: THREE.KeepStencilOp,
-              stencilZFail: THREE.KeepStencilOp,
-              stencilZPass: THREE.KeepStencilOp,
-            });
-            mesh.renderOrder = 1;
-
-            // Store original positions for wave animation
-            if (mesh.geometry && mesh.geometry.attributes.position) {
-              const pos = mesh.geometry.attributes.position;
-              pWaveOriginal = new Float32Array(pos.array);
-              pWaveMesh = mesh;
-            }
-          };
-
-          if (waveMesh.isMesh) {
-            applyWave(waveMesh);
-          } else {
-            waveMesh.traverse((child) => {
-              if (child.isMesh) applyWave(child);
-            });
-          }
-          pWaveBase = waveMesh.rotation ? { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x } : null;
-        }
-
-        // ── Glass overlay (transparent glass on top of cards) ──
-        glassCards.forEach((card) => {
-          const addGlassOverlay = (mesh) => {
-            const glassMesh = mesh.clone();
-            glassMesh.material = new THREE.MeshPhysicalMaterial({
-              color: 0x112233,
-              transparent: true,
-              opacity: 0.15,
-              clearcoat: 0.8,
-              clearcoatRoughness: 0.1,
-              roughness: 0.1,
-              metalness: 0.0,
-              depthWrite: false,
-              envMapIntensity: 1.5,
-            });
-            glassMesh.renderOrder = 2;
-            // Slight Z offset to sit on top of stencil
-            glassMesh.position.z += 0.01;
-            mesh.parent.add(glassMesh);
-          };
-
-          if (card.isMesh) {
-            addGlassOverlay(card);
-          } else {
-            card.traverse((child) => {
-              if (child.isMesh) addGlassOverlay(child);
-            });
-          }
-        });
-
-        // ── Glass UI elements: low-opacity decorative panels ──
-        glassUIs.forEach((ui) => {
-          ui.traverse((child) => {
-            if (child.isMesh) {
-              child.material = new THREE.MeshPhysicalMaterial({
-                color: 0x223344,
-                transparent: true,
-                opacity: 0.1,
-                roughness: 0.2,
-                metalness: 0.1,
-                depthWrite: false,
-              });
-              child.renderOrder = 2;
-            }
+          // Clone as semi-transparent blue glass on top
+          const blueClone = node.clone();
+          blueClone.material = new THREE.MeshPhysicalMaterial({
+            color: 0x2255dd,
+            emissive: 0x1144bb,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.4,
+            roughness: 0.2,
+            metalness: 0.2,
+            depthWrite: false,
           });
+          blueClone.renderOrder = 2;
+          blueClone.position.z += 0.01;
+          node.parent.add(blueClone);
         });
+
+        // ── Collect Card parent groups for bob animation ──
+        // Walk up from each glass card mesh to find the Card group
+        const bobGroupsSeen = new Set();
+        root.traverse((node) => {
+          const n = (node.name || '').trim();
+          if (n.startsWith('Card ') && !bobGroupsSeen.has(node)) {
+            bobGroupsSeen.add(node);
+            pPanelPairs.push({ group: node, baseY: node.position.y });
+          }
+        });
+        console.log('Bob groups found:', pPanelPairs.length, pPanelPairs.map(p => p.group.name));
 
         // ── Computer: dark body + green emissive screen ──
         if (computerGroup) {
@@ -4074,9 +4113,17 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           };
         }
 
+        // Ensure wave rotation target is set — use parent group if available
+        if (!pWaveParent && pWaveMesh) {
+          pWaveParent = pWaveMesh.parent || pWaveMesh;
+        }
+        if (pWaveParent && !pWaveBase) {
+          pWaveBase = { rz: pWaveParent.rotation.z, rx: pWaveParent.rotation.x, ry: pWaveParent.rotation.y };
+        }
+
         pScene.add(root);
         pAnimStart = performance.now();
-        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
+        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'WaveParent:', !!pWaveParent, 'WaveBase:', !!pWaveBase, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
 
         // Start render loop
         pVisible = true;
@@ -4100,26 +4147,33 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       const elapsed = performance.now() - pAnimStart;
       const t = elapsed * 0.001; // seconds
 
-      // Wave vertex animation
+      // Wave fluid flow — simplex noise displacement for organic motion
+      // Each vertex moves independently but smoothly, like cloth in a breeze
       if (pWaveMesh && pWaveOriginal) {
         const posAttr = pWaveMesh.geometry.attributes.position;
         const arr = posAttr.array;
+        const scale = 0.003;  // spatial frequency — how "tight" the flow pattern is
+        const speed = 0.3;    // time speed — how fast it flows
+        const ampY = 20;      // Y displacement amplitude
+        const ampZ = 15;      // Z displacement amplitude (depth variation for lighting)
         for (let i = 0; i < arr.length; i += 3) {
           const ox = pWaveOriginal[i];
           const oy = pWaveOriginal[i + 1];
           const oz = pWaveOriginal[i + 2];
-          const wave = Math.sin(ox * 0.005 + t * 1.5) * 8
-                     + Math.sin(oy * 0.003 + t * 0.8) * 5
-                     + Math.sin((ox + oy) * 0.004 + t * 2.0) * 3;
-          arr[i + 2] = oz + wave;
+
+          // Layer multiple noise octaves for organic complexity
+          const nx = ox * scale, ny = oy * scale;
+          const n1 = simplex3(nx, ny, t * speed);
+          const n2 = simplex3(nx * 2.0, ny * 2.0, t * speed + 100) * 0.5;
+          const n3 = simplex3(nx * 4.0, ny * 4.0, t * speed + 200) * 0.25;
+          const combined = n1 + n2 + n3; // range ~ -1.75 to 1.75
+
+          arr[i]     = ox;                        // X stays put
+          arr[i + 1] = oy + combined * ampY;      // Y flows organically
+          arr[i + 2] = oz + combined * ampZ;      // Z creates depth for lighting
         }
         posAttr.needsUpdate = true;
-      }
-
-      // Wave slow rotation
-      if (pWaveMesh && pWaveBase) {
-        pWaveMesh.rotation.z = pWaveBase.rz + (elapsed / 45000) * Math.PI * 2;
-        pWaveMesh.rotation.x = pWaveBase.rx + Math.sin(elapsed * 0.0003) * 0.05;
+        pWaveMesh.geometry.computeVertexNormals();
       }
 
       // Computer gentle float
@@ -4130,6 +4184,12 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         pComputer.rotation.x = pComputerBase.rx + (swing - 0.5) * 0.06;
         pComputer.rotation.y = pComputerBase.ry + (swing - 0.5) * 0.05;
       }
+
+      // Panel bob hover (moves entire Card group)
+      pPanelPairs.forEach((p, i) => {
+        const bob = Math.sin(elapsed * 0.0012 + i * 1.5) * 15;
+        p.group.position.y = p.baseY + bob;
+      });
 
       // Ellipse pulse
       pEllipses.forEach((e, i) => {
