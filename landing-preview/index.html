@@ -3923,6 +3923,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         }
 
         // ── Catch-all: override ALL remaining meshes by name ──
+        const waveMeshSet = new Set(); // track wave meshes found by catch-all
         root.traverse((node) => {
           if (!node.isMesh) return;
           if (node.visible === false) return;
@@ -3932,7 +3933,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           const n = (node.name || '').toLowerCase();
           const pn = (node.parent?.name || '').toLowerCase();
 
-          // Wave = red
+          // Wave = red, stencil-tested (only visible through panels)
           if (n.includes('path') || pn.includes('bg') || pn.includes('path')) {
             node.material = new THREE.MeshStandardMaterial({
               color: 0xdd2200,
@@ -3941,8 +3942,15 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
               roughness: 0.3,
               metalness: 0.1,
               side: THREE.DoubleSide,
+              stencilWrite: true,
+              stencilRef: 1,
+              stencilFunc: THREE.EqualStencilFunc,
+              stencilFail: THREE.KeepStencilOp,
+              stencilZFail: THREE.KeepStencilOp,
+              stencilZPass: THREE.KeepStencilOp,
             });
-            node.renderOrder = 0;
+            node.renderOrder = 1;
+            waveMeshSet.add(node);
             if (node.geometry?.attributes?.position && !pWaveMesh) {
               pWaveOriginal = new Float32Array(node.geometry.attributes.position.array);
               pWaveMesh = node;
@@ -3950,15 +3958,36 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             return;
           }
 
-          // Everything else = blue
-          node.material = new THREE.MeshStandardMaterial({
+          // Everything else = stencil-writing blue panel + transparent glass clone on top
+          // Step 1: make original mesh a stencil mask (writes stencil but invisible)
+          const origGeo = node.geometry;
+          node.material = new THREE.MeshBasicMaterial({
+            colorWrite: false,
+            depthWrite: false,
+            stencilWrite: true,
+            stencilRef: 1,
+            stencilFunc: THREE.AlwaysStencilFunc,
+            stencilZPass: THREE.ReplaceStencilOp,
+            stencilFail: THREE.KeepStencilOp,
+            stencilZFail: THREE.KeepStencilOp,
+          });
+          node.renderOrder = 0;
+
+          // Step 2: clone as semi-transparent blue glass on top
+          const blueClone = node.clone();
+          blueClone.material = new THREE.MeshPhysicalMaterial({
             color: 0x2255dd,
             emissive: 0x1144bb,
-            emissiveIntensity: 0.4,
-            roughness: 0.3,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.4,
+            roughness: 0.2,
             metalness: 0.2,
+            depthWrite: false,
           });
-          node.renderOrder = 1;
+          blueClone.renderOrder = 2;
+          blueClone.position.z += 0.01;
+          node.parent.add(blueClone);
         });
 
         // ── Computer: dark body + green emissive screen ──
