@@ -4097,11 +4097,10 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         for (let i = 0; i < arr.length; i += 3) {
           const ox = pWaveOriginal[i];     // original X
           const oy = pWaveOriginal[i + 1]; // original Y
-          // Big rolling hills flowing left-to-right
-          const hill = Math.sin(ox * 0.004 - t * 1.8) * 18
-                     + Math.sin(oy * 0.003 - t * 1.0) * 12
-                     + Math.sin((ox + oy) * 0.002 - t * 1.4) * 8
-                     + Math.sin(ox * 0.008 - t * 2.5) * 5;
+          // Dominant traveling wave crest (left-to-right) + small organic texture
+          const hill = Math.sin(ox * 0.006 - t * 2.2) * 30
+                     + Math.sin(ox * 0.012 - t * 2.2 + 1.0) * 10
+                     + Math.sin(ox * 0.003 + oy * 0.002 - t * 1.6) * 6;
           arr[i + 1] = oy + hill; // displace Y (up/down, visible to camera)
         }
         posAttr.needsUpdate = true;
