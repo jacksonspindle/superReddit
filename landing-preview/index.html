@@ -3751,7 +3751,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     pRenderer.setSize(pW, pH);
 
     // Orthographic camera matching GLTF specs
-    const halfH = 8.98;
+    const halfH = 5.0;
     let halfW = halfH * (pW / pH);
     const pCamera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100);
     pCamera.position.set(0.25, 0.153, 10.0);
