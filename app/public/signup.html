@@ -324,6 +324,7 @@
   // Same origin — signup.html is served from the Next.js app
   const APP_URL = window.location.origin;
 
+  // Eagerly init Supabase so it detects auth params (code/tokens) in the URL
   let _supabase = null;
   function getSupabase() {
     if (!_supabase) {
@@ -331,6 +332,38 @@
       _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
     return _supabase;
+  }
+
+  // Init immediately — the SDK auto-detects auth codes/tokens in the URL
+  if (window.supabase) {
+    const sb = getSupabase();
+
+    // Listen for auth state changes (fires after OAuth redirect or existing session)
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        showStatus('Signing you in...', 'success');
+        try {
+          // Sync session to server cookies so Next.js middleware recognizes the user
+          const res = await fetch('/api/auth/sync-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            console.error('Session sync failed:', data.error);
+          }
+        } catch (e) {
+          console.error('Session sync error:', e);
+        }
+        // Redirect to app — middleware handles onboarding gate
+        window.location.href = '/projects';
+      }
+    });
   }
 
   function showStatus(message, type) {
@@ -351,7 +384,7 @@
 
     const { error } = await getSupabase().auth.signInWithOAuth({
       provider: 'github',
-      options: { redirectTo: APP_URL + '/auth/callback' }
+      options: { redirectTo: APP_URL + '/signup.html' }
     });
 
     if (error) {
@@ -369,7 +402,7 @@
 
     const { error } = await getSupabase().auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: APP_URL + '/auth/callback' }
+      options: { redirectTo: APP_URL + '/signup.html' }
     });
 
     if (error) {
@@ -389,7 +422,7 @@
 
     const { error } = await getSupabase().auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: APP_URL + '/auth/callback' }
+      options: { emailRedirectTo: APP_URL + '/signup.html' }
     });
 
     if (error) {
