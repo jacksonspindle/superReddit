@@ -31,9 +31,14 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Static HTML pages served from public/ — skip middleware
+  if (pathname === '/signup.html' || pathname === '/landing.html') {
+    return supabaseResponse;
+  }
+
   const isAuthPage =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup');
+    pathname === '/login' ||
+    pathname === '/signup';
 
   const isOnboardingPage = pathname.startsWith('/onboarding');
 
@@ -43,7 +48,14 @@ export async function updateSession(request: NextRequest) {
   // Unauthenticated users can't access protected routes or onboarding
   if (!user && (isProtectedRoute || isOnboardingPage)) {
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = '/signup.html';
+    return NextResponse.redirect(url);
+  }
+
+  // Unauthenticated users on auth pages → send to signup.html
+  if (!user && isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/signup.html';
     return NextResponse.redirect(url);
   }
 
