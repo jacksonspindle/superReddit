@@ -3800,7 +3800,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     let pWaveOriginal = null;
     let pComputer = null, pComputerBase = null;
     let pEllipses = [], pEllipseBases = [];
-    let pWaveMesh = null, pWaveBase = null;
+    let pWaveMesh = null, pWaveBase = null, pWaveParent = null, pWaveCenterY = 0, pWaveCenterZ = 0;
     const pPanelPairs = []; // {mask, clone, baseY} for bob animation
 
     // Names to hide (text/button/icon nodes replaced by HTML overlay)
@@ -3921,6 +3921,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           }
         });
         if (waveMesh) {
+          pWaveParent = waveMesh;
           pWaveBase = { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x };
         }
 
@@ -4064,9 +4065,17 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           };
         }
 
+        // Ensure wave rotation target is set — use parent group if available
+        if (!pWaveParent && pWaveMesh) {
+          pWaveParent = pWaveMesh.parent || pWaveMesh;
+        }
+        if (pWaveParent && !pWaveBase) {
+          pWaveBase = { rz: pWaveParent.rotation.z, rx: pWaveParent.rotation.x };
+        }
+
         pScene.add(root);
         pAnimStart = performance.now();
-        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
+        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'WaveParent:', !!pWaveParent, 'WaveBase:', !!pWaveBase, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
 
         // Start render loop
         pVisible = true;
@@ -4090,27 +4099,31 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       const elapsed = performance.now() - pAnimStart;
       const t = elapsed * 0.001; // seconds
 
-      // Wave vertex animation — displace Y for visible rolling hills, left-to-right flow
+      // Wave twist — per-vertex twist around ribbon's long axis, preserving form
       if (pWaveMesh && pWaveOriginal) {
         const posAttr = pWaveMesh.geometry.attributes.position;
         const arr = posAttr.array;
         for (let i = 0; i < arr.length; i += 3) {
-          const ox = pWaveOriginal[i];     // original X
-          const oy = pWaveOriginal[i + 1]; // original Y
-          // Dominant traveling wave crest (left-to-right) + small organic texture
-          const hill = Math.sin(ox * 0.006 - t * 2.2) * 30
-                     + Math.sin(ox * 0.012 - t * 2.2 + 1.0) * 10
-                     + Math.sin(ox * 0.003 + oy * 0.002 - t * 1.6) * 6;
-          arr[i + 1] = oy + hill; // displace Y (up/down, visible to camera)
+          const ox = pWaveOriginal[i];
+          const oy = pWaveOriginal[i + 1];
+          const oz = pWaveOriginal[i + 2];
+
+          // Small twist angle that travels along the ribbon (X axis)
+          // Max twist ~15 degrees (0.26 rad), continuously traveling
+          const angle = Math.sin(ox * 0.003 - t * 1.0) * 0.26
+                      + Math.sin(ox * 0.006 - t * 1.8) * 0.12;
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+
+          // Rotate Y/Z around the ribbon's center — this IS the twist
+          arr[i + 1] = oy * cosA - oz * sinA;
+          arr[i + 2] = oy * sinA + oz * cosA;
         }
         posAttr.needsUpdate = true;
-        pWaveMesh.geometry.computeVertexNormals(); // recompute for lighting depth effect
+        pWaveMesh.geometry.computeVertexNormals();
       }
 
-      // Wave continuous spin
-      if (pWaveMesh && pWaveBase) {
-        pWaveMesh.rotation.z = pWaveBase.rz + (elapsed / 30000) * Math.PI * 2;
-      }
+      // No group rotation — wave stays in place, only per-vertex twist above
 
       // Computer gentle float
       if (pComputer && pComputerBase) {
