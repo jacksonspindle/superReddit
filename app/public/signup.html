@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperReddit — Log In or Sign Up</title>
+<meta name="description" content="Log in or create a SuperReddit account. AI-powered Reddit lead generation for marketers and founders.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --orange: #FF6B35; --orange-hover: #E85D2C;
+    --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB; --gray-400: #9CA3AF; --gray-500: #6B7280;
+    --gray-700: #374151; --gray-900: #111827; --white: #FFFFFF;
+  }
+  body { font-family: 'Inter', -apple-system, sans-serif; margin: 0; min-height: 100vh; display: flex; -webkit-font-smoothing: antialiased; }
+
+  /* ── Split layout ── */
+  .split { display: flex; min-height: 100vh; width: 100%; }
+
+  /* ── Left panel — branding ── */
+  .left {
+    flex: 1;
+    background: linear-gradient(160deg, #1a1050 0%, #2a1648 50%, #1e1350 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 64px;
+    position: relative;
+    overflow: hidden;
+  }
+  .left::before {
+    content: '';
+    position: absolute;
+    top: -30%; right: -20%;
+    width: 80%; height: 80%;
+    background: radial-gradient(circle, rgba(255,107,53,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .left-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 48px;
+  }
+  .left-logo-icon {
+    width: 40px; height: 40px;
+    background: var(--orange);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .left-logo span {
+    font-weight: 700;
+    font-size: 20px;
+    color: white;
+  }
+  .left h1 {
+    font-size: 44px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: white;
+    margin-bottom: 20px;
+  }
+  .left h1 .accent {
+    color: var(--orange);
+  }
+  .left p {
+    font-size: 17px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.55);
+    max-width: 420px;
+  }
+
+  /* ── Right panel — form ── */
+  .right {
+    flex: 1;
+    background: var(--gray-900);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 48px;
+  }
+  .form-container {
+    width: 100%;
+    max-width: 420px;
+  }
+  .form-container h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .form-container .subtitle {
+    font-size: 15px;
+    color: var(--gray-400);
+    margin-bottom: 36px;
+  }
+
+  /* Google button */
+  .btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 20px;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-900);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    text-decoration: none;
+  }
+  .btn-google:hover {
+    background: var(--gray-50);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .btn-google svg { flex-shrink: 0; }
+
+  /* Divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 28px 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+  }
+  .divider span {
+    font-size: 13px;
+    color: var(--gray-500);
+    font-weight: 500;
+  }
+
+  /* Email input */
+  .email-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    font-size: 15px;
+    color: white;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 14px;
+  }
+  .email-input::placeholder { color: var(--gray-500); }
+  .email-input:focus { border-color: var(--orange); }
+
+  /* Email submit button */
+  .btn-email {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--orange);
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-email:hover {
+    background: var(--orange-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255,107,53,0.3);
+  }
+  .btn-email svg { flex-shrink: 0; }
+
+  /* Terms */
+  .terms {
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--gray-500);
+    line-height: 1.6;
+  }
+  .terms a {
+    color: var(--gray-300);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .terms a:hover { color: white; }
+
+  /* Status messages */
+  .status-message {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .status-message.error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+  .status-message.success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  .status-message.visible { display: block; }
+
+  /* Loading state */
+  .btn-google:disabled, .btn-email:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Back link */
+  .back-link {
+    position: absolute;
+    top: 32px;
+    left: 32px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255,255,255,0.4);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: white; }
+
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    .split { flex-direction: column; }
+    .left {
+      padding: 48px 32px 40px;
+      min-height: auto;
+    }
+    .left h1 { font-size: 32px; }
+    .right { padding: 40px 32px 60px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+</style>
+</head>
+<body>
+
+<div class="split">
+  <!-- Left — branding -->
+  <div class="left">
+    <a href="/landing.html" class="back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Back
+    </a>
+
+    <div class="left-logo">
+      <div class="left-logo-icon">SR</div>
+      <span>SuperReddit</span>
+    </div>
+
+    <h1>Find People Looking for<br><span class="accent">What You Offer</span></h1>
+    <p>There are people on Reddit asking for tools and services every day. SuperReddit finds and delivers them to you on autopilot.</p>
+  </div>
+
+  <!-- Right — sign-up form -->
+  <div class="right">
+    <div class="form-container">
+      <h2>Log in or Sign up</h2>
+      <p class="subtitle">Choose how you want to continue to discover leads.</p>
+
+      <div id="status-message" class="status-message"></div>
+
+      <button id="btn-google" class="btn-google" onclick="handleGoogleLogin()">
+        <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.1 24.1 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Log in with Google
+      </button>
+
+      <button id="btn-github" class="btn-google" onclick="handleGitHubLogin()" style="margin-top: 10px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        Log in with GitHub
+      </button>
+
+      <div class="divider"><span>or</span></div>
+
+      <form id="email-form" onsubmit="handleEmailLogin(event)">
+        <input id="email-input" type="email" class="email-input" placeholder="Email address" required>
+        <button id="btn-email" type="submit" class="btn-email">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          Log in using email
+        </button>
+      </form>
+
+      <p class="terms">By signing up you agree to our <a href="#">terms of service</a> and <a href="#">privacy policy</a>.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="document.getElementById('status-message').className='status-message error visible';document.getElementById('status-message').textContent='Failed to load auth SDK. Make sure you are serving this page via a local server (not file://), e.g.: python3 -m http.server 8080'"></script>
+<script>
+  // Supabase public credentials (safe to expose — RLS protects data)
+  const SUPABASE_URL = 'https://oxihivtuniifrygozwde.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94aWhpdnR1bmlpZnJ5Z296d2RlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTg2OTcsImV4cCI6MjA4NjA3NDY5N30.bD7VrQ6n-eSxYpT654fNdWkeRHK96TjRTRIPIEZU2Ic';
+  // Same origin — signup.html is served from the Next.js app
+  const APP_URL = window.location.origin;
+
+  // Eagerly init Supabase so it detects auth params (code/tokens) in the URL
+  let _supabase = null;
+  function getSupabase() {
+    if (!_supabase) {
+      if (!window.supabase) throw new Error('Supabase SDK failed to load. Please refresh the page.');
+      _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    return _supabase;
+  }
+
+  // Init immediately — the SDK auto-detects auth codes/tokens in the URL
+  if (window.supabase) {
+    const sb = getSupabase();
+
+    // Listen for auth state changes (fires after OAuth redirect or existing session)
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        showStatus('Signing you in...', 'success');
+        try {
+          // Sync session to server cookies so Next.js middleware recognizes the user
+          const res = await fetch('/api/auth/sync-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            console.error('Session sync failed:', data.error);
+          }
+        } catch (e) {
+          console.error('Session sync error:', e);
+        }
+        // Redirect to app — middleware handles onboarding gate
+        window.location.href = '/projects';
+      }
+    });
+  }
+
+  function showStatus(message, type) {
+    const el = document.getElementById('status-message');
+    el.textContent = message;
+    el.className = 'status-message ' + type + ' visible';
+  }
+
+  function hideStatus() {
+    document.getElementById('status-message').className = 'status-message';
+  }
+
+  async function handleGitHubLogin() {
+    const btn = document.getElementById('btn-github');
+    btn.disabled = true;
+    btn.textContent = 'Redirecting...';
+    hideStatus();
+
+    const { error } = await getSupabase().auth.signInWithOAuth({
+      provider: 'github',
+      options: { redirectTo: APP_URL + '/signup.html' }
+    });
+
+    if (error) {
+      showStatus(error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg> Log in with GitHub';
+    }
+  }
+
+  async function handleGoogleLogin() {
+    const btn = document.getElementById('btn-google');
+    btn.disabled = true;
+    btn.textContent = 'Redirecting...';
+    hideStatus();
+
+    const { error } = await getSupabase().auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: APP_URL + '/signup.html' }
+    });
+
+    if (error) {
+      showStatus(error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.1 24.1 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Log in with Google';
+    }
+  }
+
+  async function handleEmailLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('email-input').value;
+    const btn = document.getElementById('btn-email');
+    btn.disabled = true;
+    btn.textContent = 'Sending link...';
+    hideStatus();
+
+    const { error } = await getSupabase().auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: APP_URL + '/signup.html' }
+    });
+
+    if (error) {
+      showStatus(error.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Log in using email';
+    } else {
+      showStatus('Check your email — we sent a magic link to ' + email, 'success');
+      btn.textContent = 'Email sent!';
+      document.getElementById('email-input').value = '';
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Log in using email';
+      }, 5000);
+    }
+  }
+</script>
+</body>
+</html>

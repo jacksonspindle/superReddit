@@ -1,0 +1,4337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SuperReddit — Reddit Lead Generation on Autopilot</title>
+<meta name="description" content="SuperReddit finds and qualifies Reddit leads automatically. AI-powered outreach, keyword alerts, and DM pipeline for marketers and founders.">
+<link rel="canonical" href="https://superreddit.com">
+<meta name="theme-color" content="#FF6B35">
+<meta property="og:title" content="SuperReddit — Reddit Lead Generation on Autopilot">
+<meta property="og:description" content="Find and qualify Reddit leads automatically. AI-powered outreach, keyword alerts, and DM pipeline.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://superreddit.com">
+<meta property="og:image" content="https://superreddit.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SuperReddit — Reddit Lead Generation on Autopilot">
+<meta name="twitter:description" content="Find and qualify Reddit leads automatically. AI-powered outreach, keyword alerts, and DM pipeline.">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@700&display=swap">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --orange: #FF6B35; --orange-hover: #E85D2C;
+    --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
+    --gray-300: #D1D5DB; --gray-400: #9CA3AF; --gray-500: #6B7280;
+    --gray-700: #374151; --gray-900: #111827; --white: #FFFFFF;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--white); color: var(--gray-900); line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 16px 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid transparent; transition: all 0.3s ease; }
+  .nav.scrolled { background: rgba(255,255,255,0.95); border-bottom-color: var(--gray-200); }
+  .nav .container { display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--gray-900); }
+  .nav-logo-icon { width: 36px; height: 36px; background: var(--orange); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 14px; }
+  .nav-logo span { font-weight: 700; font-size: 18px; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a { text-decoration: none; color: var(--gray-500); font-size: 14px; font-weight: 500; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--gray-900); }
+  .nav-links a.active { color: var(--gray-900); }
+
+  .nav-hamburger {
+    display: none; background: none; border: none; cursor: pointer; padding: 8px;
+    color: var(--gray-500); transition: color 0.2s;
+  }
+  .nav-hamburger:hover { color: var(--gray-900); }
+  .nav-hamburger svg { display: block; }
+  .nav-actions { display: flex; align-items: center; gap: 12px; }
+  .btn-ghost { background: none; border: none; color: var(--gray-500); font-size: 14px; font-weight: 500; cursor: pointer; padding: 8px 16px; border-radius: 10px; transition: all 0.2s; text-decoration: none; }
+  .btn-ghost:hover { color: var(--gray-900); background: var(--gray-50); }
+  .btn-primary { background: var(--orange); color: white; border: none; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary:hover { background: var(--orange-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,53,0.3); }
+  .btn-primary-lg { padding: 16px 36px; font-size: 16px; border-radius: 14px; }
+  .btn-secondary { background: var(--white); color: var(--gray-700); border: 1px solid var(--gray-200); font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-secondary:hover { background: var(--gray-50); border-color: var(--gray-300); }
+  .btn-secondary-lg { padding: 16px 36px; font-size: 16px; border-radius: 14px; }
+
+  .hero { position: relative; min-height: 115vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; background: radial-gradient(ellipse 70% 60% at 50% 65%, #4a2040 0%, #2a1648 25%, #1e1350 45%, #1a1050 70%); }
+  .hero-loading { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
+  .hero-loading-spinner { width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.1); border-top-color: rgba(255,255,255,0.5); border-radius: 50%; animation: hero-spin 0.8s linear infinite; }
+  @keyframes hero-spin { to { transform: rotate(360deg); } }
+  .hero-loading.loaded { opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+  .hero-3d-container { position: absolute; inset: 0; z-index: 1; transform: translateY(12%); }
+  .hero-gap-fill { position: absolute; top: 0; left: 0; width: 100%; height: 14%; z-index: 1; pointer-events: none; }
+  .hero-overlay { position: relative; z-index: 2; text-align: center; padding: 0 24px; pointer-events: none; margin-top: -20vh; }
+  .hero-overlay h1 { font-size: 72px; font-weight: 900; line-height: 1.05; letter-spacing: -0.04em; color: white; margin-bottom: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
+  .hero-overlay h1 .accent { color: white; -webkit-text-fill-color: white; }
+  .hero-overlay p { font-size: 22px; color: white; font-weight: 500; margin-bottom: 40px; text-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 0 12px rgba(0,0,0,0.2); }
+  .hero-cta { display: flex; flex-direction: column; align-items: center; gap: 16px; pointer-events: all; }
+  .hero-input-wrap { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 14px; padding: 14px 20px; width: 420px; max-width: 100%; backdrop-filter: blur(12px); }
+  .hero-input-wrap svg { flex-shrink: 0; color: rgba(255,255,255,0.4); }
+  .hero-input-wrap input { background: none; border: none; outline: none; color: white; font-size: 16px; font-family: inherit; width: 100%; }
+  .hero-input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
+  .hero-cta-btn { background: var(--orange); color: white; border: none; font-size: 16px; font-weight: 700; padding: 16px 36px; border-radius: 14px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; width: 420px; max-width: 100%; justify-content: center; }
+  .hero-cta-btn:hover { background: var(--orange-hover); transform: translateY(-1px); box-shadow: 0 8px 32px rgba(255,107,53,0.4); }
+  .hero-cta-note { font-size: 14px; color: rgba(255,255,255,0.45); font-weight: 400; }
+  .hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px; background: linear-gradient(to top, #1a1050 0%, transparent 100%); z-index: 2; pointer-events: none; }
+  .hero-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 3; color: rgba(255,255,255,0.3); font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px; animation: bounce 2s infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
+
+  /* ---- Trusted-by logo ticker ---- */
+  .trusted-bar { position: absolute; top: 80px; left: 0; right: 0; z-index: 10; text-align: center; padding: 0; pointer-events: none; }
+  .ticker-wrap { width: 100%; padding: 12px 0; }
+
+  .section-label { text-align: center; font-size: 13px; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+  .section-title { text-align: center; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; color: var(--gray-900); }
+  .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
+
+  .laptop-demo { position: relative; min-height: 175vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 16%); overflow: hidden; z-index: 1; }
+  .laptop-demo-text { display: none; }
+
+  .btn-3d {
+    display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700;
+    color: #fff; text-decoration: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, #ff7a45 0%, #e0601e 100%);
+    border: none; position: relative;
+    box-shadow:
+      0 4px 0 0 #b84a14,
+      0 6px 12px rgba(180,60,10,0.3),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: translateY(0);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    letter-spacing: 0.02em;
+  }
+  .btn-3d:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 6px 0 0 #b84a14,
+      0 10px 20px rgba(180,60,10,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .btn-3d:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 1px 0 0 #b84a14,
+      0 2px 4px rgba(180,60,10,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  #flat-video-wrap { display: none; position: fixed; z-index: 45; box-sizing: border-box; }
+  #flat-video-container { width: 100%; height: 100%; background: #0a0a0f; border-radius: 8px; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5% 6%; box-sizing: border-box; transition: border-radius 0.1s linear; }
+
+  /* Content inside laptop screen — fixed sizes, fade-in animations */
+  @keyframes screenFadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  #flat-video-container .screen-hiw-title,
+  #flat-video-container .screen-hiw-subtitle,
+  #flat-video-container .screen-hiw-card,
+  #flat-video-container .screen-hiw-cta {
+    opacity: 0; animation: screenFadeUp 0.7s ease forwards;
+  }
+  #flat-video-container .screen-hiw-title { animation-delay: 0.1s; }
+  #flat-video-container .screen-hiw-subtitle { animation-delay: 0.2s; }
+  #flat-video-container .screen-hiw-card:nth-child(1) { animation-delay: 0.3s; }
+  #flat-video-container .screen-hiw-card:nth-child(2) { animation-delay: 0.45s; }
+  #flat-video-container .screen-hiw-card:nth-child(3) { animation-delay: 0.6s; }
+  #flat-video-container .screen-hiw-cta { animation-delay: 0.75s; }
+
+  .screen-hiw-title {
+    font-size: 40px; font-weight: 800; color: #ffffff; text-align: center;
+    letter-spacing: -0.03em; margin-bottom: 12px;
+  }
+  .screen-hiw-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .screen-hiw-subtitle {
+    font-size: 18px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: 40px;
+  }
+
+  .screen-hiw-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    width: 100%; max-width: 1100px;
+  }
+  .screen-hiw-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden;
+  }
+  .screen-hiw-card-visual {
+    height: 120px; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .screen-hiw-icon {
+    width: 56px; height: 56px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .screen-hiw-icon.strategy { background: linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,107,53,0.05)); color: var(--orange); }
+  .screen-hiw-icon.leads { background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.05)); color: #22c55e; }
+  .screen-hiw-icon.convert { background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(99,102,241,0.05)); color: #6366f1; }
+  .screen-hiw-icon svg { width: 28px; height: 28px; }
+
+  .screen-hiw-card-body { padding: 20px; }
+  .screen-hiw-step-label { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .screen-hiw-step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: white; flex-shrink: 0;
+  }
+  .screen-hiw-step-num.s1 { background: var(--orange); }
+  .screen-hiw-step-num.s2 { background: #22c55e; }
+  .screen-hiw-step-num.s3 { background: #6366f1; }
+  .screen-hiw-step-title {
+    font-size: 16px; font-weight: 700; color: #ffffff;
+    letter-spacing: -0.01em; line-height: 1.3;
+  }
+  .screen-hiw-step-desc {
+    font-size: 14px; color: rgba(255,255,255,0.45); line-height: 1.6;
+  }
+  .screen-hiw-badge {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 4px 10px; border-radius: 20px; margin-top: 12px;
+  }
+  .screen-hiw-badge.support { color: var(--orange); background: rgba(255,107,53,0.12); }
+  .screen-hiw-badge.realtime { color: #22c55e; background: rgba(34,197,94,0.12); }
+  .screen-hiw-badge.ai { color: #6366f1; background: rgba(99,102,241,0.12); }
+
+  .screen-hiw-cta {
+    text-align: center; margin-top: 36px; position: relative; z-index: 1;
+  }
+  .screen-hiw-cta-title {
+    font-size: 28px; font-weight: 800; color: #ffffff;
+    letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  .screen-hiw-cta-desc {
+    font-size: 16px; color: rgba(255,255,255,0.45); margin-bottom: 20px;
+  }
+
+  #laptop-overlay-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; }
+  #scroll-video-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 50; pointer-events: none; display: none; will-change: transform; }
+  #laptop-light-rays {
+    position: fixed;
+    bottom: 5%; left: 50%;
+    transform: translateX(-50%);
+    width: 55vw; height: 28vh;
+    z-index: 49;
+    pointer-events: none;
+    display: none;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,107,53,0.18) 0%, transparent 70%);
+    filter: blur(16px);
+  }
+
+  /* ---- Lead Discovery section ---- */
+  .lead-discovery {
+    padding: 100px 0;
+    background: #ffffff;
+    position: relative;
+    z-index: 2;
+  }
+  .ld-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+  }
+  .ld-badge {
+    display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.1em; color: var(--orange);
+    background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.2);
+    margin-bottom: 24px;
+  }
+  .ld-title {
+    font-size: 40px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900);
+    line-height: 1.15; margin-bottom: 20px;
+  }
+  .ld-desc {
+    font-size: 16px; line-height: 1.7; color: var(--gray-400); margin-bottom: 40px;
+  }
+  .ld-features { display: flex; flex-direction: column; gap: 0; }
+  .ld-feature {
+    display: flex; gap: 16px; align-items: flex-start; padding: 20px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .ld-feature:last-child { border-bottom: none; }
+  .ld-feature-icon {
+    font-size: 22px; width: 40px; height: 40px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--gray-50); border-radius: 10px;
+  }
+  .ld-feature h4 {
+    font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px;
+  }
+  .ld-feature p {
+    font-size: 14px; color: var(--gray-400); line-height: 1.5; margin: 0;
+  }
+  .ld-right {
+    perspective: 1000px;
+    position: relative;
+    overflow: visible;
+  }
+  .ld-feed-card {
+    background: #ffffff;
+    border: 1px solid var(--gray-100);
+    border-radius: 20px; padding: 0; overflow: hidden;
+    transform: rotateY(-4deg) rotateX(2deg);
+    transform-style: preserve-3d;
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.12),
+      0 24px 64px rgba(0,0,0,0.08),
+      -8px 16px 40px rgba(0,0,0,0.06);
+    border-left: 2px solid rgba(255,255,255,0.5);
+    border-top: 1px solid rgba(255,255,255,0.3);
+    position: relative;
+    z-index: 1;
+  }
+  #ld-character-canvas {
+    position: absolute;
+    top: -160px;
+    right: -120px;
+    bottom: -40px;
+    left: -120px;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .ld-feed-header {
+    display: flex; align-items: center; gap: 10px; padding: 18px 24px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .ld-pulse {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #22c55e; flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(34,197,94,0.4);
+    animation: ldPulse 2s ease-in-out infinite;
+  }
+  @keyframes ldPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .ld-feed-title { font-size: 14px; font-weight: 600; color: var(--gray-900); flex: 1; }
+  .ld-feed-count { font-size: 12px; color: var(--gray-400); }
+  .ld-feed-items { padding: 8px 0; overflow: hidden; height: 560px; }
+  .ld-feed-item {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px;
+    padding: 16px 24px; border-bottom: 1px solid var(--gray-100);
+    align-items: start;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .ld-feed-item:last-child { border-bottom: none; }
+  .ld-feed-item.ld-new {
+    animation: ldSlideIn 0.5s ease forwards;
+  }
+  @keyframes ldSlideIn {
+    from { opacity: 0; transform: translateY(-20px); max-height: 0; padding-top: 0; padding-bottom: 0; }
+    to { opacity: 1; transform: translateY(0); max-height: 120px; padding-top: 16px; padding-bottom: 16px; }
+  }
+  .ld-feed-item.ld-removing {
+    animation: ldSlideOut 0.4s ease forwards;
+  }
+  @keyframes ldSlideOut {
+    from { opacity: 1; max-height: 120px; }
+    to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; }
+  }
+  .ld-feed-meta {
+    grid-column: 1; font-size: 12px; color: var(--gray-400);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ld-reddit-dot {
+    display: inline-block; width: 22px; height: 22px; flex-shrink: 0;
+    background: url('models/redditlogo.webp') center/contain no-repeat;
+  }
+  .ld-feed-score {
+    grid-column: 2; grid-row: 1 / 3; align-self: center;
+    font-size: 14px; font-weight: 700; color: #22c55e;
+    border: 1px solid rgba(34,197,94,0.25); border-radius: 8px;
+    padding: 4px 10px; text-align: center;
+    background: rgba(34,197,94,0.06);
+  }
+  .ld-feed-item p {
+    grid-column: 1; font-size: 14px; color: var(--gray-700);
+    line-height: 1.5; margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .ld-grid { grid-template-columns: 1fr; gap: 40px; }
+    .ld-title { font-size: 28px; }
+    .lead-discovery { padding: 60px 0; }
+    .ld-right { perspective: none; }
+    .ld-feed-card { transform: none; border-left: 1px solid var(--gray-100); border-top: 1px solid var(--gray-100); box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 16px 48px rgba(0,0,0,0.04); }
+    #ld-character-canvas { display: none; }
+  }
+
+  /* ---- Testimonials section ---- */
+  .features {
+    padding: 0;
+    background: #000000;
+    position: relative;
+    height: 100vh;
+  }
+
+  .features-sticky {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  #features-3d {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ---- Testimonials header ---- */
+  .testimonial-header {
+    margin-bottom: 24px;
+  }
+  .testimonial-header h2 {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.03em;
+    margin: 0 0 8px 0;
+    line-height: 1.15;
+  }
+  .testimonial-header h2 .accent {
+    color: var(--orange);
+  }
+  .testimonial-header p {
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.45);
+    margin: 0;
+    font-weight: 400;
+  }
+
+  /* ---- Testimonial carousel ---- */
+  .testimonial-wrap {
+    position: absolute;
+    left: 52%;
+    right: 4%;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+  }
+
+  .testimonial-viewport {
+    position: relative;
+  }
+
+  .testimonial-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 24px 32px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: none;
+    pointer-events: none;
+  }
+  .testimonial-card.active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: auto;
+  }
+
+  .testimonial-stars {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .testimonial-stars svg {
+    width: 20px;
+    height: 20px;
+    fill: #FBBF24;
+  }
+
+  .testimonial-quote {
+    font-size: 1.4rem;
+    font-weight: 400;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.7;
+    margin: 0 0 20px 0;
+    font-style: italic;
+  }
+  .testimonial-quote::before { content: '\201C'; }
+  .testimonial-quote::after { content: '\201D'; }
+
+  .testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .testimonial-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .testimonial-meta h4 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 4px 0;
+  }
+  .testimonial-meta p {
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.45);
+    margin: 0;
+  }
+
+  .testimonial-dots {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    padding-top: 24px;
+  }
+  .testimonial-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+  .testimonial-dot.active {
+    background: var(--orange);
+    transform: scale(1.3);
+  }
+
+  /* ---- Testimonials responsive ---- */
+  @media (max-width: 768px) {
+    .testimonial-wrap {
+      left: 5%;
+      right: 5%;
+      top: 50%;
+      bottom: 8%;
+    }
+    .testimonial-header h2 { font-size: 1.8rem; }
+    .testimonial-header p { font-size: 0.95rem; }
+    .testimonial-quote { font-size: 1.15rem; }
+  }
+  @media (max-width: 480px) {
+    .testimonial-wrap { top: 45%; }
+    .testimonial-header h2 { font-size: 1.5rem; }
+    .testimonial-header { margin-bottom: 16px; }
+    .testimonial-quote { font-size: 1rem; }
+    .testimonial-avatar { width: 40px; height: 40px; font-size: 16px; }
+  }
+
+  /* ---- CTA section ---- */
+  .cta { padding: 100px 0; background: #ffffff; }
+  .cta-card {
+    max-width: 720px; margin: 0 auto; text-align: center;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, rgba(255,255,255,0.15) 100%),
+      linear-gradient(180deg, #f8f4ee 0%, #f2ede5 50%, #ece6dc 100%);
+    border: none; border-radius: 22px; padding: 72px 48px;
+    box-shadow:
+      inset 0 3px 0 0 rgba(255,255,255,0.6),
+      inset 0 6px 12px 0 rgba(255,255,255,0.3),
+      inset 3px 0 0 0 rgba(255,255,255,0.2),
+      inset 0 -4px 0 0 rgba(80,60,40,0.12),
+      inset 0 -8px 16px 0 rgba(80,60,40,0.06),
+      0 2px 3px rgba(0,0,0,0.08),
+      0 8px 20px rgba(0,0,0,0.06),
+      0 16px 40px rgba(0,0,0,0.04);
+    position: relative; overflow: hidden;
+  }
+  .cta-card::before { content: ''; position: absolute; inset: 0; border-radius: 22px; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.15) 55%, transparent 70%); pointer-events: none; }
+  .cta-card::after { content: ''; position: absolute; inset: 0; border-radius: 22px; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5 0.08' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 300px 300px; opacity: 0.06; mix-blend-mode: overlay; pointer-events: none; }
+  .cta-card h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; position: relative; z-index: 1; color: #1a1a2e; text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
+  .cta-card p { font-size: 16px; color: #2a2a44; margin-bottom: 32px; position: relative; z-index: 1; text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
+
+  /* ---- Pricing section ---- */
+  .pricing {
+    padding: 120px 0 140px; position: relative; overflow: hidden;
+    background: #0a0806;
+  }
+  /* Warm amber glow from bottom center */
+  .pricing::before {
+    content: ''; position: absolute; bottom: -30%; left: 50%; transform: translateX(-50%);
+    width: 160%; height: 100%;
+    background: radial-gradient(ellipse 50% 50% at 50% 80%, rgba(200,120,30,0.25) 0%, rgba(160,80,15,0.12) 30%, rgba(100,50,10,0.05) 50%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  /* Subtle top glow for cards area */
+  .pricing::after {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; height: 60%;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(140,80,20,0.06) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  .pricing .section-label { color: var(--orange); }
+  .pricing .section-title { color: #ffffff; }
+  .pricing .section-subtitle { color: rgba(255,255,255,0.45); }
+
+  .pricing-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 56px;
+  }
+  .pricing-toggle-label {
+    font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.4); transition: color 0.2s;
+  }
+  .pricing-toggle-label.active { color: #ffffff; }
+  .pricing-toggle-switch {
+    position: relative; width: 52px; height: 28px; background: rgba(255,255,255,0.12);
+    border-radius: 14px; cursor: pointer; border: none; transition: background 0.2s;
+  }
+  .pricing-toggle-switch::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+    background: var(--orange); border-radius: 50%; transition: transform 0.25s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .pricing[data-billing="yearly"] .pricing-toggle-switch {
+    background: rgba(255,107,53,0.25);
+  }
+  .pricing[data-billing="yearly"] .pricing-toggle-switch::after {
+    transform: translateX(24px);
+  }
+  .pricing-save-badge {
+    font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+    padding: 3px 10px; border-radius: 6px; letter-spacing: 0.02em;
+  }
+
+  .pricing-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 760px; margin: 0 auto;
+    position: relative; z-index: 1;
+  }
+
+  .pricing-card {
+    background: rgba(22,19,16,0.9);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 32px 28px; position: relative; overflow: hidden;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex; flex-direction: column;
+  }
+  .pricing-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .pricing-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 50%, transparent);
+    pointer-events: none;
+  }
+
+  .pricing-card.featured {
+    border-color: rgba(255,107,53,0.2);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 60px rgba(255,107,53,0.06), inset 0 1px 0 rgba(255,107,53,0.15);
+  }
+  .pricing-card.featured::before {
+    height: 140px;
+    background:
+      linear-gradient(180deg, rgba(255,107,53,0.08) 0%, transparent 100%),
+      radial-gradient(circle 1.5px at 10% 20%, rgba(255,140,50,0.5) 0%, transparent 2px),
+      radial-gradient(circle 1px at 25% 35%, rgba(255,140,50,0.4) 0%, transparent 1.5px),
+      radial-gradient(circle 2px at 40% 15%, rgba(255,140,50,0.35) 0%, transparent 2.5px),
+      radial-gradient(circle 1px at 55% 40%, rgba(255,140,50,0.3) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 70% 25%, rgba(255,140,50,0.45) 0%, transparent 2px),
+      radial-gradient(circle 1px at 85% 10%, rgba(255,140,50,0.35) 0%, transparent 1.5px),
+      radial-gradient(circle 1px at 90% 45%, rgba(255,140,50,0.25) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 15% 50%, rgba(255,140,50,0.2) 0%, transparent 2px),
+      radial-gradient(circle 1px at 35% 55%, rgba(255,140,50,0.15) 0%, transparent 1.5px),
+      radial-gradient(circle 1px at 60% 55%, rgba(255,140,50,0.2) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 78% 48%, rgba(255,140,50,0.15) 0%, transparent 2px),
+      radial-gradient(circle 1px at 5% 42%, rgba(255,140,50,0.3) 0%, transparent 1.5px),
+      radial-gradient(circle 1px at 48% 8%, rgba(255,140,50,0.4) 0%, transparent 1.5px),
+      radial-gradient(circle 1.5px at 95% 30%, rgba(255,140,50,0.2) 0%, transparent 2px);
+  }
+  .pricing-card.featured:hover {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 80px rgba(255,107,53,0.08), inset 0 1px 0 rgba(255,107,53,0.15);
+  }
+
+  .pricing-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; color: var(--orange);
+    background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2);
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; position: relative; z-index: 1;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .pricing-tier {
+    font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; position: relative; z-index: 1;
+    letter-spacing: -0.01em;
+  }
+  .pricing-desc {
+    font-size: 14px; color: rgba(255,255,255,0.4); margin-bottom: 20px; position: relative; z-index: 1; line-height: 1.5;
+  }
+  .pricing-price {
+    position: relative; z-index: 1; margin-bottom: 24px;
+    padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .pricing-amount {
+    font-size: 48px; font-weight: 800; color: #ffffff; letter-spacing: -0.03em; line-height: 1;
+  }
+  .pricing-period {
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.35);
+  }
+  .pricing-yearly-note {
+    font-size: 13px; color: var(--orange); font-weight: 600; margin-top: 4px; display: none;
+  }
+  .pricing[data-billing="yearly"] .pricing-yearly-note { display: block; }
+
+  .pricing-card .btn-primary {
+    width: 100%; justify-content: center; position: relative; z-index: 1;
+    background: linear-gradient(180deg, #ff7a45 0%, #e85d20 100%);
+    color: #fff; border: none; font-size: 15px; font-weight: 600;
+    padding: 14px 20px; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(255,107,53,0.3);
+  }
+  .pricing-card .btn-primary:hover {
+    background: linear-gradient(180deg, #ff8855 0%, #f06a2a 100%);
+    box-shadow: 0 4px 16px rgba(255,107,53,0.4);
+  }
+  .pricing-card .btn-secondary {
+    width: 100%; justify-content: center; position: relative; z-index: 1;
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 15px; font-weight: 600; padding: 14px 20px; border-radius: 12px;
+  }
+  .pricing-card .btn-secondary:hover {
+    background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.15);
+  }
+
+  .pricing-features {
+    list-style: none; margin-top: 0; position: relative; z-index: 1;
+    flex-grow: 1;
+  }
+  .pricing-features-label {
+    font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 16px;
+    position: relative; z-index: 1;
+  }
+  .pricing-features-label strong { color: rgba(255,255,255,0.6); }
+  .pricing-features li {
+    display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: rgba(255,255,255,0.6);
+    padding: 5px 0; line-height: 1.5;
+  }
+  .pricing-features li svg { flex-shrink: 0; margin-top: 2px; }
+  .pricing-features li.disabled { color: rgba(255,255,255,0.2); text-decoration: line-through; }
+  .pricing-features li.disabled svg { color: rgba(255,255,255,0.1); }
+
+  .pricing-banner {
+    max-width: 760px; margin: 0 auto 48px;
+    background: linear-gradient(135deg, var(--orange), #e85d04);
+    border-radius: 16px; padding: 20px 32px;
+    text-align: center; position: relative; overflow: hidden; z-index: 1;
+  }
+  .pricing-banner::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%);
+    pointer-events: none;
+  }
+  .pricing-banner-title {
+    font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
+    margin-bottom: 4px; position: relative; z-index: 1;
+  }
+  .pricing-banner-sub {
+    font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.85);
+    position: relative; z-index: 1;
+  }
+  .pricing-old-price {
+    text-decoration: line-through; color: rgba(255,255,255,0.3); font-size: 24px; font-weight: 600;
+    margin-right: 12px; position: relative; z-index: 1;
+  }
+  .pricing-free {
+    font-size: 48px; font-weight: 800; color: #22c55e; letter-spacing: -0.03em;
+    line-height: 1; position: relative; z-index: 1;
+  }
+
+  @media (max-width: 640px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+  /* ── 3D Pricing Section ── */
+  .pricing-3d-wrap {
+    position: relative; max-width: 1100px; margin: 0 auto;
+    aspect-ratio: 16 / 10; overflow: hidden;
+  }
+  #pricing-3d-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  }
+  #pricing-overlay {
+    position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  }
+  .pricing-card-overlay {
+    position: absolute; pointer-events: all;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; box-sizing: border-box;
+  }
+  /* Card positions — aligned over the 3D glass cards, lower half only */
+  #po-card1 { left: 5%; top: 38%; bottom: 5%; width: 27%; padding: 0 3%; }
+  #po-card2 { left: 36%; top: 34%; bottom: 3%; width: 28%; padding: 0 3%; }
+  #po-card3 { left: 67%; top: 38%; bottom: 5%; width: 27%; padding: 0 3%; overflow: hidden; border-radius: 0 0 16px 16px; }
+  /* Teal ambient glow on Team card */
+  #po-card3::before {
+    content: ''; position: absolute; bottom: -20%; left: 10%; right: 10%; height: 60%;
+    background: radial-gradient(ellipse at center bottom, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.08) 40%, transparent 70%);
+    filter: blur(20px); pointer-events: none; z-index: -1;
+  }
+  .po-plan {
+    font-size: clamp(13px, 1.3vw, 18px); font-weight: 600; color: rgba(255,255,255,0.5);
+    margin-bottom: 4px; letter-spacing: 0.02em;
+  }
+  .po-price { margin-bottom: 2px; display: flex; align-items: baseline; justify-content: center; }
+  .po-amount {
+    font-size: clamp(32px, 4vw, 64px); font-weight: 800; color: #fff;
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .po-amount.po-free { color: #fff; }
+  .po-currency {
+    font-size: clamp(16px, 1.6vw, 26px); font-weight: 600; color: rgba(255,255,255,0.4);
+    margin-right: 2px; align-self: flex-start; margin-top: 0.15em;
+  }
+  .po-period {
+    font-size: clamp(9px, 0.75vw, 12px); color: rgba(255,255,255,0.3);
+    margin-bottom: 10px;
+  }
+  .po-features {
+    list-style: none; padding: 0; margin: 0 0 12px;
+    text-align: left; width: 100%;
+  }
+  .po-features li {
+    font-size: clamp(10px, 0.85vw, 13px); color: rgba(255,255,255,0.55);
+    padding: 2px 0; display: flex; align-items: center; gap: 8px; line-height: 1.5;
+  }
+  .po-features li svg { flex-shrink: 0; width: 16px; height: 16px; }
+  .po-btn {
+    display: block; text-align: center; text-decoration: none;
+    font-size: clamp(11px, 0.95vw, 15px); font-weight: 600;
+    padding: 10px 0; border-radius: 10px; width: 100%; margin-top: auto;
+    transition: all 0.2s ease; cursor: pointer; box-sizing: border-box;
+  }
+  /* Basic — dark indigo button */
+  .po-btn-dark {
+    background: rgba(30, 22, 55, 0.85); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .po-btn-dark:hover { background: rgba(45, 35, 75, 0.9); color: #fff; }
+  /* Pro — dark neutral button */
+  .po-btn-secondary {
+    background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .po-btn-secondary:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  /* Team — button with teal glow */
+  .po-btn-glow {
+    position: relative;
+    background: rgba(20, 40, 35, 0.6); color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  .po-btn-glow::after {
+    content: ''; position: absolute; inset: -6px -4px; border-radius: 14px;
+    background: radial-gradient(ellipse at center, rgba(34, 197, 94, 0.2) 0%, transparent 70%);
+    z-index: -1; filter: blur(10px); pointer-events: none;
+  }
+  .po-btn-glow:hover { background: rgba(30, 60, 50, 0.7); color: #fff; border-color: rgba(34, 197, 94, 0.35); }
+  .po-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; color: var(--orange);
+    background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.25);
+    padding: 2px 10px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+
+  .pricing-mobile-only { display: none; }
+  @media (max-width: 768px) {
+    .pricing-3d-wrap { display: none; }
+    .pricing-mobile-only { display: grid; grid-template-columns: 1fr; max-width: 400px; }
+  }
+
+  .footer { padding: 32px 0; border-top: 1px solid var(--gray-100); background: var(--gray-50); }
+  .footer .container { display: flex; align-items: center; justify-content: space-between; }
+  .footer-brand { display: flex; align-items: center; gap: 8px; }
+  .footer-brand-icon { width: 28px; height: 28px; background: var(--orange); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 11px; }
+  .footer-brand span { font-weight: 600; font-size: 14px; color: var(--gray-700); }
+  .footer-note { font-size: 13px; color: var(--gray-400); }
+
+  .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+  .fade-in.delay-1 { transition-delay: 0.1s; } .fade-in.delay-2 { transition-delay: 0.2s; } .fade-in.delay-3 { transition-delay: 0.3s; } .fade-in.delay-4 { transition-delay: 0.4s; }
+
+  @media (max-width: 1024px) { .hero-overlay h1 { font-size: 52px; } }
+  @media (max-width: 768px) { .hero-overlay h1 { font-size: 38px; } .hero-overlay p { font-size: 18px; } .hero-buttons { flex-direction: column; align-items: center; } .nav-hamburger { display: block; } .nav-links { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: rgba(255,255,255,0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 12px 24px 16px; gap: 0; border-bottom: 1px solid var(--gray-200); box-shadow: 0 8px 24px rgba(0,0,0,0.08); } .nav-links.open { display: flex; } .nav-links a { padding: 12px 0; border-bottom: 1px solid var(--gray-100); font-size: 15px; } .nav-links a:last-child { border-bottom: none; } .section-title { font-size: 32px; } .cta-card { padding: 48px 24px; } .cta-card h2 { font-size: 28px; } .laptop-demo-text h2 { font-size: 28px; } #features-3d { display: none; } .features { min-height: auto; height: auto; } .odometer-title { display: none; } .odometer-wrap { display: none; } .pricing { padding: 64px 0; } .pricing-grid { grid-template-columns: 1fr; max-width: 400px; } .pricing-card { padding: 28px 24px; } .pricing-amount { font-size: 40px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="container">
+    <a href="#" class="nav-logo"><div class="nav-logo-icon">SR</div><span>SuperReddit</span></a>
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></button>
+    <div class="nav-links" id="nav-links"><a href="#laptop-demo">Demo</a><a href="#lead-discovery">Leads</a><a href="#features">Testimonials</a><a href="#pricing">Pricing</a></div>
+    <div class="nav-actions"><a href="/signup.html" class="btn-ghost">Log in</a><a href="/signup.html" class="btn-primary">Get Started Free</a></div>
+  </div>
+</nav>
+
+<section class="hero">
+  <!-- Trusted-by banner -->
+  <div class="trusted-bar">
+    <div class="ticker-wrap" style="display:flex; align-items:center; justify-content:center; gap:14px;">
+      <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.6); white-space:nowrap;">Trusted by partners of</span>
+      <img src="models/amazon-white.webp" alt="Amazon" style="height:16px; object-fit:contain; position:relative; top:3px;">
+    </div>
+  </div>
+  <canvas class="hero-gap-fill" id="gap-fill" aria-label="3D animation"></canvas>
+  <div class="hero-loading" id="hero-loading"><div class="hero-loading-spinner"></div></div>
+  <div class="hero-3d-container" id="three-container" aria-label="3D animation"></div>
+  <div class="hero-overlay">
+    <h1>Your Reddit Growth Team<br><span class="accent">on demand</span></h1>
+    <p>We find your leads, tell you what to post and comment,<br>and work with you 1-on-1 to turn Reddit into your best channel.</p>
+    <div class="hero-cta">
+      <div class="hero-input-wrap">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <input type="text" placeholder="website.com (Optional)">
+      </div>
+      <a href="/signup.html" class="hero-cta-btn" style="text-decoration:none;">Get Started Free <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      <span class="hero-cta-note">No credit card required</span>
+    </div>
+  </div>
+  <div class="hero-scroll-hint"><span>Scroll</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></div>
+</section>
+
+
+<div id="laptop-light-rays"></div>
+<canvas id="scroll-video-canvas" aria-label="3D animation"></canvas>
+
+<section class="laptop-demo" id="laptop-demo">
+  <div id="flat-video-wrap">
+    <div id="flat-video-container">
+      <h3 class="screen-hiw-title">Reddit Growth in <span class="accent">3 Steps</span></h3>
+      <p class="screen-hiw-subtitle">We handle the strategy. You close the deals.</p>
+      <div class="screen-hiw-grid">
+        <div class="screen-hiw-card">
+          <div class="screen-hiw-card-visual">
+            <div class="screen-hiw-icon strategy">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+          </div>
+          <div class="screen-hiw-card-body">
+            <div class="screen-hiw-step-label">
+              <span class="screen-hiw-step-num s1">1</span>
+              <span class="screen-hiw-step-title">We Build Your Strategy</span>
+            </div>
+            <p class="screen-hiw-step-desc">Our team develops a personalized Reddit growth plan tailored to your product, audience, and goals.</p>
+            <span class="screen-hiw-badge support">24/7 Support</span>
+          </div>
+        </div>
+        <div class="screen-hiw-card">
+          <div class="screen-hiw-card-visual">
+            <div class="screen-hiw-icon leads">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+            </div>
+          </div>
+          <div class="screen-hiw-card-body">
+            <div class="screen-hiw-step-label">
+              <span class="screen-hiw-step-num s2">2</span>
+              <span class="screen-hiw-step-title">We Find Your Leads</span>
+            </div>
+            <p class="screen-hiw-step-desc">Native tools scan Reddit around the clock, surfacing people actively asking for what you offer.</p>
+            <span class="screen-hiw-badge realtime">Real-time</span>
+          </div>
+        </div>
+        <div class="screen-hiw-card">
+          <div class="screen-hiw-card-visual">
+            <div class="screen-hiw-icon convert">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/></svg>
+            </div>
+          </div>
+          <div class="screen-hiw-card-body">
+            <div class="screen-hiw-step-label">
+              <span class="screen-hiw-step-num s3">3</span>
+              <span class="screen-hiw-step-title">We Show You How to Convert</span>
+            </div>
+            <p class="screen-hiw-step-desc">We tell you exactly what to post and comment. No guesswork — just proven strategies that convert.</p>
+            <span class="screen-hiw-badge ai">AI-Powered</span>
+          </div>
+        </div>
+      </div>
+      <div class="screen-hiw-cta">
+        <h3 class="screen-hiw-cta-title">See it in action</h3>
+        <p class="screen-hiw-cta-desc">Watch how SuperReddit finds your leads in seconds</p>
+        <a href="/signup.html" class="btn-primary btn-primary-lg" style="text-decoration:none;">Get Started Now <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lead-discovery" id="lead-discovery">
+  <div class="container">
+    <div class="ld-grid fade-in">
+      <div class="ld-left">
+        <span class="ld-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> LEAD DISCOVERY</span>
+        <h2 class="ld-title">Lead Discovery on Autopilot</h2>
+        <p class="ld-desc">SuperReddit scans thousands of Reddit posts every day to surface people actively asking for tools, services, or skills like yours — and delivers them straight to your dashboard.</p>
+        <div class="ld-features">
+          <div class="ld-feature">
+            <div class="ld-feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg></div>
+            <div>
+              <h4>Fresh Leads, Everyday</h4>
+              <p>We scan Reddit communities you selected every day so you never miss a lead.</p>
+            </div>
+          </div>
+          <div class="ld-feature">
+            <div class="ld-feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+            <div>
+              <h4>Intent Scoring</h4>
+              <p>Every lead is scored by buying intent so you focus on the highest-value prospects first.</p>
+            </div>
+          </div>
+          <div class="ld-feature">
+            <div class="ld-feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>
+            <div>
+              <h4>Real-time Alerts</h4>
+              <p>Get notified by email as soon as new high-intent leads are found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ld-right">
+        <div id="ld-character-canvas"></div>
+        <div class="ld-feed-card">
+          <div class="ld-feed-header">
+            <span class="ld-pulse"></span>
+            <span class="ld-feed-title">Scanning platforms...</span>
+            <span class="ld-feed-count">473 posts scanned</span>
+          </div>
+          <div class="ld-feed-items">
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-dot"></span> r/smallbusiness &middot; 8m ago</div>
+              <div class="ld-feed-score">9.0</div>
+              <p>Any recommendations for a lightweight CRM? HubSpot is overkill for us</p>
+            </div>
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-dot"></span> r/ecommerce &middot; 14m ago</div>
+              <div class="ld-feed-score">8.0</div>
+              <p>Need a no-code tool to build internal dashboards. Budget is tight.</p>
+            </div>
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-dot"></span> r/startups &middot; 22m ago</div>
+              <div class="ld-feed-score">8.0</div>
+              <p>Searching for an affordable email marketing platform for my Shopify store</p>
+            </div>
+            <div class="ld-feed-item">
+              <div class="ld-feed-meta"><span class="ld-reddit-dot"></span> r/freelance &middot; 31m ago</div>
+              <div class="ld-feed-score">7.0</div>
+              <p>Can anyone suggest a good invoicing tool for freelancers?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="features-sticky">
+    <div id="features-3d"></div>
+
+
+    <div class="testimonial-wrap">
+      <div class="testimonial-header">
+        <h2>Loved by <span class="accent">Founders</span></h2>
+        <p>Trusted by teams turning Reddit into revenue</p>
+      </div>
+      <div class="testimonial-viewport">
+
+        <div class="testimonial-card active" data-index="0">
+          <div class="testimonial-stars"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <p class="testimonial-quote">We went from zero Reddit presence to $6,700 MRR in under two months. SuperReddit found leads we never would have discovered on our own.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#2288ff;">JM</div>
+            <div class="testimonial-meta">
+              <h4>Jake Morrison</h4>
+              <p>Founder, ShipStack</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card" data-index="1">
+          <div class="testimonial-stars"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <p class="testimonial-quote">179 new customers last quarter — all from Reddit. No ads, no cold outreach. Just real conversations that convert. Our gross volume hit $10K in November alone.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#8833ee;">SR</div>
+            <div class="testimonial-meta">
+              <h4>Sofia Reyes</h4>
+              <p>Head of Growth, Lumos AI</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card" data-index="2">
+          <div class="testimonial-stars"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <p class="testimonial-quote">I used to spend 3 hours a day scrolling Reddit looking for leads. Now SuperReddit surfaces them automatically. I closed my first deal within 4 days of signing up.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#00cc88;">AT</div>
+            <div class="testimonial-meta">
+              <h4>Alex Turner</h4>
+              <p>Solo Founder, FormCraft</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card" data-index="3">
+          <div class="testimonial-stars"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <p class="testimonial-quote">Our net volume is up 340% since we started using SuperReddit. The compounding effect is real — posts from two months ago are still driving signups today.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#ff4422;">PK</div>
+            <div class="testimonial-meta">
+              <h4>Priya Kapoor</h4>
+              <p>CEO, Metricflow</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card" data-index="4">
+          <div class="testimonial-stars"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <p class="testimonial-quote">We replaced our entire paid acquisition budget with SuperReddit. $0 ad spend, $9,800 in payments last month. The ROI is honestly absurd.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:#ffaa00;">DL</div>
+            <div class="testimonial-meta">
+              <h4>Daniel Lee</h4>
+              <p>Co-founder, Outpost</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="testimonial-dots">
+        <button class="testimonial-dot active" data-index="0"></button>
+        <button class="testimonial-dot" data-index="1"></button>
+        <button class="testimonial-dot" data-index="2"></button>
+        <button class="testimonial-dot" data-index="3"></button>
+        <button class="testimonial-dot" data-index="4"></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing" data-billing="monthly">
+  <div class="container">
+    <p class="section-label fade-in">Pricing</p>
+    <h2 class="section-title fade-in">Simple, transparent <span class="accent">pricing</span></h2>
+    <p class="section-subtitle fade-in">Start free, upgrade when you're ready. No hidden fees.</p>
+
+    <div class="pricing-toggle fade-in">
+      <span class="pricing-toggle-label active" id="toggle-monthly">Monthly</span>
+      <button class="pricing-toggle-switch" id="pricing-toggle-btn" aria-label="Toggle billing period"></button>
+      <span class="pricing-toggle-label" id="toggle-yearly">Yearly</span>
+      <span class="pricing-save-badge">Save 20%</span>
+    </div>
+
+    <div class="pricing-banner fade-in">
+      <div class="pricing-banner-title">Inner Circle &mdash; Limited to 100 Members</div>
+      <div class="pricing-banner-sub">Get full access free while we build in public. Lock in your spot.</div>
+    </div>
+
+    <!-- 3D Pricing (desktop) -->
+    <div class="pricing-3d-wrap fade-in" id="pricing-3d-wrap">
+      <canvas id="pricing-3d-canvas"></canvas>
+      <div id="pricing-overlay"></div>
+    </div>
+
+    <!-- Mobile fallback (3 cards) -->
+    <div class="pricing-grid pricing-mobile-only">
+      <div class="pricing-card fade-in delay-1">
+        <div class="pricing-tier">Basic</div>
+        <div class="pricing-desc">Get started with lead discovery on Reddit.</div>
+        <div class="pricing-price"><span class="pricing-free" style="font-size:40px;">Free</span></div>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>10 leads / month</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>1 project</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Basic search</li>
+        </ul>
+        <a href="/signup.html" class="btn-secondary" style="text-decoration:none;">Get Started</a>
+      </div>
+      <div class="pricing-card featured fade-in delay-2">
+        <span class="pricing-badge">Inner Circle</span>
+        <div class="pricing-tier">Pro</div>
+        <div class="pricing-desc">For marketers and founders serious about Reddit growth.</div>
+        <div class="pricing-price">
+          <span class="pricing-old-price">$45/mo</span>
+          <span class="pricing-free">Free</span>
+        </div>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited leads</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>5 projects</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full AI post generation</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Lead alerts</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API access</li>
+        </ul>
+        <a href="/signup.html" class="btn-primary" style="text-decoration:none;">Get Pro</a>
+      </div>
+      <div class="pricing-card fade-in delay-3">
+        <div class="pricing-tier">Team</div>
+        <div class="pricing-desc">For teams and agencies managing multiple brands.</div>
+        <div class="pricing-price">
+          <span class="pricing-amount" data-monthly="Custom" data-yearly="Custom" style="font-size: 2.5rem;">Custom</span>
+        </div>
+        <ul class="pricing-features">
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited projects</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Dedicated support</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Custom integrations</li>
+          <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>White-label reports</li>
+        </ul>
+        <a href="mailto:team@superreddit.com" class="btn-secondary" style="text-decoration:none;">Contact Us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="container">
+    <div class="cta-card fade-in">
+      <h2>Ready to grow on Reddit?</h2>
+      <p>Join the beta and start creating Reddit content that actually works.</p>
+      <a href="/signup.html" class="btn-primary btn-primary-lg">Get Started Free <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-brand"><div class="footer-brand-icon">SR</div><span>SuperReddit</span></div>
+    <div class="footer-note">Built with AI. Not affiliated with Reddit.</div>
+  </div>
+</footer>
+
+<link rel="modulepreload" href="./js/three-core.min.js">
+<link rel="modulepreload" href="./js/three-addons.min.js">
+<link rel="preload" href="./scene-optimized.glb" as="fetch" crossorigin>
+<script type="importmap">
+{ "imports": {
+  "three": "./js/three-core.min.js"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader, MeshoptDecoder, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, RoundedBoxGeometry, CSS3DRenderer, CSS3DObject, DragControls, OrbitControls } from './js/three-addons.min.js';
+
+// ── Feature flag: scroll-driven pre-rendered frames vs real-time 3D overlay ──
+const USE_SCROLL_VIDEO = true;
+
+// ── Renderer — ACES Filmic, shadows, physically correct ──
+const container = document.getElementById('three-container');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.3;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// ── Scene ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1050);
+scene.fog = new THREE.FogExp2(0x1a1050, 0.035);
+
+// ── Camera ──
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 200);
+camera.position.set(0, 1.5, 14);
+camera.lookAt(0, 3.0, 0);
+
+// ── Environment Map — soft purple studio HDRI (procedural) ──
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+
+// Create a simple studio environment scene
+const envScene = new THREE.Scene();
+envScene.background = new THREE.Color(0x1a1050);
+// Soft colored lights to fake studio reflections
+const envLight1 = new THREE.PointLight(0x4466cc, 50, 100);
+envLight1.position.set(5, 5, 5);
+envScene.add(envLight1);
+const envLight2 = new THREE.PointLight(0x6644aa, 40, 100);
+envLight2.position.set(-5, 3, -5);
+envScene.add(envLight2);
+const envLight3 = new THREE.PointLight(0x3355dd, 30, 100);
+envLight3.position.set(0, -3, 5);
+envScene.add(envLight3);
+const envLight4 = new THREE.PointLight(0xddddff, 20, 100);
+envLight4.position.set(0, 8, 0);
+envScene.add(envLight4);
+// White sphere as a reflection source
+const envSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(20, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0x1a1050, side: THREE.BackSide })
+);
+envScene.add(envSphere);
+
+const envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
+scene.environment = envMap;
+pmremGenerator.dispose();
+
+// ── Post Processing — subtle bloom ──
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.25,  // strength — subtle
+  0.6,   // radius
+  0.8    // threshold
+);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+// ── Lighting ──
+
+// 1. Hemisphere — soft neutral sky, dark purple ground
+const hemiLight = new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0);
+scene.add(hemiLight);
+
+// 2. Top key light — main illumination, casts shadows
+const topSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+topSpot.position.set(0, 16, 6);
+topSpot.target.position.set(0, 0, -2);
+topSpot.castShadow = true;
+topSpot.shadow.mapSize.width = 2048;
+topSpot.shadow.mapSize.height = 2048;
+topSpot.shadow.camera.near = 1;
+topSpot.shadow.camera.far = 40;
+topSpot.shadow.radius = 4;
+scene.add(topSpot);
+scene.add(topSpot.target);
+
+// 3. Laptop blue uplight — strong, dramatic blue on chins
+const laptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
+laptopSpot.position.set(0, -1.8, 2.0);
+laptopSpot.target.position.set(0, 4, -1);
+scene.add(laptopSpot);
+scene.add(laptopSpot.target);
+
+// 4. Laptop fill — wider blue wash
+const laptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+laptopFill.position.set(0, -0.5, 3.5);
+scene.add(laptopFill);
+
+// 5. Left rim — blue edge light
+const leftLight = new THREE.PointLight(0x4477cc, 4.0, 50);
+leftLight.position.set(-12, 4, 0);
+scene.add(leftLight);
+
+// 6. Right rim — purple edge light
+const rightLight = new THREE.PointLight(0x6644bb, 3.0, 50);
+rightLight.position.set(12, 4, 0);
+scene.add(rightLight);
+
+// 7. Front fill — subtle, keeps faces from going full black
+const fillLight = new THREE.DirectionalLight(0x998acc, 0.6);
+fillLight.position.set(0, 2, 10);
+scene.add(fillLight);
+
+// 8. Ambient — very low, just lifts the absolute blacks
+const ambientLight = new THREE.AmbientLight(0x221838, 0.8);
+scene.add(ambientLight);
+
+// 9. Orange backlight — warm glow behind the characters
+const orangeBack = new THREE.PointLight(0xff6b35, 8.0, 40, 1.0);
+orangeBack.position.set(0, 3.0, -4.0);
+scene.add(orangeBack);
+
+// 10. Orange gradient backdrop — glowing disc behind the group
+const glowGeo = new THREE.PlaneGeometry(30, 25);
+const glowMat = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  uniforms: {
+    color: { value: new THREE.Color(0xff6b35) },
+    opacity: { value: 0.55 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 color;
+    uniform float opacity;
+    varying vec2 vUv;
+    void main() {
+      vec2 center = vUv - 0.5;
+      float dist = length(center) * 2.0;
+      float alpha = opacity * smoothstep(1.0, 0.0, dist);
+      gl_FragColor = vec4(color, alpha);
+    }
+  `,
+});
+const glowPlane = new THREE.Mesh(glowGeo, glowMat);
+glowPlane.position.set(0, 3.0, -6.0);
+scene.add(glowPlane);
+
+// ── Skin palette — matched to Spline reference screenshot ──
+const skinColors = [
+  0x8888bb, // light blue-lavender (teapot head)
+  0x8a6650, // warm brown (X face)
+  0xbb6633, // orange-brown
+  0x2a2222, // very dark brown/black
+  0x8855aa, // purple
+  0x33aa55, // bright green
+  0x9a7050, // brown/tan
+  0xcc7733, // orange (cone hat)
+  0xdd88aa, // pink
+  0xc09888, // beige/tan (mohawk)
+  0x4477dd, // bright blue
+  0x339988, // teal-green
+  0x9988bb, // lavender (sleepy eyes)
+  0xcc3355, // red-magenta
+  0xc09070, // tan/beige (glasses)
+  0x5577cc, // blue
+  0xccaa44, // gold/amber
+  0x8855cc, // purple
+  0x7a5544, // dark brown
+  0x6688bb, // steel blue
+  0xbb5588, // rose
+  0x55bb77, // green
+  0xaa7744, // warm amber
+  0x7788cc, // periwinkle
+];
+
+const bodyColor = 0x0a0a14;
+
+// ── Mouse tracking ──
+const mouse = new THREE.Vector2(0, 0);
+const smoothMouse = new THREE.Vector2(0, 0);
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+
+// ── Cache scene-optimized.glb — load ONCE, clone for overlay + lead discovery ──
+const _sceneGltfLoader = new GLTFLoader();
+_sceneGltfLoader.setMeshoptDecoder(MeshoptDecoder);
+const _cachedSceneGltf = new Promise((resolve, reject) => {
+  _sceneGltfLoader.load('./scene-optimized.glb', resolve, undefined, reject);
+});
+
+// ── Load GLTF and apply materials ──
+const headGroups = [];
+const bodyMeshes = []; // { mesh, worldPos } for pairing with heads
+let colorIndex = 0;
+let heroLaptopNode = null; // reference to laptop in hero scene for visibility toggle
+
+_cachedSceneGltf.then((gltf) => {
+  const model = gltf.scene;
+
+  function isInHeadGroup(node) {
+    let p = node.parent;
+    while (p) {
+      if (p.name === 'Heads') return true;
+      p = p.parent;
+    }
+    return false;
+  }
+
+  function getHeadGroup(node) {
+    let p = node.parent;
+    while (p && p.parent) {
+      if (p.parent.name === 'Heads') return p;
+      p = p.parent;
+    }
+    return null;
+  }
+
+  // First pass: assign skin colors
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    if (!isInHeadGroup(node)) return;
+    const verts = node.geometry?.attributes?.position?.count || 0;
+    if (verts === 3968 || verts === 28792) {
+      const headGroup = getHeadGroup(node);
+      if (headGroup && !headGroup.userData.skinAssigned) {
+        headGroup.userData.skinColor = skinColors[colorIndex % skinColors.length];
+        headGroup.userData.skinAssigned = true;
+        colorIndex++;
+        if (!headGroups.includes(headGroup)) headGroups.push(headGroup);
+      }
+    }
+  });
+
+  // Second pass: apply PBR materials
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+
+    const name = node.name || '';
+    const parentName = node.parent?.name || '';
+    const gpName = node.parent?.parent?.name || '';
+
+    const isBody = parentName === 'Bodies' || gpName === 'Bodies';
+    const isHead = isInHeadGroup(node);
+    const isLaptop = parentName.includes('Laptop') || gpName.includes('Laptop');
+    const isTable = name.includes('Table');
+    const isBgCircle = name.includes('Background');
+
+    // Enable shadows on all meshes
+    node.castShadow = true;
+    node.receiveShadow = true;
+
+    if (isBody) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: bodyColor, roughness: 0.85, metalness: 0.0,
+        envMapIntensity: 0.3,
+      });
+    } else if (isHead) {
+      const headGroup = getHeadGroup(node);
+      const skin = headGroup?.userData?.skinColor || 0xcccccc;
+      const verts = node.geometry?.attributes?.position?.count || 0;
+
+      if (verts === 3968) {
+        // Head sphere — clay/plastic: roughness 0.5 for nice light wrap
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 28792) {
+        // Glasses character head+frame
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 4225) {
+        // Glass lenses — fake glass (transmission doesn't work through EffectComposer)
+        node.material = new THREE.MeshPhysicalMaterial({
+          color: 0xffffff,
+          roughness: 0.05,
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.15,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.05,
+          envMapIntensity: 2.0,
+          depthWrite: false,
+        });
+        node.renderOrder = 1;
+      } else if (verts === 294) {
+        // Eye whites — BRIGHT, glossy, slight emissive glow
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.1,
+          metalness: 0.05,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.15,
+          envMapIntensity: 1.0,
+        });
+      } else if (verts === 147) {
+        // Pupils — glossy dark orbs with specular catchlight
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x050508,
+          roughness: 0.08,
+          metalness: 0.15,
+          envMapIntensity: 1.5,
+        });
+      } else if (verts === 598) {
+        // All cylinders — skin colored (safe)
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 563) {
+        // EYEBROWS — dark glossy capsules
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1,
+          envMapIntensity: 0.8,
+        });
+      } else if (verts > 10000) {
+        // Teapot — hide it
+        node.visible = false;
+      } else {
+        node.material = new THREE.MeshStandardMaterial({
+          color: skin, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      }
+    } else if (isLaptop) {
+      if (name.includes('light') || name.includes('Logo')) {
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0x6688cc, roughness: 0.15, metalness: 0.0,
+          emissive: 0x3355bb, emissiveIntensity: 1.5,
+        });
+      } else {
+        node.material = new THREE.MeshStandardMaterial({
+          color: 0xcccccc, roughness: 0.15, metalness: 0.9,
+          envMapIntensity: 2.0,
+        });
+      }
+    } else if (isTable) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0x080814, roughness: 0.3, metalness: 0.6,
+        envMapIntensity: 0.5,
+      });
+    } else if (isBgCircle) {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0x1a1050, roughness: 1, metalness: 0,
+        emissive: 0x151040, emissiveIntensity: 0.5,
+      });
+    } else {
+      node.material = new THREE.MeshStandardMaterial({
+        color: 0x2a2a3a, roughness: 0.6, metalness: 0.0,
+        envMapIntensity: 0.3,
+      });
+    }
+  });
+
+  // Raise laptop
+  model.traverse((node) => {
+    if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+      node.position.y += 80;
+      heroLaptopNode = node;
+    }
+  });
+
+  scene.add(model);
+
+  // Dismiss loading spinner
+  const heroLoader = document.getElementById('hero-loading');
+  if (heroLoader) heroLoader.classList.add('loaded');
+
+  console.log('GLTF loaded. Head groups:', headGroups.length);
+
+  // Fix Head #17 cylinders — they're the glasses lenses, not skin
+  // Labels are 0-indexed, so #17 on screen = headGroups[17]
+  const hg17 = headGroups[17];
+  if (hg17) {
+    let dbg = 'Head #17 (idx 17) meshes: ';
+    hg17.traverse(n => { if (n.isMesh) dbg += `[${n.name} v=${n.geometry?.attributes?.position?.count}] `; });
+    console.log(dbg);
+  }
+
+  // Head #14 — bright white head, glowing orange eyes
+  const hg14 = headGroups[14];
+  if (hg14) {
+    let mi14 = 0;
+    hg14.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi14 <= 1) {
+        // Eyes — glowing orange
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xff6b35,
+          roughness: 0.1,
+          metalness: 0.0,
+          emissive: 0xff6b35,
+          emissiveIntensity: 1.5,
+          envMapIntensity: 1.0,
+        });
+      } else {
+        // Head — bright white
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.4,
+          metalness: 0.0,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.1,
+          envMapIntensity: 0.5,
+        });
+      }
+      mi14++;
+    });
+  }
+
+  // Head #4 — pupils match skin tone, whites stay white
+  const hg4 = headGroups[4];
+  if (hg4) {
+    const skin4 = hg4.userData.skinColor || 0x8855aa;
+    hg4.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 147) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: skin4, roughness: 0.3, metalness: 0.0, envMapIntensity: 0.5,
+        });
+      }
+    });
+  }
+
+  // Head #9 — make eyebrow + eye rings black
+  const hg9 = headGroups[9];
+  if (hg9) {
+    let mi9 = 0;
+    hg9.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi9 === 0 || mi9 === 1 || mi9 === 2 || mi9 === 3) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8,
+        });
+      }
+      mi9++;
+    });
+  }
+
+  // Head #13 — cone with orange-white-orange stripes
+  const hg13 = headGroups[13];
+  if (hg13) {
+    let mi = 0;
+    hg13.traverse(n => {
+      if (!n.isMesh) return;
+      if (mi === 0) {
+        // Brim — orange to match cone
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xff6b35, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5,
+        });
+      } else if (mi === 1) {
+        // Cone mesh — orange/white/orange stripes via vertex colors
+        n.geometry.computeBoundingBox();
+        const bb = n.geometry.boundingBox;
+        const posAttr = n.geometry.attributes.position;
+        const colors = new Float32Array(posAttr.count * 3);
+        const orange = new THREE.Color(0xff6b35);
+        const white = new THREE.Color(0xffffff);
+        for (let v = 0; v < posAttr.count; v++) {
+          const y = posAttr.getY(v);
+          const t = (y - bb.min.y) / (bb.max.y - bb.min.y);
+          const c = (t < 0.333) ? orange : (t < 0.666) ? white : orange;
+          colors[v * 3] = c.r;
+          colors[v * 3 + 1] = c.g;
+          colors[v * 3 + 2] = c.b;
+        }
+        n.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        n.material = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.5,
+          metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else {
+        // All other skin-colored parts — tan (same as #17)
+        const verts = n.geometry?.attributes?.position?.count || 0;
+        if (verts !== 294 && verts !== 147 && verts !== 563) {
+          n.material = new THREE.MeshStandardMaterial({
+            color: 0xc09888, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5,
+          });
+        }
+      }
+      mi++;
+    });
+  }
+
+  // Head #19 — metallic silver
+  const hg19 = headGroups[19];
+  if (hg19) {
+    const skinVerts = new Set([3968, 598]); // head sphere + ears/cylinders
+    hg19.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      // Make all skin-colored meshes translucent (skip eyes, eyebrows, pupils)
+      if (skinVerts.has(verts) || (verts !== 294 && verts !== 147 && verts !== 563 && verts <= 10000 && verts !== 3968 && verts !== 598)) {
+        // catch anything that's not eyes/brows
+      }
+      if (verts === 3968 || verts === 598) {
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xcccccc,
+          roughness: 0.15,
+          metalness: 0.9,
+          envMapIntensity: 2.0,
+        });
+      }
+    });
+  }
+
+  // Head #0 — show upside-down teapot on top
+  const hg0 = headGroups[0];
+  if (hg0) {
+    hg0.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts > 10000) {
+        n.visible = true;
+        n.rotation.z = Math.PI; // flip upside down
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0xd4a843,
+          roughness: 0.2,
+          metalness: 0.9,
+          envMapIntensity: 1.5,
+        });
+      }
+    });
+  }
+  if (hg17) {
+    const skin17 = 0xc09888; // tan, same as #9
+    hg17.userData.skinColor = skin17;
+    hg17.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 3968 || verts === 598) {
+        // Head sphere + ears — tan skin
+        n.material = new THREE.MeshStandardMaterial({
+          color: skin17, roughness: 0.5, metalness: 0.0,
+          envMapIntensity: 0.5,
+        });
+      } else if (verts === 60) {
+        // Lenses — transparent glass
+        n.material = new THREE.MeshPhysicalMaterial({
+          color: 0xaaccff,
+          roughness: 0.0,
+          metalness: 0.1,
+          transparent: true,
+          opacity: 0.12,
+          clearcoat: 1.0,
+          clearcoatRoughness: 0.0,
+          envMapIntensity: 3.0,
+          emissive: 0x4466aa,
+          emissiveIntensity: 0.1,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        n.renderOrder = 1;
+      } else if (verts === 250 || verts === 1071) {
+        // Glasses frame + rims — black
+        n.material = new THREE.MeshStandardMaterial({
+          color: 0x0a0a12, roughness: 0.35, metalness: 0.1,
+          envMapIntensity: 0.8,
+        });
+      }
+    });
+  }
+
+  // Force world matrix computation before reading positions
+  model.updateMatrixWorld(true);
+
+  // Collect body meshes with world matrices + positions (before heads get spread)
+  let bodiesGroup = null;
+  model.traverse(n => { if (n.name === 'Bodies') bodiesGroup = n; });
+  if (bodiesGroup) {
+    bodiesGroup.children.forEach((child) => {
+      if (child.isMesh) {
+        const wp = new THREE.Vector3();
+        child.getWorldPosition(wp);
+        bodyMeshes.push({ mesh: child, worldMatrix: child.matrixWorld.clone(), worldPos: wp.clone() });
+      } else {
+        child.traverse(n => {
+          if (n.isMesh) {
+            const wp = new THREE.Vector3();
+            n.getWorldPosition(wp);
+            bodyMeshes.push({ mesh: n, worldMatrix: n.matrixWorld.clone(), worldPos: wp.clone() });
+          }
+        });
+      }
+    });
+  }
+  console.log('Body meshes collected:', bodyMeshes.length);
+
+  // Save head world matrices and positions BEFORE spreading
+  headGroups.forEach((g) => {
+    const wp = new THREE.Vector3();
+    g.getWorldPosition(wp);
+    g.userData.headWorldPos = wp.clone();
+    // Save world matrices for all child meshes
+    g.traverse(n => {
+      if (n.isMesh) n.userData.savedWorldMatrix = n.matrixWorld.clone();
+    });
+  });
+
+  // Compute 1:1 head→body matching using XZ-plane distance (head is directly above body)
+  const matchPairs = [];
+  headGroups.forEach((head, hi) => {
+    const hp = head.userData.headWorldPos;
+    bodyMeshes.forEach((body, bi) => {
+      const bp = body.worldPos;
+      const xzDist = Math.sqrt((bp.x - hp.x) ** 2 + (bp.z - hp.z) ** 2);
+      const yOff = hp.y - bp.y; // positive = head above body
+      if (yOff > -0.5) matchPairs.push({ xzDist, hi, bi, yOff });
+    });
+  });
+  matchPairs.sort((a, b) => a.xzDist - b.xzDist);
+
+  const usedHeads = new Set(), usedBodies = new Set();
+  matchPairs.forEach(({ xzDist, hi, bi }) => {
+    if (usedHeads.has(hi) || usedBodies.has(bi)) return;
+    headGroups[hi].userData.matchedBody = bodyMeshes[bi];
+    usedHeads.add(hi);
+    usedBodies.add(bi);
+    console.log(`Matched Head[${hi}] → Body[${bi}] xzDist=${xzDist.toFixed(2)}`);
+  });
+
+  // Hardcoded head positions from drag editor export
+  const headPositions = [
+    { x: -646.98, y: -114.30, z: -40.64 },   // #0
+    { x: -713.22, y: -290.72, z: 172.79 },    // #1
+    { x: -391.41, y: -148.98, z: 95.86 },     // #2
+    { x: -78.42, y: 50.57, z: -39.08 },       // #3
+    { x: 284.02, y: -98.17, z: 86.97 },       // #4
+    { x: 44.78, y: -133.47, z: 233.29 },      // #5
+    { x: 457.60, y: -244.83, z: 57.78 },      // #6
+    { x: 431.41, y: 21.91, z: -107.51 },      // #7
+    { x: -492.74, y: -421.59, z: 232.17 },    // #8
+    { x: -379.09, y: 39.06, z: -101.59 },     // #9
+    { x: 1151.88, y: -334.33, z: -306.77 },   // #10
+    { x: -1166.13, y: -324.27, z: -208.78 },  // #11
+    { x: 185.35, y: 56.15, z: -88.64 },       // #12
+    { x: 611.87, y: -85.01, z: -25.49 },      // #13
+    { x: 731.11, y: -244.83, z: 64.46 },      // #14
+    { x: -193.53, y: -98.17, z: 68.10 },      // #15
+    { x: 502.93, y: -441.88, z: 128.27 },     // #16
+    { x: -27.69, y: -337.19, z: 253.16 },     // #17
+    { x: -290.61, y: -337.19, z: 160.72 },    // #18
+    { x: 258.40, y: -322.41, z: 172.79 },     // #19
+  ];
+  headPositions.forEach((pos, i) => {
+    if (!pos || i >= headGroups.length) return;
+    headGroups[i].position.set(pos.x, pos.y, pos.z);
+  });
+
+  // Hardcoded body positions from drag editor export
+  const bodyPositions = [
+    { x: 637.81, y: 11.08, z: 30.73 },       // body 0
+    { x: 770.02, y: -202.57, z: 127.38 },    // body 1
+    { x: 467.01, y: -220.79, z: 105.99 },    // body 2
+    { x: 540.41, y: -251.32, z: 187.49 },    // body 3
+    { x: -260.63, y: -157.13, z: 188.53 },   // body 4
+    { x: 301.34, y: 165.46, z: 142.65 },     // body 5
+    { x: 268.76, y: -112.58, z: 218.21 },    // body 6
+    { x: -481.88, y: -244.15, z: 272.52 },   // body 7
+    { x: -702.36, y: -180.71, z: 206.64 },   // body 8
+    { x: -630.27, y: -11.31, z: 10.80 },     // body 9
+    { x: 207.98, y: 324.07, z: -48.00 },     // body 10
+    { x: 475.68, y: 294.18, z: -79.29 },     // body 11
+    { x: 1176.76, y: -175.37, z: -281.47 },  // body 12
+    { x: -365.46, y: 145.70, z: -20.96 },    // body 13
+    { x: -1169.04, y: -169.91, z: -194.20 }, // body 14
+    { x: -391.32, y: 28.18, z: 142.45 },     // body 15
+    { x: -57.04, y: 321.17, z: 18.58 },      // body 16
+    { x: -166.42, y: 65.98, z: 121.80 },     // body 17
+    { x: 58.92, y: 128.45, z: 161.98 },      // body 18
+    { x: -6.62, y: -49.55, z: 311.17 },      // body 19
+  ];
+  bodyPositions.forEach((pos, i) => {
+    if (!pos || i >= bodyMeshes.length) return;
+    bodyMeshes[i].mesh.position.set(pos.x, pos.y, pos.z);
+  });
+  model.updateMatrixWorld(true);
+
+  // Collect eyelids for animation (exclude pupils — both are 147 verts)
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    const verts = node.geometry?.attributes?.position?.count || 0;
+    if (verts === 147 && isInHeadGroup(node) && !node.userData.isPupil) {
+      node.userData.isEyelid = true;
+      node.userData.basePosition = node.position.clone();
+      eyelids.push(node);
+    }
+  });
+  console.log('Eyelids found:', eyelids.length);
+
+  // Collect pupils — 147-vert meshes that overlap with 294-vert eye whites
+  headGroups.forEach(group => {
+    const eyeWhites = [];
+    const candidates = [];
+    group.traverse(n => {
+      if (!n.isMesh) return;
+      const verts = n.geometry?.attributes?.position?.count || 0;
+      if (verts === 294) eyeWhites.push(n);
+      if (verts === 147) candidates.push(n);
+    });
+    candidates.forEach(c => {
+      const cPos = new THREE.Vector3();
+      c.getWorldPosition(cPos);
+      for (const ew of eyeWhites) {
+        const ewPos = new THREE.Vector3();
+        ew.getWorldPosition(ewPos);
+        if (cPos.distanceTo(ewPos) < 0.15) {
+          c.userData.isPupil = true;
+          c.userData.basePosition = c.position.clone();
+          c.userData.parentEyeWhite = ew;
+          pupils.push(c);
+          break;
+        }
+      }
+    });
+  });
+  console.log('Pupils found:', pupils.length);
+
+  // Remove pupils from eyelids array to avoid conflicting position updates
+  for (let i = eyelids.length - 1; i >= 0; i--) {
+    if (eyelids[i].userData.isPupil) eyelids.splice(i, 1);
+  }
+
+  // Labels removed — no longer needed
+  window._updateLabels = null;
+
+  // Set up fixed overlay canvas for laptop transition
+  if (!USE_SCROLL_VIDEO) setupOverlayCanvas();
+}).catch((err) => {
+  console.error('GLTF load error:', err);
+});
+
+// ── Animation ──
+const eyelids = [];
+const pupils = [];
+
+// ── Fixed Overlay Canvas — renders ONLY the laptop, floats above the page ──
+let overlayRenderer, overlayScene, overlayCamera, overlayLaptopNode;
+let overlayReady = false;
+let overlayActive = false; // true once handoff from hero laptop occurs
+
+// ── Scroll-Driven Video Player (USE_SCROLL_VIDEO mode) ──
+const scrollFrames = []; // Image objects for each frame
+let scrollFramesLoaded = 0;
+const SCROLL_FRAME_COUNT = 60;
+let scrollCanvasCtx = null;
+
+if (USE_SCROLL_VIDEO) {
+  const scrollCanvas = document.getElementById('scroll-video-canvas');
+  if (scrollCanvas) {
+    // Match frame source resolution (1920x1080) — no need for Retina scaling
+    // since we're just displaying pre-rendered images. CSS stretches to viewport.
+    scrollCanvas.width = 1920;
+    scrollCanvas.height = 1080;
+    scrollCanvasCtx = scrollCanvas.getContext('2d');
+  }
+
+  // Check WebP support
+  function supportsWebP() {
+    const c = document.createElement('canvas');
+    c.width = 1; c.height = 1;
+    return c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  }
+  const ext = supportsWebP() ? 'webp' : 'png';
+
+  // Preload first 10 frames immediately (critical path)
+  for (let i = 0; i < SCROLL_FRAME_COUNT; i++) {
+    const img = new Image();
+    scrollFrames.push(img);
+  }
+
+  function loadFrame(i) {
+    return new Promise((resolve) => {
+      const img = scrollFrames[i];
+      const fileNum = i * 2; // frames are even-numbered: 000, 002, 004, ..., 118
+      img.onload = () => { scrollFramesLoaded++; resolve(); };
+      img.onerror = () => {
+        scrollFramesLoaded++;
+        resolve(); // skip broken frame
+      };
+      img.src = `./frames/frame-${String(fileNum).padStart(3, '0')}.${ext}`;
+    });
+  }
+
+  // Load first 10 immediately, rest in background batches
+  (async () => {
+    // Critical path: first 10 frames
+    const critical = [];
+    for (let i = 0; i < Math.min(10, SCROLL_FRAME_COUNT); i++) {
+      critical.push(loadFrame(i));
+    }
+    await Promise.all(critical);
+    console.log('Scroll video: first 10 frames loaded');
+
+    // Background: remaining frames in batches of 10 via setTimeout
+    // (requestIdleCallback is not supported in Safari)
+    let nextFrame = 10;
+    function loadNextBatch() {
+      const batchEnd = Math.min(nextFrame + 10, SCROLL_FRAME_COUNT);
+      const batch = [];
+      while (nextFrame < batchEnd) {
+        batch.push(loadFrame(nextFrame));
+        nextFrame++;
+      }
+      if (nextFrame < SCROLL_FRAME_COUNT) {
+        setTimeout(loadNextBatch, 0);
+      } else {
+        Promise.all(batch).then(() => console.log('Scroll video: all frames loaded'));
+      }
+    }
+    loadNextBatch();
+  })();
+
+  // Resize handler — canvas stays at frame resolution, CSS handles viewport fit
+  window.addEventListener('resize', () => {
+    const sc = document.getElementById('scroll-video-canvas');
+    if (sc) {
+      scrollCanvasCtx = sc.getContext('2d');
+    }
+  });
+}
+
+function setupOverlayCanvas() {
+  if (USE_SCROLL_VIDEO) return; // no-op when using scroll video
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  // Create fixed overlay canvas — transparent, above everything
+  overlayRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  overlayRenderer.setPixelRatio(window.devicePixelRatio);
+  overlayRenderer.setSize(w, h);
+  overlayRenderer.setClearColor(0x000000, 0);
+  overlayRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  overlayRenderer.toneMappingExposure = 1.3;
+  overlayRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  overlayRenderer.domElement.id = 'laptop-overlay-canvas';
+  overlayRenderer.domElement.style.display = 'none'; // hidden until handoff
+  document.body.appendChild(overlayRenderer.domElement);
+
+  // Scene — transparent, no background
+  overlayScene = new THREE.Scene();
+
+  // Camera — EXACTLY matches hero camera (same position, FOV, lookAt)
+  // The overlay canvas starts with the same CSS translateY(12%) as the hero canvas,
+  // so no world-unit offset math is needed — they render identically.
+  overlayCamera = new THREE.PerspectiveCamera(45, w / h, 0.01, 200);
+  overlayCamera.position.set(0, 1.5, 14);
+  overlayCamera.lookAt(0, 3.0, 0);
+
+  // Lighting — match hero lighting so laptop looks identical
+  overlayScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
+
+  const oTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+  oTopSpot.position.set(0, 16, 6);
+  oTopSpot.target.position.set(0, 0, -2);
+  overlayScene.add(oTopSpot);
+  overlayScene.add(oTopSpot.target);
+
+  const oLaptopSpot = new THREE.SpotLight(0x3366ee, 25.0, 50, Math.PI / 2.5, 0.7, 0.8);
+  oLaptopSpot.position.set(0, -1.8, 2.0);
+  oLaptopSpot.target.position.set(0, 4, -1);
+  overlayScene.add(oLaptopSpot);
+  overlayScene.add(oLaptopSpot.target);
+
+  const oLaptopFill = new THREE.PointLight(0x3355dd, 5.0, 35, 1.0);
+  oLaptopFill.position.set(0, -0.5, 3.5);
+  overlayScene.add(oLaptopFill);
+
+  const oFill = new THREE.DirectionalLight(0x998acc, 0.6);
+  oFill.position.set(0, 2, 10);
+  overlayScene.add(oFill);
+
+  const oAmbient = new THREE.AmbientLight(0x221838, 0.8);
+  overlayScene.add(oAmbient);
+
+  // Blue glare lights on laptop body
+  const oBlueGlare1 = new THREE.PointLight(0x3388ff, 12.0, 30, 1.0);
+  oBlueGlare1.position.set(-4, 2, 4);
+  overlayScene.add(oBlueGlare1);
+  const oBlueGlare2 = new THREE.PointLight(0x2266ee, 10.0, 30, 1.0);
+  oBlueGlare2.position.set(4, 1, 5);
+  overlayScene.add(oBlueGlare2);
+  const oBlueGlare3 = new THREE.PointLight(0x4499ff, 8.0, 25, 1.0);
+  oBlueGlare3.position.set(0, 5, 3);
+  overlayScene.add(oBlueGlare3);
+
+  // Orange spotlight — real 3D light, intensity driven by scroll
+  const oOrangeSpot = new THREE.SpotLight(0xFF6B35, 0, 60, Math.PI / 4, 0.6, 0.8);
+  oOrangeSpot.position.set(0, 18, 4);
+  oOrangeSpot.target.position.set(0, 3, 0);
+  overlayScene.add(oOrangeSpot);
+  overlayScene.add(oOrangeSpot.target);
+  window._orangeSpotlight = oOrangeSpot;
+
+  // Clone cached GLTF for overlay — extract only laptop
+  _cachedSceneGltf.then((gltf) => {
+    const model = gltf.scene.clone(true);
+
+    // Find laptop root node
+    let laptopRoot = null;
+    model.traverse((node) => {
+      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+        laptopRoot = node;
+      }
+    });
+    if (!laptopRoot) { console.error('Overlay: laptop not found'); return; }
+
+    // We need the full model hierarchy to preserve the 0.01 root scale,
+    // but hide everything except the laptop.
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      const pName = node.parent?.name || '';
+      const gpName = node.parent?.parent?.name || '';
+      const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      if (!isLaptop) {
+        node.visible = false; // hide characters, table, background — keep laptop only
+      } else {
+        // Apply same laptop materials as hero
+        const name = node.name || '';
+        if (name.includes('light') || name.includes('Logo')) {
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0x6688cc, roughness: 0.15, metalness: 0.0,
+            emissive: 0x3355bb, emissiveIntensity: 1.5,
+          });
+        } else {
+          node.material = new THREE.MeshStandardMaterial({
+            color: 0xcccccc, roughness: 0.15, metalness: 0.9,
+            envMapIntensity: 2.0,
+          });
+        }
+      }
+    });
+
+    // Split Cube 3 into screen face vs lid face using face normals.
+    // Triangles are sorted into two material groups by their normal's Y component:
+    //   ny < 0 → screen (inner face, points down toward keyboard)
+    //   ny >= 0 → lid (outer face, points up/outward)
+    // DEBUG: RED = screen, GREEN = lid (will be black + gray in final)
+    model.traverse((node) => {
+      if (!node.isMesh) return;
+      const pName = node.parent?.name || '';
+      const gpName = node.parent?.parent?.name || '';
+      const isLaptop = pName.includes('Laptop') || gpName.includes('Laptop');
+      // Store base mesh for fading during zoom
+      if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube2')) {
+        node.material = node.material.clone();
+        node.material.transparent = true;
+        window._overlayBaseMesh = node;
+      }
+      // Store logo for fading
+      if (isLaptop && node.name && (node.name.includes('Logo') || node.name.includes('logo'))) {
+        node.material = node.material.clone();
+        node.material.transparent = true;
+        window._overlayLogoMesh = node;
+      }
+      if (isLaptop && node.name && node.name.replace(/[_ ]/g, '').includes('Cube3')) {
+        // Clone geometry before modifying index/groups — shared with hero via cache
+        node.geometry = node.geometry.clone();
+        const geo = node.geometry;
+        const idx = geo.index;
+        const norms = geo.attributes.normal;
+        const screenTris = [];
+        const lidTris = [];
+
+        for (let i = 0; i < idx.count; i += 3) {
+          const a = idx.getX(i), b = idx.getX(i + 1), c = idx.getX(i + 2);
+          const ny = (norms.getY(a) + norms.getY(b) + norms.getY(c)) / 3;
+          if (ny < 0) {
+            screenTris.push(a, b, c);
+          } else {
+            lidTris.push(a, b, c);
+          }
+        }
+
+        const newIndex = [...screenTris, ...lidTris];
+        geo.setIndex(newIndex);
+        geo.clearGroups();
+        geo.addGroup(0, screenTris.length, 0);
+        geo.addGroup(screenTris.length, lidTris.length, 1);
+
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const lidMat = new THREE.MeshStandardMaterial({
+          color: 0xcccccc, roughness: 0.15, metalness: 0.9, envMapIntensity: 2.0,
+          transparent: true,
+        });
+        node.material = [screenMat, lidMat];
+        window._overlayScreenMesh = node;
+        window._overlayScreenMat = screenMat;
+
+        // Collect unique screen-face vertex positions for projection
+        const pos = geo.attributes.position;
+        const screenVertSet = new Set(screenTris);
+        const screenPositions = [];
+        screenVertSet.forEach(vi => {
+          screenPositions.push(new THREE.Vector3(pos.getX(vi), pos.getY(vi), pos.getZ(vi)));
+        });
+        window._screenFaceVerts = screenPositions;
+      }
+    });
+
+    // Find laptop node — Y raise already applied by hero's cached GLTF modification
+    model.traverse((node) => {
+      if (node.name && node.name.includes('Laptop') && !node.parent?.name?.includes('Laptop')) {
+        overlayLaptopNode = node;
+      }
+    });
+
+    overlayScene.add(model);
+
+    // ── Compute laptop's TRUE geometric center via bounding box ──
+    // This guarantees we know exactly where the laptop is — no guessing.
+    model.updateMatrixWorld(true); // ensure all transforms are applied
+    const laptopBox = new THREE.Box3().setFromObject(overlayLaptopNode);
+    const laptopCenterWorld = new THREE.Vector3();
+    laptopBox.getCenter(laptopCenterWorld);
+    // Store for use in updateLaptopAnimation
+    window._laptopCenter = laptopCenterWorld;
+    console.log('Laptop bounding box center (world):', laptopCenterWorld);
+
+    overlayReady = true;
+    console.log('Overlay canvas: laptop ready');
+  });
+}
+
+// ── Video mute toggle ──
+window.toggleMute = toggleMute;
+function toggleMute() {
+  const video = document.getElementById('demo-video-player');
+  const prompt = document.getElementById('unmute-prompt');
+  if (!video) return;
+  video.muted = !video.muted;
+  if (prompt) prompt.textContent = video.muted ? 'Click to unmute' : 'Mute';
+}
+
+// ── Video expand/collapse ──
+let videoExpanded = false;
+window.toggleVideoExpand = toggleVideoExpand;
+function toggleVideoExpand() {
+  videoExpanded = !videoExpanded;
+  const wrap = document.getElementById('flat-video-wrap');
+  const expandIcon = document.getElementById('expand-icon');
+  const collapseIcon = document.getElementById('collapse-icon');
+  const text = document.getElementById('laptop-demo-text');
+  const demoSection = document.getElementById('laptop-demo');
+  if (!wrap || !demoSection) return;
+
+  const viewH = window.innerHeight;
+  if (videoExpanded) {
+    // Expand larger — 75% of viewport height, 5:4 ratio to match video
+    const videoH = viewH * 0.75;
+    const videoW = videoH * (5/4);
+    const videoTop = viewH * 0.04;
+    const vid = document.getElementById('demo-video-player');
+    if (vid) vid.style.objectFit = 'contain';
+    wrap.style.position = 'absolute';
+    wrap.style.top = videoTop + 'px';
+    wrap.style.left = '50%';
+    wrap.style.width = videoW + 'px';
+    wrap.style.height = videoH + 'px';
+    wrap.style.transform = 'translateX(-50%)';
+    wrap.style.zIndex = '10';
+    if (text) {
+      text.style.top = (videoTop + videoH + 12) + 'px';
+      text.style.opacity = '1';
+      text.style.pointerEvents = 'auto';
+    }
+    if (expandIcon) expandIcon.style.display = 'none';
+    if (collapseIcon) collapseIcon.style.display = 'block';
+  } else {
+    // Restore original placement — 60% of viewport height
+    const vid = document.getElementById('demo-video-player');
+    if (vid) vid.style.objectFit = 'cover';
+    const videoH = viewH * 0.6;
+    const videoW = videoH * (16/9);
+    const videoTop = (viewH - videoH) / 2;
+    wrap.style.position = 'absolute';
+    wrap.style.top = videoTop + 'px';
+    wrap.style.left = '50%';
+    wrap.style.width = videoW + 'px';
+    wrap.style.height = videoH + 'px';
+    wrap.style.transform = 'translateX(-50%)';
+    wrap.style.zIndex = '10';
+    if (text) {
+      text.style.display = 'block';
+      text.style.top = (videoTop + videoH + 12) + 'px';
+      text.style.opacity = '1';
+      text.style.pointerEvents = 'auto';
+    }
+    if (expandIcon) expandIcon.style.display = 'block';
+    if (collapseIcon) collapseIcon.style.display = 'none';
+  }
+}
+
+// ── Scroll-driven laptop animation ──
+// Phase 1 (spin): page scrolls normally, laptopProgress 0→0.7 drives rotation.
+// Phase 2 (zoom): laptopProgress 0.7→1.0 drives camera zoom + tilt + crossfade.
+// Phase 3 (video): 3D canvas hides, flat 16:9 video in normal page flow.
+let laptopProgress = 0;
+let zoomProgress = 0;
+let flatVideoShown = false;
+
+// ── Project a laptop-local screen point into viewport coords each frame ──
+function updateFlatVideoPlacement() {
+  if (USE_SCROLL_VIDEO) return;
+  if (!overlayLaptopNode || !overlayReady || !overlayCamera) return;
+  const wrap = document.getElementById('flat-video-wrap');
+  if (!wrap || flatVideoShown || snapCooldown || !overlayActive) return;
+
+  const screenVerts = window._screenFaceVerts;
+  const sMesh = window._overlayScreenMesh;
+  if (!screenVerts || !sMesh) return;
+
+  sMesh.updateMatrixWorld(true);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  const projected = new THREE.Vector3();
+  for (const localV of screenVerts) {
+    projected.copy(localV).applyMatrix4(sMesh.matrixWorld);
+    projected.project(overlayCamera);
+    const sx = (projected.x * 0.5 + 0.5) * vw;
+    const sy = (1 - (projected.y * 0.5 + 0.5)) * vh;
+    if (sx < minX) minX = sx;
+    if (sx > maxX) maxX = sx;
+    if (sy < minY) minY = sy;
+    if (sy > maxY) maxY = sy;
+  }
+  const scrW = maxX - minX;
+  const scrH = maxY - minY;
+  const scrCX = (minX + maxX) / 2;
+  const scrCY = (minY + maxY) / 2;
+
+  // Account for canvas CSS transform offset
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  let dx = 0, dy = 0;
+  if (overlayCanvas) {
+    const t = overlayCanvas.style.transform;
+    const m = t.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    if (m) { dx = parseFloat(m[1]); dy = parseFloat(m[2]); }
+  }
+
+  if (zoomProgress > 0.5) {
+    wrap.style.display = 'block';
+    wrap.style.position = 'fixed';
+    wrap.style.left = (scrCX + dx) + 'px';
+    wrap.style.top = (scrCY + dy) + 'px';
+    wrap.style.width = scrW + 'px';
+    wrap.style.height = scrH + 'px';
+    wrap.style.transform = 'translate(-50%, -50%)';
+    wrap.style.padding = '0';
+    wrap.style.opacity = '1';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function showFlatVideo() {
+  if (USE_SCROLL_VIDEO) return;
+  flatVideoShown = true;
+  overlayActive = false;
+  videoExpanded = false;
+  const ei = document.getElementById('expand-icon');
+  const ci = document.getElementById('collapse-icon');
+  if (ei) ei.style.display = 'block';
+  if (ci) ci.style.display = 'none';
+
+  // Hide overlay canvas
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) {
+    canvas.style.display = 'none';
+    canvas.style.opacity = '0';
+    canvas.style.transform = 'none';
+  }
+
+  // Hide spotlight + floor glow
+  if (window._orangeSpotlight) window._orangeSpotlight.intensity = 0;
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
+  // Place video at a fixed position within the demo section — centered in the
+  // first viewport-height. The animation completes when demoRect.top ≈ 0,
+  // so this always appears centered in the viewport at handoff.
+  const wrap = document.getElementById('flat-video-wrap');
+  const demoSection = document.getElementById('laptop-demo');
+  if (wrap && demoSection) {
+    const viewH = window.innerHeight;
+    // Always use viewport-based dimensions with 16:9 aspect ratio.
+    // The projected _screenRect is unreliable during fast scrolling.
+    const videoH = viewH * 0.6;
+    const videoW = videoH * (16/9);
+    const videoTop = (viewH - videoH) / 2;
+
+    wrap.style.cssText = `
+      display: block;
+      position: absolute;
+      top: ${videoTop}px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: ${videoW}px;
+      height: ${videoH}px;
+      z-index: 10;
+      pointer-events: auto;
+    `;
+
+  }
+
+  // Autoplay video
+  const video = document.getElementById('demo-video-player');
+  if (video) video.play().catch(() => {});
+
+  // Show demo text below the video
+  const text = document.getElementById('laptop-demo-text');
+  if (text) {
+    const viewH = window.innerHeight;
+    const videoH = viewH * 0.6;
+    const videoTop = (viewH - videoH) / 2;
+
+    text.style.position = 'absolute';
+    text.style.top = (videoTop + videoH + 12) + 'px';
+    text.style.left = '0';
+    text.style.right = '0';
+    text.style.opacity = '1';
+    text.style.pointerEvents = 'auto';
+  }
+}
+
+// Cooldown: after snap-out, prevent showFlatVideo re-triggering until reset
+let snapCooldown = false;
+
+// Fast escape: skip reverse animation entirely, let scroll momentum carry to top
+function snapOutOfFlatVideo() {
+  if (USE_SCROLL_VIDEO) return;
+  flatVideoShown = false;
+  overlayActive = false;
+  snapCooldown = true;
+  videoExpanded = false;
+
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) { canvas.style.display = 'none'; canvas.style.opacity = '0'; canvas.style.transform = 'none'; }
+
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap) { wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;'; }
+
+  if (window._orangeSpotlight) window._orangeSpotlight.intensity = 0;
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
+  if (heroLaptopNode) heroLaptopNode.visible = true;
+
+  const video = document.getElementById('demo-video-player');
+  if (video) video.pause();
+
+  const text = document.getElementById('laptop-demo-text');
+  if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
+}
+
+function hideFlatVideo() {
+  if (USE_SCROLL_VIDEO) return;
+  flatVideoShown = false;
+  overlayActive = true;
+  videoExpanded = false;
+
+  const canvas = document.getElementById('laptop-overlay-canvas');
+  if (canvas) { canvas.style.display = 'block'; canvas.style.opacity = '1'; }
+
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap) {
+    wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
+  }
+
+  // Restore 200vh and scroll to a position where laptopProgress ≈ 0.95
+  // (zoom phase, canvas fully opaque) so the animation can reverse smoothly.
+  // Without this, progress is still 1.0 after hideFlatVideo, which immediately
+  // re-triggers showFlatVideo on the next scroll event (infinite flip-flop).
+  // The overlay canvas covers the viewport, so the scroll jump is invisible.
+  const demoSection = document.getElementById('laptop-demo');
+  if (demoSection) {
+    const viewH = window.innerHeight;
+    // progress = (0.8*viewH - demoRect.top) / (0.8*viewH)
+    // demoRect.top = demoSection.offsetTop - scrollY
+    // Solve for scrollY at progress=0.95:
+    // scrollY = demoSection.offsetTop - viewH * 0.8 * (1 - 0.95)
+    const targetScrollY = demoSection.offsetTop - viewH * 0.8 * 0.05;
+    window.scrollTo(0, targetScrollY);
+  }
+
+  const video = document.getElementById('demo-video-player');
+  if (video) video.pause();
+
+  const text = document.getElementById('laptop-demo-text');
+  if (text) { text.style.opacity = '0'; text.style.pointerEvents = 'none'; }
+}
+
+// ── Scroll-Driven Video Player (new system) ──
+if (USE_SCROLL_VIDEO) {
+  // On page load/refresh, reset to top so the animation starts clean.
+  // Browsers restore scroll position on refresh, which would put us in the
+  // middle/end of the animation with no frames rendered yet.
+  if (window.scrollY > 0) {
+    window.scrollTo(0, 0);
+  }
+  // Screen rect fractions from capture tool (progress=1.0) — used for video sizing
+  const SCREEN_WIDTH_FRAC = 0.4670;
+  const SCREEN_HEIGHT_FRAC = 0.5906;
+  const SCREEN_TOP_FRAC = 0.2047;
+
+  let videoLocked = false;
+
+  // Track scroll progress in scroll handler, render in rAF for smooth Safari performance
+  let svScrollProgress = 0;
+  let svExpandProgress = 0;
+  let svNeedsRender = false;
+  let expandLockedAbsTop = null; // cached absolute top for wrap when fully expanded
+
+  window.addEventListener('scroll', () => {
+    const heroSection = document.querySelector('.hero');
+    const demoSection = document.getElementById('laptop-demo');
+    if (!heroSection || !demoSection) return;
+
+    const heroRect = heroSection.getBoundingClientRect();
+    const demoRect = demoSection.getBoundingClientRect();
+    const viewH = window.innerHeight;
+    const heroBottomRatio = heroRect.bottom / viewH;
+
+    // Hide scroll hint
+    const heroHint = document.querySelector('.hero-scroll-hint');
+    if (heroHint) {
+      const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
+      heroHint.style.opacity = 1 - hintFade;
+    }
+
+    // Same progress formula as original
+    const demoTop = demoRect.top;
+    const startThreshold = viewH * 0.8;
+    const scrollDistance = viewH * 0.8;
+    const rawProgress = (startThreshold - demoTop) / scrollDistance;
+    svScrollProgress = Math.max(0, Math.min(1, rawProgress));
+
+    // Phase 4: expand screen to fullscreen after laptop animation completes
+    // Kicks in after rawProgress hits 1.0, uses the extra scroll distance
+    const expandStart = scrollDistance;
+    const expandDistance = viewH * 0.7;
+    const expandRaw = (startThreshold - demoTop - expandStart) / expandDistance;
+    svExpandProgress = Math.max(0, Math.min(1, expandRaw));
+
+    svNeedsRender = true;
+  }, { passive: true });
+
+  // rAF render loop — draws frames at 60fps regardless of scroll event rate
+  let svLastRenderedFrame = -1;
+  function svRenderLoop() {
+    requestAnimationFrame(svRenderLoop);
+    if (!svNeedsRender) return;
+    svNeedsRender = false;
+
+    const scrollProgress = svScrollProgress;
+
+    // Lock/unlock — no buffer, unlocks immediately when scrolling back up
+    videoLocked = scrollProgress >= 0.99;
+    if (!videoLocked) expandLockedAbsTop = null;
+
+    // While locked, keep showing the video + text — skip all frame/canvas logic
+    if (videoLocked) {
+      if (heroLaptopNode) heroLaptopNode.visible = false;
+      const rays = document.getElementById('laptop-light-rays');
+      if (rays) { rays.style.display = 'none'; rays.style.opacity = '0'; }
+
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const ep = svExpandProgress;
+      const ease = ep < 0.5 ? 2 * ep * ep : 1 - Math.pow(-2 * ep + 2, 2) / 2;
+
+      // True crossfade: canvas and wrap use complementary opacity curves.
+      // As one fades out, the other fades in at the same rate — no gap.
+      const crossfadeT = ease > 0.001 ? 1 : 0; // instant crossfade
+      const scrollCanvas = document.getElementById('scroll-video-canvas');
+      const canvasOpacity = 1 - crossfadeT;
+      if (canvasOpacity > 0.01 && scrollCanvas && scrollCanvasCtx) {
+        const lastFrame = SCROLL_FRAME_COUNT - 1;
+        if (scrollFrames[lastFrame] && scrollFrames[lastFrame].complete) {
+          scrollCanvas.style.display = 'block';
+          scrollCanvas.style.opacity = String(canvasOpacity);
+          if (svLastRenderedFrame !== lastFrame) {
+            scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+            scrollCanvasCtx.drawImage(scrollFrames[lastFrame], 0, 0, scrollCanvas.width, scrollCanvas.height);
+            svLastRenderedFrame = lastFrame;
+          }
+        }
+      } else if (scrollCanvas) {
+        scrollCanvas.style.display = 'none';
+        scrollCanvas.style.opacity = '0';
+      }
+
+      // Lerp from laptop-screen size → fullscreen
+      const startW = vw * SCREEN_WIDTH_FRAC;
+      const startH = vh * SCREEN_HEIGHT_FRAC;
+      const startTop = vh * SCREEN_TOP_FRAC;
+      const endW = vw;
+      const endH = vh;
+      const endTop = 0;
+
+      const curW = startW + (endW - startW) * ease;
+      const curH = startH + (endH - startH) * ease;
+      const curTop = startTop + (endTop - startTop) * ease;
+      const borderR = Math.round(8 * (1 - ease));
+
+      // Wrap opacity is the complement of canvas — true crossfade
+      const wrapOpacity = ease >= 1 ? 1 : crossfadeT;
+
+      const wrap = document.getElementById('flat-video-wrap');
+      const demoSection = document.getElementById('laptop-demo');
+
+      if (ease >= 1) {
+        // Fully expanded — switch to absolute so it scrolls naturally with the section.
+        if (expandLockedAbsTop === null) {
+          const sectionRect = demoSection ? demoSection.getBoundingClientRect() : { top: 0 };
+          expandLockedAbsTop = Math.round(-sectionRect.top);
+        }
+        if (wrap) {
+          wrap.style.cssText = `
+            display: block; position: absolute;
+            top: ${expandLockedAbsTop}px; left: 0;
+            width: 100%; height: 100vh;
+            z-index: 10; pointer-events: auto;
+          `;
+        }
+      } else if (wrap) {
+        wrap.style.cssText = `
+          display: block; position: fixed;
+          top: ${curTop}px; left: 50%; transform: translateX(-50%);
+          width: ${curW}px; height: ${curH}px;
+          z-index: 45; pointer-events: auto;
+          opacity: ${wrapOpacity};
+        `;
+      }
+      const container = document.getElementById('flat-video-container');
+      if (container) {
+        container.style.borderRadius = borderR + 'px';
+        container.style.opacity = '1';
+      }
+
+      return;
+    }
+
+    // Compute frame index
+    const frameIndex = Math.min(SCROLL_FRAME_COUNT - 1, Math.floor(scrollProgress * SCROLL_FRAME_COUNT));
+
+    // Scroll canvas visibility + opacity
+    const scrollCanvas = document.getElementById('scroll-video-canvas');
+    if (!scrollCanvas || !scrollCanvasCtx) return;
+
+    const shouldShow = scrollProgress > 0.05 && scrollProgress < 1;
+
+    // Hero laptop visibility: hidden as soon as scroll canvas takes over
+    if (heroLaptopNode) heroLaptopNode.visible = !shouldShow;
+
+    // Show scroll canvas: fade in at start, hold through end (no fade-out — video appears behind)
+    const frameReady = scrollFrames[frameIndex] && scrollFrames[frameIndex].complete && scrollFrames[frameIndex].naturalWidth > 0;
+
+    if (shouldShow && frameReady) {
+      // Fade in: 0.05 → 0.12
+      let canvasOpacity = 1;
+      if (scrollProgress < 0.12) {
+        canvasOpacity = (scrollProgress - 0.05) / 0.07;
+      }
+
+      // Once video is showing (>= 0.99), hide canvas to reveal the video underneath
+      if (scrollProgress >= 0.99) {
+        scrollCanvas.style.display = 'none';
+        scrollCanvas.style.opacity = '0';
+      } else {
+        scrollCanvas.style.display = 'block';
+        scrollCanvas.style.opacity = String(canvasOpacity);
+
+        // Only redraw if frame changed (avoid redundant draws)
+        if (frameIndex !== svLastRenderedFrame) {
+          scrollCanvasCtx.clearRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+          scrollCanvasCtx.drawImage(scrollFrames[frameIndex], 0, 0, scrollCanvas.width, scrollCanvas.height);
+          svLastRenderedFrame = frameIndex;
+        }
+      }
+    } else if (!shouldShow) {
+      scrollCanvas.style.display = 'none';
+      scrollCanvas.style.opacity = '0';
+      svLastRenderedFrame = -1;
+    }
+
+    // CSS floor glow (#laptop-light-rays) — same timing as original
+    let zoomProgress = 0;
+    if (scrollProgress > 0.7) {
+      zoomProgress = Math.min(1, (scrollProgress - 0.7) / 0.3);
+    }
+    const spotIntensityMax = 40;
+    let spotT = 0;
+    if (scrollProgress > 0.25 && scrollProgress < 1.0) {
+      spotT = 1;
+      if (scrollProgress < 0.4) {
+        spotT = (scrollProgress - 0.25) / 0.15;
+      } else if (scrollProgress > 0.7) {
+        spotT = 1 - zoomProgress;
+      }
+    }
+    const rays = document.getElementById('laptop-light-rays');
+    if (rays) {
+      if (spotT > 0) {
+        rays.style.display = 'block';
+        rays.style.opacity = String(spotT);
+      } else {
+        rays.style.display = 'none';
+        rays.style.opacity = '0';
+      }
+    }
+
+    // At animation end: show flat content matching the screen rect from last frame
+    const wrap = document.getElementById('flat-video-wrap');
+    const viewHForVideo = window.innerHeight;
+    const viewWForVideo = window.innerWidth;
+
+    if (scrollProgress >= 0.95) {
+      const videoW = viewWForVideo * SCREEN_WIDTH_FRAC;
+      const videoH = viewHForVideo * SCREEN_HEIGHT_FRAC;
+      const videoTop = viewHForVideo * SCREEN_TOP_FRAC;
+
+      if (wrap) {
+        wrap.style.cssText = `
+          display: block;
+          position: fixed;
+          top: ${videoTop}px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: ${videoW}px;
+          height: ${videoH}px;
+          z-index: 45;
+          pointer-events: auto;
+        `;
+      }
+    } else {
+      if (wrap) {
+        wrap.style.cssText = 'display:none; position:fixed; z-index:45; opacity:0;';
+      }
+    }
+  }
+  svRenderLoop();
+}
+
+// ── Old Scroll Listener (real-time 3D overlay system) ──
+if (!USE_SCROLL_VIDEO) {
+let prevScrollY = 0;
+let upScrollStart = 0;
+let upScrollAnchor = -1;
+let lastScrollTime = 0;
+window.addEventListener('scroll', () => {
+  const heroSection = document.querySelector('.hero');
+  const demoSection = document.getElementById('laptop-demo');
+  if (!heroSection || !demoSection) return;
+
+  const heroRect = heroSection.getBoundingClientRect();
+  const demoRect = demoSection.getBoundingClientRect();
+  const viewH = window.innerHeight;
+  const heroBottomRatio = heroRect.bottom / viewH;
+
+  const heroHint = document.querySelector('.hero-scroll-hint');
+  if (heroHint) {
+    const hintFade = Math.max(0, Math.min(1, (1.1 - heroBottomRatio) / 0.1));
+    heroHint.style.opacity = 1 - hintFade;
+  }
+
+  if (flatVideoShown) {
+    const now = performance.now();
+    const dt = now - lastScrollTime;
+    lastScrollTime = now;
+    const scrollDelta = prevScrollY - window.scrollY;
+    const velocity = dt > 0 ? (scrollDelta / dt) * 1000 : 0;
+
+    if (velocity > 3000) {
+      snapOutOfFlatVideo();
+      upScrollStart = 0;
+      upScrollAnchor = -1;
+      prevScrollY = window.scrollY;
+      return;
+    }
+
+    if (demoRect.top > viewH * 0.5) {
+      snapOutOfFlatVideo();
+      upScrollStart = 0;
+      upScrollAnchor = -1;
+    } else if (window.scrollY < prevScrollY) {
+      if (!upScrollStart) {
+        upScrollStart = performance.now();
+        upScrollAnchor = prevScrollY;
+      }
+      const elapsed = performance.now() - upScrollStart;
+      const distance = upScrollAnchor - window.scrollY;
+      if (elapsed > 1000 && distance > 150) {
+        hideFlatVideo();
+        upScrollStart = 0;
+        upScrollAnchor = -1;
+      }
+    } else {
+      upScrollStart = 0;
+      upScrollAnchor = -1;
+    }
+    prevScrollY = window.scrollY;
+    return;
+  }
+  prevScrollY = window.scrollY;
+  lastScrollTime = performance.now();
+
+  const demoTop = demoRect.top;
+  const startThreshold = viewH * 0.8;
+  const scrollDistance = viewH * 0.8;
+  const rawProgress = (startThreshold - demoTop) / scrollDistance;
+  laptopProgress = Math.max(0, Math.min(1, rawProgress));
+
+  if (laptopProgress > 0.7) {
+    zoomProgress = Math.min(1, (laptopProgress - 0.7) / 0.3);
+  } else {
+    zoomProgress = 0;
+  }
+
+  const spotIntensityMax = 40;
+  let spotT = 0;
+  if (laptopProgress > 0.25 && laptopProgress < 1.0 && !flatVideoShown) {
+    spotT = 1;
+    if (laptopProgress < 0.4) {
+      spotT = (laptopProgress - 0.25) / 0.15;
+    } else if (laptopProgress > 0.7) {
+      spotT = 1 - zoomProgress;
+    }
+  }
+  if (window._orangeSpotlight) {
+    window._orangeSpotlight.intensity = spotT * spotIntensityMax;
+  }
+  const rays = document.getElementById('laptop-light-rays');
+  if (rays) {
+    if (spotT > 0) {
+      rays.style.display = 'block';
+      rays.style.opacity = String(spotT);
+    } else {
+      rays.style.display = 'none';
+      rays.style.opacity = '0';
+    }
+  }
+
+  const shouldShowOverlay = laptopProgress > 0.05 && !flatVideoShown;
+  if (heroLaptopNode) heroLaptopNode.visible = !shouldShowOverlay && !flatVideoShown;
+
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  if (overlayCanvas && !flatVideoShown) {
+    if (shouldShowOverlay) {
+      overlayCanvas.style.display = 'block';
+      if (zoomProgress > 0.85) {
+        const crossfade = (zoomProgress - 0.85) / 0.15;
+        overlayCanvas.style.opacity = String(1 - crossfade);
+      } else {
+        overlayCanvas.style.opacity = '1';
+      }
+    } else {
+      overlayCanvas.style.display = 'none';
+      overlayCanvas.style.opacity = '0';
+    }
+  }
+
+  const wrap = document.getElementById('flat-video-wrap');
+  if (wrap && !flatVideoShown && !snapCooldown) {
+    if (zoomProgress > 0.85) {
+      const crossfade = (zoomProgress - 0.85) / 0.15;
+      wrap.style.opacity = String(crossfade);
+    } else {
+      wrap.style.opacity = '0';
+    }
+  }
+
+  if (snapCooldown && laptopProgress < 0.05) {
+    snapCooldown = false;
+  }
+
+  if (zoomProgress >= 1.0 && !flatVideoShown && !snapCooldown && demoRect.top < viewH * 0.3) {
+    showFlatVideo();
+  }
+
+  overlayActive = !flatVideoShown && shouldShowOverlay && demoRect.bottom >= 0;
+}, { passive: true });
+} // end if (!USE_SCROLL_VIDEO)
+
+// Called every frame from animate()
+function updateLaptopAnimation() {
+  if (USE_SCROLL_VIDEO) return; // no-op when using scroll video
+  if (!overlayLaptopNode || !overlayReady || !overlayActive) return;
+
+  const center = window._laptopCenter;
+  if (!center) return;
+
+  const spinProgress = Math.min(1, laptopProgress / 0.7);
+
+  const eased = spinProgress < 0.5
+    ? 2 * spinProgress * spinProgress
+    : 1 - Math.pow(-2 * spinProgress + 2, 2) / 2;
+
+  const zE = zoomProgress < 0.5
+    ? 2 * zoomProgress * zoomProgress
+    : 1 - Math.pow(-2 * zoomProgress + 2, 2) / 2;
+
+  const spinCamZ = 14 + (8 - 14) * eased;
+  const zoomCamZ = 5;
+  const camZ = spinCamZ + (zoomCamZ - spinCamZ) * zE;
+  const camY = center.y;
+  const lookY = center.y;
+
+  overlayCamera.position.set(0, camY, camZ);
+  overlayCamera.lookAt(0, lookY, 0);
+
+  overlayLaptopNode.rotation.y = eased * Math.PI;
+  overlayLaptopNode.rotation.x = 0.5 * zE;
+
+  const fadeOut = Math.min(1, zE / 0.5);
+  const baseMesh = window._overlayBaseMesh;
+  const logoMesh = window._overlayLogoMesh;
+  const screenMesh = window._overlayScreenMesh;
+  if (baseMesh) baseMesh.material.opacity = 1 - fadeOut;
+  if (logoMesh) logoMesh.material.opacity = 1 - fadeOut;
+  if (screenMesh && Array.isArray(screenMesh.material)) {
+    screenMesh.material[1].opacity = 1 - fadeOut;
+  }
+
+  const screenVerts = window._screenFaceVerts;
+  const sMesh = window._overlayScreenMesh;
+  const overlayCanvas = document.getElementById('laptop-overlay-canvas');
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  if (screenVerts && sMesh) {
+    sMesh.updateMatrixWorld(true);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const projected = new THREE.Vector3();
+    for (const localV of screenVerts) {
+      projected.copy(localV).applyMatrix4(sMesh.matrixWorld);
+      projected.project(overlayCamera);
+      const sx = (projected.x * 0.5 + 0.5) * vw;
+      const sy = (1 - (projected.y * 0.5 + 0.5)) * vh;
+      if (sx < minX) minX = sx;
+      if (sx > maxX) maxX = sx;
+      if (sy < minY) minY = sy;
+      if (sy > maxY) maxY = sy;
+    }
+    const scrW = maxX - minX;
+    const scrH = maxY - minY;
+    const scrCX = (minX + maxX) / 2;
+    const scrCY = (minY + maxY) / 2;
+    window._screenRect = { left: minX, top: minY, width: scrW, height: scrH };
+
+    if (zoomProgress > 0 && overlayCanvas && !flatVideoShown) {
+      const dx = (vw / 2) - scrCX;
+      const dy = (vh / 2) - scrCY;
+      overlayCanvas.style.transform = `translate(${dx}px, ${dy}px)`;
+    } else if (overlayCanvas) {
+      overlayCanvas.style.transform = 'none';
+    }
+  }
+
+  updateFlatVideoPlacement();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  smoothMouse.x += (mouse.x - smoothMouse.x) * 0.4;
+  smoothMouse.y += (mouse.y - smoothMouse.y) * 0.4;
+
+  const MAX_ROT = 0.5; // ~29 degrees
+  const tempVec = new THREE.Vector3();
+
+  if (!window._isDragging) headGroups.forEach((group) => {
+    // Get this head's screen-space position
+    tempVec.setFromMatrixPosition(group.matrixWorld);
+    tempVec.project(camera);
+    const headScreenX = tempVec.x; // -1 to 1
+    const headScreenY = tempVec.y; // -1 to 1
+
+    // Direction from this head to the cursor
+    const dx = smoothMouse.x - headScreenX;
+    const dy = smoothMouse.y - headScreenY;
+
+    // Distance from head to cursor (0 = on top, ~2.8 = max diagonal)
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Rotation scales with direction — further cursor = more rotation
+    let targetRotY = dx * 0.5;
+    let targetRotX = -dy * 0.4;
+
+    // Clamp so we never see back of head
+    targetRotY = Math.max(-MAX_ROT, Math.min(MAX_ROT, targetRotY));
+    targetRotX = Math.max(-MAX_ROT, Math.min(MAX_ROT, targetRotX));
+
+    // Wave effect: closer heads react faster, distant heads lag
+    const lerpSpeed = 0.15 + (1.0 / (1.0 + dist * 1.5)) * 0.35;
+
+    group.rotation.y += (targetRotY - group.rotation.y) * lerpSpeed;
+    group.rotation.x += (targetRotX - group.rotation.x) * lerpSpeed;
+  });
+
+  eyelids.forEach((lid) => {
+    if (!lid.userData.basePosition) return;
+    const base = lid.userData.basePosition;
+    lid.position.y = base.y + smoothMouse.y * 2.0;
+  });
+
+  // Animate pupils — horizontal cursor tracking + vertical eyelid motion
+  const PUPIL_MAX_OFFSET = 3.0;
+  pupils.forEach(pupil => {
+    if (!pupil.userData.basePosition) return;
+    const base = pupil.userData.basePosition;
+    // Horizontal + vertical cursor tracking (clamped to circle)
+    const offsetX = smoothMouse.x * PUPIL_MAX_OFFSET;
+    const offsetY = smoothMouse.y * PUPIL_MAX_OFFSET;
+    const len = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    const clampedLen = Math.min(len, PUPIL_MAX_OFFSET);
+    const scale = len > 0 ? clampedLen / len : 0;
+    pupil.position.x = base.x + offsetX * scale;
+    // Combine: eyelid vertical motion (same as eyelids array used) + pupil Y tracking
+    pupil.position.y = base.y + smoothMouse.y * 2.0 + offsetY * scale;
+  });
+
+  // Render through post-processing pipeline
+  composer.render();
+
+  // ── Gap fill: stretch top 3px of 3D canvas to cover the translateY gap ──
+  const gapCanvas = document.getElementById('gap-fill');
+  const gapCtx = gapCanvas.getContext('2d');
+  const srcCanvas = renderer.domElement;
+  if (gapCanvas.width !== srcCanvas.width || gapCanvas.height !== Math.round(srcCanvas.height * 0.14)) {
+    gapCanvas.width = srcCanvas.width;
+    gapCanvas.height = Math.round(srcCanvas.height * 0.14);
+  }
+  // Copy top 3 pixel rows from the 3D render, stretch to fill the gap
+  gapCtx.drawImage(srcCanvas, 0, 0, srcCanvas.width, 3, 0, 0, gapCanvas.width, gapCanvas.height);
+
+  // Update numbered labels
+  if (window._updateLabels) window._updateLabels();
+
+  // Smooth laptop animation + render overlay (old system only)
+  if (!USE_SCROLL_VIDEO) {
+    updateLaptopAnimation();
+    if (overlayActive && overlayReady && overlayRenderer) {
+      overlayRenderer.render(overlayScene, overlayCamera);
+    }
+  }
+}
+
+animate();
+
+// ── Resize ──
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  // Resize gap-fill canvas
+  const gf = document.getElementById('gap-fill');
+  gf.width = window.innerWidth * window.devicePixelRatio;
+  gf.height = Math.round(window.innerHeight * 0.14 * window.devicePixelRatio);
+
+  // Resize overlay canvas (old system only)
+  if (!USE_SCROLL_VIDEO && overlayRenderer && overlayCamera) {
+    overlayRenderer.setSize(window.innerWidth, window.innerHeight);
+    overlayCamera.aspect = window.innerWidth / window.innerHeight;
+    overlayCamera.updateProjectionMatrix();
+  }
+});
+
+// ── Prevent scroll zoom ──
+container.addEventListener('wheel', (e) => e.stopPropagation());
+
+// ── Features Section: Robot Scene Pro ──
+{
+  const featuresSection = document.getElementById('features');
+  const f3d = document.getElementById('features-3d');
+  if (f3d) {
+    console.log('Features 3D: initializing...');
+    const fRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    fRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    fRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    fRenderer.toneMappingExposure = 1.05;
+    fRenderer.physicallyCorrectLights = true;
+    fRenderer.shadowMap.enabled = true;
+    fRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    fRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    fRenderer.domElement.style.position = 'absolute';
+    fRenderer.domElement.style.top = '0';
+    fRenderer.domElement.style.left = '0';
+    f3d.appendChild(fRenderer.domElement);
+
+    const fScene = new THREE.Scene();
+    fScene.background = new THREE.Color(0x000000);
+
+    const fCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 500);
+
+    // Camera sees both layer 0 (robot) and layer 1 (floor)
+    fCamera.layers.enable(1);
+
+    // ── Lighting — light-driven, no HDRI ──
+
+    // Minimal environment map — just enough for material reflections
+    const fEnvScene = new THREE.Scene();
+    fEnvScene.background = new THREE.Color(0x070712);
+    fEnvScene.add(new THREE.Mesh(
+      new THREE.SphereGeometry(20, 32, 32),
+      new THREE.MeshBasicMaterial({ color: 0x070712, side: THREE.BackSide })
+    ));
+    // Single white light for subtle reflection
+    const envKey = new THREE.PointLight(0xffffff, 15, 100);
+    envKey.position.set(5, 5, 5);
+    fEnvScene.add(envKey);
+    const envPurple = new THREE.PointLight(0x4422aa, 8, 100);
+    envPurple.position.set(-5, 3, -3);
+    fEnvScene.add(envPurple);
+    const pmremGen = new THREE.PMREMGenerator(fRenderer);
+    pmremGen.compileEquirectangularShader();
+    const fEnvMap = pmremGen.fromScene(fEnvScene, 0.04).texture;
+    pmremGen.dispose();
+    fScene.environment = fEnvMap;
+
+    // Key light: white, moderate, upper right
+    const fKeyLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    fKeyLight.position.set(6, 8, 6);
+    fKeyLight.castShadow = true;
+    fKeyLight.shadow.mapSize.set(2048, 2048);
+    fKeyLight.shadow.radius = 3;
+    fKeyLight.shadow.bias = -0.0005;
+    fScene.add(fKeyLight);
+
+    // Fill light: soft blue, subtle
+    const fFillLight = new THREE.DirectionalLight(0x6c7cff, 1.2);
+    fFillLight.position.set(-4, 3, 3);
+    fScene.add(fFillLight);
+
+    // Rim light: magenta, behind — creates pink edge highlight
+    const fRimLight = new THREE.DirectionalLight(0xff2ca0, 3.5);
+    fRimLight.position.set(0, 6, -8);
+    fScene.add(fRimLight);
+
+    // Spotlight 1: Purple
+    const fSpotPurple = new THREE.SpotLight(
+      0x883FE0,        // purple
+      160,             // intensity
+      80,              // distance
+      26.0 * Math.PI / 180, // cone angle
+      0.70,            // penumbra
+      1                // decay
+    );
+    fSpotPurple.castShadow = true;
+    fSpotPurple.shadow.mapSize.set(4096, 4096);
+    fSpotPurple.shadow.radius = 20;
+    fSpotPurple.shadow.bias = -0.0005;
+    fSpotPurple.shadow.camera.near = 0.5;
+    fSpotPurple.shadow.camera.far = 50;
+    fSpotPurple.layers.enable(1); // Layer 0+1: lights both robot and floor
+    fScene.add(fSpotPurple);
+    fScene.add(fSpotPurple.target);
+
+    // Spotlight 2: Salmon
+    const fSpotSalmon = new THREE.SpotLight(
+      0xF37E7E,        // salmon/coral
+      50,              // intensity
+      80,              // distance
+      10.0 * Math.PI / 180, // cone angle
+      0.00,            // penumbra
+      1                // decay
+    );
+    fSpotSalmon.castShadow = true;
+    fSpotSalmon.shadow.mapSize.set(4096, 4096);
+    fSpotSalmon.shadow.radius = 20;
+    fSpotSalmon.shadow.bias = -0.0005;
+    fSpotSalmon.shadow.camera.near = 0.5;
+    fSpotSalmon.shadow.camera.far = 50;
+    fSpotSalmon.layers.enable(1); // Layer 0+1: lights both robot and floor
+    fScene.add(fSpotSalmon);
+    fScene.add(fSpotSalmon.target);
+
+    // ── Post-processing: subtle bloom ──
+    const fComposer = new EffectComposer(fRenderer);
+    fComposer.addPass(new RenderPass(fScene, fCamera));
+    const fBloom = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.18, 0.25, 0.88
+    );
+    fComposer.addPass(fBloom);
+    fComposer.addPass(new OutputPass());
+
+    // ── Mouse tracking for head movement ──
+    let fMouseX = 0, fMouseY = 0;
+    let fMouseSmoothedX = 0, fMouseSmoothedY = 0;
+    window.addEventListener('mousemove', (e) => {
+      fMouseX = (e.clientX / window.innerWidth) * 2 - 1;  // -1 to 1
+      fMouseY = (e.clientY / window.innerHeight) * 2 - 1; // -1 to 1
+    }, { passive: true });
+
+    // ── Load Robot Scene Pro GLTF ──
+    let robotModel = null;
+    let robotHead = null;
+    let headBaseRotation = null;
+    // Lazy-load robot GLB when Features section approaches viewport
+    let _robotLoaded = false;
+    const robotLazyObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || _robotLoaded) return;
+      _robotLoaded = true;
+      robotLazyObserver.disconnect();
+      const fGltfLoader = new GLTFLoader();
+      fGltfLoader.setMeshoptDecoder(MeshoptDecoder);
+      fGltfLoader.load('models/robotscenepro-optimized.glb', (gltf) => { try {
+      robotModel = gltf.scene;
+      fScene.add(robotModel);
+
+      // Log all mesh names for debugging material assignment
+      robotModel.traverse((child) => {
+        if (child.isMesh) {
+          console.log(`MESH: "${child.name}" parent="${child.parent?.name}" grandparent="${child.parent?.parent?.name}"`);
+        }
+      });
+
+      // STEP 3: Materials — glossy plastic, not chrome
+      const bodyMat = new THREE.MeshPhysicalMaterial({
+        color: 0x1b0f3a, roughness: 0.28, metalness: 0.35,
+        clearcoat: 0.6, clearcoatRoughness: 0.08,
+      });
+      const eyeMat = new THREE.MeshPhysicalMaterial({
+        color: 0x050505, roughness: 0.15, metalness: 0.1,
+        clearcoat: 0.8, clearcoatRoughness: 0.05,
+        envMapIntensity: 0.2,
+      });
+      const facePlateMat = new THREE.MeshPhysicalMaterial({
+        color: 0xb0aaa0, roughness: 0.45, metalness: 0.1,
+        clearcoat: 0.2,
+        envMapIntensity: 0.3,
+      });
+      const buttonMat = new THREE.MeshPhysicalMaterial({
+        color: 0xff6b35, roughness: 0.2, metalness: 0.0,
+        emissive: 0xff5530, emissiveIntensity: 0.4,
+        clearcoat: 0.5, clearcoatRoughness: 0.05,
+      });
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: 0x999999,      // silver-gray base for rich spotlight colors
+        roughness: 0.40,       // polished
+        metalness: 1.0,        // full metallic
+        envMapIntensity: 0.0,  // no env reflections — only spotlight light reaches floor
+      });
+      const neckMat = new THREE.MeshPhysicalMaterial({
+        color: 0x0a0a14, roughness: 0.18, metalness: 0.85,
+        clearcoat: 0.4,
+      });
+      const torsoMat = new THREE.MeshPhysicalMaterial({
+        color: 0xd8d4d0, roughness: 0.35, metalness: 0.1,
+        clearcoat: 0.4, clearcoatRoughness: 0.1,
+        envMapIntensity: 0.4,
+      });
+
+      const meshesToRemove = [];
+      robotModel.traverse((child) => {
+        if (!child.isMesh) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        const name = (child.name || '').toLowerCase();
+        const parentName = (child.parent?.name || '').toLowerCase();
+        const grandparentName = (child.parent?.parent?.name || '').toLowerCase();
+
+        if (name.includes('boolean') || name.includes('face')) {
+          child.material = facePlateMat;
+        } else if (grandparentName === 'ojos' || parentName === 'ojos') {
+          child.material = eyeMat;
+        } else if (grandparentName === 'cabeza' || parentName === 'cabeza') {
+          child.material = bodyMat;
+        } else if (grandparentName === 'cuerpo' || parentName === 'cuerpo') {
+          child.material = torsoMat;
+        } else if (parentName === 'button' || grandparentName === 'button') {
+          meshesToRemove.push(child);
+        } else if (name === 'plane' || parentName === 'plane') {
+          meshesToRemove.push(child);
+        } else {
+          child.material = bodyMat;
+        }
+      });
+
+      // Remove hidden meshes entirely so they don't skew the bounding box
+      meshesToRemove.forEach(m => m.parent?.remove(m));
+
+      // Grab the head group for cursor-driven movement
+      robotModel.traverse((child) => {
+        if ((child.name || '').toLowerCase() === 'cabeza') {
+          robotHead = child;
+          headBaseRotation = child.rotation.clone();
+        }
+      });
+
+      // Compute bounding box from visible robot parts only
+      const box = new THREE.Box3().setFromObject(robotModel);
+      const center = new THREE.Vector3();
+      const size = new THREE.Vector3();
+      box.getCenter(center);
+      box.getSize(size);
+      console.log(`Model size: ${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}, center: ${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}`);
+
+      // Scale up if model is tiny
+      if (size.y < 1) {
+        console.warn('Model is very small — scaling up 5x');
+        robotModel.scale.setScalar(5);
+        box.setFromObject(robotModel);
+        box.getCenter(center);
+        box.getSize(size);
+      }
+
+      // Position lights relative to model
+      fKeyLight.position.set(center.x + 6, center.y + 6, center.z + 6);
+      fFillLight.position.set(center.x - 4, center.y + 2, center.z + 3);
+      fRimLight.position.set(center.x, center.y + 4, center.z - 8);
+
+      // Floor plane — layer 1 only
+      const floorY = box.min.y;
+      const floorGeo = new THREE.PlaneGeometry(200, 200);
+      const floorMesh = new THREE.Mesh(floorGeo, groundMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.position.set(center.x, floorY, center.z);
+      floorMesh.receiveShadow = true;
+      floorMesh.layers.set(1);
+      fScene.add(floorMesh);
+      let fFloorRef = floorMesh;
+
+      // ── LOCKED VALUES — paste this entire block ──
+      fCamera.position.set(-4.907, 2.351, 1.817);
+      fCamera.lookAt(1.095, -0.744, -1.280);
+      fSpotPurple.position.set(2.30, 3.40, -2.05);
+      fSpotPurple.target.position.set(0.00, -2.44, -2.05);
+      fSpotPurple.intensity = 160;
+      fSpotPurple.angle = 0.4538;
+      fSpotPurple.penumbra = 0.70;
+      fSpotSalmon.position.set(-6.60, 7.80, -6.90);
+      fSpotSalmon.target.position.set(0.70, -2.44, -2.05);
+      fSpotSalmon.intensity = 40;
+      fSpotSalmon.angle = 0.1745;
+      fSpotSalmon.penumbra = 0.00;
+      groundMat.roughness = 0.33;
+      groundMat.metalness = 1.00;
+
+      // Shadow camera config
+      fKeyLight.shadow.camera.near = 0.5;
+      fKeyLight.shadow.camera.far = 50;
+      fKeyLight.shadow.camera.left = -10;
+      fKeyLight.shadow.camera.right = 10;
+      fKeyLight.shadow.camera.top = 10;
+      fKeyLight.shadow.camera.bottom = -10;
+
+      // Disable GLTF embedded lights
+      robotModel.traverse((child) => {
+        if (child.isLight) child.visible = false;
+      });
+
+
+      fNeedsRender = true;
+    } catch(e) { console.error('GLTF callback error:', e); } });
+    }, { rootMargin: '200% 0px' });
+    robotLazyObserver.observe(featuresSection);
+
+    // ── Sizing ──
+    let fNeedsRender = true;
+    let fVisible = false;
+
+    function resizeFeatures() {
+      const rect = f3d.getBoundingClientRect();
+      fRenderer.setSize(rect.width, rect.height);
+      fComposer.setSize(rect.width, rect.height);
+      fCamera.aspect = rect.width / rect.height;
+      fCamera.updateProjectionMatrix();
+      fNeedsRender = true;
+    }
+
+    const fObserver = new IntersectionObserver(([entry]) => {
+      fVisible = entry.isIntersecting;
+      if (fVisible) {
+        fNeedsRender = true;
+        if (!fLoopRunning) featuresLoop();
+      }
+    }, { threshold: 0.05 });
+    fObserver.observe(featuresSection);
+
+    window.addEventListener('resize', resizeFeatures);
+    resizeFeatures();
+
+    // ── Render loop (pauses when section not visible) ──
+    let fLoopRunning = false;
+    function featuresLoop() {
+      if (!fVisible) { fLoopRunning = false; return; }
+      fLoopRunning = true;
+      requestAnimationFrame(featuresLoop);
+
+      // Smooth cursor-driven head movement
+      if (robotHead && headBaseRotation) {
+        const lerp = 0.08;
+        fMouseSmoothedX += (fMouseX - fMouseSmoothedX) * lerp;
+        fMouseSmoothedY += (fMouseY - fMouseSmoothedY) * lerp;
+
+        robotHead.rotation.x = headBaseRotation.x + fMouseSmoothedY * 0.35;
+        robotHead.rotation.y = headBaseRotation.y + fMouseSmoothedX * 0.2;
+      }
+
+      fComposer.render();
+    }
+    featuresLoop();
+  }
+}
+
+// ── Testimonial carousel ──
+{
+  const cards = document.querySelectorAll('.testimonial-card');
+  const dots = document.querySelectorAll('.testimonial-dot');
+  const viewport = document.querySelector('.testimonial-viewport');
+  if (cards.length && viewport) {
+    // Size viewport to tallest card
+    let maxH = 0;
+    cards.forEach(c => {
+      c.style.position = 'relative';
+      maxH = Math.max(maxH, c.offsetHeight);
+      c.style.position = '';
+    });
+    viewport.style.height = maxH + 'px';
+
+    let current = 0;
+    let timer = null;
+
+    function showTestimonial(idx) {
+      cards.forEach(c => c.classList.remove('active'));
+      dots.forEach(d => d.classList.remove('active'));
+      cards[idx].classList.add('active');
+      dots[idx].classList.add('active');
+      current = idx;
+    }
+
+    function next() {
+      showTestimonial((current + 1) % cards.length);
+    }
+
+    function startAutoplay() {
+      clearInterval(timer);
+      timer = setInterval(next, 5000);
+    }
+
+    dots.forEach(d => {
+      d.addEventListener('click', () => {
+        showTestimonial(Number(d.dataset.index));
+        startAutoplay();
+      });
+    });
+
+    startAutoplay();
+  }
+}
+
+// ── Lead Discovery: 3D Characters peeking behind the feed card ──
+{
+  const ldContainer = document.getElementById('ld-character-canvas');
+  const ldSection = document.getElementById('lead-discovery');
+  if (ldContainer && ldSection && window.innerWidth > 768) {
+    const ldRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    ldRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    ldRenderer.setClearColor(0x000000, 0);
+    ldRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    ldRenderer.toneMappingExposure = 1.3;
+    ldRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    ldContainer.appendChild(ldRenderer.domElement);
+
+    const ldScene = new THREE.Scene();
+    const ldCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+    ldCamera.position.set(0, 0, 6);
+    ldCamera.lookAt(0, 0, 0);
+
+    // Environment map — purple studio PMREM (matches hero)
+    const ldEnvScene = new THREE.Scene();
+    ldEnvScene.background = new THREE.Color(0x1a1050);
+    const ldE1 = new THREE.PointLight(0x4466cc, 50, 100); ldE1.position.set(5, 5, 5); ldEnvScene.add(ldE1);
+    const ldE2 = new THREE.PointLight(0x6644aa, 40, 100); ldE2.position.set(-5, 3, -5); ldEnvScene.add(ldE2);
+    const ldE3 = new THREE.PointLight(0x3355dd, 30, 100); ldE3.position.set(0, -3, 5); ldEnvScene.add(ldE3);
+    const ldE4 = new THREE.PointLight(0xddddff, 20, 100); ldE4.position.set(0, 8, 0); ldEnvScene.add(ldE4);
+    ldEnvScene.add(new THREE.Mesh(new THREE.SphereGeometry(20, 32, 32), new THREE.MeshBasicMaterial({ color: 0x1a1050, side: THREE.BackSide })));
+    const ldPmrem = new THREE.PMREMGenerator(ldRenderer);
+    ldPmrem.compileEquirectangularShader();
+    const ldEnvMap = ldPmrem.fromScene(ldEnvScene, 0.04).texture;
+    ldPmrem.dispose();
+    ldScene.environment = ldEnvMap;
+
+    // Lighting — match hero
+    ldScene.add(new THREE.HemisphereLight(0xbbaacc, 0x181040, 1.0));
+    const ldTopSpot = new THREE.SpotLight(0xeeddff, 15.0, 60, Math.PI / 3, 0.7, 0.8);
+    ldTopSpot.position.set(0, 10, 6); ldScene.add(ldTopSpot);
+    const ldBlueUp = new THREE.PointLight(0x3355dd, 5.0, 35);
+    ldBlueUp.position.set(0, -2, 3); ldScene.add(ldBlueUp);
+    const ldFill = new THREE.DirectionalLight(0x998acc, 0.6);
+    ldFill.position.set(0, 2, 10); ldScene.add(ldFill);
+    ldScene.add(new THREE.AmbientLight(0x221838, 0.8));
+    const ldOrangeBack = new THREE.PointLight(0xff6b35, 8.0, 40);
+    ldOrangeBack.position.set(0, 3, -4); ldScene.add(ldOrangeBack);
+
+    // Character loader with head tilt + pupil gaze — clones from cached GLTF
+    function loadLDChar(headIdx, skinColor, scaleVal, headTilt, pupilDir, onDone) {
+      _cachedSceneGltf.then((gltf) => {
+        const model = gltf.scene.clone(true);
+        // Clear userData flags from hero's traversal so this clone starts fresh
+        model.traverse(n => { n.userData = Object.assign({}, n.userData); delete n.userData._done; delete n.userData.skinAssigned; delete n.userData._vcMap; delete n.userData._vcIdx; });
+        model.updateMatrixWorld(true);
+        function isInHeadGroup(n) { let p = n.parent; while (p) { if (p.name === 'Heads') return true; p = p.parent; } return false; }
+        function getHeadGroup(n) { let p = n.parent; while (p && p.parent) { if (p.parent.name === 'Heads') return p; p = p.parent; } return null; }
+        model.traverse(n => { if (n.isMesh) n.visible = false; });
+        const hgs = [];
+        model.traverse(n => {
+          if (!n.isMesh || !isInHeadGroup(n)) return;
+          const v = n.geometry?.attributes?.position?.count || 0;
+          if (v === 3968 || v === 28792) { const hg = getHeadGroup(n); if (hg && !hg.userData._done) { hg.userData._done = true; hgs.push(hg); } }
+        });
+        const chosen = hgs[headIdx];
+        if (!chosen) return;
+        const bodies = [];
+        model.traverse(n => {
+          if (!n.isMesh) return;
+          const pn = n.parent?.name || '', gn = n.parent?.parent?.name || '';
+          if (pn === 'Bodies' || gn === 'Bodies') { const wp = new THREE.Vector3(); n.getWorldPosition(wp); bodies.push({ mesh: n, wp }); }
+        });
+        const headWP = new THREE.Vector3(); chosen.getWorldPosition(headWP);
+        let mb = null, bd = Infinity;
+        bodies.forEach(b => { const d = Math.sqrt((b.wp.x - headWP.x)**2 + (b.wp.z - headWP.z)**2); if (d < bd) { bd = d; mb = b.mesh; } });
+        chosen.traverse(n => { if (n.isMesh) n.visible = true; });
+        if (mb) mb.visible = true;
+        chosen.traverse(n => {
+          if (!n.isMesh) return;
+          const v = n.geometry?.attributes?.position?.count || 0;
+          if (v === 3968 || v === 28792) n.material = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5 });
+          else if (v === 294) n.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.05, emissive: 0xffffff, emissiveIntensity: 0.15, envMapIntensity: 1.0 });
+          else if (v === 147) n.material = new THREE.MeshStandardMaterial({ color: 0x050508, roughness: 0.08, metalness: 0.15, envMapIntensity: 1.5 });
+          else if (v === 563) n.material = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8 });
+          else if (headIdx === 9) {
+            if (!chosen.userData._vcMap) { chosen.userData._vcMap = {}; chosen.userData._vcIdx = 0; }
+            if (!(v in chosen.userData._vcMap)) chosen.userData._vcMap[v] = chosen.userData._vcIdx++;
+            if (chosen.userData._vcMap[v] < 3) n.material = new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.35, metalness: 0.1, envMapIntensity: 0.8 });
+            else n.material = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5 });
+          }
+          else n.material = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5, metalness: 0.0, envMapIntensity: 0.5 });
+        });
+        if (mb) mb.material = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.85, metalness: 0.0, envMapIntensity: 0.3 });
+
+        // Collect all 147-vert meshes in head group as pupils/eyelids
+        const pupilMeshes = [];
+        chosen.traverse(n => {
+          if (n.isMesh && (n.geometry?.attributes?.position?.count || 0) === 147) pupilMeshes.push(n);
+        });
+
+        const box = new THREE.Box3();
+        model.traverse(n => { if (n.isMesh && n.visible) { n.geometry.computeBoundingBox(); const b = n.geometry.boundingBox.clone(); b.applyMatrix4(n.matrixWorld); box.union(b); } });
+        const center = box.getCenter(new THREE.Vector3());
+        const group = new THREE.Group();
+        group.add(model);
+        model.position.set(-center.x, -center.y, -center.z);
+        group.scale.setScalar(scaleVal);
+
+        // Apply head tilt + pupil offset AFTER centering
+        if (headTilt) { chosen.rotation.x += headTilt[0]; chosen.rotation.y += headTilt[1]; }
+        if (pupilDir) pupilMeshes.forEach(p => { p.position.x += pupilDir[0]; p.position.y += pupilDir[1]; });
+
+        ldScene.add(group);
+        onDone(group);
+      });
+    }
+
+    // ── All 4 characters — wave order: Purple → Green → Blue → Orange ──
+    // ldAnimDir: 1 = entering, -1 = exiting, 0 = idle
+    let ldVisible = false, ldAnimDir = 0, ldAnimT = 0;
+    const CHAR_DUR = 0.5;
+    const LD_ANIM_SPEED = 0.012;
+
+    const ldChars = [
+      { idx: 12, skin: 0x8855cc, sc: 0.350, delay: 0.00,
+        headTilt: [0.42, -0.15], pupilDir: [0.006, -0.027],
+        start: { pos: [-0.59, 0.25, 0.00], rot: [0.25, 0.51, 0.46] },
+        end:   { pos: [-1.31, 0.99, 0.00], rot: [0.25, 0.51, 0.46] } },
+      { idx: 9,  skin: 0x33aa55, sc: 0.370, delay: 0.15,
+        headTilt: [0.74, 0.03], pupilDir: null,
+        start: { pos: [-0.25, -0.38, 0.00], rot: [0.00, 0.00, 0.23] },
+        end:   { pos: [-0.43, 0.47, 0.00], rot: [0.00, 0.00, 0.23] } },
+      { idx: 1,  skin: 0x3399dd, sc: 0.350, delay: 0.30,
+        headTilt: [0.69, 0.02], pupilDir: null,
+        start: { pos: [0.18, -0.36, 0.00], rot: [-0.02, -0.16, -0.19] },
+        end:   { pos: [0.34, 0.43, 0.00], rot: [-0.02, -0.16, -0.19] } },
+      { idx: 3,  skin: 0xff6b35, sc: 0.325, delay: 0.45,
+        headTilt: [0.45, 0.07], pupilDir: [0.295, 0.164],
+        start: { pos: [0.41, 0.15, 0.00], rot: [0.08, -0.44, -0.51] },
+        end:   { pos: [1.25, 1.04, 0.00], rot: [0.08, -0.44, -0.51] } },
+    ];
+
+    const ldGroups = [];
+    let ldLoadCount = 0;
+
+    ldChars.forEach((def, i) => {
+      loadLDChar(def.idx, def.skin, def.sc, def.headTilt, def.pupilDir, (group) => {
+        group.position.set(...def.start.pos);
+        group.rotation.set(...def.start.rot);
+        ldGroups[i] = { group, def };
+        ldLoadCount++;
+        if (ldVisible && ldAnimDir === 0 && ldLoadCount === ldChars.length) {
+          ldAnimDir = 1;
+        }
+      });
+    });
+
+    // Visibility observer — triggers enter and exit
+    const ldObserver = new IntersectionObserver(([entry]) => {
+      ldVisible = entry.isIntersecting;
+      if (ldLoadCount < ldChars.length) return;
+      if (ldVisible && ldAnimDir !== 1) {
+        ldAnimDir = 1; // start entering (or reverse mid-exit)
+        if (!ldLoopRunning) ldLoop();
+      } else if (!ldVisible && ldAnimDir !== -1 && ldAnimT > 0) {
+        ldAnimDir = -1; // start exiting (or reverse mid-enter)
+        if (!ldLoopRunning) ldLoop();
+      }
+    }, { threshold: 0.05 });
+    ldObserver.observe(ldSection);
+
+    // Resize
+    function resizeLD() {
+      const rect = ldContainer.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        ldRenderer.setSize(rect.width, rect.height);
+        ldCamera.aspect = rect.width / rect.height;
+        ldCamera.updateProjectionMatrix();
+      }
+    }
+    window.addEventListener('resize', resizeLD);
+    resizeLD();
+
+    function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    const ldMaxT = ldChars[ldChars.length - 1].delay + CHAR_DUR;
+
+    // Render loop — wave stagger animation + idle bob (bidirectional)
+    let ldLoopRunning = false;
+    function ldLoop() {
+      if (!ldVisible && ldAnimDir === 0) { ldLoopRunning = false; return; }
+      ldLoopRunning = true;
+      requestAnimationFrame(ldLoop);
+      const now = Date.now() * 0.001;
+
+      if (ldAnimDir !== 0) {
+        ldAnimT = ldAnimT + LD_ANIM_SPEED * ldAnimDir;
+
+        // Clamp and stop at boundaries
+        if (ldAnimT >= ldMaxT) { ldAnimT = ldMaxT; ldAnimDir = 0; }
+        if (ldAnimT <= 0)      { ldAnimT = 0;      ldAnimDir = 0; }
+
+        ldGroups.forEach((fg, i) => {
+          if (!fg) return;
+          const d = fg.def;
+          const charT = Math.max(0, Math.min(1, (ldAnimT - d.delay) / CHAR_DUR));
+          const e = easeInOut(charT);
+
+          const px = d.start.pos[0] + (d.end.pos[0] - d.start.pos[0]) * e;
+          const py = d.start.pos[1] + (d.end.pos[1] - d.start.pos[1]) * e;
+          const pz = d.start.pos[2] + (d.end.pos[2] - d.start.pos[2]) * e;
+          const bob = (ldAnimDir === 0 && ldAnimT === ldMaxT) ? Math.sin(now * 1.2 + i * 1.7) * 0.015 : 0;
+
+          fg.group.position.set(px, py + bob, pz);
+          fg.group.rotation.set(
+            d.start.rot[0] + (d.end.rot[0] - d.start.rot[0]) * e,
+            d.start.rot[1] + (d.end.rot[1] - d.start.rot[1]) * e,
+            d.start.rot[2] + (d.end.rot[2] - d.start.rot[2]) * e
+          );
+        });
+      } else if (ldAnimT === ldMaxT) {
+        // Idle bob when fully entered
+        ldGroups.forEach((fg, i) => {
+          if (!fg) return;
+          const d = fg.def;
+          const bob = Math.sin(now * 1.2 + i * 1.7) * 0.015;
+          fg.group.position.y = d.end.pos[1] + bob;
+        });
+      }
+
+      ldRenderer.render(ldScene, ldCamera);
+    }
+    ldLoop();
+  }
+}
+
+// ── Pricing Section: Three.js Stencil Portal + HTML Overlay ──
+{
+  // ── Simplex 3D noise (compact implementation) ──
+  const _sGrad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+  const _sPerm = new Uint8Array(512);
+  {
+    const p = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,
+    247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,
+    74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,
+    65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,
+    52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,
+    119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,
+    218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,
+    157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180];
+    for (let i = 0; i < 256; i++) { _sPerm[i] = _sPerm[i + 256] = p[i]; }
+  }
+  function simplex3(x, y, z) {
+    const F3 = 1/3, G3 = 1/6;
+    const s = (x+y+z)*F3;
+    const i = Math.floor(x+s), j = Math.floor(y+s), k = Math.floor(z+s);
+    const t = (i+j+k)*G3;
+    const X0 = i-t, Y0 = j-t, Z0 = k-t;
+    const x0 = x-X0, y0 = y-Y0, z0 = z-Z0;
+    let i1,j1,k1,i2,j2,k2;
+    if(x0>=y0){if(y0>=z0){i1=1;j1=0;k1=0;i2=1;j2=1;k2=0;}else if(x0>=z0){i1=1;j1=0;k1=0;i2=1;j2=0;k2=1;}else{i1=0;j1=0;k1=1;i2=1;j2=0;k2=1;}}
+    else{if(y0<z0){i1=0;j1=0;k1=1;i2=0;j2=1;k2=1;}else if(x0<z0){i1=0;j1=1;k1=0;i2=0;j2=1;k2=1;}else{i1=0;j1=1;k1=0;i2=1;j2=1;k2=0;}}
+    const x1=x0-i1+G3,y1=y0-j1+G3,z1=z0-k1+G3;
+    const x2=x0-i2+2*G3,y2=y0-j2+2*G3,z2=z0-k2+2*G3;
+    const x3=x0-1+3*G3,y3=y0-1+3*G3,z3=z0-1+3*G3;
+    const ii=i&255,jj=j&255,kk=k&255;
+    let n0=0,n1=0,n2=0,n3=0;
+    let t0=0.6-x0*x0-y0*y0-z0*z0;if(t0>0){t0*=t0;const g=_sGrad3[_sPerm[ii+_sPerm[jj+_sPerm[kk]]]%12];n0=t0*t0*(g[0]*x0+g[1]*y0+g[2]*z0);}
+    let t1=0.6-x1*x1-y1*y1-z1*z1;if(t1>0){t1*=t1;const g=_sGrad3[_sPerm[ii+i1+_sPerm[jj+j1+_sPerm[kk+k1]]]%12];n1=t1*t1*(g[0]*x1+g[1]*y1+g[2]*z1);}
+    let t2=0.6-x2*x2-y2*y2-z2*z2;if(t2>0){t2*=t2;const g=_sGrad3[_sPerm[ii+i2+_sPerm[jj+j2+_sPerm[kk+k2]]]%12];n2=t2*t2*(g[0]*x2+g[1]*y2+g[2]*z2);}
+    let t3=0.6-x3*x3-y3*y3-z3*z3;if(t3>0){t3*=t3;const g=_sGrad3[_sPerm[ii+1+_sPerm[jj+1+_sPerm[kk+1]]]%12];n3=t3*t3*(g[0]*x3+g[1]*y3+g[2]*z3);}
+    return 32*(n0+n1+n2+n3); // range ~ -1 to 1
+  }
+
+  const p3dWrap = document.getElementById('pricing-3d-wrap');
+
+  if (p3dWrap && window.innerWidth > 768) {
+    // Populate pricing overlay cards
+    const checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    const overlay = document.getElementById('pricing-overlay');
+    overlay.style.display = 'none';
+
+    // ── Three.js Stencil Portal Renderer ──
+    const pCanvas = document.getElementById('pricing-3d-canvas');
+    const pRenderer = new THREE.WebGLRenderer({
+      canvas: pCanvas, antialias: true, alpha: false, stencil: true
+    });
+    pRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    pRenderer.setClearColor(0x0d0b1a, 1);
+    pRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    pRenderer.toneMappingExposure = 1.0;
+
+    // Sizing
+    const pRect = p3dWrap.getBoundingClientRect();
+    let pW = pRect.width, pH = pRect.height;
+    pRenderer.setSize(pW, pH);
+
+    // Orthographic camera matching GLTF specs
+    const halfH = 5.0;
+    let halfW = halfH * (pW / pH);
+    const pCamera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 100);
+    pCamera.position.set(0.25, 0.153, 10.0);
+    pCamera.lookAt(0.25, 0.153, 0);
+
+    const pScene = new THREE.Scene();
+    pScene.background = new THREE.Color(0x0d0b1a);
+
+    // EffectComposer with stencil-enabled render target
+    const pRT = new THREE.WebGLRenderTarget(pW * pRenderer.getPixelRatio(), pH * pRenderer.getPixelRatio(), {
+      stencilBuffer: true, depthBuffer: true, type: THREE.HalfFloatType
+    });
+    const pComposer = new EffectComposer(pRenderer, pRT);
+    const pRenderPass = new RenderPass(pScene, pCamera);
+    pComposer.addPass(pRenderPass);
+    const pBloom = new UnrealBloomPass(new THREE.Vector2(pW, pH), 0.3, 0.4, 0.85);
+    pComposer.addPass(pBloom);
+    const pOutput = new OutputPass();
+    pComposer.addPass(pOutput);
+
+    // Lighting
+    const pAmbient = new THREE.AmbientLight(0xfff5e6, 0.8);
+    pScene.add(pAmbient);
+    const pDirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    pDirLight.position.set(5, 8, 10);
+    pScene.add(pDirLight);
+    const pPointLight = new THREE.PointLight(0x88bbff, 0.6, 30);
+    pPointLight.position.set(0, 2, 5);
+    pScene.add(pPointLight);
+
+    // PMREM environment map for reflections
+    const pPmremGen = new THREE.PMREMGenerator(pRenderer);
+    pPmremGen.compileEquirectangularShader();
+    const pEnvScene = new THREE.Scene();
+    pEnvScene.add(new THREE.PointLight(0x00ccaa, 8, 50).translateTo ? new THREE.PointLight(0x00ccaa, 8, 50) : (() => { const l = new THREE.PointLight(0x00ccaa, 8, 50); l.position.set(3, 5, -3); return l; })());
+    pEnvScene.add((() => { const l = new THREE.PointLight(0x4488ff, 6, 50); l.position.set(-3, 3, 5); return l; })());
+    pEnvScene.add((() => { const l = new THREE.PointLight(0x00aa88, 4, 50); l.position.set(0, -2, -5); return l; })());
+    const pEnvMap = pPmremGen.fromScene(pEnvScene, 0, 0.1, 100).texture;
+    pScene.environment = pEnvMap;
+    pPmremGen.dispose();
+
+    // Animation state
+    let pAnimStart = 0;
+    let pVisible = false;
+    let pLoaded = false;
+    let pWaveOriginal = null;
+    let pComputer = null, pComputerBase = null;
+    let pEllipses = [], pEllipseBases = [];
+    let pWaveMesh = null, pWaveBase = null, pWaveParent = null, pWaveCenterX = 0, pWaveCenterY = 0, pWaveCenterZ = 0;
+    const pPanelPairs = []; // {mask, clone, baseY} for bob animation
+
+    // Names to hide (text/button/icon nodes replaced by HTML overlay)
+    const hideNames = [
+      'per month', 'text', 'subscribe', 'period', 'plan', 'currency', 'price',
+      'feature', 'cta button', 'feature component', 'feature component instance',
+      'feature component instance 2', 'shape 0', 'icon'
+    ];
+
+    // Glass card node indices (names from GLTF)
+    const glassCardNames = ['Glass Card', 'Glass Card 2', 'Glass Card 3'];
+    const glassUiNames = ['Glass UI', 'Glass UI 2', 'Glass UI 3'];
+
+    // Load GLTF lazily on intersection
+    const pLoadObs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !pLoaded) {
+        pLoaded = true;
+        pLoadObs.disconnect();
+        loadPricingGLTF();
+      }
+    }, { threshold: 0.01, rootMargin: '200px' });
+    pLoadObs.observe(p3dWrap);
+
+    function loadPricingGLTF() {
+      const loader = new GLTFLoader();
+      loader.load('./models/3duipricing.gltf', (gltf) => {
+        const root = gltf.scene;
+
+        const glassCards = [];
+        const glassUIs = [];
+        let waveMesh = null;
+        let computerGroup = null;
+        const ellipses = [];
+
+        // Traverse and classify nodes
+        root.traverse((node) => {
+          const name = (node.name || '').trim();
+          const nameLower = name.toLowerCase();
+
+          // Hide text/button/icon nodes
+          if (hideNames.some(h => nameLower === h)) {
+            node.visible = false;
+            return;
+          }
+
+          // Hide the Cube backdrop
+          if (name === 'Cube') { node.visible = false; return; }
+
+          // Hide embedded lights from GLTF
+          if (node.isLight) { node.visible = false; return; }
+
+          // Hide the GLTF camera
+          if (node.isCamera) { node.visible = false; return; }
+
+          // Identify glass cards
+          if (name === 'Glass Card 1' || name === 'Glass Card 2' || name === 'Glass Card 3') {
+            glassCards.push(node);
+          }
+
+
+          // Identify glass UI
+          if (name === 'Glass UI' || name === 'Glass UI 2' || name === 'Glass UI 3') {
+            glassUIs.push(node);
+          }
+
+          // Wave / ribbon
+          if (name === 'Path 4') { waveMesh = node; }
+
+          // Computer
+          if (name === 'Computer') { computerGroup = node; }
+
+          // Ellipses
+          if (name === 'Glass-Elipse') { ellipses.push(node); }
+        });
+
+        // ── Collect sets for targeted overrides ──
+        const glassCardMeshes = new Set();
+        const waveMeshes = new Set();
+        const computerMeshes = new Set();
+        const ellipseMeshes = new Set();
+        const hiddenNodes = new Set();
+
+        glassCards.forEach(c => c.traverse(n => { if (n.isMesh) glassCardMeshes.add(n); }));
+        if (waveMesh) waveMesh.traverse(n => { if (n.isMesh) waveMeshes.add(n); });
+        if (computerGroup) computerGroup.traverse(n => { if (n.isMesh) computerMeshes.add(n); });
+        ellipses.forEach(e => e.traverse(n => { if (n.isMesh) ellipseMeshes.add(n); }));
+        glassUIs.forEach(u => u.traverse(n => { if (n.isMesh) glassCardMeshes.add(n); }));
+
+        // ── Stencil Portal: Glass Cards as masks ──
+        // ── Glass Cards: solid blue panels ──
+        glassCardMeshes.forEach((mesh) => {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0x2255dd,
+            emissive: 0x1144bb,
+            emissiveIntensity: 0.4,
+            roughness: 0.3,
+            metalness: 0.2,
+          });
+          mesh.renderOrder = 1;
+        });
+
+        // ── Wave (Path 4): red, no stencil, always visible ──
+        waveMeshes.forEach((mesh) => {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0xdd2200,
+            emissive: 0xcc1100,
+            emissiveIntensity: 0.6,
+            roughness: 0.3,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
+          });
+          mesh.renderOrder = 0;
+
+          if (mesh.geometry && mesh.geometry.attributes.position && !pWaveMesh) {
+            const pos = mesh.geometry.attributes.position;
+            pWaveOriginal = new Float32Array(pos.array);
+            pWaveMesh = mesh;
+          }
+        });
+        if (waveMesh) {
+          pWaveParent = waveMesh;
+          pWaveBase = { rz: waveMesh.rotation.z, rx: waveMesh.rotation.x, ry: waveMesh.rotation.y };
+        }
+
+        // ── Catch-all: override ALL remaining meshes by name ──
+        const waveMeshSet = new Set(); // track wave meshes found by catch-all
+        root.traverse((node) => {
+          if (!node.isMesh) return;
+          if (node.visible === false) return;
+          if (computerMeshes.has(node)) return;
+          if (ellipseMeshes.has(node)) return;
+
+          const n = (node.name || '').toLowerCase();
+          const pn = (node.parent?.name || '').toLowerCase();
+
+          // Wave = red, stencil-tested (only visible through panels)
+          if (n.includes('path') || pn.includes('bg') || pn.includes('path')) {
+            node.material = new THREE.MeshStandardMaterial({
+              color: 0xdd2200,
+              emissive: 0xcc1100,
+              emissiveIntensity: 0.5,
+              roughness: 0.35,
+              metalness: 0.15,
+              side: THREE.DoubleSide,
+              flatShading: false,
+              stencilWrite: true,
+              stencilRef: 1,
+              stencilFunc: THREE.EqualStencilFunc,
+              stencilFail: THREE.KeepStencilOp,
+              stencilZFail: THREE.KeepStencilOp,
+              stencilZPass: THREE.KeepStencilOp,
+            });
+            node.renderOrder = 1;
+            waveMeshSet.add(node);
+            if (node.geometry?.attributes?.position && !pWaveMesh) {
+              pWaveOriginal = new Float32Array(node.geometry.attributes.position.array);
+              pWaveMesh = node;
+              // Compute center X/Y/Z so twist rotates around the ribbon's own axis
+              let sumX = 0, sumY = 0, sumZ = 0, count = 0;
+              for (let vi = 0; vi < pWaveOriginal.length; vi += 3) {
+                sumX += pWaveOriginal[vi];
+                sumY += pWaveOriginal[vi + 1];
+                sumZ += pWaveOriginal[vi + 2];
+                count++;
+              }
+              pWaveCenterX = sumX / count;
+              pWaveCenterY = sumY / count;
+              pWaveCenterZ = sumZ / count;
+              console.log('Wave center X:', pWaveCenterX, 'Y:', pWaveCenterY, 'Z:', pWaveCenterZ, 'verts:', count);
+            }
+            return;
+          }
+
+          // Only Glass Card / Glass UI meshes become blue panels — hide everything else
+          if (!n.includes('glass')) {
+            node.visible = false;
+            return;
+          }
+
+          // Stencil-writing blue panel + transparent glass clone on top
+          node.material = new THREE.MeshBasicMaterial({
+            colorWrite: false,
+            depthWrite: false,
+            stencilWrite: true,
+            stencilRef: 1,
+            stencilFunc: THREE.AlwaysStencilFunc,
+            stencilZPass: THREE.ReplaceStencilOp,
+            stencilFail: THREE.KeepStencilOp,
+            stencilZFail: THREE.KeepStencilOp,
+          });
+          node.renderOrder = 0;
+
+          // Clone as semi-transparent blue glass on top
+          const blueClone = node.clone();
+          blueClone.material = new THREE.MeshPhysicalMaterial({
+            color: 0x2255dd,
+            emissive: 0x1144bb,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.4,
+            roughness: 0.2,
+            metalness: 0.2,
+            depthWrite: false,
+          });
+          blueClone.renderOrder = 2;
+          blueClone.position.z += 0.01;
+          node.parent.add(blueClone);
+        });
+
+        // ── Collect Card parent groups for bob animation ──
+        // Walk up from each glass card mesh to find the Card group
+        const bobGroupsSeen = new Set();
+        root.traverse((node) => {
+          const n = (node.name || '').trim();
+          if (n.startsWith('Card ') && !bobGroupsSeen.has(node)) {
+            bobGroupsSeen.add(node);
+            pPanelPairs.push({ group: node, baseY: node.position.y });
+          }
+        });
+        console.log('Bob groups found:', pPanelPairs.length, pPanelPairs.map(p => p.group.name));
+
+        // ── Computer: dark body + green emissive screen ──
+        if (computerGroup) {
+          pComputer = computerGroup;
+          computerGroup.traverse((child) => {
+            if (child.isMesh) {
+              const name = (child.name || '').toLowerCase();
+              if (name.includes('screen') || name.includes('display') || name.includes('rectangle')) {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0x001100,
+                  emissive: 0x00ff66,
+                  emissiveIntensity: 0.4,
+                  roughness: 0.1,
+                  metalness: 0.5,
+                });
+              } else {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0x1a1a2e,
+                  roughness: 0.4,
+                  metalness: 0.6,
+                });
+              }
+              child.renderOrder = 3;
+            }
+          });
+        }
+
+        // ── Glass-Elipses: metallic with clearcoat ──
+        ellipses.forEach((e) => {
+          e.traverse((child) => {
+            if (child.isMesh) {
+              child.material = new THREE.MeshPhysicalMaterial({
+                color: 0x2a2a3e,
+                roughness: 0.2,
+                metalness: 0.8,
+                clearcoat: 0.6,
+                clearcoatRoughness: 0.1,
+                envMapIntensity: 1.2,
+              });
+              child.renderOrder = 3;
+            }
+          });
+        });
+
+        // Store animation bases
+        pEllipses = ellipses;
+        pEllipseBases = ellipses.map(e => ({
+          sx: e.scale.x, sy: e.scale.y, sz: e.scale.z,
+        }));
+        if (pComputer) {
+          pComputerBase = {
+            px: pComputer.position.x, py: pComputer.position.y, pz: pComputer.position.z,
+            rx: pComputer.rotation.x, ry: pComputer.rotation.y, rz: pComputer.rotation.z,
+          };
+        }
+
+        // Ensure wave rotation target is set — use parent group if available
+        if (!pWaveParent && pWaveMesh) {
+          pWaveParent = pWaveMesh.parent || pWaveMesh;
+        }
+        if (pWaveParent && !pWaveBase) {
+          pWaveBase = { rz: pWaveParent.rotation.z, rx: pWaveParent.rotation.x, ry: pWaveParent.rotation.y };
+        }
+
+        pScene.add(root);
+        pAnimStart = performance.now();
+        console.log('Pricing 3D loaded. Cards:', glassCards.length, 'Wave:', !!waveMesh, 'WaveParent:', !!pWaveParent, 'WaveBase:', !!pWaveBase, 'Computer:', !!computerGroup, 'Ellipses:', ellipses.length);
+
+        // Start render loop
+        pVisible = true;
+        pricingLoop();
+      }, undefined, (err) => {
+        console.error('Pricing GLTF load error:', err);
+      });
+    }
+
+    // Visibility observer for pausing
+    const pVisObs = new IntersectionObserver(([entry]) => {
+      const wasVisible = pVisible;
+      pVisible = entry.isIntersecting;
+      if (pVisible && !wasVisible && pLoaded) pricingLoop();
+    }, { threshold: 0.05 });
+    pVisObs.observe(p3dWrap);
+
+    function pricingLoop() {
+      if (!pVisible) return;
+      requestAnimationFrame(pricingLoop);
+      const elapsed = performance.now() - pAnimStart;
+      const t = elapsed * 0.001; // seconds
+
+      // Wave fluid flow — simplex noise displacement for organic motion
+      // Each vertex moves independently but smoothly, like cloth in a breeze
+      if (pWaveMesh && pWaveOriginal) {
+        const posAttr = pWaveMesh.geometry.attributes.position;
+        const arr = posAttr.array;
+        const scale = 0.003;  // spatial frequency — how "tight" the flow pattern is
+        const speed = 0.3;    // time speed — how fast it flows
+        const ampY = 20;      // Y displacement amplitude
+        const ampZ = 15;      // Z displacement amplitude (depth variation for lighting)
+        for (let i = 0; i < arr.length; i += 3) {
+          const ox = pWaveOriginal[i];
+          const oy = pWaveOriginal[i + 1];
+          const oz = pWaveOriginal[i + 2];
+
+          // Layer multiple noise octaves for organic complexity
+          const nx = ox * scale, ny = oy * scale;
+          const n1 = simplex3(nx, ny, t * speed);
+          const n2 = simplex3(nx * 2.0, ny * 2.0, t * speed + 100) * 0.5;
+          const n3 = simplex3(nx * 4.0, ny * 4.0, t * speed + 200) * 0.25;
+          const combined = n1 + n2 + n3; // range ~ -1.75 to 1.75
+
+          arr[i]     = ox;                        // X stays put
+          arr[i + 1] = oy + combined * ampY;      // Y flows organically
+          arr[i + 2] = oz + combined * ampZ;      // Z creates depth for lighting
+        }
+        posAttr.needsUpdate = true;
+        pWaveMesh.geometry.computeVertexNormals();
+      }
+
+      // Computer gentle float
+      if (pComputer && pComputerBase) {
+        const bob = Math.sin(elapsed * 0.001) * 0.05;
+        pComputer.position.y = pComputerBase.py + bob;
+        const swing = Math.sin(elapsed * 0.0008) * 0.5 + 0.5;
+        pComputer.rotation.x = pComputerBase.rx + (swing - 0.5) * 0.06;
+        pComputer.rotation.y = pComputerBase.ry + (swing - 0.5) * 0.05;
+      }
+
+      // Panel bob hover (moves entire Card group)
+      pPanelPairs.forEach((p, i) => {
+        const bob = Math.sin(elapsed * 0.0012 + i * 1.5) * 15;
+        p.group.position.y = p.baseY + bob;
+      });
+
+      // Ellipse pulse
+      pEllipses.forEach((e, i) => {
+        const phase = elapsed * 0.001 * Math.PI / 3 + i * 1.2;
+        const pulse = 1 + Math.sin(phase) * 0.02;
+        e.scale.x = pEllipseBases[i].sx * pulse;
+        e.scale.y = pEllipseBases[i].sy * pulse;
+        e.scale.z = pEllipseBases[i].sz * pulse;
+      });
+
+      pComposer.render();
+    }
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      const rect = p3dWrap.getBoundingClientRect();
+      pW = rect.width; pH = rect.height;
+      if (pW === 0 || pH === 0) return;
+      pRenderer.setSize(pW, pH);
+      halfW = halfH * (pW / pH);
+      pCamera.left = -halfW; pCamera.right = halfW;
+      pCamera.top = halfH; pCamera.bottom = -halfH;
+      pCamera.updateProjectionMatrix();
+      const pr = pRenderer.getPixelRatio();
+      pComposer.setSize(pW * pr, pH * pr);
+      pBloom.resolution.set(pW, pH);
+    });
+  }
+}
+</script>
+
+<script>
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => { nav.classList.toggle('scrolled', window.scrollY > 50); });
+
+// ── Mobile hamburger menu ──
+const hamburger = document.getElementById('nav-hamburger');
+const navLinks = document.getElementById('nav-links');
+hamburger.addEventListener('click', () => { navLinks.classList.toggle('open'); });
+navLinks.querySelectorAll('a').forEach(a => { a.addEventListener('click', () => { navLinks.classList.remove('open'); }); });
+
+// ── Scroll spy: highlight active nav link ──
+const spySections = ['laptop-demo', 'lead-discovery', 'features', 'pricing'];
+const navAnchors = {};
+navLinks.querySelectorAll('a[href^="#"]').forEach(a => { navAnchors[a.getAttribute('href').slice(1)] = a; });
+const spyObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      Object.values(navAnchors).forEach(a => a.classList.remove('active'));
+      if (navAnchors[e.target.id]) navAnchors[e.target.id].classList.add('active');
+    }
+  });
+}, { rootMargin: '-40% 0px -60% 0px' });
+spySections.forEach(id => { const el = document.getElementById(id); if (el) spyObserver.observe(el); });
+const fadeObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-in').forEach(el => fadeObserver.observe(el));
+
+// ── Pricing toggle ──
+(function() {
+  const section = document.getElementById('pricing');
+  const btn = document.getElementById('pricing-toggle-btn');
+  const lblMonthly = document.getElementById('toggle-monthly');
+  const lblYearly = document.getElementById('toggle-yearly');
+  btn.addEventListener('click', () => {
+    const isYearly = section.dataset.billing === 'yearly';
+    section.dataset.billing = isYearly ? 'monthly' : 'yearly';
+    lblMonthly.classList.toggle('active', isYearly);
+    lblYearly.classList.toggle('active', !isYearly);
+    document.querySelectorAll('.pricing-amount').forEach(el => {
+      el.textContent = isYearly ? el.dataset.monthly : el.dataset.yearly;
+    });
+    // Also update 3D overlay amounts
+    document.querySelectorAll('.po-amount[data-monthly]').forEach(el => {
+      el.textContent = isYearly ? el.dataset.monthly : el.dataset.yearly;
+    });
+  });
+})();
+
+// ── Lead Discovery feed animation ──
+(function() {
+  const leads = [
+    { sub: 'r/smallbusiness', time: '2m ago', text: 'Looking for a simple project management tool for a 5-person team', score: '9.2' },
+    { sub: 'r/SaaS', time: '4m ago', text: 'Any recommendations for customer onboarding software?', score: '8.5' },
+    { sub: 'r/marketing', time: '6m ago', text: 'Need an affordable social media scheduling tool for my agency', score: '8.8' },
+    { sub: 'r/webdev', time: '3m ago', text: 'What are you using for error monitoring? Sentry alternatives?', score: '7.5' },
+    { sub: 'r/startups', time: '7m ago', text: 'Best tool for creating landing pages without a developer?', score: '9.0' },
+    { sub: 'r/ecommerce', time: '5m ago', text: 'Looking for a Klaviyo alternative that is more affordable', score: '8.3' },
+    { sub: 'r/Entrepreneur', time: '1m ago', text: 'Can anyone recommend a good CRM for solo founders?', score: '9.5' },
+    { sub: 'r/freelance', time: '9m ago', text: 'Best invoicing tool that integrates with Stripe?', score: '7.8' },
+    { sub: 'r/digital_marketing', time: '3m ago', text: 'Need an SEO tool that actually works for small sites', score: '8.1' },
+    { sub: 'r/smallbusiness', time: '6m ago', text: 'Recommendations for appointment scheduling software?', score: '8.7' },
+    { sub: 'r/webdev', time: '2m ago', text: 'What do you use for website analytics besides Google Analytics?', score: '7.9' },
+    { sub: 'r/startups', time: '8m ago', text: 'Looking for a feedback collection tool for our beta launch', score: '9.1' },
+    { sub: 'r/SaaS', time: '4m ago', text: 'Any good tools for managing customer support tickets?', score: '8.4' },
+    { sub: 'r/ecommerce', time: '5m ago', text: 'Need a returns management platform for our DTC brand', score: '7.6' },
+    { sub: 'r/Entrepreneur', time: '1m ago', text: 'What are people using for business phone systems these days?', score: '8.0' },
+  ];
+
+  const feedItems = document.querySelector('.ld-feed-items');
+  const feedCount = document.querySelector('.ld-feed-count');
+  if (!feedItems || !feedCount) return;
+
+  let scanCount = 473;
+  let leadIdx = 0;
+  const MAX_VISIBLE = 6;
+
+  function addLead() {
+    const lead = leads[leadIdx % leads.length];
+    leadIdx++;
+    scanCount += Math.floor(Math.random() * 5) + 1;
+    feedCount.textContent = scanCount + ' posts scanned';
+
+    // Create new item
+    const item = document.createElement('div');
+    item.className = 'ld-feed-item ld-new';
+    item.innerHTML =
+      '<div class="ld-feed-meta"><span class="ld-reddit-dot"></span> ' + lead.sub + ' &middot; ' + lead.time + '</div>' +
+      '<div class="ld-feed-score">' + lead.score + '</div>' +
+      '<p>' + lead.text + '</p>';
+
+    // Insert at top
+    feedItems.insertBefore(item, feedItems.firstChild);
+
+    // Remove animation class after it finishes
+    setTimeout(() => item.classList.remove('ld-new'), 500);
+
+    // Remove oldest if over limit
+    const items = feedItems.querySelectorAll('.ld-feed-item');
+    if (items.length > MAX_VISIBLE) {
+      const last = items[items.length - 1];
+      last.classList.add('ld-removing');
+      setTimeout(() => last.remove(), 400);
+    }
+  }
+
+  // Run every 3 seconds
+  setInterval(addLead, 3000);
+})();
+</script>
+
+
+</body>
+</html>
