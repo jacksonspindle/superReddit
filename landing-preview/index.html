@@ -3940,10 +3940,11 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             node.material = new THREE.MeshStandardMaterial({
               color: 0xdd2200,
               emissive: 0xcc1100,
-              emissiveIntensity: 0.6,
-              roughness: 0.3,
-              metalness: 0.1,
+              emissiveIntensity: 0.5,
+              roughness: 0.35,
+              metalness: 0.15,
               side: THREE.DoubleSide,
+              flatShading: false,
               stencilWrite: true,
               stencilRef: 1,
               stencilFunc: THREE.EqualStencilFunc,
@@ -4089,26 +4090,27 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       const elapsed = performance.now() - pAnimStart;
       const t = elapsed * 0.001; // seconds
 
-      // Wave vertex animation
+      // Wave vertex animation — displace Y for visible rolling hills, left-to-right flow
       if (pWaveMesh && pWaveOriginal) {
         const posAttr = pWaveMesh.geometry.attributes.position;
         const arr = posAttr.array;
         for (let i = 0; i < arr.length; i += 3) {
-          const ox = pWaveOriginal[i];
-          const oy = pWaveOriginal[i + 1];
-          const oz = pWaveOriginal[i + 2];
-          const wave = Math.sin(ox * 0.005 + t * 1.5) * 8
-                     + Math.sin(oy * 0.003 + t * 0.8) * 5
-                     + Math.sin((ox + oy) * 0.004 + t * 2.0) * 3;
-          arr[i + 2] = oz + wave;
+          const ox = pWaveOriginal[i];     // original X
+          const oy = pWaveOriginal[i + 1]; // original Y
+          // Big rolling hills flowing left-to-right
+          const hill = Math.sin(ox * 0.004 - t * 1.8) * 18
+                     + Math.sin(oy * 0.003 - t * 1.0) * 12
+                     + Math.sin((ox + oy) * 0.002 - t * 1.4) * 8
+                     + Math.sin(ox * 0.008 - t * 2.5) * 5;
+          arr[i + 1] = oy + hill; // displace Y (up/down, visible to camera)
         }
         posAttr.needsUpdate = true;
+        pWaveMesh.geometry.computeVertexNormals(); // recompute for lighting depth effect
       }
 
-      // Wave slow rotation
+      // Wave continuous spin
       if (pWaveMesh && pWaveBase) {
-        pWaveMesh.rotation.z = pWaveBase.rz + (elapsed / 45000) * Math.PI * 2;
-        pWaveMesh.rotation.x = pWaveBase.rx + Math.sin(elapsed * 0.0003) * 0.05;
+        pWaveMesh.rotation.z = pWaveBase.rz + (elapsed / 30000) * Math.PI * 2;
       }
 
       // Computer gentle float
