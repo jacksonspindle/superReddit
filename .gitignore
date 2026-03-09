@@ -22,3 +22,4 @@ app/build/
 
 # Misc
 *.pem
+.vercel
