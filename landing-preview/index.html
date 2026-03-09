@@ -3801,6 +3801,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     let pComputer = null, pComputerBase = null;
     let pEllipses = [], pEllipseBases = [];
     let pWaveMesh = null, pWaveBase = null;
+    const pPanelPairs = []; // {mask, clone, baseY} for bob animation
 
     // Names to hide (text/button/icon nodes replaced by HTML overlay)
     const hideNames = [
@@ -3992,6 +3993,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
           blueClone.renderOrder = 2;
           blueClone.position.z += 0.01;
           node.parent.add(blueClone);
+          pPanelPairs.push({ mask: node, clone: blueClone, baseY: node.position.y });
         });
 
         // ── Computer: dark body + green emissive screen ──
@@ -4105,6 +4107,13 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
         pComputer.rotation.x = pComputerBase.rx + (swing - 0.5) * 0.06;
         pComputer.rotation.y = pComputerBase.ry + (swing - 0.5) * 0.05;
       }
+
+      // Panel bob hover
+      pPanelPairs.forEach((p, i) => {
+        const bob = Math.sin(elapsed * 0.0012 + i * 1.5) * 0.08;
+        p.mask.position.y = p.baseY + bob;
+        p.clone.position.y = p.baseY + bob;
+      });
 
       // Ellipse pulse
       pEllipses.forEach((e, i) => {
