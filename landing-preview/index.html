@@ -3800,7 +3800,7 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
     let pWaveOriginal = null;
     let pComputer = null, pComputerBase = null;
     let pEllipses = [], pEllipseBases = [];
-    let pWaveMesh = null, pWaveBase = null, pWaveParent = null, pWaveCenterY = 0, pWaveCenterZ = 0;
+    let pWaveMesh = null, pWaveBase = null, pWaveParent = null, pWaveCenterX = 0, pWaveCenterY = 0, pWaveCenterZ = 0;
     const pPanelPairs = []; // {mask, clone, baseY} for bob animation
 
     // Names to hide (text/button/icon nodes replaced by HTML overlay)
@@ -3958,16 +3958,18 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
             if (node.geometry?.attributes?.position && !pWaveMesh) {
               pWaveOriginal = new Float32Array(node.geometry.attributes.position.array);
               pWaveMesh = node;
-              // Compute center Y/Z so twist rotates around the ribbon's own axis
-              let sumY = 0, sumZ = 0, count = 0;
+              // Compute center X/Y/Z so twist rotates around the ribbon's own axis
+              let sumX = 0, sumY = 0, sumZ = 0, count = 0;
               for (let vi = 0; vi < pWaveOriginal.length; vi += 3) {
+                sumX += pWaveOriginal[vi];
                 sumY += pWaveOriginal[vi + 1];
                 sumZ += pWaveOriginal[vi + 2];
                 count++;
               }
+              pWaveCenterX = sumX / count;
               pWaveCenterY = sumY / count;
               pWaveCenterZ = sumZ / count;
-              console.log('Wave center Y:', pWaveCenterY, 'Z:', pWaveCenterZ, 'verts:', count);
+              console.log('Wave center X:', pWaveCenterX, 'Y:', pWaveCenterY, 'Z:', pWaveCenterZ, 'verts:', count);
             }
             return;
           }
@@ -4109,35 +4111,31 @@ container.addEventListener('wheel', (e) => e.stopPropagation());
       const elapsed = performance.now() - pAnimStart;
       const t = elapsed * 0.001; // seconds
 
-      // Wave twist — rotate the whole mesh around its long axis (continuous 360°)
-      // No vertex manipulation — just object rotation, preserving form
-      if (pWaveParent && pWaveBase) {
-        // Compute the long axis direction from vertex spread on first frame
-        if (!pWaveParent.userData.longAxis && pWaveMesh && pWaveOriginal) {
-          // Find min/max along each axis to determine which is the long one
-          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-          for (let i = 0; i < pWaveOriginal.length; i += 3) {
-            const x = pWaveOriginal[i], y = pWaveOriginal[i + 1];
-            if (x < minX) minX = x; if (x > maxX) maxX = x;
-            if (y < minY) minY = y; if (y > maxY) maxY = y;
-          }
-          const rangeX = maxX - minX, rangeY = maxY - minY;
-          // Long axis = whichever has the greater spread
-          pWaveParent.userData.longAxis = rangeX > rangeY ? 'x' : 'y';
-          console.log('Wave long axis:', pWaveParent.userData.longAxis, 'rangeX:', rangeX, 'rangeY:', rangeY);
-        }
+      // Wave twist — per-vertex twist around Y (long axis), rotating X/Z
+      // Y positions stay fixed (lateral position preserved), X/Z cross-section rotates
+      if (pWaveMesh && pWaveOriginal) {
+        const posAttr = pWaveMesh.geometry.attributes.position;
+        const arr = posAttr.array;
+        for (let i = 0; i < arr.length; i += 3) {
+          const ox = pWaveOriginal[i];
+          const oy = pWaveOriginal[i + 1];
+          const oz = pWaveOriginal[i + 2];
 
-        const axis = pWaveParent.userData.longAxis || 'y';
-        const spin = (elapsed / 8000) * Math.PI * 2; // one full rotation every 8 seconds
-        if (axis === 'x') {
-          pWaveParent.rotation.x = pWaveBase.rx + spin;
-          pWaveParent.rotation.y = pWaveBase.ry || 0;
-          pWaveParent.rotation.z = pWaveBase.rz;
-        } else {
-          pWaveParent.rotation.y = (pWaveBase.ry || 0) + spin;
-          pWaveParent.rotation.x = pWaveBase.rx;
-          pWaveParent.rotation.z = pWaveBase.rz;
+          // Twist angle varies along Y (long axis), travels over time
+          // ~1 full twist across the ribbon length (3008 units)
+          const angle = oy * 0.002 - t * 1.2;
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+
+          // Rotate X/Z around ribbon's X/Z center
+          const relX = ox - pWaveCenterX;
+          const relZ = oz - pWaveCenterZ;
+          arr[i]     = pWaveCenterX + relX * cosA - relZ * sinA;
+          arr[i + 1] = oy; // Y stays exactly the same
+          arr[i + 2] = pWaveCenterZ + relX * sinA + relZ * cosA;
         }
+        posAttr.needsUpdate = true;
+        pWaveMesh.geometry.computeVertexNormals();
       }
 
       // Computer gentle float
