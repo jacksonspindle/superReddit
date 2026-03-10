@@ -177,47 +177,49 @@ export default function OutreachAlertsPage() {
               </div>
             </div>
 
-            {/* Inline channel setup grid */}
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-muted-foreground">Set up your alerts</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {setupChannels.map((ch) => {
-                  const meta = channelMeta[ch];
-                  const Icon = meta.icon;
-                  const connected = isChannelConnected(ch);
-                  const isExpanded = expandedChannel === ch;
-                  return (
-                    <button
-                      key={ch}
-                      onClick={() => setExpandedChannel(isExpanded ? null : ch)}
-                      className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 ${
-                        isExpanded ? 'border-primary bg-muted/30' : ''
-                      }`}
-                    >
-                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{meta.label}</p>
-                        {connected ? (
-                          <p className="text-xs text-green-500 flex items-center gap-1">
-                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
-                            Active
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">Set up &rarr;</p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {expandedChannel && (
-                <div className="rounded-lg border p-4">
-                  {renderChannelConnect(expandedChannel)}
+            {/* Inline channel setup grid — only when no channels connected */}
+            {connectedChannels.length === 0 && (
+              <div className="space-y-3">
+                <h2 className="text-sm font-medium text-muted-foreground">Set up your alerts</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {setupChannels.map((ch) => {
+                    const meta = channelMeta[ch];
+                    const Icon = meta.icon;
+                    const connected = isChannelConnected(ch);
+                    const isExpanded = expandedChannel === ch;
+                    return (
+                      <button
+                        key={ch}
+                        onClick={() => setExpandedChannel(isExpanded ? null : ch)}
+                        className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 ${
+                          isExpanded ? 'border-primary bg-muted/30' : ''
+                        }`}
+                      >
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{meta.label}</p>
+                          {connected ? (
+                            <p className="text-xs text-green-500 flex items-center gap-1">
+                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+                              Active
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Set up &rarr;</p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+                {expandedChannel && (
+                  <div className="rounded-lg border p-4">
+                    {renderChannelConnect(expandedChannel)}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Keyword cards strip */}
             <KeywordCards
