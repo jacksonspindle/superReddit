@@ -61,6 +61,7 @@ export default function OutreachAlertsPage() {
   const [channelsDialogOpen, setChannelsDialogOpen] = useState(false);
   const [subsExpanded, setSubsExpanded] = useState(false);
   const [expandedChannel, setExpandedChannel] = useState<AlertChannel | null>(null);
+  const [setupSkipped, setSetupSkipped] = useState(false);
 
   useEffect(() => {
     fetchConfig(project.id);
@@ -177,7 +178,7 @@ export default function OutreachAlertsPage() {
               </div>
             </div>
 
-            {connectedChannels.length === 0 ? (
+            {connectedChannels.length === 0 && !setupSkipped ? (
               /* Glassmorphism channel setup */
               <div className="relative flex flex-1 flex-col items-center justify-center min-h-[60vh]">
                 {/* Background glow blobs */}
@@ -233,6 +234,12 @@ export default function OutreachAlertsPage() {
                     </div>
                   )}
                 </div>
+                <button
+                  onClick={() => setSetupSkipped(true)}
+                  className="relative z-10 mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Skip for now
+                </button>
               </div>
             ) : (
               <>
