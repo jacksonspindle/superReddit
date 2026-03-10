@@ -177,8 +177,8 @@ export default function OutreachAlertsPage() {
               </div>
             </div>
 
-            {/* Inline channel setup grid — only when no channels connected */}
-            {connectedChannels.length === 0 && (
+            {connectedChannels.length === 0 ? (
+              /* Channel setup grid — only screen until a channel is connected */
               <div className="space-y-3">
                 <h2 className="text-sm font-medium text-muted-foreground">Set up your alerts</h2>
                 <div className="grid grid-cols-2 gap-3">
@@ -219,60 +219,62 @@ export default function OutreachAlertsPage() {
                   </div>
                 )}
               </div>
-            )}
+            ) : (
+              <>
+                {/* Keyword cards strip */}
+                <KeywordCards
+                  keywords={keywords}
+                  deliveries={alertDeliveries}
+                  activeKeyword={activeKeyword}
+                  onSelect={setActiveKeyword}
+                  onManageOpen={() => setManageOpen(true)}
+                />
 
-            {/* Keyword cards strip */}
-            <KeywordCards
-              keywords={keywords}
-              deliveries={alertDeliveries}
-              activeKeyword={activeKeyword}
-              onSelect={setActiveKeyword}
-              onManageOpen={() => setManageOpen(true)}
-            />
-
-            {/* Monitored Subreddits — collapsible */}
-            <div className="border rounded-lg">
-              <button
-                onClick={() => setSubsExpanded(!subsExpanded)}
-                className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
-              >
-                <span>Monitored Subreddits ({monitoredSubs.length})</span>
-                {subsExpanded ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </button>
-              {subsExpanded && (
-                <div className="px-1 pb-1">
-                  <MonitoredSubreddits
-                    subs={monitoredSubs}
-                    onAdd={(name) => addMonitoredSub(project.id, name)}
-                    onRemove={removeMonitoredSub}
-                    onToggle={toggleMonitoredSub}
-                    onSync={() => {
-                      syncSubsFromProject(project.id);
-                      toast.success('Subreddits synced from project');
-                    }}
-                  />
+                {/* Monitored Subreddits — collapsible */}
+                <div className="border rounded-lg">
+                  <button
+                    onClick={() => setSubsExpanded(!subsExpanded)}
+                    className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
+                  >
+                    <span>Monitored Subreddits ({monitoredSubs.length})</span>
+                    {subsExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  {subsExpanded && (
+                    <div className="px-1 pb-1">
+                      <MonitoredSubreddits
+                        subs={monitoredSubs}
+                        onAdd={(name) => addMonitoredSub(project.id, name)}
+                        onRemove={removeMonitoredSub}
+                        onToggle={toggleMonitoredSub}
+                        onSync={() => {
+                          syncSubsFromProject(project.id);
+                          toast.success('Subreddits synced from project');
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Filter context line */}
-            <p className="text-xs text-muted-foreground">
-              {activeLabel
-                ? `Showing ${filteredCount} posts matching "${activeLabel}"`
-                : `Showing all ${filteredCount} posts`}
-            </p>
+                {/* Filter context line */}
+                <p className="text-xs text-muted-foreground">
+                  {activeLabel
+                    ? `Showing ${filteredCount} posts matching "${activeLabel}"`
+                    : `Showing all ${filteredCount} posts`}
+                </p>
 
-            {/* Post grid */}
-            <PostGrid
-              deliveries={alertDeliveries}
-              keywords={keywords}
-              filterKeywordId={activeKeyword}
-              loading={deliveriesLoading}
-            />
+                {/* Post grid */}
+                <PostGrid
+                  deliveries={alertDeliveries}
+                  keywords={keywords}
+                  filterKeywordId={activeKeyword}
+                  loading={deliveriesLoading}
+                />
+              </>
+            )}
           </div>
           )}
         </div>
