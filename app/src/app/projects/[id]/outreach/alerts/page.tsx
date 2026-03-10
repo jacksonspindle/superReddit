@@ -179,9 +179,14 @@ export default function OutreachAlertsPage() {
 
             {connectedChannels.length === 0 ? (
               /* Channel setup grid — only screen until a channel is connected */
-              <div className="space-y-3">
-                <h2 className="text-sm font-medium text-muted-foreground">Set up your alerts</h2>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col items-center justify-center py-16 space-y-6">
+                <div className="text-center space-y-1.5">
+                  <h2 className="text-lg font-semibold">Set up your alerts</h2>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Connect a channel to start receiving alerts when relevant posts appear on Reddit.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
                   {setupChannels.map((ch) => {
                     const meta = channelMeta[ch];
                     const Icon = meta.icon;
@@ -214,7 +219,7 @@ export default function OutreachAlertsPage() {
                   })}
                 </div>
                 {expandedChannel && (
-                  <div className="rounded-lg border p-4">
+                  <div className="rounded-lg border p-4 w-full max-w-lg">
                     {renderChannelConnect(expandedChannel)}
                   </div>
                 )}
