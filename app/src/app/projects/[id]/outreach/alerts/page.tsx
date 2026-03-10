@@ -179,12 +179,12 @@ export default function OutreachAlertsPage() {
 
             {connectedChannels.length === 0 ? (
               /* Glassmorphism channel setup */
-              <div className="relative flex flex-col items-center justify-center py-16">
+              <div className="relative flex flex-1 flex-col items-center justify-center min-h-[60vh]">
                 {/* Background glow blobs */}
-                <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                  <div className="absolute -top-20 left-1/4 h-64 w-64 rounded-full bg-emerald-500/20 blur-[100px]" />
-                  <div className="absolute -bottom-10 right-1/4 h-48 w-48 rounded-full bg-emerald-400/15 blur-[80px]" />
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-32 w-32 rounded-full bg-green-500/10 blur-[60px]" />
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-emerald-500/15 blur-[120px]" />
+                  <div className="absolute top-1/3 left-1/3 h-64 w-64 rounded-full bg-emerald-400/10 blur-[100px]" />
+                  <div className="absolute bottom-1/3 right-1/3 h-48 w-48 rounded-full bg-green-500/10 blur-[80px]" />
                 </div>
 
                 {/* Glass card */}
