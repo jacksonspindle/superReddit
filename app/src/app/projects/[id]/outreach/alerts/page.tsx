@@ -24,7 +24,32 @@ import { PostGrid } from '@/components/outreach/PostGrid';
 import { MonitoredSubreddits } from '@/components/outreach/MonitoredSubreddits';
 import { useOutreachStore } from '@/stores/outreach-store';
 import { toast } from 'sonner';
-import type { AlertChannel } from '@/types';
+import type { AlertChannel, OutreachKeyword, AlertDelivery, OutreachMonitoredSub } from '@/types';
+
+const USE_MOCK = true; // flip to false when done previewing
+
+const MOCK_KEYWORDS: OutreachKeyword[] = [
+  { id: 'mk1', project_id: '', phrases: ['CRM alternative', 'best CRM'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-01T00:00:00Z' },
+  { id: 'mk2', project_id: '', phrases: ['cold outreach tool'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-02T00:00:00Z', updated_at: '2026-03-02T00:00:00Z' },
+  { id: 'mk3', project_id: '', phrases: ['lead generation', 'find leads'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-03T00:00:00Z', updated_at: '2026-03-03T00:00:00Z' },
+];
+
+const MOCK_DELIVERIES: AlertDelivery[] = [
+  { id: 'd1', signal_id: 's1', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-10T14:30:00Z', created_at: '2026-03-10T14:30:00Z', signal: { title: 'Looking for a CRM alternative that doesn\'t cost a fortune', subreddit: 'r/SaaS', permalink: '/r/SaaS/comments/abc123', matched_keywords: ['CRM alternative'], fetched_at: '2026-03-10T14:25:00Z' } },
+  { id: 'd2', signal_id: 's2', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-10T12:00:00Z', created_at: '2026-03-10T12:00:00Z', signal: { title: 'Best cold outreach tool for small teams?', subreddit: 'r/Entrepreneur', permalink: '/r/Entrepreneur/comments/def456', matched_keywords: ['cold outreach tool'], fetched_at: '2026-03-10T11:55:00Z' } },
+  { id: 'd3', signal_id: 's3', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-10T09:15:00Z', created_at: '2026-03-10T09:15:00Z', signal: { title: 'How do you find leads on Reddit without being spammy?', subreddit: 'r/GrowthHacking', permalink: '/r/GrowthHacking/comments/ghi789', matched_keywords: ['find leads'], fetched_at: '2026-03-10T09:10:00Z' } },
+  { id: 'd4', signal_id: 's4', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-09T18:00:00Z', created_at: '2026-03-09T18:00:00Z', signal: { title: 'We switched from HubSpot — here\'s the best CRM we found', subreddit: 'r/startups', permalink: '/r/startups/comments/jkl012', matched_keywords: ['best CRM'], fetched_at: '2026-03-09T17:55:00Z' } },
+  { id: 'd5', signal_id: 's5', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-09T15:30:00Z', created_at: '2026-03-09T15:30:00Z', signal: { title: 'Lead generation strategies that actually work in 2026', subreddit: 'r/marketing', permalink: '/r/marketing/comments/mno345', matched_keywords: ['lead generation'], fetched_at: '2026-03-09T15:25:00Z' } },
+  { id: 'd6', signal_id: 's6', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-09T10:00:00Z', created_at: '2026-03-09T10:00:00Z', signal: { title: 'Any good CRM alternative to Salesforce for bootstrapped startups?', subreddit: 'r/smallbusiness', permalink: '/r/smallbusiness/comments/pqr678', matched_keywords: ['CRM alternative'], fetched_at: '2026-03-09T09:55:00Z' } },
+];
+
+const MOCK_SUBS: OutreachMonitoredSub[] = [
+  { id: 'ms1', project_id: '', name: 'SaaS', is_active: true, safety_level: 'safe', last_polled_at: '2026-03-10T14:00:00Z', created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-10T14:00:00Z' },
+  { id: 'ms2', project_id: '', name: 'Entrepreneur', is_active: true, safety_level: 'safe', last_polled_at: '2026-03-10T14:00:00Z', created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-10T14:00:00Z' },
+  { id: 'ms3', project_id: '', name: 'startups', is_active: true, safety_level: 'caution', last_polled_at: '2026-03-10T14:00:00Z', created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-10T14:00:00Z' },
+  { id: 'ms4', project_id: '', name: 'smallbusiness', is_active: true, safety_level: 'safe', last_polled_at: '2026-03-10T14:00:00Z', created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-10T14:00:00Z' },
+  { id: 'ms5', project_id: '', name: 'marketing', is_active: false, safety_level: 'safe', last_polled_at: null, created_at: '2026-03-02T00:00:00Z', updated_at: '2026-03-02T00:00:00Z' },
+];
 
 const channelMeta: Record<AlertChannel, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
   discord: { icon: Wifi, label: 'Discord' },
@@ -82,6 +107,11 @@ export default function OutreachAlertsPage() {
 
   const setupChannels: AlertChannel[] = ['discord_dm', 'slack', 'email', 'telegram'];
 
+  // Use mock data when real data is empty and USE_MOCK is on
+  const displayKeywords = USE_MOCK && keywords.length === 0 ? MOCK_KEYWORDS : keywords;
+  const displayDeliveries = USE_MOCK && alertDeliveries.length === 0 ? MOCK_DELIVERIES : alertDeliveries;
+  const displaySubs = USE_MOCK && monitoredSubs.length === 0 ? MOCK_SUBS : monitoredSubs;
+
   const isChannelConnected = (ch: AlertChannel) => {
     switch (ch) {
       case 'discord': return !!config?.discord_connected;
@@ -117,16 +147,16 @@ export default function OutreachAlertsPage() {
 
   // Compute filter context line
   const filteredCount = activeKeyword
-    ? alertDeliveries.filter((d) => {
-        const kw = keywords.find((k) => k.id === activeKeyword);
+    ? displayDeliveries.filter((d) => {
+        const kw = displayKeywords.find((k) => k.id === activeKeyword);
         if (!kw) return false;
         const phrases = kw.phrases.map((p) => p.toLowerCase());
         return d.signal?.matched_keywords?.some((mk) => phrases.includes(mk.toLowerCase()));
       }).length
-    : alertDeliveries.length;
+    : displayDeliveries.length;
 
   const activeLabel = activeKeyword
-    ? keywords.find((k) => k.id === activeKeyword)?.phrases.join(', ') || 'keyword'
+    ? displayKeywords.find((k) => k.id === activeKeyword)?.phrases.join(', ') || 'keyword'
     : null;
 
   return (
@@ -245,8 +275,8 @@ export default function OutreachAlertsPage() {
               <>
                 {/* Keyword cards strip */}
                 <KeywordCards
-                  keywords={keywords}
-                  deliveries={alertDeliveries}
+                  keywords={displayKeywords}
+                  deliveries={displayDeliveries}
                   activeKeyword={activeKeyword}
                   onSelect={setActiveKeyword}
                   onManageOpen={() => setManageOpen(true)}
@@ -258,7 +288,7 @@ export default function OutreachAlertsPage() {
                     onClick={() => setSubsExpanded(!subsExpanded)}
                     className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
                   >
-                    <span>Monitored Subreddits ({monitoredSubs.length})</span>
+                    <span>Monitored Subreddits ({displaySubs.length})</span>
                     {subsExpanded ? (
                       <ChevronUp className="h-4 w-4 text-muted-foreground" />
                     ) : (
@@ -268,7 +298,7 @@ export default function OutreachAlertsPage() {
                   {subsExpanded && (
                     <div className="px-1 pb-1">
                       <MonitoredSubreddits
-                        subs={monitoredSubs}
+                        subs={displaySubs}
                         onAdd={(name) => addMonitoredSub(project.id, name)}
                         onRemove={removeMonitoredSub}
                         onToggle={toggleMonitoredSub}
@@ -290,8 +320,8 @@ export default function OutreachAlertsPage() {
 
                 {/* Post grid */}
                 <PostGrid
-                  deliveries={alertDeliveries}
-                  keywords={keywords}
+                  deliveries={displayDeliveries}
+                  keywords={displayKeywords}
                   filterKeywordId={activeKeyword}
                   loading={deliveriesLoading}
                 />
@@ -306,8 +336,8 @@ export default function OutreachAlertsPage() {
       <ManageKeywordsDialog
         open={manageOpen}
         onOpenChange={setManageOpen}
-        keywords={keywords}
-        deliveries={alertDeliveries}
+        keywords={displayKeywords}
+        deliveries={displayDeliveries}
         onAdd={(phrases) => addKeyword(project.id, phrases)}
         onRemove={removeKeyword}
       />
