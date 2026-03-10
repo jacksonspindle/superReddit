@@ -90,7 +90,7 @@
   .section-title .accent { background: linear-gradient(135deg, var(--orange) 0%, #FF9A6C 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .section-subtitle { text-align: center; font-size: 18px; color: var(--gray-400); max-width: 560px; margin: 0 auto 64px; }
 
-  .laptop-demo { position: relative; min-height: 175vh; background: linear-gradient(to bottom, #1a1050 0%, #ffffff 16%); overflow: hidden; z-index: 1; }
+  .laptop-demo { position: relative; min-height: 175vh; background: linear-gradient(to bottom, #1a1050 0%, #f3f4f6 16%); overflow: hidden; z-index: 1; }
   .laptop-demo-text { display: none; }
 
   .btn-3d {
@@ -221,6 +221,124 @@
     opacity: 0;
     background: radial-gradient(ellipse at center, rgba(255,107,53,0.18) 0%, transparent 70%);
     filter: blur(16px);
+  }
+
+  /* ---- Track Record / Team section ---- */
+  .track-record {
+    padding: 40px 0 64px;
+    background: #f3f4f6;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .track-record .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .tr-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    border: 1.5px solid rgba(255,107,53,0.35);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 20px;
+  }
+  .tr-title {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--gray-900);
+    margin: 0 0 8px;
+    line-height: 1.15;
+  }
+  .tr-subtitle {
+    font-size: 17px;
+    color: var(--gray-400);
+    font-weight: 600;
+    max-width: 600px;
+    margin: 0 auto 24px;
+    line-height: 1.55;
+  }
+  .tr-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .tr-stat-card {
+    background: #ffffff;
+    border: 1px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 24px 16px;
+    text-align: center;
+  }
+  .tr-stat-number {
+    font-size: 44px;
+    font-weight: 800;
+    color: var(--orange);
+    line-height: 1.1;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+  .tr-stat-label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 6px;
+  }
+  .tr-stat-desc {
+    font-size: 13px;
+    color: var(--gray-400);
+    line-height: 1.45;
+  }
+  .tr-trusted-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gray-900);
+    margin-bottom: 20px;
+  }
+  .tr-logos-wrap {
+    overflow: hidden;
+    width: 100%;
+    mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+  }
+  .tr-logos {
+    display: flex;
+    align-items: center;
+    gap: 64px;
+    width: max-content;
+    animation: marquee 28s linear infinite;
+  }
+  .tr-logos img {
+    height: 64px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+  .tr-logos img[alt="HBO"] {
+    filter: invert(1) brightness(0.4);
+  }
+  .tr-logos img[alt="Fox"],
+  .tr-logos img[alt="Hulu"] {
+    height: 40px;
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @media (max-width: 768px) {
+    .track-record { padding: 56px 0 48px; }
+    .tr-title { font-size: 28px; }
+    .tr-subtitle { font-size: 15px; margin-bottom: 32px; }
+    .tr-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .tr-stat-number { font-size: 32px; }
+    .tr-stat-card { padding: 24px 12px; }
+    .tr-logos img { height: 24px; }
+    .tr-logos { gap: 36px; }
   }
 
   /* ---- Lead Discovery section ---- */
@@ -815,6 +933,86 @@
         <h3 class="screen-hiw-cta-title">See it in action</h3>
         <p class="screen-hiw-cta-desc">Watch how SuperReddit finds your leads in seconds</p>
         <a href="signup.html" class="btn-primary btn-primary-lg" style="text-decoration:none;">Get Started Now <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="track-record" id="track-record">
+  <div class="container">
+    <div class="fade-in">
+      <span class="tr-badge">Our Track Record</span>
+      <h2 class="tr-title">Built by a team that delivers</h2>
+      <p class="tr-subtitle">We're a team of digital marketing experts and startup founders who have driven thousands of user sign-ups and five-figure MRRs using nothing but Reddit — paid and organic. In our day jobs, we've managed nine-figure annual advertising portfolios at companies like Amazon, at the most senior levels. Now we're building the service we always wished existed.</p>
+      <p class="tr-subtitle" style="margin-top:0"><strong style="color:var(--gray-400)">SuperReddit</strong> gives you two things: the experts to run your paid and/or organic Reddit strategy, and a platform that automatically delivers high-intent organic leads ready to convert.</p>
+    </div>
+    <div class="tr-stats-grid fade-in">
+      <div class="tr-stat-card">
+        <div class="tr-stat-number">1,000s</div>
+        <div class="tr-stat-label">Users Generated</div>
+        <div class="tr-stat-desc">All through free, organic Reddit reach</div>
+      </div>
+      <div class="tr-stat-card">
+        <div class="tr-stat-number">$150M+</div>
+        <div class="tr-stat-label">Ad Spend Managed</div>
+        <div class="tr-stat-desc">Paid media budgets optimized across platforms</div>
+      </div>
+      <div class="tr-stat-card">
+        <div class="tr-stat-number">30M+</div>
+        <div class="tr-stat-label">People Reached</div>
+        <div class="tr-stat-desc">Impressions delivered across campaigns and channels</div>
+      </div>
+      <div class="tr-stat-card">
+        <div class="tr-stat-number">30x</div>
+        <div class="tr-stat-label">CTR vs. Standard</div>
+        <div class="tr-stat-desc">Reddit ad click-through rates above market benchmarks</div>
+      </div>
+    </div>
+    <div class="fade-in">
+      <div class="tr-trusted-label">Our team has worked with</div>
+      <div class="tr-logos-wrap">
+        <div class="tr-logos">
+          <img src="logos/amazon.webp" alt="Amazon">
+          <img src="logos/cnn.webp" alt="CNN">
+          <img src="logos/directv.webp" alt="DirecTV">
+          <img src="logos/fox.webp" alt="Fox">
+          <img src="logos/hbo.webp" alt="HBO">
+          <img src="logos/hulu.webp" alt="Hulu">
+          <img src="logos/iheart.webp" alt="iHeart Radio">
+          <img src="logos/lg.webp" alt="LG">
+          <img src="logos/nbc.webp" alt="NBC">
+          <img src="logos/nyt.webp" alt="New York Times">
+          <img src="logos/npr.webp" alt="NPR">
+          <img src="logos/paramount.webp" alt="Paramount">
+          <img src="logos/roku.webp" alt="Roku">
+          <img src="logos/samsung.webp" alt="Samsung">
+          <img src="logos/spotify.webp" alt="Spotify">
+          <img src="logos/siriusxm.webp" alt="Sirius XM">
+
+          <img src="logos/usatoday.webp" alt="USA Today">
+          <img src="logos/washingtonpost.webp" alt="Washington Post">
+
+          <img src="logos/amazon.webp" alt="Amazon">
+          <img src="logos/cnn.webp" alt="CNN">
+          <img src="logos/directv.webp" alt="DirecTV">
+          <img src="logos/fox.webp" alt="Fox">
+          <img src="logos/hbo.webp" alt="HBO">
+          <img src="logos/hulu.webp" alt="Hulu">
+          <img src="logos/iheart.webp" alt="iHeart Radio">
+          <img src="logos/lg.webp" alt="LG">
+          <img src="logos/nbc.webp" alt="NBC">
+          <img src="logos/nyt.webp" alt="New York Times">
+          <img src="logos/npr.webp" alt="NPR">
+          <img src="logos/paramount.webp" alt="Paramount">
+          <img src="logos/roku.webp" alt="Roku">
+          <img src="logos/samsung.webp" alt="Samsung">
+          <img src="logos/spotify.webp" alt="Spotify">
+          <img src="logos/siriusxm.webp" alt="Sirius XM">
+
+          <img src="logos/usatoday.webp" alt="USA Today">
+          <img src="logos/washingtonpost.webp" alt="Washington Post">
+
+        </div>
       </div>
     </div>
   </div>
