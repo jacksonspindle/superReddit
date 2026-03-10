@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import { Loader2, Wifi, Hash, Mail, Send, Plus, ChevronDown, ChevronUp, Settings, MessageCircle } from 'lucide-react';
+import { Loader2, Wifi, Hash, Mail, Send, Plus, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -22,7 +22,6 @@ import { KeywordCards } from '@/components/outreach/KeywordCards';
 import { ManageKeywordsDialog } from '@/components/outreach/ManageKeywordsDialog';
 import { PostGrid } from '@/components/outreach/PostGrid';
 import { MonitoredSubreddits } from '@/components/outreach/MonitoredSubreddits';
-import { AlertsSetupWizard } from '@/components/outreach/AlertsSetupWizard';
 import { useOutreachStore } from '@/stores/outreach-store';
 import { toast } from 'sonner';
 import type { AlertChannel } from '@/types';
@@ -61,7 +60,7 @@ export default function OutreachAlertsPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [channelsDialogOpen, setChannelsDialogOpen] = useState(false);
   const [subsExpanded, setSubsExpanded] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [expandedChannel, setExpandedChannel] = useState<AlertChannel | null>(null);
 
   useEffect(() => {
     fetchConfig(project.id);
@@ -80,12 +79,32 @@ export default function OutreachAlertsPage() {
     }
   });
 
-  // Auto-show wizard for first-time users (no channels + no keywords)
-  const needsSetup = !configLoading && connectedChannels.length === 0 && keywords.length === 0;
+  const setupChannels: AlertChannel[] = ['discord_dm', 'slack', 'email', 'telegram'];
 
-  useEffect(() => {
-    if (needsSetup) setWizardOpen(true);
-  }, [needsSetup]);
+  const isChannelConnected = (ch: AlertChannel) => {
+    switch (ch) {
+      case 'discord': return !!config?.discord_connected;
+      case 'discord_dm': return !!config?.discord_dm_connected;
+      case 'slack': return !!config?.slack_connected;
+      case 'email': return !!config?.email_connected;
+      case 'telegram': return !!config?.telegram_connected;
+    }
+  };
+
+  const renderChannelConnect = (ch: AlertChannel) => {
+    switch (ch) {
+      case 'discord_dm':
+        return <DiscordDmConnect config={config} projectId={project.id} onDisconnect={() => handleDisconnect('discord_dm')} />;
+      case 'slack':
+        return <SlackConnect config={config} projectId={project.id} onDisconnect={() => handleDisconnect('slack')} />;
+      case 'email':
+        return <EmailConnect config={config} projectId={project.id} onDisconnect={() => handleDisconnect('email')} />;
+      case 'telegram':
+        return <TelegramConnect config={config} projectId={project.id} onDisconnect={() => handleDisconnect('telegram')} />;
+      default:
+        return null;
+    }
+  };
 
   const handleDisconnect = useCallback(
     (channel: AlertChannel) => {
@@ -155,90 +174,103 @@ export default function OutreachAlertsPage() {
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => setWizardOpen(true)}
-                  title="Setup wizard"
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                </Button>
               </div>
             </div>
 
-            {needsSetup && !wizardOpen ? (
-              /* Empty state with setup CTA */
-              <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                <div className="rounded-full bg-muted p-4">
-                  <Settings className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div className="space-y-1.5">
-                  <h2 className="text-lg font-semibold">Set up your alerts</h2>
-                  <p className="text-sm text-muted-foreground max-w-md">
-                    Connect channels, add keywords, and choose subreddits to start receiving alerts when relevant posts appear.
-                  </p>
-                </div>
-                <Button onClick={() => setWizardOpen(true)} className="gap-1.5">
-                  <Settings className="h-4 w-4" /> Set up alerts
-                </Button>
+            {/* Inline channel setup grid */}
+            <div className="space-y-3">
+              <h2 className="text-sm font-medium text-muted-foreground">Set up your alerts</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {setupChannels.map((ch) => {
+                  const meta = channelMeta[ch];
+                  const Icon = meta.icon;
+                  const connected = isChannelConnected(ch);
+                  const isExpanded = expandedChannel === ch;
+                  return (
+                    <button
+                      key={ch}
+                      onClick={() => setExpandedChannel(isExpanded ? null : ch)}
+                      className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 ${
+                        isExpanded ? 'border-primary bg-muted/30' : ''
+                      }`}
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{meta.label}</p>
+                        {connected ? (
+                          <p className="text-xs text-green-500 flex items-center gap-1">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+                            Active
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Set up &rarr;</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <>
-                {/* Keyword cards strip */}
-                <KeywordCards
-                  keywords={keywords}
-                  deliveries={alertDeliveries}
-                  activeKeyword={activeKeyword}
-                  onSelect={setActiveKeyword}
-                  onManageOpen={() => setManageOpen(true)}
-                />
-
-                {/* Monitored Subreddits — collapsible */}
-                <div className="border rounded-lg">
-                  <button
-                    onClick={() => setSubsExpanded(!subsExpanded)}
-                    className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
-                  >
-                    <span>Monitored Subreddits ({monitoredSubs.length})</span>
-                    {subsExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                  {subsExpanded && (
-                    <div className="px-1 pb-1">
-                      <MonitoredSubreddits
-                        subs={monitoredSubs}
-                        onAdd={(name) => addMonitoredSub(project.id, name)}
-                        onRemove={removeMonitoredSub}
-                        onToggle={toggleMonitoredSub}
-                        onSync={() => {
-                          syncSubsFromProject(project.id);
-                          toast.success('Subreddits synced from project');
-                        }}
-                      />
-                    </div>
-                  )}
+              {expandedChannel && (
+                <div className="rounded-lg border p-4">
+                  {renderChannelConnect(expandedChannel)}
                 </div>
+              )}
+            </div>
 
-                {/* Filter context line */}
-                <p className="text-xs text-muted-foreground">
-                  {activeLabel
-                    ? `Showing ${filteredCount} posts matching "${activeLabel}"`
-                    : `Showing all ${filteredCount} posts`}
-                </p>
+            {/* Keyword cards strip */}
+            <KeywordCards
+              keywords={keywords}
+              deliveries={alertDeliveries}
+              activeKeyword={activeKeyword}
+              onSelect={setActiveKeyword}
+              onManageOpen={() => setManageOpen(true)}
+            />
 
-                {/* Post grid */}
-                <PostGrid
-                  deliveries={alertDeliveries}
-                  keywords={keywords}
-                  filterKeywordId={activeKeyword}
-                  loading={deliveriesLoading}
-                />
-              </>
-            )}
+            {/* Monitored Subreddits — collapsible */}
+            <div className="border rounded-lg">
+              <button
+                onClick={() => setSubsExpanded(!subsExpanded)}
+                className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-muted/30 transition-colors"
+              >
+                <span>Monitored Subreddits ({monitoredSubs.length})</span>
+                {subsExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              {subsExpanded && (
+                <div className="px-1 pb-1">
+                  <MonitoredSubreddits
+                    subs={monitoredSubs}
+                    onAdd={(name) => addMonitoredSub(project.id, name)}
+                    onRemove={removeMonitoredSub}
+                    onToggle={toggleMonitoredSub}
+                    onSync={() => {
+                      syncSubsFromProject(project.id);
+                      toast.success('Subreddits synced from project');
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Filter context line */}
+            <p className="text-xs text-muted-foreground">
+              {activeLabel
+                ? `Showing ${filteredCount} posts matching "${activeLabel}"`
+                : `Showing all ${filteredCount} posts`}
+            </p>
+
+            {/* Post grid */}
+            <PostGrid
+              deliveries={alertDeliveries}
+              keywords={keywords}
+              filterKeywordId={activeKeyword}
+              loading={deliveriesLoading}
+            />
           </div>
           )}
         </div>
@@ -252,13 +284,6 @@ export default function OutreachAlertsPage() {
         deliveries={alertDeliveries}
         onAdd={(phrases) => addKeyword(project.id, phrases)}
         onRemove={removeKeyword}
-      />
-
-      {/* Alerts Setup Wizard */}
-      <AlertsSetupWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        projectId={project.id}
       />
 
       {/* Channels Dialog */}
