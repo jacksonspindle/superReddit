@@ -178,51 +178,61 @@ export default function OutreachAlertsPage() {
             </div>
 
             {connectedChannels.length === 0 ? (
-              /* Channel setup grid — only screen until a channel is connected */
-              <div className="flex flex-col items-center justify-center py-16 space-y-6">
-                <div className="text-center space-y-1.5">
-                  <h2 className="text-lg font-semibold">Set up your alerts</h2>
-                  <p className="text-sm text-muted-foreground max-w-md">
-                    Connect a channel to start receiving alerts when relevant posts appear on Reddit.
-                  </p>
+              /* Glassmorphism channel setup */
+              <div className="relative flex flex-col items-center justify-center py-16">
+                {/* Background glow blobs */}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <div className="absolute -top-20 left-1/4 h-64 w-64 rounded-full bg-emerald-500/20 blur-[100px]" />
+                  <div className="absolute -bottom-10 right-1/4 h-48 w-48 rounded-full bg-emerald-400/15 blur-[80px]" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-32 w-32 rounded-full bg-green-500/10 blur-[60px]" />
                 </div>
-                <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
-                  {setupChannels.map((ch) => {
-                    const meta = channelMeta[ch];
-                    const Icon = meta.icon;
-                    const connected = isChannelConnected(ch);
-                    const isExpanded = expandedChannel === ch;
-                    return (
-                      <button
-                        key={ch}
-                        onClick={() => setExpandedChannel(isExpanded ? null : ch)}
-                        className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 ${
-                          isExpanded ? 'border-primary bg-muted/30' : ''
-                        }`}
-                      >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{meta.label}</p>
-                          {connected ? (
-                            <p className="text-xs text-green-500 flex items-center gap-1">
-                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
-                              Active
-                            </p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">Set up &rarr;</p>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                {expandedChannel && (
-                  <div className="rounded-lg border p-4 w-full max-w-lg">
-                    {renderChannelConnect(expandedChannel)}
+
+                {/* Glass card */}
+                <div className="relative z-10 w-full max-w-lg rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] space-y-6">
+                  <div className="text-center space-y-1.5">
+                    <h2 className="text-lg font-semibold">Set up your alerts</h2>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                      Connect a channel to start receiving alerts when relevant posts appear on Reddit.
+                    </p>
                   </div>
-                )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {setupChannels.map((ch) => {
+                      const meta = channelMeta[ch];
+                      const Icon = meta.icon;
+                      const connected = isChannelConnected(ch);
+                      const isExpanded = expandedChannel === ch;
+                      return (
+                        <button
+                          key={ch}
+                          onClick={() => setExpandedChannel(isExpanded ? null : ch)}
+                          className={`flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.07] hover:border-white/[0.15] ${
+                            isExpanded ? 'border-emerald-500/40 bg-emerald-500/[0.06]' : ''
+                          }`}
+                        >
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.06]">
+                            <Icon className="h-4.5 w-4.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{meta.label}</p>
+                            {connected ? (
+                              <p className="text-xs text-emerald-400 flex items-center gap-1">
+                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                Active
+                              </p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Set up &rarr;</p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {expandedChannel && (
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                      {renderChannelConnect(expandedChannel)}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
