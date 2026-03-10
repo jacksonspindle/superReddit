@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ keywords });
 }
 
+const MAX_KEYWORDS_PER_PROJECT = 100;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const body = await request.json();
@@ -32,6 +34,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'project_id and phrases required' },
       { status: 400 }
+    );
+  }
+
+  // Enforce keyword limit per project
+  const { count } = await supabase
+    .from('outreach_keywords')
+    .select('*', { count: 'exact', head: true })
+    .eq('project_id', project_id);
+
+  if (count !== null && count >= MAX_KEYWORDS_PER_PROJECT) {
+    return NextResponse.json(
+      { error: `Keyword limit reached (${MAX_KEYWORDS_PER_PROJECT} max). Delete existing keywords to add new ones.` },
+      { status: 403 }
     );
   }
 
