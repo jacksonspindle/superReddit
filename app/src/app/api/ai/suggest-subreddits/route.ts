@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnthropicClient, isAIConfigured, AI_MODEL } from '@/lib/ai/client';
+import { getAnthropicClient, isAIConfigured, HAIKU_MODEL } from '@/lib/ai/client';
 import { SUGGEST_SUBREDDITS_SYSTEM_PROMPT, buildSuggestSubredditsPrompt } from '@/lib/ai/prompts';
 import { discoverSubreddits } from '@/lib/reddit/discover';
 import { fetchSubredditInfo } from '@/lib/reddit/fetcher';
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     );
 
     const message = await client.messages.create({
-      model: AI_MODEL,
+      model: HAIKU_MODEL,
       max_tokens: 2048,
       system: SUGGEST_SUBREDDITS_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }],
