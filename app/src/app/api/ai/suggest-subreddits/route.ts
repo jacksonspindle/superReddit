@@ -92,17 +92,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Step 3: Only keep subreddits that were in our discovery results (already verified to exist)
-    if (parsed.subreddits?.length) {
-      const discoveredNames = new Set(
-        discovery.candidates.map((s) => s.name.toLowerCase())
-      );
-      parsed.subreddits = parsed.subreddits.filter(
-        (s: { name: string }) => discoveredNames.has(s.name.toLowerCase())
-      );
-    }
-
-    // Step 4: Auto-include discovered subreddits with high post search hits
+    // Step 3: Auto-include discovered subreddits with high post search hits
     // that Claude may have overlooked
     if (parsed.subreddits?.length) {
       const aiSuggestedNames = new Set(
