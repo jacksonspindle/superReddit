@@ -14,6 +14,57 @@ import { toast } from 'sonner';
 type SortOption = 'hot' | 'top' | 'rising' | 'new';
 type TimeFilter = 'day' | 'week' | 'month';
 
+const REDDIT_BASE = 'https://old.reddit.com';
+
+/** Fetch posts from a subreddit directly via the browser (bypasses datacenter IP blocks) */
+async function fetchRedditPostsClient(
+  subreddit: string,
+  sort: SortOption,
+  timeFilter: TimeFilter,
+  limit: number,
+  after?: string
+): Promise<{ posts: RedditPost[]; after: string | null }> {
+  try {
+    const timeParam = sort === 'top' ? `&t=${timeFilter}` : '';
+    const afterParam = after ? `&after=${after}` : '';
+    const url = `${REDDIT_BASE}/r/${subreddit}/${sort}.json?limit=${limit}${timeParam}${afterParam}&raw_json=1`;
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return { posts: [], after: null };
+    const json = await res.json();
+    const posts: RedditPost[] = (json.data?.children || []).map((child: { data: Record<string, unknown> }) => {
+      const d = child.data;
+      let previewUrl: string | null = null;
+      try {
+        const preview = d.preview as { images?: { source?: { url?: string } }[] } | undefined;
+        const src = preview?.images?.[0]?.source?.url;
+        if (src) previewUrl = src.replace(/&amp;/g, '&');
+      } catch { /* ignore */ }
+      return {
+        id: d.id as string,
+        title: d.title as string,
+        selftext: (d.selftext as string) || '',
+        author: d.author as string,
+        score: d.score as number,
+        num_comments: d.num_comments as number,
+        url: d.url as string,
+        permalink: d.permalink as string,
+        created_utc: d.created_utc as number,
+        subreddit: d.subreddit as string,
+        link_flair_text: (d.link_flair_text as string) || null,
+        is_self: d.is_self as boolean,
+        thumbnail: (d.thumbnail as string) || null,
+        preview_url: previewUrl,
+        post_hint: (d.post_hint as string) || null,
+      };
+    });
+    return { posts, after: json.data?.after || null };
+  } catch {
+    return { posts: [], after: null };
+  }
+}
+
 export function FeedPanel() {
   const { project } = useProject();
   const { usePost, referencePosts } = useCreateStore();
@@ -24,20 +75,31 @@ export function FeedPanel() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [sort, setSort] = useState<SortOption>('top');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
-  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
   // Discover section state
   const [discoverPosts, setDiscoverPosts] = useState<RedditPost[]>([]);
-  const [discoverLoaded, setDiscoverLoaded] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const seenIds = useRef(new Set<string>());
+  // Store Reddit pagination tokens per subreddit
+  const afterTokens = useRef(new Map<string, string | null>());
 
+  // Fetch tracked subreddits from server (Supabase)
+  const fetchTrackedSubs = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/reddit/feed?projectId=${project.id}`);
+      const json = await res.json();
+      return (json.trackedSubreddits || []) as string[];
+    } catch {
+      return [];
+    }
+  }, [project.id]);
+
+  // Fetch Reddit posts client-side for all tracked subs
   const fetchPage = useCallback(async (
-    pageNum: number,
     sortVal: SortOption,
     timeVal: TimeFilter,
     subFilter: string,
@@ -46,41 +108,61 @@ export function FeedPanel() {
     if (isReset) {
       setLoading(true);
       seenIds.current = new Set();
+      afterTokens.current = new Map();
     } else {
       setLoadingMore(true);
     }
 
     try {
-      const params = new URLSearchParams({
-        projectId: project.id,
-        sort: sortVal,
-        t: timeVal,
-        page: String(pageNum),
-      });
-      if (subFilter !== 'all') params.set('sub', subFilter);
+      // Get tracked subs on first load
+      let subs = trackedSubs;
+      if (subs.length === 0 || isReset) {
+        subs = await fetchTrackedSubs();
+        setTrackedSubs(subs);
+      }
 
-      const res = await fetch(`/api/reddit/feed?${params}`);
-      const json = await res.json();
+      if (subs.length === 0) {
+        setPosts([]);
+        setHasMore(false);
+        setLoading(false);
+        setLoadingMore(false);
+        return;
+      }
 
-      if (json.error) {
-        toast.error(json.error);
-        if (isReset) setPosts([]);
-      } else {
-        // Dedupe against already-loaded posts
-        const newPosts = (json.posts as RedditPost[]).filter((p) => {
+      const targetSubs = subFilter !== 'all'
+        ? subs.filter((s) => s.toLowerCase() === subFilter.toLowerCase())
+        : subs;
+
+      // Fetch posts from each subreddit in parallel
+      const results = await Promise.all(
+        targetSubs.map(async (sub) => {
+          const after = isReset ? undefined : (afterTokens.current.get(sub) || undefined);
+          // Skip subs that have no more pages
+          if (!isReset && afterTokens.current.has(sub) && afterTokens.current.get(sub) === null) {
+            return { posts: [] as RedditPost[], hasMore: false };
+          }
+          const result = await fetchRedditPostsClient(sub, sortVal, timeVal, 25, after);
+          afterTokens.current.set(sub, result.after);
+          return { posts: result.posts, hasMore: !!result.after };
+        })
+      );
+
+      // Merge, dedupe, sort by score
+      const newPosts = results
+        .flatMap((r) => r.posts)
+        .filter((p) => {
           if (seenIds.current.has(p.id)) return false;
           seenIds.current.add(p.id);
           return true;
-        });
+        })
+        .sort((a, b) => b.score - a.score);
 
-        if (isReset) {
-          setPosts(newPosts);
-        } else {
-          setPosts((prev) => [...prev, ...newPosts]);
-        }
-        setHasMore(json.hasMore ?? false);
-        setTrackedSubs(json.trackedSubreddits ?? []);
+      if (isReset) {
+        setPosts(newPosts);
+      } else {
+        setPosts((prev) => [...prev, ...newPosts]);
       }
+      setHasMore(results.some((r) => r.hasMore));
     } catch {
       toast.error('Failed to load feed');
       if (isReset) setPosts([]);
@@ -88,7 +170,7 @@ export function FeedPanel() {
 
     setLoading(false);
     setLoadingMore(false);
-  }, [project.id]);
+  }, [trackedSubs, fetchTrackedSubs]);
 
   // Load discover posts once (from existing daily-mix endpoint)
   const discoverLoadedRef = useRef(false);
@@ -102,47 +184,40 @@ export function FeedPanel() {
     } catch {
       // silent fail for discover
     }
-    setDiscoverLoaded(true);
   }, [project.id]);
 
-  // Initial load — ref guard ensures this only runs once
+  // Initial load
   const initialLoadDone = useRef(false);
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
-    fetchPage(0, sort, timeFilter, activeFilter, true);
+    fetchPage(sort, timeFilter, activeFilter, true);
     loadDiscover();
   }, [fetchPage, loadDiscover, sort, timeFilter, activeFilter]);
 
   // Re-fetch when sort/time/filter changes
   function handleSortChange(newSort: SortOption) {
     setSort(newSort);
-    setPage(0);
-    fetchPage(0, newSort, timeFilter, activeFilter, true);
+    fetchPage(newSort, timeFilter, activeFilter, true);
   }
 
   function handleTimeChange(newTime: TimeFilter) {
     setTimeFilter(newTime);
-    setPage(0);
-    fetchPage(0, sort, newTime, activeFilter, true);
+    fetchPage(sort, newTime, activeFilter, true);
   }
 
   function handleFilterChange(sub: string) {
     setActiveFilter(sub);
-    setPage(0);
-    fetchPage(0, sort, timeFilter, sub, true);
+    fetchPage(sort, timeFilter, sub, true);
   }
 
   function handleRefresh() {
-    setPage(0);
-    fetchPage(0, sort, timeFilter, activeFilter, true);
+    fetchPage(sort, timeFilter, activeFilter, true);
   }
 
   function loadMore() {
     if (loadingMore || !hasMore) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPage(nextPage, sort, timeFilter, activeFilter, false);
+    fetchPage(sort, timeFilter, activeFilter, false);
   }
 
   // Infinite scroll — trigger when near bottom
