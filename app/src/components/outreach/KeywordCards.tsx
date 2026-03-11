@@ -67,6 +67,20 @@ export function KeywordCards({
     return { keywordStats, totalAll, todayAll, maxCatches };
   }, [keywords, deliveries]);
 
+  if (keywords.length === 0) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={onManageOpen}
+      >
+        <Settings className="h-3.5 w-3.5" />
+        <span className="text-xs">Set up keywords</span>
+      </Button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 overflow-x-auto pb-1">
       {/* All keywords card */}
