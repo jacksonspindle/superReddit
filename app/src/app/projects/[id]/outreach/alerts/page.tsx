@@ -231,17 +231,9 @@ export default function OutreachAlertsPage() {
             </div>
 
             {connectedChannels.length === 0 && !setupSkipped ? (
-              /* Glassmorphism channel setup */
-              <div className="relative flex flex-1 flex-col items-center justify-center min-h-[60vh]">
-                {/* Background glow blobs */}
-                <div className="pointer-events-none absolute inset-0">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-orange-500/15 blur-[120px]" />
-                  <div className="absolute top-1/3 left-1/3 h-64 w-64 rounded-full bg-orange-400/10 blur-[100px]" />
-                  <div className="absolute bottom-1/3 right-1/3 h-48 w-48 rounded-full bg-amber-500/10 blur-[80px]" />
-                </div>
-
-                {/* Glass card */}
-                <div className="relative z-10 w-full max-w-lg rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] space-y-6">
+              /* Channel setup */
+              <div className="flex flex-1 flex-col items-center justify-center min-h-[60vh]">
+                <div className="w-full max-w-lg rounded-2xl border bg-card p-8 space-y-6">
                   <div className="text-center space-y-1.5">
                     <h2 className="text-lg font-semibold">Set up your alerts</h2>
                     <p className="text-sm text-muted-foreground max-w-sm mx-auto">
@@ -256,7 +248,7 @@ export default function OutreachAlertsPage() {
                       >
                         &larr; Back to channels
                       </button>
-                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                      <div className="rounded-xl border bg-muted/50 p-4">
                         {renderChannelConnect(expandedChannel)}
                       </div>
                     </div>
@@ -270,9 +262,9 @@ export default function OutreachAlertsPage() {
                           <button
                             key={ch}
                             onClick={() => setExpandedChannel(ch)}
-                            className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.07] hover:border-white/[0.15]"
+                            className="flex items-center gap-3 rounded-xl border bg-muted/30 p-4 text-left transition-all hover:bg-muted/60 hover:border-muted-foreground/20"
                           >
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.06]">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted border">
                               <Icon className="h-4.5 w-4.5" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -294,7 +286,7 @@ export default function OutreachAlertsPage() {
                 </div>
                 <button
                   onClick={() => setSetupSkipped(true)}
-                  className="relative z-10 mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Skip for now
                 </button>
