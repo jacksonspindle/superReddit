@@ -29,9 +29,9 @@ import type { AlertChannel, OutreachKeyword, AlertDelivery, OutreachMonitoredSub
 const USE_MOCK = true; // flip to false when done previewing
 
 const MOCK_KEYWORDS: OutreachKeyword[] = [
-  { id: 'mk1', project_id: '', phrases: ['CRM alternative', 'best CRM'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-01T00:00:00Z' },
-  { id: 'mk2', project_id: '', phrases: ['cold outreach tool'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-02T00:00:00Z', updated_at: '2026-03-02T00:00:00Z' },
-  { id: 'mk3', project_id: '', phrases: ['lead generation', 'find leads'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-03T00:00:00Z', updated_at: '2026-03-03T00:00:00Z' },
+  { id: 'mk1', project_id: '', phrases: ['CRM alternative', 'best CRM'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, tier: null, created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-01T00:00:00Z' },
+  { id: 'mk2', project_id: '', phrases: ['cold outreach tool'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, tier: null, created_at: '2026-03-02T00:00:00Z', updated_at: '2026-03-02T00:00:00Z' },
+  { id: 'mk3', project_id: '', phrases: ['lead generation', 'find leads'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, tier: null, created_at: '2026-03-03T00:00:00Z', updated_at: '2026-03-03T00:00:00Z' },
 ];
 
 const mockD = (id: string, title: string, sub: string, kws: string[], hoursAgo: number): AlertDelivery => {

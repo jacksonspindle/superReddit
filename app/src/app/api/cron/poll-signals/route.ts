@@ -110,7 +110,28 @@ export async function GET(request: NextRequest) {
           subredditNames = (projectSubs || []).map((s: { name: string }) => s.name);
         }
 
-        const keywords = (config?.keywords as string[]) || [];
+        // Get keywords from outreach_keywords table (with tiers), fall back to config
+        let keywords: string[] = [];
+        const keywordTiers: Record<string, 'hot' | 'warm' | 'cold' | null> = {};
+        try {
+          const { data: kwRows } = await supabase
+            .from('outreach_keywords')
+            .select('phrases, tier')
+            .eq('project_id', entry.project_id)
+            .eq('is_active', true);
+          if (kwRows?.length) {
+            for (const k of kwRows as { phrases: string[]; tier?: string | null }[]) {
+              for (const phrase of k.phrases) {
+                keywords.push(phrase);
+                if (k.tier) keywordTiers[phrase.toLowerCase()] = k.tier as 'hot' | 'warm' | 'cold';
+              }
+            }
+          }
+        } catch {
+          // Table/column may not exist yet
+        }
+        if (keywords.length === 0) keywords = (config?.keywords as string[]) || [];
+
         if (subredditNames.length === 0 || keywords.length === 0) {
           await markFailed(supabase, entry.id, 'No subreddits or keywords configured');
           continue;
@@ -119,6 +140,7 @@ export async function GET(request: NextRequest) {
         const count = await detectSignalsV3(supabase, {
           projectId: entry.project_id,
           keywords,
+          keywordTiers,
           competitors: (config?.competitors as string[]) || [],
           subreddits: subredditNames,
           subredditLimit: (config?.subreddit_limit as number) || 100,

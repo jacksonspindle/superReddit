@@ -28,6 +28,8 @@ import type { RedditPost } from '@/types';
 interface DetectOptions {
   projectId: string;
   keywords: string[];
+  /** Map of keyword phrase → user-set tier (null = use heuristic) */
+  keywordTiers?: Record<string, 'hot' | 'warm' | 'cold' | null>;
   competitors: string[];
   subreddits: string[];
   subredditLimit: number;
@@ -499,6 +501,30 @@ interface DetectV3Options extends DetectOptions {
 const PRE_FILTER_BATCH_SIZE = 150;
 const V3_CLASSIFY_BATCH_SIZE = 100;
 
+/** Determine lead tier from matched keywords: user-set tier wins, else word-count heuristic */
+function resolveKeywordTier(
+  matchedKeywords: string[],
+  keywordTiers: Record<string, 'hot' | 'warm' | 'cold' | null>
+): 'hot' | 'warm' | 'cold' {
+  const tierRank = { hot: 0, warm: 1, cold: 2 } as const;
+  let best: 'hot' | 'warm' | 'cold' = 'cold';
+
+  for (const kw of matchedKeywords) {
+    // Check user-set tier first
+    const userTier = keywordTiers[kw.toLowerCase()];
+    if (userTier) {
+      if (tierRank[userTier] < tierRank[best]) best = userTier;
+      continue;
+    }
+    // Heuristic: word count → specificity → tier
+    const wordCount = kw.trim().split(/\s+/).length;
+    const heuristic: 'hot' | 'warm' | 'cold' = wordCount >= 3 ? 'hot' : wordCount === 2 ? 'warm' : 'cold';
+    if (tierRank[heuristic] < tierRank[best]) best = heuristic;
+  }
+
+  return best;
+}
+
 /**
  * V3 detection pipeline:
  * 1. Browse subreddits (free) + keyword search (free)
@@ -516,6 +542,7 @@ export async function detectSignalsV3(
   const {
     projectId,
     keywords,
+    keywordTiers = {},
     competitors,
     subreddits,
     productName,
@@ -786,6 +813,12 @@ export async function detectSignalsV3(
   console.log('[DetectorV3] Classified', v3Classifications.size, 'posts');
 
   // ---- Build signal rows ----
+  // Normalize keyword tiers map to lowercase for matching
+  const normalizedTiers: Record<string, 'hot' | 'warm' | 'cold' | null> = {};
+  for (const [k, v] of Object.entries(keywordTiers)) {
+    normalizedTiers[k.toLowerCase()] = v;
+  }
+
   const signals = filteredPosts.map((post) => {
     const v3 = v3Classifications.get(post.id);
     const postSource = (post as { _source?: string })._source || 'keyword_search';
@@ -832,6 +865,13 @@ export async function detectSignalsV3(
     // Backward compat: engage_score = avg(authenticity, relevance)
     const engageScore = Math.round((authenticityScore + relevanceScore) / 2);
 
+    // Compute matched keywords and keyword-based tier
+    const text = `${post.title} ${post.selftext}`.toLowerCase();
+    const postMatchedKeywords = keywords.filter((kw) => text.includes(kw.toLowerCase()));
+    const kwTier = resolveKeywordTier(postMatchedKeywords, normalizedTiers);
+    // Keyword tier takes priority; fall back to AI-derived tier
+    const finalTier = kwTier || leadTier;
+
     return {
       project_id: projectId,
       reddit_id: post.id,
@@ -846,9 +886,7 @@ export async function detectSignalsV3(
       intent_type: intentType,
       intent_score: combinedScore,
       combined_score: combinedScore,
-      matched_keywords: keywords.filter((kw) =>
-        `${post.title} ${post.selftext}`.toLowerCase().includes(kw.toLowerCase())
-      ),
+      matched_keywords: postMatchedKeywords,
       competitor_mentioned: competitorMentioned,
       signal_types: signalTypes,
       pain_severity: painSeverity,
@@ -862,7 +900,7 @@ export async function detectSignalsV3(
       fit_score: fitScore,
       lead_score: leadScore,
       engage_score: engageScore,
-      lead_tier: leadTier,
+      lead_tier: finalTier,
       is_unseen: true,
       // V3 fields
       authenticity_score: authenticityScore,

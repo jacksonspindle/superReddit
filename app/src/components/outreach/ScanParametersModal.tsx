@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings2, Plus, X, Loader2, Save, Search } from 'lucide-react';
+import { Settings2, Plus, X, Loader2, Save, Search, Flame, Sun, Snowflake } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ export function ScanParametersModal({
     addKeyword,
     removeKeyword,
     toggleKeyword,
+    setKeywordTier,
     addMonitoredSub,
     removeMonitoredSub,
     toggleMonitoredSub,
@@ -149,7 +150,7 @@ export function ScanParametersModal({
             <section className="space-y-3">
               <h3 className="text-sm font-semibold">Keywords</h3>
               <p className="text-xs text-muted-foreground">
-                Comma-separated phrases to search for in Reddit posts and comments.
+                Comma-separated phrases. Set a tier per keyword or let auto-detect decide based on specificity.
               </p>
               <div className="flex gap-2">
                 <Input
@@ -164,27 +165,63 @@ export function ScanParametersModal({
                 </Button>
               </div>
               {keywords.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {keywords.map((kw) => (
-                    <div key={kw.id} className="flex items-center gap-1">
-                      {kw.phrases.map((phrase) => (
-                        <Badge
-                          key={phrase}
-                          variant={kw.is_active ? 'secondary' : 'outline'}
-                          className={`text-[11px] cursor-pointer ${kw.is_active ? '' : 'opacity-50'}`}
-                          onClick={() => toggleKeyword(kw.id, !kw.is_active)}
-                        >
-                          {phrase}
-                        </Badge>
-                      ))}
-                      <button
-                        onClick={() => removeKeyword(kw.id)}
-                        className="text-muted-foreground hover:text-destructive ml-0.5"
+                <div className="space-y-1.5">
+                  {keywords.map((kw) => {
+                    const tierColors = {
+                      hot: 'border-red-500/40 bg-red-500/10',
+                      warm: 'border-amber-500/40 bg-amber-500/10',
+                      cold: 'border-blue-500/40 bg-blue-500/10',
+                    };
+                    const autoTier = kw.phrases[0]?.split(/\s+/).length >= 3 ? 'hot' : kw.phrases[0]?.split(/\s+/).length === 2 ? 'warm' : 'cold';
+                    const effectiveTier = kw.tier || autoTier;
+                    return (
+                      <div
+                        key={kw.id}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${kw.is_active ? tierColors[effectiveTier] : 'border-border opacity-50'}`}
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          onClick={() => toggleKeyword(kw.id, !kw.is_active)}
+                          className="flex-1 flex items-center gap-1.5 text-left min-w-0"
+                        >
+                          {kw.phrases.map((phrase) => (
+                            <span key={phrase} className="text-xs font-medium truncate">{phrase}</span>
+                          ))}
+                          {!kw.tier && (
+                            <span className="text-[9px] text-muted-foreground ml-1">auto</span>
+                          )}
+                        </button>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            onClick={() => setKeywordTier(kw.id, kw.tier === 'hot' ? null : 'hot')}
+                            className={`p-0.5 rounded transition-colors ${effectiveTier === 'hot' ? 'text-red-500' : 'text-muted-foreground/40 hover:text-red-500'}`}
+                            title="Hot"
+                          >
+                            <Flame className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => setKeywordTier(kw.id, kw.tier === 'warm' ? null : 'warm')}
+                            className={`p-0.5 rounded transition-colors ${effectiveTier === 'warm' ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-amber-500'}`}
+                            title="Warm"
+                          >
+                            <Sun className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => setKeywordTier(kw.id, kw.tier === 'cold' ? null : 'cold')}
+                            className={`p-0.5 rounded transition-colors ${effectiveTier === 'cold' ? 'text-blue-500' : 'text-muted-foreground/40 hover:text-blue-500'}`}
+                            title="Cold"
+                          >
+                            <Snowflake className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => removeKeyword(kw.id)}
+                          className="text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
