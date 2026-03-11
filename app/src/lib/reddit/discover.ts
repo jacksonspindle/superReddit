@@ -285,11 +285,11 @@ async function enrichWithEngagement(
     return bCount - aCount;
   });
 
-  // Only fetch about.json for top 15 candidates that lack subscriber data
+  // Only fetch about.json for top 5 candidates that lack subscriber data
   const needsEnrichment: SubredditAccumulator[] = [];
   const alreadyHaveData: SubredditAccumulator[] = [];
   for (const acc of sorted) {
-    if (needsEnrichment.length < 15 && acc.subscribers === 0) {
+    if (needsEnrichment.length < 5 && acc.subscribers === 0) {
       needsEnrichment.push(acc);
     } else {
       alreadyHaveData.push(acc);
@@ -429,17 +429,15 @@ export async function discoverSubreddits(
   const condensedName = product.name.replace(/\s+/g, '');
   if (condensedName !== product.name) baseTerms.push(condensedName);
 
-  // Run ALL discovery signals in a single parallel phase for speed
-  // Post search uses base terms (no need to wait for LLM expansion)
-  const [expandedKeywords, nameSearchResults, postSearchHits, similarSubs, sidebarSubs, competitorHits] =
+  // Run discovery signals in parallel (skip LLM keyword expansion — the route
+  // already calls Haiku for ranking, so a second LLM call is redundant and slow)
+  const [nameSearchResults, postSearchHits, competitorHits] =
     await Promise.all([
-      expandKeywordsWithLLM(product.name, product.description, product.audience || null),
-      searchSubredditsByName(baseTerms), // Signal 4
-      searchPostsForSubreddits(baseTerms), // Signal 1: uses base terms directly
-      fetchSimilarSubreddits(existingSubreddits), // Signal 2
-      parseSidebarsForSubreddits(existingSubreddits), // Signal 3
+      searchSubredditsByName(baseTerms.slice(0, 4)), // Signal 4 (limit terms)
+      searchPostsForSubreddits(baseTerms.slice(0, 3)), // Signal 1 (limit keywords)
       searchCompetitorSubreddits(competitors), // Signal 6
     ]);
+  const expandedKeywords: string[] = [];
 
   console.log(`[discover] All signals complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 
@@ -471,16 +469,6 @@ export async function discoverSubreddits(
     const acc = getOrCreate(subName);
     acc.sources.postSearch = true;
     acc.postSearchHits += hits;
-  }
-
-  // Signal 2: Similar subreddits
-  for (const subName of similarSubs) {
-    getOrCreate(subName).sources.similarApi = true;
-  }
-
-  // Signal 3: Sidebar mentions
-  for (const subName of sidebarSubs) {
-    getOrCreate(subName).sources.sidebar = true;
   }
 
   // Signal 4: Name search (also store subscriber/description data)
