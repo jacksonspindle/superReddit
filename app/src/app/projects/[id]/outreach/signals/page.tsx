@@ -446,11 +446,6 @@ export default function OutreachSignalsPage() {
                   Scan Now
                 </Button>
               </div>
-                {lastScanned && (
-                  <span className="text-xs text-muted-foreground">
-                    Last scanned {formatLastScanned()}
-                  </span>
-                )}
               </div>
 
             {/* Section label */}
