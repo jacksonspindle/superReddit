@@ -338,13 +338,13 @@
   if (window.supabase) {
     const sb = getSupabase();
 
-    // Listen for auth state changes (fires after OAuth redirect or token exchange)
-    // Only redirect on SIGNED_IN (new login), NOT INITIAL_SESSION (existing session)
-    // to avoid infinite reload loops when middleware redirects back here.
+    // Only process auth if this is an actual OAuth/magic-link redirect (URL has auth params)
+    const hasAuthParams = window.location.hash.includes('access_token') ||
+      new URLSearchParams(window.location.search).has('code');
     let isRedirecting = false;
     sb.auth.onAuthStateChange(async (event, session) => {
       if (isRedirecting) return;
-      if (session && event === 'SIGNED_IN') {
+      if (session && event === 'SIGNED_IN' && hasAuthParams) {
         isRedirecting = true;
         showStatus('Signing you in...', 'success');
         try {
