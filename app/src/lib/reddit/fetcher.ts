@@ -1,7 +1,7 @@
 import type { RedditPost, RedditSubredditInfo, RedditApiResponse } from '@/types';
 
 const USER_AGENT = 'web:superreddit:v1.0.0 (by /u/superreddit_app)';
-const REDDIT_BASE = 'https://www.reddit.com';
+const REDDIT_BASE = 'https://old.reddit.com';
 
 // ---- Rate Limiter (Token Bucket) ----
 class RateLimiter {
