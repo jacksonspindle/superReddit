@@ -563,26 +563,22 @@ export async function detectSignalsV3(
   const browsedPosts = new Map<string, RedditPost & { _source?: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
   if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
-    // Chunk subreddits into groups of 25 for multi-sub URL
-    const chunks: string[][] = [];
-    for (let i = 0; i < subreddits.length; i += 25) {
-      chunks.push(subreddits.slice(i, i + 25));
-    }
-
-    await Promise.all(chunks.map(async (chunk) => {
-      try {
-        const multiSub = chunk.join('+');
-        const result = await fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100));
-        for (const post of result.posts) {
-          if (!browsedPosts.has(post.id)) {
-            browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
-          }
+    // Use PullPush instead of Reddit (Reddit blocks datacenter IPs)
+    try {
+      const posts = await pullpush.fetchRecentPosts({
+        subreddits,
+        after: timeFilterToUnix(timeFilter),
+        limit: Math.min(maxResults, 100),
+      });
+      for (const post of posts) {
+        if (!browsedPosts.has(post.id)) {
+          browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
         }
-      } catch {
-        // Skip failed chunks
       }
-    }));
-    console.log('[DetectorV3] Browsed', browsedPosts.size, 'posts from subreddits');
+    } catch {
+      // PullPush browse failed
+    }
+    console.log('[DetectorV3] Browsed', browsedPosts.size, 'posts via PullPush');
   }
 
   // ---- Source B: Keyword search (free, supplementary) ----
@@ -598,13 +594,15 @@ export async function detectSignalsV3(
   const fetchPromises: Promise<void>[] = [];
 
   if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
+    // Use PullPush instead of Reddit (Reddit blocks datacenter IPs)
     fetchPromises.push(
-      searchMultiSubPosts(subreddits, keywords, {
-        timeFilter,
+      pullpush.searchPosts({
+        subreddits,
+        query: keywords.join(' OR '),
+        after: timeFilterToUnix(timeFilter),
         limit: maxResults,
-        maxPages: 3,
-      }).then(async (result) => {
-        cachedPosts = result.posts;
+      }).then(async (posts) => {
+        cachedPosts = posts;
         if (cachedPosts.length > 0) {
           await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
         }

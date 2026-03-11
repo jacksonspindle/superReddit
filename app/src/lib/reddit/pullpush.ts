@@ -149,11 +149,13 @@ export async function searchComments(options: {
 
   const params = new URLSearchParams({
     q: query,
-    subreddit: subreddits.join(','),
     size: String(Math.min(limit, 100)),
     sort: 'created_utc',
     sort_type: sort,
   });
+  for (const sub of subreddits) {
+    params.append('subreddit', sub);
+  }
 
   if (after) params.set('after', String(after));
   if (before) params.set('before', String(before));
@@ -172,6 +174,43 @@ export async function searchComments(options: {
   }
 }
 
+/** Fetch recent posts from subreddits without keyword filtering (for browsing) */
+export async function fetchRecentPosts(options: {
+  subreddits: string[];
+  after?: number;
+  before?: number;
+  limit?: number;
+}): Promise<RedditPost[]> {
+  const { subreddits, after, before, limit = 100 } = options;
+
+  if (subreddits.length === 0) return [];
+
+  const params = new URLSearchParams({
+    size: String(Math.min(limit, 100)),
+    sort: 'created_utc',
+    sort_type: 'desc',
+  });
+  for (const sub of subreddits) {
+    params.append('subreddit', sub);
+  }
+
+  if (after) params.set('after', String(after));
+  if (before) params.set('before', String(before));
+
+  try {
+    const url = `${PULLPUSH_BASE}/reddit/search/submission/?${params.toString()}`;
+    const json = (await fetchFromPullPush(url)) as { data?: PullPushSubmissionRaw[] };
+    const data = json.data || [];
+
+    return data
+      .filter((p) => p.author && p.author !== '[deleted]')
+      .map(parseSubmission);
+  } catch (error) {
+    console.error('PullPush recent posts error:', error);
+    return [];
+  }
+}
+
 export async function searchPosts(options: {
   subreddits: string[];
   query: string;
@@ -185,11 +224,13 @@ export async function searchPosts(options: {
 
   const params = new URLSearchParams({
     q: query,
-    subreddit: subreddits.join(','),
     size: String(Math.min(limit, 100)),
     sort: 'created_utc',
     sort_type: 'desc',
   });
+  for (const sub of subreddits) {
+    params.append('subreddit', sub);
+  }
 
   if (after) params.set('after', String(after));
   if (before) params.set('before', String(before));

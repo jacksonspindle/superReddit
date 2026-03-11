@@ -14,104 +14,7 @@ import { ScanParametersModal } from '@/components/outreach/ScanParametersModal';
 import { ScanWizard } from '@/components/outreach/ScanWizard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import type { OutreachSignal, BuyerIntent, RedditPost } from '@/types';
-
-// ---- Client-side Reddit fetching (browser bypasses datacenter IP blocks) ----
-const REDDIT_BASE = 'https://old.reddit.com';
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function parseRedditPostClient(d: Record<string, unknown>): RedditPost {
-  let previewUrl: string | null = null;
-  try {
-    const preview = d.preview as { images?: { source?: { url?: string } }[] } | undefined;
-    const src = preview?.images?.[0]?.source?.url;
-    if (src) previewUrl = src.replace(/&amp;/g, '&');
-  } catch { /* ignore */ }
-
-  return {
-    id: d.id as string,
-    title: d.title as string,
-    selftext: (d.selftext as string) || '',
-    author: d.author as string,
-    score: d.score as number,
-    num_comments: d.num_comments as number,
-    url: d.url as string,
-    permalink: d.permalink as string,
-    created_utc: d.created_utc as number,
-    subreddit: d.subreddit as string,
-    link_flair_text: (d.link_flair_text as string) || null,
-    is_self: d.is_self as boolean,
-    thumbnail: (d.thumbnail as string) || null,
-    preview_url: previewUrl,
-    post_hint: (d.post_hint as string) || null,
-  };
-}
-
-/** Fetch Reddit posts directly from the browser (Sources A + B for signal scanning) */
-async function fetchRedditPostsClientSide(
-  subreddits: string[],
-  keywords: string[],
-  timeFilter: string,
-  maxResults: number
-): Promise<RedditPost[]> {
-  const allPosts = new Map<string, RedditPost>();
-
-  // Source A: Browse subreddit new posts
-  const subChunks = chunkArray(subreddits, 25);
-  await Promise.all(
-    subChunks.map(async (chunk) => {
-      try {
-        const multiSub = chunk.join('+');
-        const url = `${REDDIT_BASE}/r/${multiSub}/new.json?limit=${Math.min(maxResults, 100)}&t=${timeFilter}&raw_json=1`;
-        const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) return;
-        const json = await res.json();
-        for (const child of json.data?.children || []) {
-          const post = parseRedditPostClient(child.data);
-          allPosts.set(post.id, post);
-        }
-      } catch {
-        // Skip failed chunks
-      }
-    })
-  );
-
-  // Source B: Keyword search across subreddits
-  if (keywords.length > 0) {
-    const keywordGroups = chunkArray(keywords, 10).map((group) =>
-      group.map((kw) => (kw.includes(' ') ? `"${kw}"` : kw)).join(' OR ')
-    );
-
-    for (const subChunk of subChunks) {
-      const multiSub = subChunk.join('+');
-      for (const queryStr of keywordGroups) {
-        try {
-          const url = `${REDDIT_BASE}/r/${multiSub}/search.json?q=${encodeURIComponent(queryStr)}&restrict_sr=on&limit=100&sort=relevance&t=${timeFilter}&raw_json=1`;
-          const res = await fetch(url, { headers: { Accept: 'application/json' } });
-          if (!res.ok) continue;
-          const json = await res.json();
-          for (const child of json.data?.children || []) {
-            const post = parseRedditPostClient(child.data);
-            allPosts.set(post.id, post);
-          }
-        } catch {
-          // Skip failed searches
-        }
-        if (allPosts.size >= maxResults) break;
-      }
-      if (allPosts.size >= maxResults) break;
-    }
-  }
-
-  return Array.from(allPosts.values()).slice(0, maxResults);
-}
+import type { OutreachSignal, BuyerIntent } from '@/types';
 
 interface Analytics {
   hotCount: number;
@@ -214,34 +117,22 @@ export default function OutreachSignalsPage() {
     setScanning(true);
     const beforeCount = signals.length;
     try {
-      // Step 1: Fetch scan configuration (subreddits, keywords, etc.)
-      const configRes = await fetch(`/api/outreach/signals/scan-config?project_id=${project.id}`);
-      const scanConfig = await configRes.json();
-
-      if (scanConfig.error) {
-        toast.error(scanConfig.error);
-        setScanning(false);
-        return;
+      // Get scan params from config
+      let scanBody: Record<string, unknown> = { project_id: project.id };
+      try {
+        const configRes = await fetch(`/api/outreach/config?project_id=${project.id}`);
+        const configJson = await configRes.json();
+        if (configJson.config) {
+          const c = configJson.config;
+          if (c.time_filter) scanBody.time_filter = c.time_filter;
+          if (c.max_results) scanBody.max_results = c.max_results;
+          if (c.include_comments !== undefined) scanBody.include_comments = c.include_comments;
+        }
+      } catch {
+        // Use defaults
       }
 
-      // Step 2: Fetch Reddit posts client-side (browser bypasses datacenter IP blocks)
-      toast('Fetching Reddit data...', { duration: 5000 });
-      const redditPosts = await fetchRedditPostsClientSide(
-        scanConfig.subreddits,
-        scanConfig.keywords,
-        scanConfig.timeFilter,
-        scanConfig.maxResults
-      );
-
-      // Step 3: Send pre-fetched posts to server for AI classification + storage
-      const scanBody = {
-        project_id: project.id,
-        reddit_posts: redditPosts,
-        time_filter: scanConfig.timeFilter,
-        max_results: scanConfig.maxResults,
-        include_comments: scanConfig.includeComments,
-      };
-
+      // Fire off scan — server uses PullPush instead of Reddit (bypasses IP blocks)
       const res = await fetch('/api/outreach/signals/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -254,9 +145,9 @@ export default function OutreachSignalsPage() {
         return;
       }
 
-      toast(`Analyzing ${redditPosts.length} posts...`, { duration: 3000 });
+      toast('Scanning in background...', { duration: 3000 });
 
-      // Step 4: Poll for new results every 3s for up to 2 minutes
+      // Poll for new results every 3s for up to 2 minutes
       let polls = 0;
       const maxPolls = 40;
       const pollInterval = setInterval(async () => {
