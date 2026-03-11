@@ -233,10 +233,10 @@ export function ScanParametersModal({
 
             {/* Time Range & Search Depth */}
             <section className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Time Range</h3>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Time Range</label>
                 <Select value={timeFilter} onValueChange={setTimeFilter}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -249,10 +249,10 @@ export function ScanParametersModal({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Max Results</h3>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max Results</label>
                 <Select value={maxResults} onValueChange={setMaxResults}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -273,7 +273,7 @@ export function ScanParametersModal({
                 <div>
                   <h3 className="text-sm font-semibold">Comment Search</h3>
                   <p className="text-xs text-muted-foreground">
-                    Search Reddit comments for leads buried in threads (PullPush)
+                    Search Reddit comments for leads buried in threads
                   </p>
                 </div>
                 <button
