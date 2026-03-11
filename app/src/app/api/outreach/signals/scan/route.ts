@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { detectSignalsV3 } from '@/lib/outreach/detector';
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 /**
  * POST /api/outreach/signals/scan
@@ -140,8 +140,8 @@ export async function POST(request: NextRequest) {
     // Accept pre-fetched Reddit posts from client (bypasses datacenter IP blocks)
     const clientRedditPosts = body.reddit_posts || undefined;
 
-    // Fire-and-forget: run detection without awaiting
-    detectSignalsV3(supabase, {
+    // Await detection (Vercel kills background promises after response is sent)
+    const count = await detectSignalsV3(supabase, {
       projectId,
       keywords,
       keywordTiers,
@@ -156,14 +156,10 @@ export async function POST(request: NextRequest) {
       includeComments,
       browseSubreddits: true,
       prefetchedPosts: clientRedditPosts,
-    }).then((count) => {
-      console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
-    }).catch((err) => {
-      console.error(`[Scan] Failed for project ${projectId}:`, err);
     });
 
-    // Return immediately
-    return NextResponse.json({ started: true });
+    console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
+    return NextResponse.json({ completed: true, count });
   } catch (error) {
     console.error('Scan trigger error:', error);
     return NextResponse.json({ error: 'Failed to start scan' }, { status: 500 });

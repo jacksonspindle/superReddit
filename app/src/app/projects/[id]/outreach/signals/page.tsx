@@ -115,8 +115,7 @@ export default function OutreachSignalsPage() {
 
   async function handleScanNow() {
     setScanning(true);
-    const beforeCount = signals.length;
-    console.log('[Signals] Scan started. beforeCount:', beforeCount);
+    console.log('[Signals] Scan started');
     try {
       // Get scan params from config
       let scanBody: Record<string, unknown> = { project_id: project.id };
@@ -136,7 +135,7 @@ export default function OutreachSignalsPage() {
 
       console.log('[Signals] Sending scan request with body:', scanBody);
 
-      // Fire off scan — server uses PullPush instead of Reddit (bypasses IP blocks)
+      // Server awaits full scan (PullPush + AI classification + DB storage)
       const res = await fetch('/api/outreach/signals/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,48 +143,24 @@ export default function OutreachSignalsPage() {
       });
       const json = await res.json();
       console.log('[Signals] Scan response:', res.status, json);
+
       if (json.error) {
         toast.error(json.error);
         setScanning(false);
         return;
       }
 
-      toast('Scanning in background...', { duration: 3000 });
+      if (json.count > 0) {
+        toast.success(`Found ${json.count} new signals!`);
+      } else {
+        toast('No new signals found', { duration: 3000 });
+      }
 
-      // Poll for new results every 3s for up to 2 minutes
-      let polls = 0;
-      const maxPolls = 40;
-      const pollInterval = setInterval(async () => {
-        polls++;
-        try {
-          const params = new URLSearchParams({ project_id: project.id, status: 'new' });
-          if (subFilter) params.set('subreddit', subFilter);
-          const pollRes = await fetch(`/api/outreach/signals?${params}`);
-          const pollJson = await pollRes.json();
-          const newSignals = pollJson.signals || [];
-
-          if (newSignals.length > beforeCount) {
-            setSignals(newSignals);
-            setLastScanned(new Date().toISOString());
-            fetchAnalytics();
-            toast.success(`Found ${newSignals.length} signals`);
-            clearInterval(pollInterval);
-            setScanning(false);
-          } else if (polls >= maxPolls) {
-            // Timed out — show whatever we have
-            setSignals(newSignals);
-            fetchAnalytics();
-            clearInterval(pollInterval);
-            setScanning(false);
-            if (newSignals.length === beforeCount) {
-              toast('No new signals found', { duration: 3000 });
-            }
-          }
-        } catch {
-          // Keep polling
-        }
-      }, 3000);
-    } catch {
+      // Refresh signals list and analytics
+      await Promise.all([fetchSignals(), fetchAnalytics()]);
+      setScanning(false);
+    } catch (e) {
+      console.error('[Signals] Scan error:', e);
       toast.error('Scan failed');
       setScanning(false);
     }
