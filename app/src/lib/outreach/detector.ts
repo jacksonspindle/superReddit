@@ -496,8 +496,8 @@ interface DetectV3Options extends DetectOptions {
   browseSubreddits?: boolean;
 }
 
-const PRE_FILTER_BATCH_SIZE = 50;
-const V3_CLASSIFY_BATCH_SIZE = 20;
+const PRE_FILTER_BATCH_SIZE = 150;
+const V3_CLASSIFY_BATCH_SIZE = 100;
 
 /**
  * V3 detection pipeline:
@@ -537,7 +537,7 @@ export async function detectSignalsV3(
       chunks.push(subreddits.slice(i, i + 25));
     }
 
-    for (const chunk of chunks) {
+    await Promise.all(chunks.map(async (chunk) => {
       try {
         const multiSub = chunk.join('+');
         const result = await fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100));
@@ -549,7 +549,7 @@ export async function detectSignalsV3(
       } catch {
         // Skip failed chunks
       }
-    }
+    }));
     console.log('[DetectorV3] Browsed', browsedPosts.size, 'posts from subreddits');
   }
 
@@ -655,15 +655,21 @@ export async function detectSignalsV3(
   const postIds = Array.from(allPosts.keys());
   let existingIds = new Set<string>();
 
-  // Query in chunks of 200 to avoid query size limits
+  // Query in chunks of 200, run in parallel
+  const dedupChunks: string[][] = [];
   for (let i = 0; i < postIds.length; i += 200) {
-    const chunk = postIds.slice(i, i + 200);
-    const { data: existing } = await supabase
-      .from('outreach_signals')
-      .select('reddit_id')
-      .eq('project_id', projectId)
-      .in('reddit_id', chunk);
-
+    dedupChunks.push(postIds.slice(i, i + 200));
+  }
+  const dedupResults = await Promise.all(
+    dedupChunks.map((chunk) =>
+      supabase
+        .from('outreach_signals')
+        .select('reddit_id')
+        .eq('project_id', projectId)
+        .in('reddit_id', chunk)
+    )
+  );
+  for (const { data: existing } of dedupResults) {
     if (existing) {
       for (const row of existing) {
         existingIds.add(row.reddit_id);
@@ -708,8 +714,10 @@ export async function detectSignalsV3(
       }
 
       const passedIndices = new Set<number>();
-      for (const batch of titleBatches) {
-        const indices = await preFilterPosts(batch, { productName, productDescription });
+      const batchResults = await Promise.all(
+        titleBatches.map((batch) => preFilterPosts(batch, { productName, productDescription }).catch(() => [] as number[]))
+      );
+      for (const indices of batchResults) {
         for (const idx of indices) {
           passedIndices.add(idx);
         }
@@ -745,26 +753,33 @@ export async function detectSignalsV3(
     competitorWeaknesses: productContext?.competitorWeaknesses,
   };
 
-  // Batch in groups of 20
+  // Batch in groups of 100, run in parallel
+  const classifyBatches: ClassificationInput[][] = [];
   for (let i = 0; i < filteredPosts.length; i += V3_CLASSIFY_BATCH_SIZE) {
-    const batch = filteredPosts.slice(i, i + V3_CLASSIFY_BATCH_SIZE);
-    const inputs: ClassificationInput[] = batch.map((p) => ({
-      reddit_id: p.id,
-      title: p.title,
-      body: p.selftext || null,
-      subreddit: p.subreddit,
-      author: p.author,
-      score: p.score,
-      num_comments: p.num_comments,
-    }));
+    classifyBatches.push(
+      filteredPosts.slice(i, i + V3_CLASSIFY_BATCH_SIZE).map((p) => ({
+        reddit_id: p.id,
+        title: p.title,
+        body: p.selftext || null,
+        subreddit: p.subreddit,
+        author: p.author,
+        score: p.score,
+        num_comments: p.num_comments,
+      }))
+    );
+  }
 
-    try {
-      const results = await classifyPostsV3(inputs, productCtx);
-      for (const r of results) {
-        v3Classifications.set(r.reddit_id, r);
-      }
-    } catch (classifyErr) {
-      console.warn('[DetectorV3] Classification batch failed:', (classifyErr as Error).message);
+  const classifyResults = await Promise.all(
+    classifyBatches.map((inputs) =>
+      classifyPostsV3(inputs, productCtx).catch((err) => {
+        console.warn('[DetectorV3] Classification batch failed:', (err as Error).message);
+        return [] as ClassificationResultV3[];
+      })
+    )
+  );
+  for (const results of classifyResults) {
+    for (const r of results) {
+      v3Classifications.set(r.reddit_id, r);
     }
   }
 
