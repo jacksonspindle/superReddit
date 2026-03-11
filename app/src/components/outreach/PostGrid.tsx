@@ -53,7 +53,7 @@ function highlightKeywords(text: string, matchedKeywords: string[]): React.React
     );
     if (isMatch) {
       return (
-        <mark key={i} className="bg-green-200/60 dark:bg-green-500/30 rounded px-0.5">
+        <mark key={i} className="bg-green-200/60 dark:bg-green-500/30 text-white rounded px-0.5">
           {part}
         </mark>
       );
