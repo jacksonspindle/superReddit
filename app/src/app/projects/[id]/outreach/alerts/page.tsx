@@ -115,7 +115,8 @@ export default function OutreachAlertsPage() {
     fetchKeywords(project.id);
     fetchMonitoredSubs(project.id);
     fetchAlertDeliveries(project.id);
-  }, [project.id, fetchConfig, fetchKeywords, fetchMonitoredSubs, fetchAlertDeliveries]);
+    syncSubsFromProject(project.id);
+  }, [project.id, fetchConfig, fetchKeywords, fetchMonitoredSubs, fetchAlertDeliveries, syncSubsFromProject]);
 
   const connectedChannels: AlertChannel[] = (['discord', 'discord_dm', 'slack', 'email', 'telegram'] as AlertChannel[]).filter((ch) => {
     switch (ch) {

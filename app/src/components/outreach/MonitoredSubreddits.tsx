@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X, Power, PowerOff, RefreshCw } from 'lucide-react';
+import { Plus, X, Power, PowerOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ interface MonitoredSubredditsProps {
   onAdd: (name: string) => void;
   onRemove: (id: string) => void;
   onToggle: (id: string, isActive: boolean) => void;
-  onSync: () => void;
+  onSync?: () => void;
 }
 
 const safetyColors: Record<string, string> = {
@@ -56,20 +56,9 @@ export function MonitoredSubreddits({
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium text-sm">Monitored Subreddits</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs h-6"
-            onClick={onSync}
-          >
-            <RefreshCw className="mr-1 h-3 w-3" />
-            Sync from project
-          </Button>
-        </div>
+        <h3 className="font-medium text-sm">Monitored Subreddits</h3>
         <p className="text-xs text-muted-foreground">
-          Subreddits polled for keyword matches. Syncing imports your project's subreddits.
+          Subreddits polled for keyword matches. Automatically synced from your project.
         </p>
 
         {/* Add input */}
@@ -89,7 +78,7 @@ export function MonitoredSubreddits({
         {/* Sub list */}
         {subs.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2">
-            No subreddits monitored. Add manually or sync from your project.
+            No subreddits monitored. Add manually or set them up in your project.
           </p>
         ) : (
           <div className="space-y-1.5">
