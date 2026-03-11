@@ -338,9 +338,14 @@
   if (window.supabase) {
     const sb = getSupabase();
 
-    // Listen for auth state changes (fires after OAuth redirect or existing session)
+    // Listen for auth state changes (fires after OAuth redirect or token exchange)
+    // Only redirect on SIGNED_IN (new login), NOT INITIAL_SESSION (existing session)
+    // to avoid infinite reload loops when middleware redirects back here.
+    let isRedirecting = false;
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+      if (isRedirecting) return;
+      if (session && event === 'SIGNED_IN') {
+        isRedirecting = true;
         showStatus('Signing you in...', 'success');
         try {
           // Sync session to server cookies so Next.js middleware recognizes the user
@@ -356,9 +361,13 @@
           if (!res.ok) {
             const data = await res.json();
             console.error('Session sync failed:', data.error);
+            isRedirecting = false;
+            return;
           }
         } catch (e) {
           console.error('Session sync error:', e);
+          isRedirecting = false;
+          return;
         }
         // Redirect to app — middleware handles onboarding gate
         window.location.href = '/projects';
