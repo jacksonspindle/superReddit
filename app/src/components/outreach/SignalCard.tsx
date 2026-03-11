@@ -299,27 +299,7 @@ export function SignalCard({ signal, projectId, onStatusChange, onFavoriteToggle
             </p>
           )}
 
-          {/* Score row */}
-          {hasV3Scores ? (
-            <div className="flex gap-1.5 flex-wrap">
-              <ScoreBadge label="Fit" value={signal.fit_score!} />
-              <ScoreBadge label="Auth" value={signal.authenticity_score!} />
-              <ScoreBadge label="Rel" value={signal.relevance_score!} />
-              <ScoreBadge label="Lead" value={signal.lead_score!} />
-            </div>
-          ) : hasV2Scores ? (
-            <div className="flex gap-1.5 flex-wrap">
-              <ScoreBadge label="Fit" value={signal.fit_score!} />
-              <ScoreBadge label="Lead" value={signal.lead_score!} />
-              <ScoreBadge label="Engage" value={signal.engage_score!} />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-mono font-semibold ${signal.combined_score >= 0.7 ? 'text-green-600 dark:text-green-400' : signal.combined_score >= 0.4 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
-                Score: {(signal.combined_score ?? 0).toFixed(2)}
-              </span>
-            </div>
-          )}
+          {/* Score row - removed */}
 
           {/* Pain + Decision Maker */}
           {(signal.pain_severity || signal.decision_maker) && (

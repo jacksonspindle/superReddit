@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Search, Flame, Sun, Eye, Radio, Settings2, Star } from 'lucide-react';
+import { Loader2, Search, Flame, Sun, MessageCircle, Radio, Settings2, Star, X } from 'lucide-react';
 import { useProject } from '@/contexts/project-context';
 import { PageTransition, StaggerList, StaggerItem } from '@/components/motion';
 import { Header } from '@/components/layout/header';
@@ -33,7 +33,7 @@ export default function OutreachSignalsPage() {
   const [lastScanned, setLastScanned] = useState<string | null>(null);
 
   const [subFilter, setSubFilter] = useState<string | null>(null);
-  const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'unseen' | 'favorites' | null>(null);
+  const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'engagement' | 'favorites' | null>(null);
   const [intentFilter, setIntentFilter] = useState<BuyerIntent | null>(null);
 
   // Wizard & modal state
@@ -249,14 +249,17 @@ export default function OutreachSignalsPage() {
     return `${Math.floor(seconds / 3600)}h ago`;
   }
 
-  // Client-side filtering (tier + buyer intent)
+  // Client-side filtering (tier + buyer intent) + sort by tier (hot → warm → cold)
+  const tierRank: Record<string, number> = { hot: 0, warm: 1, cold: 2 };
   const filteredSignals = signals.filter((s) => {
     // Tier filter
     if (tierFilter) {
       if (tierFilter === 'favorites') {
         if (!s.is_favorited) return false;
-      } else if (tierFilter === 'unseen') {
-        if (!s.is_unseen) return false;
+      } else if (tierFilter === 'engagement') {
+        const score = s.combined_score ?? 0;
+        const tier = s.lead_tier || (score >= 0.7 ? 'hot' : score >= 0.4 ? 'warm' : 'cold');
+        if (tier === 'cold') return false;
       } else {
         let tier = s.lead_tier;
         if (!tier) {
@@ -271,6 +274,19 @@ export default function OutreachSignalsPage() {
     // Buyer intent filter
     if (intentFilter && s.buyer_intent !== intentFilter) return false;
     return true;
+  }).sort((a, b) => {
+    const getTier = (s: typeof a) => {
+      if (s.lead_tier) return s.lead_tier;
+      const score = s.combined_score ?? 0;
+      if (score >= 0.7) return 'hot';
+      if (score >= 0.4) return 'warm';
+      return 'cold';
+    };
+    const rankA = tierRank[getTier(a)] ?? 2;
+    const rankB = tierRank[getTier(b)] ?? 2;
+    if (rankA !== rankB) return rankA - rankB;
+    // Within same tier, sort by most recent first
+    return (b.created_utc ?? 0) - (a.created_utc ?? 0);
   });
 
   return (
@@ -279,6 +295,25 @@ export default function OutreachSignalsPage() {
         <Header title="Signals" />
         <div className="flex-1 overflow-auto">
           <div className="mx-auto max-w-[1280px] p-6 space-y-6">
+
+            {/* Live Monitoring Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Lead Intelligence</h2>
+                  <p className="text-xs text-muted-foreground">Click on a box to filter</p>
+                </div>
+              </div>
+              <button
+                className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-sm font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+              >
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                </span>
+                Live Monitoring: ON
+              </button>
+            </div>
 
             {/* Analytics Row */}
             <div className="grid grid-cols-5 gap-3">
@@ -308,14 +343,14 @@ export default function OutreachSignalsPage() {
               </Card>
               <Card
                 className={`p-4 flex flex-col gap-1 cursor-pointer transition-colors ${
-                  tierFilter === 'unseen' ? 'ring-2 ring-blue-500 bg-blue-500/5' : 'hover:bg-accent/50'
+                  tierFilter === 'engagement' ? 'ring-2 ring-blue-500 bg-blue-500/5' : 'hover:bg-accent/50'
                 }`}
-                onClick={() => setTierFilter(tierFilter === 'unseen' ? null : 'unseen')}
+                onClick={() => setTierFilter(tierFilter === 'engagement' ? null : 'engagement')}
               >
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Unseen</span>
-                <span className="text-3xl font-bold text-blue-500">{analytics?.unseenCount ?? '-'}</span>
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Engagement</span>
+                <span className="text-3xl font-bold text-blue-500">{analytics ? (analytics.hotCount + analytics.warmCount) : '-'}</span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Eye className="h-3 w-3 text-blue-500" /> needs review
+                  <MessageCircle className="h-3 w-3 text-blue-500" /> opportunities
                 </span>
               </Card>
               <Card
@@ -346,9 +381,9 @@ export default function OutreachSignalsPage() {
 
             {/* Top Subreddits */}
             {analytics?.topSubreddits && analytics.topSubreddits.length > 0 && (
-              <div>
-                <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Top Subreddits</h3>
-                <div className="flex gap-2 flex-wrap">
+              <Card className="px-3 py-2">
+                <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Top Subreddits</h3>
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {analytics.topSubreddits.slice(0, 6).map((sub, i) => {
                     const isActive = subFilter === sub.name;
                     const pct = analytics.totalCount > 0
@@ -359,7 +394,7 @@ export default function OutreachSignalsPage() {
                       <button
                         key={sub.name}
                         onClick={() => setSubFilter(isActive ? null : sub.name)}
-                        className={`relative rounded-lg border px-3 py-2 text-left transition-colors ${
+                        className={`relative shrink-0 rounded-lg border px-3 py-2 text-left transition-colors ${
                           isActive
                             ? 'border-primary bg-primary/5'
                             : 'border-border bg-card hover:bg-accent/50'
@@ -379,7 +414,7 @@ export default function OutreachSignalsPage() {
                     );
                   })}
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Buyer Intent Filter Pills */}
@@ -448,14 +483,56 @@ export default function OutreachSignalsPage() {
               </div>
               </div>
 
-            {/* Section label */}
-            <div className="flex items-center gap-2">
-              <h2 className="text-[15px] font-semibold">Leads</h2>
-              <span className="text-xs text-muted-foreground">
-                {loading ? '...' : `${filteredSignals.length} signals`}
-                {tierFilter && ` (${tierFilter})`}
-                {intentFilter && ` / ${intentFilter.replace(/_/g, ' ')}`}
-              </span>
+            {/* Section label + active filters */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-[15px] font-semibold">Leads</h2>
+                <span className="text-xs text-muted-foreground">
+                  {loading ? '...' : `${filteredSignals.length} signals`}
+                </span>
+              </div>
+              {(tierFilter || intentFilter || subFilter) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">Filtered by:</span>
+                  {tierFilter && (
+                    <button
+                      onClick={() => setTierFilter(null)}
+                      className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium transition-colors hover:bg-accent/70"
+                    >
+                      {tierFilter === 'hot' && <Flame className="h-3 w-3 text-red-500" />}
+                      {tierFilter === 'warm' && <Sun className="h-3 w-3 text-amber-500" />}
+                      {tierFilter === 'engagement' && <MessageCircle className="h-3 w-3 text-blue-500" />}
+                      {tierFilter === 'favorites' && <Star className="h-3 w-3 text-yellow-500" />}
+                      {tierFilter.charAt(0).toUpperCase() + tierFilter.slice(1)}
+                      <X className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  )}
+                  {intentFilter && (
+                    <button
+                      onClick={() => setIntentFilter(null)}
+                      className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium transition-colors hover:bg-accent/70"
+                    >
+                      {intentFilter.replace(/_/g, ' ')}
+                      <X className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  )}
+                  {subFilter && (
+                    <button
+                      onClick={() => setSubFilter(null)}
+                      className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium transition-colors hover:bg-accent/70"
+                    >
+                      r/{subFilter}
+                      <X className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setTierFilter(null); setIntentFilter(null); setSubFilter(null); }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Signal cards grid */}
@@ -471,7 +548,7 @@ export default function OutreachSignalsPage() {
               </div>
             ) : (
               <TooltipProvider>
-                <StaggerList className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <StaggerList key={`${tierFilter}-${intentFilter}-${subFilter}`} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {filteredSignals.map((signal) => (
                     <StaggerItem key={signal.id}>
                       <SignalCard
