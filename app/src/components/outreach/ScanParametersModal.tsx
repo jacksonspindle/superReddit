@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings2, Plus, X, Loader2, Save, Search, RefreshCw } from 'lucide-react';
+import { Settings2, Plus, X, Loader2, Save, Search, Flame, Sun, Snowflake } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOutreachStore } from '@/stores/outreach-store';
 import { toast } from 'sonner';
 
@@ -40,6 +39,7 @@ export function ScanParametersModal({
     addKeyword,
     removeKeyword,
     toggleKeyword,
+    setKeywordTier,
     addMonitoredSub,
     removeMonitoredSub,
     toggleMonitoredSub,
@@ -60,14 +60,15 @@ export function ScanParametersModal({
   const [painInput, setPainInput] = useState('');
   const [goalInput, setGoalInput] = useState('');
 
-  // Load data on open
+  // Load data on open & auto-sync subreddits from project
   useEffect(() => {
     if (open) {
       fetchConfig(projectId);
       fetchKeywords(projectId);
       fetchMonitoredSubs(projectId);
+      syncSubsFromProject(projectId);
     }
-  }, [open, projectId, fetchConfig, fetchKeywords, fetchMonitoredSubs]);
+  }, [open, projectId, fetchConfig, fetchKeywords, fetchMonitoredSubs, syncSubsFromProject]);
 
   // Sync local state from config when it loads
   useEffect(() => {
@@ -135,7 +136,7 @@ export function ScanParametersModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
@@ -143,13 +144,13 @@ export function ScanParametersModal({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4 -mr-4">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-4 -mr-4">
           <div className="space-y-6 pb-4">
             {/* Keywords */}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold">Keywords</h3>
               <p className="text-xs text-muted-foreground">
-                Comma-separated phrases to search for in Reddit posts and comments.
+                Comma-separated phrases. Set a tier per keyword or let auto-detect decide based on specificity.
               </p>
               <div className="flex gap-2">
                 <Input
@@ -164,27 +165,63 @@ export function ScanParametersModal({
                 </Button>
               </div>
               {keywords.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {keywords.map((kw) => (
-                    <div key={kw.id} className="flex items-center gap-1">
-                      {kw.phrases.map((phrase) => (
-                        <Badge
-                          key={phrase}
-                          variant={kw.is_active ? 'secondary' : 'outline'}
-                          className={`text-[11px] cursor-pointer ${kw.is_active ? '' : 'opacity-50'}`}
-                          onClick={() => toggleKeyword(kw.id, !kw.is_active)}
-                        >
-                          {phrase}
-                        </Badge>
-                      ))}
-                      <button
-                        onClick={() => removeKeyword(kw.id)}
-                        className="text-muted-foreground hover:text-destructive ml-0.5"
+                <div className="space-y-1.5">
+                  {keywords.map((kw) => {
+                    const tierColors = {
+                      hot: 'border-red-500/40 bg-red-500/10',
+                      warm: 'border-amber-500/40 bg-amber-500/10',
+                      cold: 'border-blue-500/40 bg-blue-500/10',
+                    };
+                    const autoTier = kw.phrases[0]?.split(/\s+/).length >= 3 ? 'hot' : kw.phrases[0]?.split(/\s+/).length === 2 ? 'warm' : 'cold';
+                    const effectiveTier = kw.tier || autoTier;
+                    return (
+                      <div
+                        key={kw.id}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${kw.is_active ? tierColors[effectiveTier] : 'border-border opacity-50'}`}
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          onClick={() => toggleKeyword(kw.id, !kw.is_active)}
+                          className="flex-1 flex items-center gap-1.5 text-left min-w-0"
+                        >
+                          {kw.phrases.map((phrase) => (
+                            <span key={phrase} className="text-xs font-medium truncate">{phrase}</span>
+                          ))}
+                          {!kw.tier && (
+                            <span className="text-[9px] text-muted-foreground ml-1">auto</span>
+                          )}
+                        </button>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            onClick={() => setKeywordTier(kw.id, kw.tier === 'hot' ? null : 'hot')}
+                            className={`p-0.5 rounded transition-colors ${effectiveTier === 'hot' ? 'text-red-500' : 'text-muted-foreground/40 hover:text-red-500'}`}
+                            title="Hot"
+                          >
+                            <Flame className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => setKeywordTier(kw.id, kw.tier === 'warm' ? null : 'warm')}
+                            className={`p-0.5 rounded transition-colors ${effectiveTier === 'warm' ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-amber-500'}`}
+                            title="Warm"
+                          >
+                            <Sun className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => setKeywordTier(kw.id, kw.tier === 'cold' ? null : 'cold')}
+                            className={`p-0.5 rounded transition-colors ${effectiveTier === 'cold' ? 'text-blue-500' : 'text-muted-foreground/40 hover:text-blue-500'}`}
+                            title="Cold"
+                          >
+                            <Snowflake className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => removeKeyword(kw.id)}
+                          className="text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -193,18 +230,7 @@ export function ScanParametersModal({
 
             {/* Subreddits */}
             <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Subreddits</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-6"
-                  onClick={() => syncSubsFromProject(projectId)}
-                >
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Sync from project
-                </Button>
-              </div>
+              <h3 className="text-sm font-semibold">Subreddits</h3>
               <div className="flex gap-2">
                 <Input
                   value={subInput}
@@ -244,10 +270,10 @@ export function ScanParametersModal({
 
             {/* Time Range & Search Depth */}
             <section className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Time Range</h3>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Time Range</label>
                 <Select value={timeFilter} onValueChange={setTimeFilter}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -260,10 +286,10 @@ export function ScanParametersModal({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Max Results</h3>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max Results</label>
                 <Select value={maxResults} onValueChange={setMaxResults}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -284,7 +310,7 @@ export function ScanParametersModal({
                 <div>
                   <h3 className="text-sm font-semibold">Comment Search</h3>
                   <p className="text-xs text-muted-foreground">
-                    Search Reddit comments for leads buried in threads (PullPush)
+                    Search Reddit comments for leads buried in threads
                   </p>
                 </div>
                 <button
@@ -376,7 +402,7 @@ export function ScanParametersModal({
               )}
             </section>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="gap-2 pt-4 border-t">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

@@ -528,6 +528,7 @@ export interface OutreachKeyword {
   is_active: boolean;
   source: string;
   silenced_until: string | null;
+  tier: LeadTier | null;
   created_at: string;
   updated_at: string;
 }

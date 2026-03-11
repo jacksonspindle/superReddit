@@ -65,20 +65,26 @@ export async function POST(request: NextRequest) {
       // Config may not exist
     }
 
-    // Derive keywords
+    // Derive keywords + tier map
     let keywords: string[] = [];
+    const keywordTiers: Record<string, 'hot' | 'warm' | 'cold' | null> = {};
     try {
       const { data: keywordRows } = await supabase
         .from('outreach_keywords')
-        .select('phrases')
+        .select('phrases, tier')
         .eq('project_id', projectId)
         .eq('is_active', true);
 
       if (keywordRows?.length) {
-        keywords = keywordRows.flatMap((k: { phrases: string[] }) => k.phrases);
+        for (const k of keywordRows as { phrases: string[]; tier?: string | null }[]) {
+          for (const phrase of k.phrases) {
+            keywords.push(phrase);
+            if (k.tier) keywordTiers[phrase.toLowerCase()] = k.tier as 'hot' | 'warm' | 'cold';
+          }
+        }
       }
     } catch {
-      // Table may not exist
+      // Table may not exist (tier column may not be added yet)
     }
 
     if (keywords.length === 0) {
@@ -129,6 +135,7 @@ export async function POST(request: NextRequest) {
     detectSignalsV3(supabase, {
       projectId,
       keywords,
+      keywordTiers,
       competitors,
       subreddits: subNames,
       subredditLimit: (config?.subreddit_limit as number) || 20,

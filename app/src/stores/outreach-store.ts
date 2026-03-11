@@ -40,6 +40,7 @@ interface OutreachState {
   addKeyword: (projectId: string, phrases: string[]) => Promise<void>;
   removeKeyword: (keywordId: string) => Promise<void>;
   toggleKeyword: (keywordId: string, isActive: boolean) => Promise<void>;
+  setKeywordTier: (keywordId: string, tier: 'hot' | 'warm' | 'cold' | null) => Promise<void>;
   addMonitoredSub: (projectId: string, name: string) => Promise<void>;
   removeMonitoredSub: (subId: string) => Promise<void>;
   toggleMonitoredSub: (subId: string, isActive: boolean) => Promise<void>;
@@ -150,6 +151,7 @@ export const useOutreachStore = create<OutreachState>((set, get) => ({
       is_active: true,
       source: 'manual',
       silenced_until: null,
+      tier: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -203,6 +205,25 @@ export const useOutreachStore = create<OutreachState>((set, get) => ({
           k.id === keywordId ? { ...k, is_active: !isActive } : k
         ),
       }));
+    }
+  },
+
+  setKeywordTier: async (keywordId, tier) => {
+    const prev = get().keywords;
+    set((s) => ({
+      keywords: s.keywords.map((k) =>
+        k.id === keywordId ? { ...k, tier } : k
+      ),
+    }));
+
+    try {
+      await fetch('/api/outreach/keywords', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: keywordId, tier }),
+      });
+    } catch {
+      set({ keywords: prev });
     }
   },
 
