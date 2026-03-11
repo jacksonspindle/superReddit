@@ -345,6 +345,7 @@ export default function OutreachAlertsPage() {
                   deliveries={displayDeliveries}
                   keywords={displayKeywords}
                   filterKeywordId={activeKeyword}
+                  projectId={project.id}
                   loading={deliveriesLoading}
                 />
               </>

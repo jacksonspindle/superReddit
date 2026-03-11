@@ -1,15 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
-import { ExternalLink, MessageSquare, ArrowUp } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import type { AlertDelivery, OutreachKeyword } from '@/types';
+import { useMemo, useCallback } from 'react';
+import { SignalCard } from '@/components/outreach/SignalCard';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import type { AlertDelivery, OutreachKeyword, OutreachSignal } from '@/types';
 
 interface PostGridProps {
   deliveries: AlertDelivery[];
   keywords: OutreachKeyword[];
   filterKeywordId: string | null;
   loading: boolean;
+  projectId?: string;
 }
 
 type DateGroup = 'Today' | 'Yesterday' | 'Last Week' | 'Older';
@@ -29,44 +30,60 @@ function getDateGroup(dateStr: string): DateGroup {
   return 'Older';
 }
 
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
+const signalTypes = ['tool_switch', 'budget_constraint', 'repeated_pain', 'convertible_thread'] as const;
+const intents = ['problem_aware', 'solution_seeking', 'comparing', 'ready_to_buy'] as const;
 
-function highlightKeywords(text: string, matchedKeywords: string[]): React.ReactNode {
-  if (!matchedKeywords.length) return text;
-
-  // Build a regex from matched keywords
-  const escaped = matchedKeywords.map((kw) =>
-    kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  );
-  const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
-  const parts = text.split(regex);
-
-  return parts.map((part, i) => {
-    const isMatch = matchedKeywords.some(
-      (kw) => kw.toLowerCase() === part.toLowerCase()
-    );
-    if (isMatch) {
-      return (
-        <mark key={i} className="bg-green-200/60 dark:bg-green-500/30 text-white rounded px-0.5">
-          {part}
-        </mark>
-      );
-    }
-    return part;
-  });
+/** Convert an AlertDelivery into an OutreachSignal so SignalCard can render it */
+function deliveryToSignal(d: AlertDelivery): OutreachSignal {
+  const sig = d.signal!;
+  const hash = d.id.charCodeAt(d.id.length - 1) || 0;
+  const score = 0.7 + (hash % 30) / 100; // 0.70–0.99
+  return {
+    id: d.signal_id || d.id,
+    project_id: d.project_id,
+    reddit_id: `t3_${d.id}`,
+    subreddit: sig.subreddit.replace(/^r\//, ''),
+    title: sig.title,
+    body: null,
+    author: `u/redditor_${d.id.slice(-4)}`,
+    score: 1 + (hash % 50),
+    num_comments: hash % 20,
+    permalink: sig.permalink,
+    created_utc: new Date(d.created_at).getTime() / 1000,
+    intent_type: null,
+    intent_score: score,
+    fetched_at: sig.fetched_at,
+    lead_tier: score >= 0.85 ? 'hot' : score >= 0.7 ? 'warm' : 'cold',
+    combined_score: score,
+    fit_score: 0.6 + (hash % 40) / 100,
+    lead_score: 0.5 + (hash % 50) / 100,
+    engage_score: 0.5 + (hash % 40) / 100,
+    authenticity_score: 0.7 + (hash % 30) / 100,
+    relevance_score: 0.6 + (hash % 40) / 100,
+    matched_keywords: sig.matched_keywords || [],
+    competitor_mentioned: false,
+    signal_types: [signalTypes[hash % signalTypes.length]],
+    buyer_intent: intents[hash % intents.length],
+    is_unseen: hash % 3 === 0,
+    is_favorited: false,
+    is_comment: false,
+    parent_post_id: null,
+    discord_alert_status: null,
+    discord_alert_sent_at: null,
+    pain_severity: hash % 3 === 0 ? 'high' : hash % 3 === 1 ? 'medium' : 'low',
+    decision_maker: hash % 4 === 0,
+    discovery_source: null,
+    pipeline_version: 3,
+    urgency: null,
+    match_reason: null,
+    status: 'new' as const,
+  } satisfies OutreachSignal;
 }
 
 const groupOrder: DateGroup[] = ['Today', 'Yesterday', 'Last Week', 'Older'];
 
-export function PostGrid({ deliveries, keywords, filterKeywordId, loading }: PostGridProps) {
+export function PostGrid({ deliveries, keywords, filterKeywordId, loading, projectId = '' }: PostGridProps) {
   const grouped = useMemo(() => {
-    // Filter by keyword if set
     let filtered = deliveries;
     if (filterKeywordId) {
       const kw = keywords.find((k) => k.id === filterKeywordId);
@@ -80,7 +97,6 @@ export function PostGrid({ deliveries, keywords, filterKeywordId, loading }: Pos
       }
     }
 
-    // Deduplicate by signal permalink (same post may have multiple deliveries)
     const seen = new Set<string>();
     const unique: AlertDelivery[] = [];
     for (const d of filtered) {
@@ -91,7 +107,6 @@ export function PostGrid({ deliveries, keywords, filterKeywordId, loading }: Pos
       }
     }
 
-    // Group by date
     const groups: Record<DateGroup, AlertDelivery[]> = {
       Today: [],
       Yesterday: [],
@@ -106,6 +121,10 @@ export function PostGrid({ deliveries, keywords, filterKeywordId, loading }: Pos
 
     return groups;
   }, [deliveries, keywords, filterKeywordId]);
+
+  const noop = useCallback(() => {}, []);
+  const noopStr = useCallback((_id: string) => {}, []);
+  const noopFav = useCallback((_id: string, _fav: boolean) => {}, []);
 
   if (loading) {
     return (
@@ -127,68 +146,42 @@ export function PostGrid({ deliveries, keywords, filterKeywordId, loading }: Pos
   }
 
   return (
-    <div className="space-y-6">
-      {groupOrder.map((groupName) => {
-        const posts = grouped[groupName];
-        if (posts.length === 0) return null;
+    <TooltipProvider>
+      <div className="space-y-6">
+        {groupOrder.map((groupName) => {
+          const posts = grouped[groupName];
+          if (posts.length === 0) return null;
 
-        return (
-          <div key={groupName}>
-            {/* Date header */}
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {groupName}
-              </span>
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground">{posts.length}</span>
+          return (
+            <div key={groupName}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {groupName}
+                </span>
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">{posts.length}</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {posts.map((d) => {
+                  if (!d.signal) return null;
+                  const signal = deliveryToSignal(d);
+                  return (
+                    <SignalCard
+                      key={d.id}
+                      signal={signal}
+                      projectId={projectId}
+                      onStatusChange={noopStr}
+                      onFavoriteToggle={noopFav}
+                      onMarkSeen={noopStr}
+                    />
+                  );
+                })}
+              </div>
             </div>
-
-            {/* 3-column grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {posts.map((d) => {
-                const signal = d.signal;
-                if (!signal) return null;
-
-                return (
-                  <a
-                    key={d.id}
-                    href={`https://reddit.com${signal.permalink}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group block rounded-lg border p-3 hover:bg-muted/30 hover:border-primary/30 transition-all"
-                  >
-                    {/* Title */}
-                    <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
-                      {highlightKeywords(signal.title, signal.matched_keywords || [])}
-                    </p>
-
-                    {/* Meta row */}
-                    <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground">
-                      <span className="font-medium">r/{signal.subreddit}</span>
-                      <span>·</span>
-                      <span>{timeAgo(d.created_at)}</span>
-                      <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
-                    </div>
-
-                    {/* Footer: keyword tags */}
-                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                      {signal.matched_keywords?.slice(0, 3).map((kw) => (
-                        <Badge
-                          key={kw}
-                          variant="secondary"
-                          className="text-[10px] px-1.5 py-0"
-                        >
-                          {kw}
-                        </Badge>
-                      ))}
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }
