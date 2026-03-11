@@ -284,7 +284,9 @@ CRITICAL RULES:
 MULTI-SIGNAL DISCOVERY GUIDANCE:
 - Subreddits found through multiple discovery signals (post search, Reddit similar, sidebar references) are MORE likely to be relevant than those found only by name search.
 - Subreddits with high post search hit counts indicate the topic is actively discussed there — prioritize these.
-- Engagement ratio (active users / subscribers) above 2% indicates a healthy, active community.`;
+- Engagement ratio (active users / subscribers) above 2% indicates a healthy, active community.
+
+OUTPUT FORMAT: You MUST respond with ONLY a valid JSON object. No markdown, no explanations, no text before or after the JSON. Your entire response must be parseable by JSON.parse().`;
 
 export function buildSuggestSubredditsPrompt(
   product: {
@@ -378,13 +380,6 @@ ${product.url ? `- **URL:** ${product.url}` : ''}
 - **Tone:** ${product.tone}
 
 ${product.audience ? `## Target Audience${!hasExisting ? ' (HIGHEST PRIORITY)' : ''}\nThese are the exact people we want to reach. Every subreddit you suggest should contain these people:\n**${product.audience}**\n\nFind subreddits where these specific groups gather. Niche communities that perfectly match these audiences are far more valuable than large generic ones.\n` : ''}
-## Thinking Steps
-Before suggesting subreddits, first identify:
-1. The 3-4 distinct audience segments this product serves
-2. The specific activities/interests each segment has
-3. The Reddit communities where those activities are discussed
-
-Then for each audience segment, suggest 2-3 subreddits where that segment is active.
 ${existingSection}
 ${discoveredSection}
 ${postSearchSection}

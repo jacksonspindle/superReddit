@@ -76,7 +76,21 @@ export async function POST(request: NextRequest) {
       responseText = responseText.slice(jsonStart, jsonEnd + 1);
     }
 
-    const parsed = JSON.parse(responseText);
+    let parsed: { subreddits?: { name: string; reason: string; approach: string; match: string }[] };
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      // Haiku returned non-JSON — fall back to discovery candidates directly
+      console.warn('AI returned non-JSON, falling back to discovery candidates');
+      parsed = {
+        subreddits: discovery.candidates.slice(0, 12).map((c) => ({
+          name: c.name,
+          reason: c.description || 'Relevant community for your product',
+          approach: 'Share genuine value and engage with the community.',
+          match: c.discoveryScore >= 6 ? 'best' as const : c.discoveryScore >= 4 ? 'good' as const : 'relevant' as const,
+        })),
+      };
+    }
 
     // Step 3: Only keep subreddits that were in our discovery results (already verified to exist)
     if (parsed.subreddits?.length) {
