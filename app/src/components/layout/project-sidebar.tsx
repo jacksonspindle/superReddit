@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  LayoutDashboard,
   PenLine,
   ChevronDown,
   LogOut,
@@ -104,20 +103,16 @@ export function ProjectSidebar({ project }: { project: Project }) {
     };
   }, [collapsed, sidebarWidth]);
 
-  const topItems = [
-    { href: base, label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  ];
-
-  const createChildren = [
-    { href: `${base}/create`, label: 'Create', icon: PenLine },
-    { href: `${base}/drafts`, label: 'Drafts', icon: FileText },
-  ];
-
   const outreachChildren = [
     { href: `${base}/outreach/signals`, label: 'Signals', icon: Radio },
     { href: `${base}/outreach/alerts`, label: 'Alerts', icon: Bell },
     { href: `${base}/outreach/competitors`, label: 'Competitors', icon: Users },
     { href: `${base}/outreach/search`, label: 'Search', icon: Globe },
+  ];
+
+  const createChildren = [
+    { href: `${base}/create`, label: 'Create', icon: PenLine },
+    { href: `${base}/drafts`, label: 'Drafts', icon: FileText },
   ];
 
   const dmsChildren = [
@@ -134,42 +129,6 @@ export function ProjectSidebar({ project }: { project: Project }) {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
-  };
-
-  const renderNavLink = (item: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; exact?: boolean }, indented?: boolean) => {
-    const isActive = item.exact
-      ? pathname === item.href
-      : pathname.startsWith(item.href);
-
-    const link = (
-      <Link
-        href={item.href}
-        className={cn(
-          'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-          collapsed ? 'justify-center' : 'gap-3',
-          indented && !collapsed && 'pl-9',
-          isActive
-            ? 'bg-primary text-primary-foreground'
-            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-        )}
-      >
-        <item.icon className="h-4 w-4 shrink-0" />
-        {!collapsed && item.label}
-      </Link>
-    );
-
-    return (
-      <motion.div key={item.href} variants={staggerItemVariants}>
-        {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>{link}</TooltipTrigger>
-            <TooltipContent side="right">{item.label}</TooltipContent>
-          </Tooltip>
-        ) : (
-          link
-        )}
-      </motion.div>
-    );
   };
 
   const renderSectionHeader = (
@@ -305,13 +264,11 @@ export function ProjectSidebar({ project }: { project: Project }) {
           animate="visible"
           className={cn('flex-1 overflow-y-auto space-y-1', collapsed ? 'p-1.5' : 'p-3')}
         >
-          {topItems.map((item) => renderNavLink(item))}
+          {renderSectionHeader('Outreach', Target, outreachExpanded, () => setOutreachExpanded(p => !p))}
+          {renderSectionChildren('outreach-children', outreachExpanded, outreachChildren)}
 
           {renderSectionHeader('Create', PenLine, createExpanded, () => setCreateExpanded(p => !p))}
           {renderSectionChildren('create-children', createExpanded, createChildren)}
-
-          {renderSectionHeader('Outreach', Target, outreachExpanded, () => setOutreachExpanded(p => !p))}
-          {renderSectionChildren('outreach-children', outreachExpanded, outreachChildren)}
 
           {renderSectionHeader('DMs', Send, dmsExpanded, () => setDmsExpanded(p => !p))}
           {renderSectionChildren('dms-children', dmsExpanded, dmsChildren)}
