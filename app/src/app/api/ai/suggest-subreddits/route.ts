@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAnthropicClient, isAIConfigured, HAIKU_MODEL } from '@/lib/ai/client';
 import { SUGGEST_SUBREDDITS_SYSTEM_PROMPT, buildSuggestSubredditsPrompt } from '@/lib/ai/prompts';
 import { discoverSubreddits } from '@/lib/reddit/discover';
-import { fetchSubredditInfo } from '@/lib/reddit/fetcher';
 
 export const maxDuration = 60;
 
@@ -33,10 +32,12 @@ export async function POST(request: NextRequest) {
       competitors
     );
 
-    // Step 2: Ask Claude to rank and filter using enriched candidates
+    // Step 2: Ask Claude to rank and filter using top candidates (limit to 25 for speed)
     if (!isAIConfigured()) {
       return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
+
+    const topCandidates = discovery.candidates.slice(0, 25);
 
     const client = getAnthropicClient();
     const prompt = buildSuggestSubredditsPrompt(
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
         audience: body.audience,
         tone: body.tone || 'Professional',
       },
-      discovery.candidates,
+      topCandidates,
       existingSubreddits,
       competitors
     );
@@ -77,28 +78,13 @@ export async function POST(request: NextRequest) {
 
     const parsed = JSON.parse(responseText);
 
-    // Step 3: Verify AI-suggested subreddits actually exist on Reddit
+    // Step 3: Only keep subreddits that were in our discovery results (already verified to exist)
     if (parsed.subreddits?.length) {
       const discoveredNames = new Set(
         discovery.candidates.map((s) => s.name.toLowerCase())
       );
-      const toVerify = parsed.subreddits.filter(
-        (s: { name: string }) => !discoveredNames.has(s.name.toLowerCase())
-      );
-
-      const verifications = await Promise.all(
-        toVerify.map(async (s: { name: string }) => ({
-          name: s.name,
-          exists: (await fetchSubredditInfo(s.name)) !== null,
-        }))
-      );
-
-      const nonExistent = new Set(
-        verifications.filter((v) => !v.exists).map((v) => v.name.toLowerCase())
-      );
-
       parsed.subreddits = parsed.subreddits.filter(
-        (s: { name: string }) => !nonExistent.has(s.name.toLowerCase())
+        (s: { name: string }) => discoveredNames.has(s.name.toLowerCase())
       );
     }
 
@@ -150,27 +136,16 @@ export async function POST(request: NextRequest) {
       discovery.candidates.map((c) => [c.name.toLowerCase(), c])
     );
 
-    const enrichedSubreddits = await Promise.all(
-      (parsed.subreddits || []).map(async (s: { name: string; reason: string; approach: string; match: string }) => {
+    parsed.subreddits = (parsed.subreddits || []).map(
+      (s: { name: string; reason: string; approach: string; match: string }) => {
         const candidate = candidateMap.get(s.name.toLowerCase());
-        if (candidate) {
-          return {
-            ...s,
-            subscribers: candidate.subscribers,
-            activeUsers: candidate.activeUsers,
-          };
-        }
-        // Fetch from Reddit for AI-suggested subs not in discovery
-        const info = await fetchSubredditInfo(s.name);
         return {
           ...s,
-          subscribers: info?.subscribers || 0,
-          activeUsers: info?.active_user_count || null,
+          subscribers: candidate?.subscribers || 0,
+          activeUsers: candidate?.activeUsers || null,
         };
-      })
+      }
     );
-
-    parsed.subreddits = enrichedSubreddits;
 
     return NextResponse.json(parsed);
   } catch (error) {

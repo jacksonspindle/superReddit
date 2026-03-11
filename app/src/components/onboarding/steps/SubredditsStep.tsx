@@ -169,6 +169,9 @@ export function SubredditsStep({
           existingSubreddits: existingSubreddits.length > 0 ? existingSubreddits : undefined,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
       const json = await res.json();
       if (json.subreddits) {
         // Filter out any that are already added
