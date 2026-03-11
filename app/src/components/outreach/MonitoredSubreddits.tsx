@@ -111,12 +111,6 @@ export function MonitoredSubreddits({
                 <span className={`font-medium ${sub.is_active ? '' : 'opacity-50'}`}>
                   r/{sub.name}
                 </span>
-                <Badge
-                  variant="secondary"
-                  className={`text-[10px] px-1.5 py-0 ${safetyColors[sub.safety_level] || safetyColors.caution}`}
-                >
-                  {sub.safety_level}
-                </Badge>
                 <span className="text-[10px] text-muted-foreground ml-auto">
                   polled {timeAgo(sub.last_polled_at)}
                 </span>
