@@ -34,13 +34,35 @@ const MOCK_KEYWORDS: OutreachKeyword[] = [
   { id: 'mk3', project_id: '', phrases: ['lead generation', 'find leads'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, created_at: '2026-03-03T00:00:00Z', updated_at: '2026-03-03T00:00:00Z' },
 ];
 
+const mockD = (id: string, title: string, sub: string, kws: string[], hoursAgo: number): AlertDelivery => {
+  const ts = new Date(Date.now() - hoursAgo * 3600000).toISOString();
+  return { id, signal_id: id, project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: ts, created_at: ts, signal: { title, subreddit: sub, permalink: `/r/${sub}/comments/${id}`, matched_keywords: kws, fetched_at: ts } };
+};
+
 const MOCK_DELIVERIES: AlertDelivery[] = [
-  { id: 'd1', signal_id: 's1', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-10T14:30:00Z', created_at: '2026-03-10T14:30:00Z', signal: { title: 'Looking for a CRM alternative that doesn\'t cost a fortune', subreddit: 'r/SaaS', permalink: '/r/SaaS/comments/abc123', matched_keywords: ['CRM alternative'], fetched_at: '2026-03-10T14:25:00Z' } },
-  { id: 'd2', signal_id: 's2', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-10T12:00:00Z', created_at: '2026-03-10T12:00:00Z', signal: { title: 'Best cold outreach tool for small teams?', subreddit: 'r/Entrepreneur', permalink: '/r/Entrepreneur/comments/def456', matched_keywords: ['cold outreach tool'], fetched_at: '2026-03-10T11:55:00Z' } },
-  { id: 'd3', signal_id: 's3', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-10T09:15:00Z', created_at: '2026-03-10T09:15:00Z', signal: { title: 'How do you find leads on Reddit without being spammy?', subreddit: 'r/GrowthHacking', permalink: '/r/GrowthHacking/comments/ghi789', matched_keywords: ['find leads'], fetched_at: '2026-03-10T09:10:00Z' } },
-  { id: 'd4', signal_id: 's4', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-09T18:00:00Z', created_at: '2026-03-09T18:00:00Z', signal: { title: 'We switched from HubSpot — here\'s the best CRM we found', subreddit: 'r/startups', permalink: '/r/startups/comments/jkl012', matched_keywords: ['best CRM'], fetched_at: '2026-03-09T17:55:00Z' } },
-  { id: 'd5', signal_id: 's5', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-09T15:30:00Z', created_at: '2026-03-09T15:30:00Z', signal: { title: 'Lead generation strategies that actually work in 2026', subreddit: 'r/marketing', permalink: '/r/marketing/comments/mno345', matched_keywords: ['lead generation'], fetched_at: '2026-03-09T15:25:00Z' } },
-  { id: 'd6', signal_id: 's6', project_id: '', channel: 'email', status: 'sent', error_message: null, sent_at: '2026-03-09T10:00:00Z', created_at: '2026-03-09T10:00:00Z', signal: { title: 'Any good CRM alternative to Salesforce for bootstrapped startups?', subreddit: 'r/smallbusiness', permalink: '/r/smallbusiness/comments/pqr678', matched_keywords: ['CRM alternative'], fetched_at: '2026-03-09T09:55:00Z' } },
+  // Today (0-12h ago)
+  mockD('d01', 'Looking for a CRM alternative that doesn\'t cost a fortune', 'SaaS', ['CRM alternative'], 0.5),
+  mockD('d02', 'Best cold outreach tool for small teams?', 'Entrepreneur', ['cold outreach tool'], 1),
+  mockD('d03', 'How do you find leads on Reddit without being spammy?', 'GrowthHacking', ['find leads'], 1.5),
+  mockD('d04', 'Ditching Salesforce — what\'s the best CRM for a 10-person team?', 'startups', ['best CRM'], 2),
+  mockD('d05', 'Cold outreach tool that integrates with Gmail?', 'SaaS', ['cold outreach tool'], 3),
+  mockD('d06', 'We need better lead generation — budget is $200/mo', 'smallbusiness', ['lead generation'], 3.5),
+  mockD('d07', 'Any CRM alternative that actually has good mobile support?', 'Entrepreneur', ['CRM alternative'], 4),
+  mockD('d08', 'How are you guys finding leads for B2B SaaS in 2026?', 'SaaS', ['find leads'], 5),
+  mockD('d09', 'Recommendations for cold outreach tool with sequences?', 'marketing', ['cold outreach tool'], 6),
+  mockD('d10', 'Tired of HubSpot pricing — best CRM for bootstrapped founders?', 'startups', ['best CRM', 'CRM alternative'], 7),
+  mockD('d11', 'Lead generation on Reddit: what actually converts?', 'GrowthHacking', ['lead generation'], 8),
+  mockD('d12', 'Is there a CRM alternative that does outreach + pipeline?', 'SaaS', ['CRM alternative', 'cold outreach tool'], 9),
+  // Yesterday (24-36h ago)
+  mockD('d13', 'We switched from HubSpot — here\'s the best CRM we found', 'startups', ['best CRM'], 26),
+  mockD('d14', 'Lead generation strategies that actually work in 2026', 'marketing', ['lead generation'], 28),
+  mockD('d15', 'Any good CRM alternative to Salesforce for bootstrapped startups?', 'smallbusiness', ['CRM alternative'], 30),
+  mockD('d16', 'Cold outreach tool showdown: Lemlist vs Instantly vs Apollo', 'Entrepreneur', ['cold outreach tool'], 32),
+  mockD('d17', 'How to find leads without buying sketchy lists', 'GrowthHacking', ['find leads'], 34),
+  // Last week (3-6 days ago)
+  mockD('d18', 'Best CRM for agencies managing 50+ clients?', 'SaaS', ['best CRM'], 80),
+  mockD('d19', 'Our lead generation playbook after 2 years of Reddit marketing', 'marketing', ['lead generation'], 100),
+  mockD('d20', 'Simple CRM alternative for freelancers?', 'smallbusiness', ['CRM alternative'], 120),
 ];
 
 const MOCK_SUBS: OutreachMonitoredSub[] = [
