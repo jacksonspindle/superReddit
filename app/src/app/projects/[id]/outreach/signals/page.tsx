@@ -429,7 +429,7 @@ export default function OutreachSignalsPage() {
                   onClick={() => setParamsOpen(true)}
                 >
                   <Settings2 className="mr-2 h-5 w-5" />
-                  Parameters
+                  Settings
                 </Button>
                 <Button
                   variant="default"
