@@ -500,6 +500,8 @@ interface DetectV3Options extends DetectOptions {
   prefetchedPosts?: RedditPost[];
   /** Debug log array — push messages here for client-side debugging */
   _debugLog?: string[];
+  /** Streaming progress callback */
+  onProgress?: (event: { step: string; message: string }) => void;
 }
 
 const PRE_FILTER_BATCH_SIZE = 150;
@@ -563,37 +565,14 @@ export async function detectSignalsV3(
   const dbg = (msg: string) => { console.log(msg); _debugLog.push(msg); };
 
   const usePrefetch = prefetchedPosts && prefetchedPosts.length > 0;
+  const progress = options.onProgress || (() => {});
 
   dbg(`[DetectorV3] Starting. Subreddits: ${subreddits.join(', ')} | Keywords: ${keywords.join(', ')} | TimeFilter: ${timeFilter} | usePrefetch: ${usePrefetch}`);
+  progress({ step: 'fetching', message: 'Fetching posts from Reddit...' });
 
-  // ---- Source A: Browse subreddits (free) ----
+  // ---- Fetch all sources in parallel ----
   const browsedPosts = new Map<string, RedditPost & { _source?: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
-  if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
-    // Use PullPush instead of Reddit (Reddit blocks datacenter IPs)
-    const afterTs = timeFilterToUnix(timeFilter);
-    dbg(`[DetectorV3] Source A: Fetching via PullPush. Subs: ${subreddits.join(',')} after: ${afterTs} limit: ${Math.min(maxResults, 100)}`);
-    try {
-      const posts = await pullpush.fetchRecentPosts({
-        subreddits,
-        after: afterTs,
-        limit: Math.min(maxResults, 100),
-      });
-      dbg(`[DetectorV3] Source A: PullPush returned ${posts.length} posts`);
-      for (const post of posts) {
-        if (!browsedPosts.has(post.id)) {
-          browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
-        }
-      }
-    } catch (err) {
-      dbg(`[DetectorV3] Source A: PullPush browse FAILED: ${(err as Error).message}`);
-    }
-    dbg(`[DetectorV3] Browsed ${browsedPosts.size} unique posts via PullPush`);
-  } else {
-    dbg(`[DetectorV3] Source A: SKIPPED. browseSubreddits: ${browseSubreddits} subs: ${subreddits.length} usePrefetch: ${usePrefetch}`);
-  }
-
-  // ---- Source B: Keyword search (free, supplementary) ----
   const cacheKey = buildCacheKey(subreddits, keywords, timeFilter, 'reddit');
   const commentCacheKey = buildCacheKey(subreddits, keywords, timeFilter, 'pullpush');
 
@@ -605,10 +584,30 @@ export async function detectSignalsV3(
 
   const fetchPromises: Promise<void>[] = [];
 
-  dbg(`[DetectorV3] Source B check: cachedPosts=${cachedPosts?.length ?? 'null'} keywords:${keywords.length} usePrefetch:${usePrefetch}`);
+  // Source A: Browse subreddits (free)
+  if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
+    const afterTs = timeFilterToUnix(timeFilter);
+    dbg(`[DetectorV3] Source A: Fetching via PullPush. Subs: ${subreddits.join(',')} after: ${afterTs} limit: ${Math.min(maxResults, 100)}`);
+    fetchPromises.push(
+      pullpush.fetchRecentPosts({
+        subreddits,
+        after: afterTs,
+        limit: Math.min(maxResults, 100),
+      }).then((posts) => {
+        dbg(`[DetectorV3] Source A: PullPush returned ${posts.length} posts`);
+        for (const post of posts) {
+          if (!browsedPosts.has(post.id)) {
+            browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
+          }
+        }
+      }).catch((err) => {
+        dbg(`[DetectorV3] Source A: PullPush browse FAILED: ${(err as Error).message}`);
+      })
+    );
+  }
 
+  // Source B: Keyword search (free, supplementary)
   if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
-    // Use PullPush instead of Reddit (Reddit blocks datacenter IPs)
     const queryStr = keywords.join(' OR ');
     dbg(`[DetectorV3] Source B: Searching PullPush. Query: ${queryStr}`);
     fetchPromises.push(
@@ -627,10 +626,9 @@ export async function detectSignalsV3(
         dbg(`[DetectorV3] Source B: PullPush search FAILED: ${(err as Error).message}`);
       })
     );
-  } else {
-    dbg(`[DetectorV3] Source B: SKIPPED (cached:${cachedPosts?.length ?? 'null'})`);
   }
 
+  // Source C: Comment search
   if (includeComments && !cachedCommentPosts && keywords.length > 0) {
     fetchPromises.push(
       pullpush
@@ -669,7 +667,7 @@ export async function detectSignalsV3(
     await Promise.all(fetchPromises);
   }
 
-  dbg(`[DetectorV3] After fetches: keywordPosts=${cachedPosts?.length ?? 0} comments=${cachedCommentPosts?.length ?? 0}`);
+  dbg(`[DetectorV3] After fetches: browsed=${browsedPosts.size} keywordPosts=${cachedPosts?.length ?? 0} comments=${cachedCommentPosts?.length ?? 0}`);
 
   // ---- Merge all sources, tag discovery_source ----
   const allPosts = new Map<string, RedditPost & { _source: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
@@ -709,9 +707,11 @@ export async function detectSignalsV3(
   }
 
   dbg(`[DetectorV3] After merge: allPosts=${allPosts.size}`);
+  progress({ step: 'fetched', message: `Found ${allPosts.size} posts` });
 
   if (allPosts.size === 0) {
     dbg('[DetectorV3] No posts found from any source. Returning 0.');
+    progress({ step: 'done', message: 'No posts found from any source' });
     return 0;
   }
 
@@ -743,16 +743,27 @@ export async function detectSignalsV3(
 
   const newPosts = Array.from(allPosts.values()).filter((p) => !existingIds.has(p.id));
   console.log('[DetectorV3] New posts after dedup:', newPosts.length, '(skipped', existingIds.size, 'existing)');
+  progress({ step: 'dedup', message: `${newPosts.length} new posts to analyze` });
 
-  if (newPosts.length === 0) return 0;
+  if (newPosts.length === 0) {
+    progress({ step: 'done', message: 'No new posts to analyze' });
+    return 0;
+  }
 
   // ---- Two-Lane Pre-Filter: Heuristic Fast-Pass + AI Semantic Filter ----
   // Lane 1 (free): Posts matching keywords/competitors/regex skip straight to classification
+  // Lane 1b (free): Posts from keyword search auto-pass (PullPush already matched them)
   // Lane 2 (cheap): Remaining posts get AI title screening for semantic relevance
   const fastPassPosts: typeof newPosts = [];
   const needsAIFilter: typeof newPosts = [];
 
   for (const p of newPosts) {
+    // Posts from keyword search auto-pass — PullPush already matched them to keywords
+    if (p._source === 'keyword_search' || p._source === 'both') {
+      fastPassPosts.push(p);
+      continue;
+    }
+
     const result = heuristicPreFilter(p.title, p.selftext, keywords, competitors);
     if (result.passed) {
       fastPassPosts.push(p);
@@ -803,7 +814,12 @@ export async function detectSignalsV3(
   const filteredPosts = [...fastPassPosts, ...aiPassedPosts];
   console.log('[DetectorV3] Total posts for classification:', filteredPosts.length, '/', newPosts.length);
 
-  if (filteredPosts.length === 0) return 0;
+  if (filteredPosts.length === 0) {
+    progress({ step: 'done', message: 'No relevant posts found after filtering' });
+    return 0;
+  }
+
+  progress({ step: 'classifying', message: `Classifying ${filteredPosts.length} posts with AI...` });
 
   // ---- Full AI Classification (V3) ----
   const v3Classifications = new Map<string, ClassificationResultV3>();
@@ -848,6 +864,7 @@ export async function detectSignalsV3(
   }
 
   console.log('[DetectorV3] Classified', v3Classifications.size, 'posts');
+  progress({ step: 'saving', message: `Saving ${v3Classifications.size} classified signals...` });
 
   // ---- Build signal rows ----
   // Normalize keyword tiers map to lowercase for matching

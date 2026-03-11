@@ -165,7 +165,7 @@ const NEGATIVE_PATTERNS = [
   { pattern: /\b(?:meme|shitpost|shit\s*post|mod\s+post|rule\s+update|meta\s+thread)\b/i, label: 'meme_meta' },
 ];
 
-const HEURISTIC_THRESHOLD = 3;
+const HEURISTIC_THRESHOLD = 2;
 
 /**
  * Heuristic pre-filter: combines tier1 regex scoring, keyword matching,
@@ -198,7 +198,10 @@ export function heuristicPreFilter(
   const competitorMatches = competitorMentions.map((m) => m.name);
   const competitorBonus = competitorMatches.length * 2;
 
-  // 4. Negative signal detection
+  // 4. Question title boost: +2 if title ends with ? (high engagement signal)
+  const questionBonus = /\?\s*$/.test(title) ? 2 : 0;
+
+  // 5. Negative signal detection
   const negativeSignals: string[] = [];
   for (const { pattern, label } of NEGATIVE_PATTERNS) {
     if (pattern.test(text)) {
@@ -211,7 +214,7 @@ export function heuristicPreFilter(
   }
   const negativePenalty = negativeSignals.length * 3;
 
-  const score = Math.max(0, tier1.score + keywordBonus + competitorBonus - negativePenalty);
+  const score = Math.max(0, tier1.score + keywordBonus + competitorBonus + questionBonus - negativePenalty);
 
   return {
     score,

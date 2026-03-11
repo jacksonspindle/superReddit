@@ -31,6 +31,7 @@ export default function OutreachSignalsPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState<string | null>(null);
 
   const [subFilter, setSubFilter] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'engagement' | 'favorites' | null>(null);
@@ -115,6 +116,7 @@ export default function OutreachSignalsPage() {
 
   async function handleScanNow() {
     setScanning(true);
+    setScanProgress('Starting scan...');
     console.log('[Signals] Scan started');
     try {
       // Get scan params from config
@@ -122,7 +124,6 @@ export default function OutreachSignalsPage() {
       try {
         const configRes = await fetch(`/api/outreach/config?project_id=${project.id}`);
         const configJson = await configRes.json();
-        console.log('[Signals] Config response:', configJson);
         if (configJson.config) {
           const c = configJson.config;
           if (c.time_filter) scanBody.time_filter = c.time_filter;
@@ -133,37 +134,73 @@ export default function OutreachSignalsPage() {
         console.error('[Signals] Config fetch failed:', e);
       }
 
-      console.log('[Signals] Sending scan request with body:', scanBody);
-
-      // Server awaits full scan (PullPush + AI classification + DB storage)
       const res = await fetch('/api/outreach/signals/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(scanBody),
       });
-      const json = await res.json();
-      console.log('[Signals] Scan response:', res.status, json);
 
-      if (json.error) {
-        toast.error(json.error);
-        setScanning(false);
-        return;
-      }
+      // Read streaming NDJSON response
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalCount = 0;
+        let hadError = false;
 
-      if (json.count > 0) {
-        toast.success(`Found ${json.count} new signals!`);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const event = JSON.parse(line);
+              if (event.type === 'progress') {
+                setScanProgress(event.message);
+              } else if (event.type === 'done') {
+                finalCount = event.count;
+              } else if (event.type === 'error') {
+                toast.error(event.message);
+                hadError = true;
+              }
+            } catch {
+              // Skip malformed lines
+            }
+          }
+        }
+
+        if (!hadError) {
+          if (finalCount > 0) {
+            toast.success(`Found ${finalCount} new signals!`);
+          } else {
+            toast('No new signals found', { duration: 3000 });
+          }
+        }
       } else {
-        toast('No new signals found', { duration: 3000 });
+        // Fallback for non-streaming response
+        const json = await res.json();
+        if (json.error) {
+          toast.error(json.error);
+        } else if (json.count > 0) {
+          toast.success(`Found ${json.count} new signals!`);
+        } else {
+          toast('No new signals found', { duration: 3000 });
+        }
       }
 
       // Refresh signals list and analytics
       await Promise.all([fetchSignals(), fetchAnalytics()]);
-      setScanning(false);
     } catch (e) {
       console.error('[Signals] Scan error:', e);
       toast.error('Scan failed');
-      setScanning(false);
     }
+    setScanProgress(null);
+    setScanning(false);
   }
 
   async function handleStatusChange(signalId: string, status: string) {
@@ -461,6 +498,9 @@ export default function OutreachSignalsPage() {
                   Scan Now
                 </Button>
               </div>
+              {scanning && scanProgress && (
+                <p className="text-sm text-muted-foreground animate-pulse">{scanProgress}</p>
+              )}
               </div>
 
             {/* Section label + active filters */}
