@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings2, Plus, X, Loader2, Save, Search, RefreshCw } from 'lucide-react';
+import { Settings2, Plus, X, Loader2, Save, Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOutreachStore } from '@/stores/outreach-store';
 import { toast } from 'sonner';
 
@@ -60,14 +59,15 @@ export function ScanParametersModal({
   const [painInput, setPainInput] = useState('');
   const [goalInput, setGoalInput] = useState('');
 
-  // Load data on open
+  // Load data on open & auto-sync subreddits from project
   useEffect(() => {
     if (open) {
       fetchConfig(projectId);
       fetchKeywords(projectId);
       fetchMonitoredSubs(projectId);
+      syncSubsFromProject(projectId);
     }
-  }, [open, projectId, fetchConfig, fetchKeywords, fetchMonitoredSubs]);
+  }, [open, projectId, fetchConfig, fetchKeywords, fetchMonitoredSubs, syncSubsFromProject]);
 
   // Sync local state from config when it loads
   useEffect(() => {
@@ -135,7 +135,7 @@ export function ScanParametersModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
@@ -143,7 +143,7 @@ export function ScanParametersModal({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4 -mr-4">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-4 -mr-4">
           <div className="space-y-6 pb-4">
             {/* Keywords */}
             <section className="space-y-3">
@@ -193,18 +193,7 @@ export function ScanParametersModal({
 
             {/* Subreddits */}
             <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Subreddits</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-6"
-                  onClick={() => syncSubsFromProject(projectId)}
-                >
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Sync from project
-                </Button>
-              </div>
+              <h3 className="text-sm font-semibold">Subreddits</h3>
               <div className="flex gap-2">
                 <Input
                   value={subInput}
@@ -376,7 +365,7 @@ export function ScanParametersModal({
               )}
             </section>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="gap-2 pt-4 border-t">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
