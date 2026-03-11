@@ -140,6 +140,9 @@ export async function POST(request: NextRequest) {
     // Accept pre-fetched Reddit posts from client (bypasses datacenter IP blocks)
     const clientRedditPosts = body.reddit_posts || undefined;
 
+    // Debug log array — returned in response for client-side debugging
+    const _debugLog: string[] = [];
+
     // Await detection (Vercel kills background promises after response is sent)
     const count = await detectSignalsV3(supabase, {
       projectId,
@@ -156,10 +159,11 @@ export async function POST(request: NextRequest) {
       includeComments,
       browseSubreddits: true,
       prefetchedPosts: clientRedditPosts,
+      _debugLog,
     });
 
     console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
-    return NextResponse.json({ completed: true, count });
+    return NextResponse.json({ completed: true, count, _debug: _debugLog });
   } catch (error) {
     console.error('Scan trigger error:', error);
     return NextResponse.json({ error: 'Failed to start scan' }, { status: 500 });
