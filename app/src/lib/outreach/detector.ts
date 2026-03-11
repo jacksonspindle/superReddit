@@ -496,6 +496,8 @@ export async function detectSignals(
 interface DetectV3Options extends DetectOptions {
   /** Whether to browse all posts in monitored subreddits (default true) */
   browseSubreddits?: boolean;
+  /** Pre-fetched Reddit posts from client (bypasses server-side Reddit IP blocks) */
+  prefetchedPosts?: RedditPost[];
 }
 
 const PRE_FILTER_BATCH_SIZE = 150;
@@ -552,12 +554,15 @@ export async function detectSignalsV3(
     maxResults = 100,
     includeComments = true,
     browseSubreddits = true,
+    prefetchedPosts,
   } = options;
+
+  const usePrefetch = prefetchedPosts && prefetchedPosts.length > 0;
 
   // ---- Source A: Browse subreddits (free) ----
   const browsedPosts = new Map<string, RedditPost & { _source?: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
-  if (browseSubreddits && subreddits.length > 0) {
+  if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
     // Chunk subreddits into groups of 25 for multi-sub URL
     const chunks: string[][] = [];
     for (let i = 0; i < subreddits.length; i += 25) {
@@ -592,7 +597,7 @@ export async function detectSignalsV3(
 
   const fetchPromises: Promise<void>[] = [];
 
-  if (!cachedPosts && keywords.length > 0) {
+  if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
     fetchPromises.push(
       searchMultiSubPosts(subreddits, keywords, {
         timeFilter,
@@ -650,23 +655,31 @@ export async function detectSignalsV3(
   // ---- Merge all sources, tag discovery_source ----
   const allPosts = new Map<string, RedditPost & { _source: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
-  // Add browsed posts first
-  for (const [id, post] of browsedPosts) {
-    allPosts.set(id, post as RedditPost & { _source: string; _is_comment?: boolean; _parent_post_id?: string | null });
-  }
+  if (usePrefetch) {
+    // Use client-provided posts (client-side fetching bypasses datacenter IP blocks)
+    for (const post of prefetchedPosts!) {
+      allPosts.set(post.id, { ...post, _source: 'client_prefetch' });
+    }
+    console.log('[DetectorV3] Using', prefetchedPosts!.length, 'client-prefetched posts');
+  } else {
+    // Add browsed posts first
+    for (const [id, post] of browsedPosts) {
+      allPosts.set(id, post as RedditPost & { _source: string; _is_comment?: boolean; _parent_post_id?: string | null });
+    }
 
-  // Add keyword search posts, mark overlap
-  for (const post of cachedPosts || []) {
-    if (allPosts.has(post.id)) {
-      // Found in both browse and keyword — mark as 'both'
-      const existing = allPosts.get(post.id)!;
-      existing._source = 'both';
-    } else {
-      allPosts.set(post.id, { ...post, _source: 'keyword_search' });
+    // Add keyword search posts, mark overlap
+    for (const post of cachedPosts || []) {
+      if (allPosts.has(post.id)) {
+        // Found in both browse and keyword — mark as 'both'
+        const existing = allPosts.get(post.id)!;
+        existing._source = 'both';
+      } else {
+        allPosts.set(post.id, { ...post, _source: 'keyword_search' });
+      }
     }
   }
 
-  // Add comment posts
+  // Add comment posts (PullPush — different API, not blocked by Reddit)
   for (const comment of cachedCommentPosts || []) {
     if (!allPosts.has(comment.id)) {
       allPosts.set(comment.id, {

@@ -131,6 +131,9 @@ export async function POST(request: NextRequest) {
       // Table may not exist
     }
 
+    // Accept pre-fetched Reddit posts from client (bypasses datacenter IP blocks)
+    const clientRedditPosts = body.reddit_posts || undefined;
+
     // Fire-and-forget: run detection without awaiting
     detectSignalsV3(supabase, {
       projectId,
@@ -146,6 +149,7 @@ export async function POST(request: NextRequest) {
       maxResults,
       includeComments,
       browseSubreddits: true,
+      prefetchedPosts: clientRedditPosts,
     }).then((count) => {
       console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
     }).catch((err) => {
