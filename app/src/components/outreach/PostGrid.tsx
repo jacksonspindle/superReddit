@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { SignalCard } from '@/components/outreach/SignalCard';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { AlertDelivery, OutreachKeyword, OutreachSignal } from '@/types';
@@ -80,6 +81,74 @@ function deliveryToSignal(d: AlertDelivery): OutreachSignal {
   } satisfies OutreachSignal;
 }
 
+const INITIAL_VISIBLE = 3;
+
+function DateGroupSection({
+  groupName,
+  posts,
+  projectId,
+  noopStr,
+  noopFav,
+}: {
+  groupName: string;
+  posts: AlertDelivery[];
+  projectId: string;
+  noopStr: (id: string) => void;
+  noopFav: (id: string, fav: boolean) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hiddenCount = posts.length - INITIAL_VISIBLE;
+  const visiblePosts = expanded ? posts : posts.slice(0, INITIAL_VISIBLE);
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          {groupName}
+        </span>
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs text-muted-foreground">{posts.length}</span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {visiblePosts.map((d) => {
+          if (!d.signal) return null;
+          const signal = deliveryToSignal(d);
+          return (
+            <SignalCard
+              key={d.id}
+              signal={signal}
+              projectId={projectId}
+              onStatusChange={noopStr}
+              onFavoriteToggle={noopFav}
+              onMarkSeen={noopStr}
+            />
+          );
+        })}
+      </div>
+
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 mx-auto mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="h-3.5 w-3.5" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-3.5 w-3.5" />
+              {hiddenCount} more
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 const groupOrder: DateGroup[] = ['Today', 'Yesterday', 'Last Week', 'Older'];
 
 export function PostGrid({ deliveries, keywords, filterKeywordId, loading, projectId = '' }: PostGridProps) {
@@ -153,32 +222,14 @@ export function PostGrid({ deliveries, keywords, filterKeywordId, loading, proje
           if (posts.length === 0) return null;
 
           return (
-            <div key={groupName}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {groupName}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">{posts.length}</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {posts.map((d) => {
-                  if (!d.signal) return null;
-                  const signal = deliveryToSignal(d);
-                  return (
-                    <SignalCard
-                      key={d.id}
-                      signal={signal}
-                      projectId={projectId}
-                      onStatusChange={noopStr}
-                      onFavoriteToggle={noopFav}
-                      onMarkSeen={noopStr}
-                    />
-                  );
-                })}
-              </div>
-            </div>
+            <DateGroupSection
+              key={groupName}
+              groupName={groupName}
+              posts={posts}
+              projectId={projectId}
+              noopStr={noopStr}
+              noopFav={noopFav}
+            />
           );
         })}
       </div>
