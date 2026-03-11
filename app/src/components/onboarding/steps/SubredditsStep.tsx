@@ -317,7 +317,7 @@ export function SubredditsStep({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">r/{sub.name}</span>
-                        {sub.subscribers && (
+                        {sub.subscribers != null && sub.subscribers > 0 && (
                           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Users className="h-2.5 w-2.5" />
                             {formatSubscribers(sub.subscribers)}
