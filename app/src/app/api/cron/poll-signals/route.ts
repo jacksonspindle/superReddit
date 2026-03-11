@@ -13,8 +13,8 @@ export const maxDuration = 300;
 
 /**
  * Vercel Cron endpoint: queue-based signal polling.
- * Runs every 5 minutes. Each invocation:
- * 1. Enqueues active projects that haven't been polled in 30+ minutes
+ * Runs 3x/day (8am, 1pm, 6pm UTC). Each invocation:
+ * 1. Enqueues active projects that haven't been polled in 7+ hours
  * 2. Dequeues and processes a batch of 5 projects (high priority first)
  * 3. Cleans up completed entries older than 1 hour
  */
@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
       .eq('setup_completed', true);
 
     if (configs?.length) {
-      // Find projects not polled in last 30 minutes
-      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      // Find projects not polled in last 7 hours (3x/day schedule)
+      const sevenHoursAgo = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
 
       for (const config of configs) {
         // Check last completed scan
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
           .limit(1)
           .maybeSingle();
 
-        const needsPoll = !lastScan || !lastScan.completed_at || lastScan.completed_at < thirtyMinAgo;
+        const needsPoll = !lastScan || !lastScan.completed_at || lastScan.completed_at < sevenHoursAgo;
 
         if (needsPoll) {
           await enqueueProject(supabase, config.project_id, 'normal');
