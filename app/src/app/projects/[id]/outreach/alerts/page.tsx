@@ -248,41 +248,47 @@ export default function OutreachAlertsPage() {
                       Connect a channel to start receiving alerts when relevant posts appear on Reddit.
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {setupChannels.map((ch) => {
-                      const meta = channelMeta[ch];
-                      const Icon = meta.icon;
-                      const connected = isChannelConnected(ch);
-                      const isExpanded = expandedChannel === ch;
-                      return (
-                        <button
-                          key={ch}
-                          onClick={() => setExpandedChannel(isExpanded ? null : ch)}
-                          className={`flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.07] hover:border-white/[0.15] ${
-                            isExpanded ? 'border-orange-500/40 bg-orange-500/[0.06]' : ''
-                          }`}
-                        >
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.06]">
-                            <Icon className="h-4.5 w-4.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">{meta.label}</p>
-                            {connected ? (
-                              <p className="text-xs text-orange-400 flex items-center gap-1">
-                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-400" />
-                                Active
-                              </p>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Set up &rarr;</p>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {expandedChannel && (
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-                      {renderChannelConnect(expandedChannel)}
+                  {expandedChannel ? (
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setExpandedChannel(null)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        &larr; Back to channels
+                      </button>
+                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                        {renderChannelConnect(expandedChannel)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {setupChannels.map((ch) => {
+                        const meta = channelMeta[ch];
+                        const Icon = meta.icon;
+                        const connected = isChannelConnected(ch);
+                        return (
+                          <button
+                            key={ch}
+                            onClick={() => setExpandedChannel(ch)}
+                            className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 text-left transition-all hover:bg-white/[0.07] hover:border-white/[0.15]"
+                          >
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.06]">
+                              <Icon className="h-4.5 w-4.5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{meta.label}</p>
+                              {connected ? (
+                                <p className="text-xs text-orange-400 flex items-center gap-1">
+                                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-400" />
+                                  Active
+                                </p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Set up &rarr;</p>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
