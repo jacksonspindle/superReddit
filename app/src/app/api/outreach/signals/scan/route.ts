@@ -104,6 +104,12 @@ export async function POST(request: NextRequest) {
     const maxResults = body.max_results || (config?.max_results as number) || 100;
     const includeComments = body.include_comments ?? (config?.include_comments as boolean) ?? true;
 
+    console.log(`[Scan] Starting for project ${projectId}`);
+    console.log(`[Scan] Subreddits: ${subNames.join(', ')}`);
+    console.log(`[Scan] Keywords: ${keywords.join(', ')}`);
+    console.log(`[Scan] TimeFilter: ${timeFilter}, MaxResults: ${maxResults}, IncludeComments: ${includeComments}`);
+    console.log(`[Scan] ClientRedditPosts in body: ${body.reddit_posts ? body.reddit_posts.length : 'none'}`);
+
     // Fetch product context
     let productContext: {
       problemsSolved: string[];

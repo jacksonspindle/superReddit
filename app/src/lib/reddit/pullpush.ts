@@ -86,10 +86,13 @@ interface PullPushSubmissionRaw {
 async function fetchFromPullPush(url: string): Promise<unknown> {
   await pullpushLimiter.acquire();
 
+  console.log('[PullPush] Fetching:', url);
   const response = await fetch(url, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
   });
+
+  console.log('[PullPush] Response status:', response.status, 'for', url.split('?')[0]);
 
   if (!response.ok) {
     if (response.status === 429) {

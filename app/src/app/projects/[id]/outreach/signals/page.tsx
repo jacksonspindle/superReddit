@@ -116,21 +116,25 @@ export default function OutreachSignalsPage() {
   async function handleScanNow() {
     setScanning(true);
     const beforeCount = signals.length;
+    console.log('[Signals] Scan started. beforeCount:', beforeCount);
     try {
       // Get scan params from config
       let scanBody: Record<string, unknown> = { project_id: project.id };
       try {
         const configRes = await fetch(`/api/outreach/config?project_id=${project.id}`);
         const configJson = await configRes.json();
+        console.log('[Signals] Config response:', configJson);
         if (configJson.config) {
           const c = configJson.config;
           if (c.time_filter) scanBody.time_filter = c.time_filter;
           if (c.max_results) scanBody.max_results = c.max_results;
           if (c.include_comments !== undefined) scanBody.include_comments = c.include_comments;
         }
-      } catch {
-        // Use defaults
+      } catch (e) {
+        console.error('[Signals] Config fetch failed:', e);
       }
+
+      console.log('[Signals] Sending scan request with body:', scanBody);
 
       // Fire off scan — server uses PullPush instead of Reddit (bypasses IP blocks)
       const res = await fetch('/api/outreach/signals/scan', {
@@ -139,6 +143,7 @@ export default function OutreachSignalsPage() {
         body: JSON.stringify(scanBody),
       });
       const json = await res.json();
+      console.log('[Signals] Scan response:', res.status, json);
       if (json.error) {
         toast.error(json.error);
         setScanning(false);

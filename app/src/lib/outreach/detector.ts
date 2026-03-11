@@ -559,26 +559,33 @@ export async function detectSignalsV3(
 
   const usePrefetch = prefetchedPosts && prefetchedPosts.length > 0;
 
+  console.log('[DetectorV3] Starting. Subreddits:', subreddits, 'Keywords:', keywords, 'TimeFilter:', timeFilter, 'usePrefetch:', usePrefetch);
+
   // ---- Source A: Browse subreddits (free) ----
   const browsedPosts = new Map<string, RedditPost & { _source?: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
   if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
     // Use PullPush instead of Reddit (Reddit blocks datacenter IPs)
+    const afterTs = timeFilterToUnix(timeFilter);
+    console.log('[DetectorV3] Source A: Fetching recent posts via PullPush. Subreddits:', subreddits, 'after:', afterTs, 'limit:', Math.min(maxResults, 100));
     try {
       const posts = await pullpush.fetchRecentPosts({
         subreddits,
-        after: timeFilterToUnix(timeFilter),
+        after: afterTs,
         limit: Math.min(maxResults, 100),
       });
+      console.log('[DetectorV3] Source A: PullPush returned', posts.length, 'posts');
       for (const post of posts) {
         if (!browsedPosts.has(post.id)) {
           browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
         }
       }
-    } catch {
-      // PullPush browse failed
+    } catch (err) {
+      console.error('[DetectorV3] Source A: PullPush browse FAILED:', (err as Error).message);
     }
     console.log('[DetectorV3] Browsed', browsedPosts.size, 'posts via PullPush');
+  } else {
+    console.log('[DetectorV3] Source A: SKIPPED. browseSubreddits:', browseSubreddits, 'subs:', subreddits.length, 'usePrefetch:', usePrefetch);
   }
 
   // ---- Source B: Keyword search (free, supplementary) ----
@@ -593,21 +600,30 @@ export async function detectSignalsV3(
 
   const fetchPromises: Promise<void>[] = [];
 
+  console.log('[DetectorV3] Source B check: cachedPosts=', cachedPosts?.length ?? 'null', 'keywords:', keywords.length, 'usePrefetch:', usePrefetch);
+
   if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
     // Use PullPush instead of Reddit (Reddit blocks datacenter IPs)
+    const queryStr = keywords.join(' OR ');
+    console.log('[DetectorV3] Source B: Searching PullPush. Query:', queryStr, 'Subreddits:', subreddits);
     fetchPromises.push(
       pullpush.searchPosts({
         subreddits,
-        query: keywords.join(' OR '),
+        query: queryStr,
         after: timeFilterToUnix(timeFilter),
         limit: maxResults,
       }).then(async (posts) => {
+        console.log('[DetectorV3] Source B: PullPush search returned', posts.length, 'posts');
         cachedPosts = posts;
         if (cachedPosts.length > 0) {
           await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
         }
+      }).catch((err) => {
+        console.error('[DetectorV3] Source B: PullPush search FAILED:', (err as Error).message);
       })
     );
+  } else {
+    console.log('[DetectorV3] Source B: SKIPPED');
   }
 
   if (includeComments && !cachedCommentPosts && keywords.length > 0) {
@@ -687,7 +703,12 @@ export async function detectSignalsV3(
     }
   }
 
-  if (allPosts.size === 0) return 0;
+  console.log('[DetectorV3] After merge: allPosts =', allPosts.size);
+
+  if (allPosts.size === 0) {
+    console.log('[DetectorV3] No posts found from any source. Returning 0.');
+    return 0;
+  }
 
   // ---- Deduplicate against DB ----
   const postIds = Array.from(allPosts.keys());
