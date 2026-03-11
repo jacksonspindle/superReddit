@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI features are not configured.' }, { status: 503 });
     }
 
-    const topCandidates = discovery.candidates.slice(0, 25);
+    const topCandidates = discovery.candidates.slice(0, 15);
 
     const client = getAnthropicClient();
     const prompt = buildSuggestSubredditsPrompt(
