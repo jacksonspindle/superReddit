@@ -68,6 +68,12 @@ export async function POST(request: NextRequest) {
     if (responseText.startsWith('```')) {
       responseText = responseText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     }
+    // Extract just the JSON object — Haiku sometimes appends extra text after it
+    const jsonStart = responseText.indexOf('{');
+    const jsonEnd = responseText.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      responseText = responseText.slice(jsonStart, jsonEnd + 1);
+    }
 
     const parsed = JSON.parse(responseText);
 
