@@ -106,7 +106,7 @@ export default function OutreachAlertsPage() {
   const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [channelsDialogOpen, setChannelsDialogOpen] = useState(false);
-  const [subsExpanded, setSubsExpanded] = useState(false);
+  const [subsExpanded, setSubsExpanded] = useState(true);
   const [expandedChannel, setExpandedChannel] = useState<AlertChannel | null>(null);
   const [setupSkipped, setSetupSkipped] = useState(false);
 
