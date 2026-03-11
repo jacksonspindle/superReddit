@@ -26,7 +26,7 @@ import { useOutreachStore } from '@/stores/outreach-store';
 import { toast } from 'sonner';
 import type { AlertChannel, OutreachKeyword, AlertDelivery, OutreachMonitoredSub } from '@/types';
 
-const USE_MOCK = true; // flip to false when done previewing
+const USE_MOCK = false; // flip to false when done previewing
 
 const MOCK_KEYWORDS: OutreachKeyword[] = [
   { id: 'mk1', project_id: '', phrases: ['CRM alternative', 'best CRM'], exclusions: [], is_active: true, source: 'manual', silenced_until: null, tier: null, created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-01T00:00:00Z' },
