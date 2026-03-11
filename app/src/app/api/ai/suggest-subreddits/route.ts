@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAnthropicClient, isAIConfigured, HAIKU_MODEL } from '@/lib/ai/client';
 import { SUGGEST_SUBREDDITS_SYSTEM_PROMPT, buildSuggestSubredditsPrompt } from '@/lib/ai/prompts';
 import { discoverSubreddits } from '@/lib/reddit/discover';
+import { fetchSubredditInfo } from '@/lib/reddit/fetcher';
 
 export const maxDuration = 60;
 
@@ -135,12 +136,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 6: Enrich suggestions with subscriber + active user counts from discovery data
+    // Step 6: Enrich suggestions with subscriber + active user counts
     const candidateMap = new Map(
       discovery.candidates.map((c) => [c.name.toLowerCase(), c])
     );
 
-    parsed.subreddits = (parsed.subreddits || []).map(
+    // Split into known (from discovery) and unknown (need Reddit fetch)
+    const subreddits = parsed.subreddits || [];
+    const enriched = subreddits.map(
       (s: { name: string; reason: string; approach: string; match: string }) => {
         const candidate = candidateMap.get(s.name.toLowerCase());
         return {
@@ -150,6 +153,36 @@ export async function POST(request: NextRequest) {
         };
       }
     );
+
+    // Fetch subscriber counts for subs not in discovery (with 2.5s timeout)
+    const needsFetch = enriched
+      .map((s, i) => ({ ...s, _idx: i }))
+      .filter((s) => s.subscribers === 0);
+
+    if (needsFetch.length > 0) {
+      const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 2500));
+      const fetches = Promise.allSettled(
+        needsFetch.map(async (s) => {
+          const info = await fetchSubredditInfo(s.name);
+          return { idx: s._idx, subscribers: info?.subscribers || 0, activeUsers: info?.active_user_count || null };
+        })
+      );
+
+      const result = await Promise.race([fetches, timeout]);
+      if (result !== 'timeout') {
+        for (const r of result) {
+          if (r.status === 'fulfilled' && r.value.subscribers > 0) {
+            enriched[r.value.idx] = {
+              ...enriched[r.value.idx],
+              subscribers: r.value.subscribers,
+              activeUsers: r.value.activeUsers,
+            };
+          }
+        }
+      }
+    }
+
+    parsed.subreddits = enriched;
 
     return NextResponse.json(parsed);
   } catch (error) {
