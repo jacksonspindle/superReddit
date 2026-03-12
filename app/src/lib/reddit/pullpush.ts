@@ -5,6 +5,7 @@
  */
 
 import type { RedditPost } from '@/types';
+import { proxyPullPushUrl, proxyHeaders, isProxyEnabled } from '@/lib/reddit/proxy';
 
 const PULLPUSH_BASE = 'https://api.pullpush.io';
 
@@ -86,13 +87,23 @@ interface PullPushSubmissionRaw {
 async function fetchFromPullPush(url: string): Promise<unknown> {
   await pullpushLimiter.acquire();
 
-  console.log('[PullPush] Fetching:', url);
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json' },
+  // Route through proxy if configured
+  let fetchUrl = url;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+
+  if (isProxyEnabled()) {
+    const parsed = new URL(url);
+    fetchUrl = proxyPullPushUrl(parsed.pathname, parsed.search);
+    Object.assign(headers, proxyHeaders());
+  }
+
+  console.log('[PullPush] Fetching:', fetchUrl);
+  const response = await fetch(fetchUrl, {
+    headers,
     cache: 'no-store',
   });
 
-  console.log('[PullPush] Response status:', response.status, 'for', url.split('?')[0]);
+  console.log('[PullPush] Response status:', response.status, 'for', fetchUrl.split('?')[0]);
 
   if (!response.ok) {
     if (response.status === 429) {
