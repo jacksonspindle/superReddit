@@ -161,7 +161,10 @@ export default function OutreachSignalsPage() {
       } else if (json.totalFetched === 0) {
         const errors = json.fetchErrors as string[] | undefined;
         if (errors && errors.length > 0) {
-          toast.error(`Reddit fetch failed: ${errors[0]}`, { duration: 8000 });
+          // Show the last error (most specific) — earlier ones are often just "falling back..."
+          const lastError = errors[errors.length - 1];
+          toast.error(`Scan failed: ${lastError}`, { duration: 8000 });
+          console.error('[Signals] All fetch errors:', errors);
         } else {
           toast('No posts found from Reddit. Check your subreddits and keywords.', { duration: 5000 });
         }

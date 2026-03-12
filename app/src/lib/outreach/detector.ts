@@ -696,27 +696,51 @@ export async function detectSignalsV3(
   const pullpushTotal = browsedPosts.size + (cachedPosts?.length ?? 0) + (cachedCommentPosts?.length ?? 0);
   if (pullpushTotal === 0 && subreddits.length > 0 && !usePrefetch) {
     dbg('[DetectorV3] PullPush returned 0 posts — falling back to Reddit API (old.reddit.com)');
-    fetchErrors.push('PullPush returned 0 results, falling back to Reddit API');
     progress({ step: 'fetching', message: 'PullPush unavailable, trying Reddit directly...' });
+
+    // Fallback A: Browse recent posts from subreddits
     try {
       const multiSub = subreddits.slice(0, 25).join('+');
       const result = await fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100));
       if (result.posts.length > 0) {
-        dbg(`[DetectorV3] Reddit API fallback returned ${result.posts.length} posts`);
+        dbg(`[DetectorV3] Reddit browse fallback returned ${result.posts.length} posts`);
         for (const post of result.posts) {
           if (!browsedPosts.has(post.id)) {
             browsedPosts.set(post.id, { ...post, _source: 'reddit_fallback' });
           }
         }
       } else {
-        const errMsg = result.error || 'Reddit API also returned 0 posts';
-        dbg(`[DetectorV3] Reddit API fallback: ${errMsg}`);
+        const errMsg = result.error ? `Reddit API: ${result.error}` : 'Reddit browse returned 0 posts';
+        dbg(`[DetectorV3] ${errMsg}`);
         fetchErrors.push(errMsg);
       }
     } catch (err) {
-      const msg = `Reddit API fallback failed: ${(err as Error).message}`;
+      const msg = `Reddit browse fallback failed: ${(err as Error).message}`;
       dbg(`[DetectorV3] ${msg}`);
       fetchErrors.push(msg);
+    }
+
+    // Fallback B: Keyword search via Reddit API
+    if (keywords.length > 0 && browsedPosts.size === 0) {
+      try {
+        const searchResult = await searchMultiSubPosts(subreddits, keywords, {
+          timeFilter,
+          limit: maxResults,
+          maxPages: 2,
+        });
+        if (searchResult.posts.length > 0) {
+          dbg(`[DetectorV3] Reddit keyword search fallback returned ${searchResult.posts.length} posts`);
+          cachedPosts = searchResult.posts;
+        } else {
+          const errMsg = searchResult.error ? `Reddit search: ${searchResult.error}` : 'Reddit keyword search returned 0 posts';
+          dbg(`[DetectorV3] ${errMsg}`);
+          fetchErrors.push(errMsg);
+        }
+      } catch (err) {
+        const msg = `Reddit search fallback failed: ${(err as Error).message}`;
+        dbg(`[DetectorV3] ${msg}`);
+        fetchErrors.push(msg);
+      }
     }
   }
 
