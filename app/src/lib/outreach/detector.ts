@@ -550,6 +550,7 @@ export interface DetectV3Result {
   newPosts: number;
   filtered: number;
   classified: number;
+  fetchErrors?: string[];
 }
 
 export async function detectSignalsV3(
@@ -578,6 +579,7 @@ export async function detectSignalsV3(
 
   const usePrefetch = prefetchedPosts && prefetchedPosts.length > 0;
   const progress = options.onProgress || (() => {});
+  const fetchErrors: string[] = [];
 
   dbg(`[DetectorV3] Starting. Subreddits: ${subreddits.join(', ')} | Keywords: ${keywords.join(', ')} | TimeFilter: ${timeFilter} | usePrefetch: ${usePrefetch}`);
   progress({ step: 'fetching', message: 'Fetching posts from Reddit...' });
@@ -596,7 +598,7 @@ export async function detectSignalsV3(
 
   const fetchPromises: Promise<void>[] = [];
 
-  // Source A: Browse subreddits (free)
+  // Source A: Browse subreddits via PullPush (free)
   if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
     const afterTs = timeFilterToUnix(timeFilter);
     dbg(`[DetectorV3] Source A: Fetching via PullPush. Subs: ${subreddits.join(',')} after: ${afterTs} limit: ${Math.min(maxResults, 100)}`);
@@ -613,12 +615,14 @@ export async function detectSignalsV3(
           }
         }
       }).catch((err) => {
-        dbg(`[DetectorV3] Source A: PullPush browse FAILED: ${(err as Error).message}`);
+        const msg = `PullPush browse failed: ${(err as Error).message}`;
+        dbg(`[DetectorV3] Source A: ${msg}`);
+        fetchErrors.push(msg);
       })
     );
   }
 
-  // Source B: Keyword search (free, supplementary)
+  // Source B: Keyword search via PullPush (free, supplementary)
   if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
     const queryStr = keywords.join(' OR ');
     dbg(`[DetectorV3] Source B: Searching PullPush. Query: ${queryStr}`);
@@ -635,12 +639,14 @@ export async function detectSignalsV3(
           await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
         }
       }).catch((err) => {
-        dbg(`[DetectorV3] Source B: PullPush search FAILED: ${(err as Error).message}`);
+        const msg = `PullPush search failed: ${(err as Error).message}`;
+        dbg(`[DetectorV3] Source B: ${msg}`);
+        fetchErrors.push(msg);
       })
     );
   }
 
-  // Source C: Comment search
+  // Source C: Comment search via PullPush
   if (includeComments && !cachedCommentPosts && keywords.length > 0) {
     fetchPromises.push(
       pullpush
@@ -672,6 +678,11 @@ export async function detectSignalsV3(
           }));
           await setCachedSearch(supabase, commentCacheKey, cachedCommentPosts, 'pullpush');
         })
+        .catch((err) => {
+          const msg = `PullPush comment search failed: ${(err as Error).message}`;
+          dbg(`[DetectorV3] Source C: ${msg}`);
+          fetchErrors.push(msg);
+        })
     );
   }
 
@@ -679,7 +690,35 @@ export async function detectSignalsV3(
     await Promise.all(fetchPromises);
   }
 
-  dbg(`[DetectorV3] After fetches: browsed=${browsedPosts.size} keywordPosts=${cachedPosts?.length ?? 0} comments=${cachedCommentPosts?.length ?? 0}`);
+  dbg(`[DetectorV3] After fetches: browsed=${browsedPosts.size} keywordPosts=${cachedPosts?.length ?? 0} comments=${cachedCommentPosts?.length ?? 0} errors=${fetchErrors.length}`);
+
+  // ---- Fallback to Reddit API when PullPush returns nothing ----
+  const pullpushTotal = browsedPosts.size + (cachedPosts?.length ?? 0) + (cachedCommentPosts?.length ?? 0);
+  if (pullpushTotal === 0 && subreddits.length > 0 && !usePrefetch) {
+    dbg('[DetectorV3] PullPush returned 0 posts — falling back to Reddit API (old.reddit.com)');
+    fetchErrors.push('PullPush returned 0 results, falling back to Reddit API');
+    progress({ step: 'fetching', message: 'PullPush unavailable, trying Reddit directly...' });
+    try {
+      const multiSub = subreddits.slice(0, 25).join('+');
+      const result = await fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100));
+      if (result.posts.length > 0) {
+        dbg(`[DetectorV3] Reddit API fallback returned ${result.posts.length} posts`);
+        for (const post of result.posts) {
+          if (!browsedPosts.has(post.id)) {
+            browsedPosts.set(post.id, { ...post, _source: 'reddit_fallback' });
+          }
+        }
+      } else {
+        const errMsg = result.error || 'Reddit API also returned 0 posts';
+        dbg(`[DetectorV3] Reddit API fallback: ${errMsg}`);
+        fetchErrors.push(errMsg);
+      }
+    } catch (err) {
+      const msg = `Reddit API fallback failed: ${(err as Error).message}`;
+      dbg(`[DetectorV3] ${msg}`);
+      fetchErrors.push(msg);
+    }
+  }
 
   // ---- Merge all sources, tag discovery_source ----
   const allPosts = new Map<string, RedditPost & { _source: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
@@ -724,7 +763,7 @@ export async function detectSignalsV3(
   if (allPosts.size === 0) {
     dbg('[DetectorV3] No posts found from any source. Returning 0.');
     progress({ step: 'done', message: 'No posts found from any source' });
-    return { count: 0, totalFetched: 0, alreadyExisting: 0, newPosts: 0, filtered: 0, classified: 0 };
+    return { count: 0, totalFetched: 0, alreadyExisting: 0, newPosts: 0, filtered: 0, classified: 0, fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined };
   }
 
   // ---- Deduplicate against DB ----
@@ -759,7 +798,7 @@ export async function detectSignalsV3(
 
   if (newPosts.length === 0) {
     progress({ step: 'done', message: 'No new posts to analyze' });
-    return { count: 0, totalFetched: allPosts.size, alreadyExisting: existingIds.size, newPosts: 0, filtered: 0, classified: 0 };
+    return { count: 0, totalFetched: allPosts.size, alreadyExisting: existingIds.size, newPosts: 0, filtered: 0, classified: 0, fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined };
   }
 
   // ---- Two-Lane Pre-Filter: Heuristic Fast-Pass + AI Semantic Filter ----
@@ -828,7 +867,7 @@ export async function detectSignalsV3(
 
   if (filteredPosts.length === 0) {
     progress({ step: 'done', message: 'No relevant posts found after filtering' });
-    return { count: 0, totalFetched: allPosts.size, alreadyExisting: existingIds.size, newPosts: newPosts.length, filtered: 0, classified: 0 };
+    return { count: 0, totalFetched: allPosts.size, alreadyExisting: existingIds.size, newPosts: newPosts.length, filtered: 0, classified: 0, fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined };
   }
 
   progress({ step: 'classifying', message: `Classifying ${filteredPosts.length} posts with AI...` });
@@ -1097,6 +1136,7 @@ export async function detectSignalsV3(
     newPosts: newPosts.length,
     filtered: filteredPosts.length,
     classified: v3Classifications.size,
+    fetchErrors: fetchErrors.length > 0 ? fetchErrors : undefined,
   };
 }
 
