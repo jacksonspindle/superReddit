@@ -585,6 +585,8 @@ export async function detectSignalsV3(
   progress({ step: 'fetching', message: 'Fetching posts from Reddit...' });
 
   // ---- Fetch all sources in parallel ----
+  // Primary: Reddit API via proxy (current data, reliable)
+  // Supplementary: PullPush for comment search only (index is stale for posts)
   const browsedPosts = new Map<string, RedditPost & { _source?: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
   const cacheKey = buildCacheKey(subreddits, keywords, timeFilter, 'reddit');
@@ -598,55 +600,57 @@ export async function detectSignalsV3(
 
   const fetchPromises: Promise<void>[] = [];
 
-  // Source A: Browse subreddits via PullPush (free)
+  // Source A: Browse subreddits via Reddit API (primary, via proxy)
   if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
-    const afterTs = timeFilterToUnix(timeFilter);
-    dbg(`[DetectorV3] Source A: Fetching via PullPush. Subs: ${subreddits.join(',')} after: ${afterTs} limit: ${Math.min(maxResults, 100)}`);
+    const multiSub = subreddits.slice(0, 25).join('+');
+    dbg(`[DetectorV3] Source A: Browsing via Reddit API. Subs: ${multiSub}`);
     fetchPromises.push(
-      pullpush.fetchRecentPosts({
-        subreddits,
-        after: afterTs,
-        limit: Math.min(maxResults, 100),
-      }).then((posts) => {
-        dbg(`[DetectorV3] Source A: PullPush returned ${posts.length} posts`);
-        for (const post of posts) {
-          if (!browsedPosts.has(post.id)) {
-            browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
+      fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100))
+        .then((result) => {
+          dbg(`[DetectorV3] Source A: Reddit API returned ${result.posts.length} posts${result.error ? ` (error: ${result.error})` : ''}`);
+          for (const post of result.posts) {
+            if (!browsedPosts.has(post.id)) {
+              browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
+            }
           }
-        }
-      }).catch((err) => {
-        const msg = `PullPush browse failed: ${(err as Error).message}`;
-        dbg(`[DetectorV3] Source A: ${msg}`);
-        fetchErrors.push(msg);
-      })
+          if (result.posts.length === 0 && result.error) {
+            fetchErrors.push(`Reddit browse: ${result.error}`);
+          }
+        })
+        .catch((err) => {
+          const msg = `Reddit browse failed: ${(err as Error).message}`;
+          dbg(`[DetectorV3] Source A: ${msg}`);
+          fetchErrors.push(msg);
+        })
     );
   }
 
-  // Source B: Keyword search via PullPush (free, supplementary)
+  // Source B: Keyword search via Reddit API (primary, via proxy)
   if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
-    const queryStr = keywords.join(' OR ');
-    dbg(`[DetectorV3] Source B: Searching PullPush. Query: ${queryStr}`);
+    dbg(`[DetectorV3] Source B: Keyword search via Reddit API. Keywords: ${keywords.join(', ')}`);
     fetchPromises.push(
-      pullpush.searchPosts({
-        subreddits,
-        query: queryStr,
-        after: timeFilterToUnix(timeFilter),
+      searchMultiSubPosts(subreddits, keywords, {
+        timeFilter,
         limit: maxResults,
-      }).then(async (posts) => {
-        dbg(`[DetectorV3] Source B: PullPush search returned ${posts.length} posts`);
-        cachedPosts = posts;
-        if (cachedPosts.length > 0) {
+        maxPages: 3,
+      }).then(async (result) => {
+        dbg(`[DetectorV3] Source B: Reddit search returned ${result.posts.length} posts`);
+        cachedPosts = result.posts;
+        if (cachedPosts.length > 0 && !skipCache) {
           await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
         }
+        if (result.posts.length === 0 && result.error) {
+          fetchErrors.push(`Reddit search: ${result.error}`);
+        }
       }).catch((err) => {
-        const msg = `PullPush search failed: ${(err as Error).message}`;
+        const msg = `Reddit keyword search failed: ${(err as Error).message}`;
         dbg(`[DetectorV3] Source B: ${msg}`);
         fetchErrors.push(msg);
       })
     );
   }
 
-  // Source C: Comment search via PullPush
+  // Source C: Comment search via PullPush (supplementary — PullPush may be stale but comment search has no Reddit alternative)
   if (includeComments && !cachedCommentPosts && keywords.length > 0) {
     fetchPromises.push(
       pullpush
@@ -676,12 +680,13 @@ export async function detectSignalsV3(
             _is_comment: true,
             _parent_post_id: c.link_id?.replace('t3_', '') || null,
           }));
-          await setCachedSearch(supabase, commentCacheKey, cachedCommentPosts, 'pullpush');
+          if (!skipCache) {
+            await setCachedSearch(supabase, commentCacheKey, cachedCommentPosts, 'pullpush');
+          }
         })
         .catch((err) => {
-          const msg = `PullPush comment search failed: ${(err as Error).message}`;
-          dbg(`[DetectorV3] Source C: ${msg}`);
-          fetchErrors.push(msg);
+          // PullPush comment search is supplementary — don't fail the whole scan
+          dbg(`[DetectorV3] Source C: PullPush comment search failed (non-fatal): ${(err as Error).message}`);
         })
     );
   }
@@ -691,58 +696,6 @@ export async function detectSignalsV3(
   }
 
   dbg(`[DetectorV3] After fetches: browsed=${browsedPosts.size} keywordPosts=${cachedPosts?.length ?? 0} comments=${cachedCommentPosts?.length ?? 0} errors=${fetchErrors.length}`);
-
-  // ---- Fallback to Reddit API when PullPush returns nothing ----
-  const pullpushTotal = browsedPosts.size + (cachedPosts?.length ?? 0) + (cachedCommentPosts?.length ?? 0);
-  if (pullpushTotal === 0 && subreddits.length > 0 && !usePrefetch) {
-    dbg('[DetectorV3] PullPush returned 0 posts — falling back to Reddit API (old.reddit.com)');
-    progress({ step: 'fetching', message: 'PullPush unavailable, trying Reddit directly...' });
-
-    // Fallback A: Browse recent posts from subreddits
-    try {
-      const multiSub = subreddits.slice(0, 25).join('+');
-      const result = await fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100));
-      if (result.posts.length > 0) {
-        dbg(`[DetectorV3] Reddit browse fallback returned ${result.posts.length} posts`);
-        for (const post of result.posts) {
-          if (!browsedPosts.has(post.id)) {
-            browsedPosts.set(post.id, { ...post, _source: 'reddit_fallback' });
-          }
-        }
-      } else {
-        const errMsg = result.error ? `Reddit API: ${result.error}` : 'Reddit browse returned 0 posts';
-        dbg(`[DetectorV3] ${errMsg}`);
-        fetchErrors.push(errMsg);
-      }
-    } catch (err) {
-      const msg = `Reddit browse fallback failed: ${(err as Error).message}`;
-      dbg(`[DetectorV3] ${msg}`);
-      fetchErrors.push(msg);
-    }
-
-    // Fallback B: Keyword search via Reddit API
-    if (keywords.length > 0 && browsedPosts.size === 0) {
-      try {
-        const searchResult = await searchMultiSubPosts(subreddits, keywords, {
-          timeFilter,
-          limit: maxResults,
-          maxPages: 2,
-        });
-        if (searchResult.posts.length > 0) {
-          dbg(`[DetectorV3] Reddit keyword search fallback returned ${searchResult.posts.length} posts`);
-          cachedPosts = searchResult.posts;
-        } else {
-          const errMsg = searchResult.error ? `Reddit search: ${searchResult.error}` : 'Reddit keyword search returned 0 posts';
-          dbg(`[DetectorV3] ${errMsg}`);
-          fetchErrors.push(errMsg);
-        }
-      } catch (err) {
-        const msg = `Reddit search fallback failed: ${(err as Error).message}`;
-        dbg(`[DetectorV3] ${msg}`);
-        fetchErrors.push(msg);
-      }
-    }
-  }
 
   // ---- Merge all sources, tag discovery_source ----
   const allPosts = new Map<string, RedditPost & { _source: string; _is_comment?: boolean; _parent_post_id?: string | null }>();

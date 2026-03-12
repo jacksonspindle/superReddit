@@ -1,4 +1,5 @@
 import type { RedditPost, RedditSubredditInfo, RedditApiResponse } from '@/types';
+import { proxyRedditUrl, proxyHeaders, isProxyEnabled } from '@/lib/reddit/proxy';
 
 const USER_AGENT = 'web:superreddit:v1.0.0 (by /u/superreddit_app)';
 const REDDIT_BASE = 'https://old.reddit.com';
@@ -108,11 +109,22 @@ function parseSubredditInfo(data: Record<string, unknown>): RedditSubredditInfo 
 async function fetchFromReddit(url: string): Promise<unknown> {
   await rateLimiter.acquire();
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Accept': 'application/json',
-    },
+  // Route through proxy if configured — avoids Reddit blocking datacenter IPs
+  let fetchUrl = url;
+  const headers: Record<string, string> = {
+    'User-Agent': USER_AGENT,
+    'Accept': 'application/json',
+  };
+
+  if (isProxyEnabled()) {
+    // Extract the path + query from the full URL and route through proxy
+    const parsed = new URL(url);
+    fetchUrl = proxyRedditUrl(parsed.pathname, parsed.search);
+    Object.assign(headers, proxyHeaders());
+  }
+
+  const response = await fetch(fetchUrl, {
+    headers,
     cache: 'no-store',
   });
 
