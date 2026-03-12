@@ -21,6 +21,7 @@ import {
 } from '@/lib/outreach/signal-classifier';
 import { computeEnhancedScore, computeV2CombinedScore, deriveLeadTier, computeV3CombinedScore, deriveLeadTierV3, computeV3CombinedScoreEnhanced, deriveLeadTierV3Enhanced } from '@/lib/outreach/scoring';
 import * as pullpush from '@/lib/reddit/pullpush';
+import { isProxyEnabled, proxyFetchMultiSub, proxySearchSub } from '@/lib/reddit/proxy';
 import { buildCacheKey, getCachedSearch, setCachedSearch } from '@/lib/reddit/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RedditPost } from '@/types';
@@ -585,8 +586,9 @@ export async function detectSignalsV3(
   progress({ step: 'fetching', message: 'Fetching posts from Reddit...' });
 
   // ---- Fetch all sources in parallel ----
-  // Primary: Reddit API via proxy (current data, reliable)
+  // Primary: Reddit RSS via proxy (current data, avoids IP blocks)
   // Supplementary: PullPush for comment search only (index is stale for posts)
+  // Fallback: Direct Reddit API (for when proxy is not configured)
   const browsedPosts = new Map<string, RedditPost & { _source?: string; _is_comment?: boolean; _parent_post_id?: string | null }>();
 
   const cacheKey = buildCacheKey(subreddits, keywords, timeFilter, 'reddit');
@@ -599,58 +601,117 @@ export async function detectSignalsV3(
   if (cachedCommentPosts && cachedCommentPosts.length === 0) cachedCommentPosts = null;
 
   const fetchPromises: Promise<void>[] = [];
+  const useProxy = isProxyEnabled();
 
-  // Source A: Browse subreddits via Reddit API (primary, via proxy)
+  // Source A: Browse subreddits
   if (browseSubreddits && subreddits.length > 0 && !usePrefetch) {
-    const multiSub = subreddits.slice(0, 25).join('+');
-    dbg(`[DetectorV3] Source A: Browsing via Reddit API. Subs: ${multiSub}`);
-    fetchPromises.push(
-      fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100))
-        .then((result) => {
-          dbg(`[DetectorV3] Source A: Reddit API returned ${result.posts.length} posts${result.error ? ` (error: ${result.error})` : ''}`);
-          for (const post of result.posts) {
-            if (!browsedPosts.has(post.id)) {
-              browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
+    if (useProxy) {
+      // Primary: RSS via proxy (bypasses Reddit IP blocks)
+      dbg(`[DetectorV3] Source A: Browsing via proxy RSS. Subs: ${subreddits.join(',')}`);
+      fetchPromises.push(
+        proxyFetchMultiSub(subreddits, 'new', Math.min(maxResults, 100))
+          .then((result) => {
+            dbg(`[DetectorV3] Source A: Proxy RSS returned ${result.posts.length} posts`);
+            for (const post of result.posts) {
+              if (!browsedPosts.has(post.id)) {
+                browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' } as RedditPost & { _source: string });
+              }
+            }
+            if (result.errors?.length) {
+              dbg(`[DetectorV3] Source A warnings: ${result.errors.join(', ')}`);
+            }
+          })
+          .catch((err) => {
+            const msg = `Proxy browse failed: ${(err as Error).message}`;
+            dbg(`[DetectorV3] Source A: ${msg}`);
+            fetchErrors.push(msg);
+          })
+      );
+    } else {
+      // Fallback: Direct Reddit API (may be blocked from datacenter IPs)
+      const multiSub = subreddits.slice(0, 25).join('+');
+      dbg(`[DetectorV3] Source A: Browsing via Reddit API (no proxy). Subs: ${multiSub}`);
+      fetchPromises.push(
+        fetchSubredditPosts(multiSub, 'new', timeFilter, Math.min(maxResults, 100))
+          .then((result) => {
+            dbg(`[DetectorV3] Source A: Reddit API returned ${result.posts.length} posts`);
+            for (const post of result.posts) {
+              if (!browsedPosts.has(post.id)) {
+                browsedPosts.set(post.id, { ...post, _source: 'subreddit_browse' });
+              }
+            }
+            if (result.posts.length === 0 && result.error) {
+              fetchErrors.push(`Reddit browse: ${result.error}`);
+            }
+          })
+          .catch((err) => {
+            const msg = `Reddit browse failed: ${(err as Error).message}`;
+            dbg(`[DetectorV3] Source A: ${msg}`);
+            fetchErrors.push(msg);
+          })
+      );
+    }
+  }
+
+  // Source B: Keyword search
+  if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
+    if (useProxy) {
+      // Primary: RSS search via proxy (search each sub with OR-grouped keywords)
+      const queryStr = keywords.map((kw) => (kw.includes(' ') ? `"${kw}"` : kw)).join(' OR ');
+      dbg(`[DetectorV3] Source B: Keyword search via proxy RSS. Query: ${queryStr}`);
+      // Search the first sub with all keywords (RSS search is per-subreddit)
+      const searchSub = subreddits.slice(0, 5);
+      fetchPromises.push(
+        Promise.all(
+          searchSub.map((sub) =>
+            proxySearchSub(sub, queryStr, timeFilter, 'relevance', Math.min(maxResults, 100))
+              .catch((err) => {
+                dbg(`[DetectorV3] Source B: Search r/${sub} failed: ${(err as Error).message}`);
+                return { posts: [] as RedditPost[] };
+              })
+          )
+        ).then(async (results) => {
+          const allSearchPosts: RedditPost[] = [];
+          for (const result of results) {
+            for (const post of result.posts) {
+              allSearchPosts.push(post as RedditPost);
             }
           }
-          if (result.posts.length === 0 && result.error) {
-            fetchErrors.push(`Reddit browse: ${result.error}`);
+          dbg(`[DetectorV3] Source B: Proxy search returned ${allSearchPosts.length} posts`);
+          cachedPosts = allSearchPosts;
+          if (cachedPosts.length > 0 && !skipCache) {
+            await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
           }
-        })
-        .catch((err) => {
-          const msg = `Reddit browse failed: ${(err as Error).message}`;
-          dbg(`[DetectorV3] Source A: ${msg}`);
+        }).catch((err) => {
+          const msg = `Proxy keyword search failed: ${(err as Error).message}`;
+          dbg(`[DetectorV3] Source B: ${msg}`);
           fetchErrors.push(msg);
         })
-    );
+      );
+    } else {
+      // Fallback: Direct Reddit API search
+      dbg(`[DetectorV3] Source B: Keyword search via Reddit API (no proxy). Keywords: ${keywords.join(', ')}`);
+      fetchPromises.push(
+        searchMultiSubPosts(subreddits, keywords, {
+          timeFilter,
+          limit: maxResults,
+          maxPages: 3,
+        }).then(async (result) => {
+          dbg(`[DetectorV3] Source B: Reddit search returned ${result.posts.length} posts`);
+          cachedPosts = result.posts;
+          if (cachedPosts.length > 0 && !skipCache) {
+            await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
+          }
+        }).catch((err) => {
+          const msg = `Reddit keyword search failed: ${(err as Error).message}`;
+          dbg(`[DetectorV3] Source B: ${msg}`);
+          fetchErrors.push(msg);
+        })
+      );
+    }
   }
 
-  // Source B: Keyword search via Reddit API (primary, via proxy)
-  if (!cachedPosts && keywords.length > 0 && !usePrefetch) {
-    dbg(`[DetectorV3] Source B: Keyword search via Reddit API. Keywords: ${keywords.join(', ')}`);
-    fetchPromises.push(
-      searchMultiSubPosts(subreddits, keywords, {
-        timeFilter,
-        limit: maxResults,
-        maxPages: 3,
-      }).then(async (result) => {
-        dbg(`[DetectorV3] Source B: Reddit search returned ${result.posts.length} posts`);
-        cachedPosts = result.posts;
-        if (cachedPosts.length > 0 && !skipCache) {
-          await setCachedSearch(supabase, cacheKey, cachedPosts, 'reddit');
-        }
-        if (result.posts.length === 0 && result.error) {
-          fetchErrors.push(`Reddit search: ${result.error}`);
-        }
-      }).catch((err) => {
-        const msg = `Reddit keyword search failed: ${(err as Error).message}`;
-        dbg(`[DetectorV3] Source B: ${msg}`);
-        fetchErrors.push(msg);
-      })
-    );
-  }
-
-  // Source C: Comment search via PullPush (supplementary — PullPush may be stale but comment search has no Reddit alternative)
+  // Source C: Comment search via PullPush (supplementary — PullPush may be stale but comment search has no RSS alternative)
   if (includeComments && !cachedCommentPosts && keywords.length > 0) {
     fetchPromises.push(
       pullpush
