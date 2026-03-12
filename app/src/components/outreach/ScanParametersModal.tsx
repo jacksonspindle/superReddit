@@ -48,7 +48,6 @@ export function ScanParametersModal({
 
   // Local state for scan preferences
   const [timeFilter, setTimeFilter] = useState<string>('week');
-  const [maxResults, setMaxResults] = useState<string>('100');
   const [includeComments, setIncludeComments] = useState(true);
   const [painPoints, setPainPoints] = useState<string[]>([]);
   const [customerGoals, setCustomerGoals] = useState<string[]>([]);
@@ -74,7 +73,6 @@ export function ScanParametersModal({
   useEffect(() => {
     if (config) {
       setTimeFilter(config.time_filter || 'week');
-      setMaxResults(String(config.max_results || 100));
       setIncludeComments(config.include_comments ?? true);
       setPainPoints(config.pain_points || []);
       setCustomerGoals(config.customer_goals || []);
@@ -117,7 +115,7 @@ export function ScanParametersModal({
         body: JSON.stringify({
           project_id: projectId,
           time_filter: timeFilter,
-          max_results: parseInt(maxResults, 10),
+          max_results: 100,
           include_comments: includeComments,
           pain_points: painPoints,
           customer_goals: customerGoals,
@@ -140,7 +138,7 @@ export function ScanParametersModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
-            Scan Parameters
+            Scan Settings
           </DialogTitle>
         </DialogHeader>
 
@@ -268,8 +266,8 @@ export function ScanParametersModal({
 
             <div className="border-t" />
 
-            {/* Time Range & Search Depth */}
-            <section className="grid grid-cols-2 gap-4">
+            {/* Time Range */}
+            <section>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Time Range</label>
                 <Select value={timeFilter} onValueChange={setTimeFilter}>
@@ -283,20 +281,6 @@ export function ScanParametersModal({
                     <SelectItem value="month">Last month</SelectItem>
                     <SelectItem value="year">Last year</SelectItem>
                     <SelectItem value="all">All time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Max Results</label>
-                <Select value={maxResults} onValueChange={setMaxResults}>
-                  <SelectTrigger className="h-9 text-sm bg-muted/50 border-border/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
