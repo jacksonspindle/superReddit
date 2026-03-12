@@ -159,7 +159,12 @@ export default function OutreachSignalsPage() {
       } else if (json.totalFetched > 0 && json.alreadyExisting > 0) {
         toast(`Fetched ${json.totalFetched} posts, but all ${json.alreadyExisting} were already scanned. Try a wider time range.`, { duration: 5000 });
       } else if (json.totalFetched === 0) {
-        toast('No posts found from Reddit. Check your subreddits and keywords.', { duration: 5000 });
+        const errors = json.fetchErrors as string[] | undefined;
+        if (errors && errors.length > 0) {
+          toast.error(`Reddit fetch failed: ${errors[0]}`, { duration: 8000 });
+        } else {
+          toast('No posts found from Reddit. Check your subreddits and keywords.', { duration: 5000 });
+        }
       } else {
         toast('No new signals found', { duration: 3000 });
       }

@@ -163,18 +163,13 @@ export async function searchComments(options: {
   if (after) params.set('after', String(after));
   if (before) params.set('before', String(before));
 
-  try {
-    const url = `${PULLPUSH_BASE}/reddit/search/comment/?${params.toString()}`;
-    const json = (await fetchFromPullPush(url)) as { data?: PullPushCommentRaw[] };
-    const data = json.data || [];
+  const url = `${PULLPUSH_BASE}/reddit/search/comment/?${params.toString()}`;
+  const json = (await fetchFromPullPush(url)) as { data?: PullPushCommentRaw[] };
+  const data = json.data || [];
 
-    return data
-      .filter((c) => c.author && c.author !== '[deleted]' && c.body && c.body !== '[deleted]')
-      .map(parseComment);
-  } catch (error) {
-    console.error('PullPush comment search error:', error);
-    return [];
-  }
+  return data
+    .filter((c) => c.author && c.author !== '[deleted]' && c.body && c.body !== '[deleted]')
+    .map(parseComment);
 }
 
 /** Fetch recent posts from subreddits without keyword filtering (for browsing) */
@@ -200,18 +195,13 @@ export async function fetchRecentPosts(options: {
   if (after) params.set('after', String(after));
   if (before) params.set('before', String(before));
 
-  try {
-    const url = `${PULLPUSH_BASE}/reddit/search/submission/?${params.toString()}`;
-    const json = (await fetchFromPullPush(url)) as { data?: PullPushSubmissionRaw[] };
-    const data = json.data || [];
+  const url = `${PULLPUSH_BASE}/reddit/search/submission/?${params.toString()}`;
+  const json = (await fetchFromPullPush(url)) as { data?: PullPushSubmissionRaw[] };
+  const data = json.data || [];
 
-    return data
-      .filter((p) => p.author && p.author !== '[deleted]')
-      .map(parseSubmission);
-  } catch (error) {
-    console.error('PullPush recent posts error:', error);
-    return [];
-  }
+  return data
+    .filter((p) => p.author && p.author !== '[deleted]')
+    .map(parseSubmission);
 }
 
 export async function searchPosts(options: {
@@ -238,16 +228,11 @@ export async function searchPosts(options: {
   if (after) params.set('after', String(after));
   if (before) params.set('before', String(before));
 
-  try {
-    const url = `${PULLPUSH_BASE}/reddit/search/submission/?${params.toString()}`;
-    const json = (await fetchFromPullPush(url)) as { data?: PullPushSubmissionRaw[] };
-    const data = json.data || [];
+  const url = `${PULLPUSH_BASE}/reddit/search/submission/?${params.toString()}`;
+  const json = (await fetchFromPullPush(url)) as { data?: PullPushSubmissionRaw[] };
+  const data = json.data || [];
 
-    return data
-      .filter((p) => p.author && p.author !== '[deleted]')
-      .map(parseSubmission);
-  } catch (error) {
-    console.error('PullPush post search error:', error);
-    return [];
-  }
+  return data
+    .filter((p) => p.author && p.author !== '[deleted]')
+    .map(parseSubmission);
 }
