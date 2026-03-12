@@ -31,6 +31,7 @@ export default function OutreachSignalsPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState<string | null>(null);
 
   const [subFilter, setSubFilter] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<'hot' | 'warm' | 'engagement' | 'favorites' | null>(null);
@@ -115,6 +116,7 @@ export default function OutreachSignalsPage() {
 
   async function handleScanNow() {
     setScanning(true);
+    setScanProgress('Starting scan...');
     console.log('[Signals] Scan started');
     try {
       // Get scan params from config
@@ -122,7 +124,6 @@ export default function OutreachSignalsPage() {
       try {
         const configRes = await fetch(`/api/outreach/config?project_id=${project.id}`);
         const configJson = await configRes.json();
-        console.log('[Signals] Config response:', configJson);
         if (configJson.config) {
           const c = configJson.config;
           if (c.time_filter) scanBody.time_filter = c.time_filter;
@@ -133,9 +134,11 @@ export default function OutreachSignalsPage() {
         console.error('[Signals] Config fetch failed:', e);
       }
 
-      console.log('[Signals] Sending scan request with body:', scanBody);
+      // Skip cache on manual scan to always fetch fresh posts
+      scanBody.skip_cache = true;
 
-      // Server awaits full scan (PullPush + AI classification + DB storage)
+      setScanProgress('Fetching and classifying posts...');
+
       const res = await fetch('/api/outreach/signals/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,6 +149,7 @@ export default function OutreachSignalsPage() {
 
       if (json.error) {
         toast.error(json.error);
+        setScanProgress(null);
         setScanning(false);
         return;
       }
@@ -158,12 +162,12 @@ export default function OutreachSignalsPage() {
 
       // Refresh signals list and analytics
       await Promise.all([fetchSignals(), fetchAnalytics()]);
-      setScanning(false);
     } catch (e) {
       console.error('[Signals] Scan error:', e);
       toast.error('Scan failed');
-      setScanning(false);
     }
+    setScanProgress(null);
+    setScanning(false);
   }
 
   async function handleStatusChange(signalId: string, status: string) {
@@ -461,6 +465,9 @@ export default function OutreachSignalsPage() {
                   Scan Now
                 </Button>
               </div>
+              {scanning && scanProgress && (
+                <p className="text-sm text-muted-foreground animate-pulse">{scanProgress}</p>
+              )}
               </div>
 
             {/* Section label + active filters */}

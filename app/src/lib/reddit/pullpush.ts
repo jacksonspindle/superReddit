@@ -40,7 +40,7 @@ class RateLimiter {
   }
 }
 
-const pullpushLimiter = new RateLimiter(12, 12); // 12 req/min (conservative within 15/min soft limit)
+const pullpushLimiter = new RateLimiter(15, 15); // 15 req/min (PullPush soft limit)
 
 export interface PullPushComment {
   id: string;
