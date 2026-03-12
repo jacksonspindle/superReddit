@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
   const _debugLog: string[] = [];
 
   try {
-    const count = await detectSignalsV3(supabase, {
+    const result = await detectSignalsV3(supabase, {
       projectId,
       keywords,
       keywordTiers,
@@ -158,8 +158,8 @@ export async function POST(request: NextRequest) {
       _debugLog,
     });
 
-    console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
-    return NextResponse.json({ completed: true, count, _debug: _debugLog });
+    console.log(`[Scan] Completed for project ${projectId}: ${result.count} signals (fetched: ${result.totalFetched}, existing: ${result.alreadyExisting})`);
+    return NextResponse.json({ completed: true, ...result, _debug: _debugLog });
   } catch (error) {
     console.error('Scan error:', error);
     return NextResponse.json({ error: 'Scan failed' }, { status: 500 });
