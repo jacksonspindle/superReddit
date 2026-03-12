@@ -138,57 +138,30 @@ export async function POST(request: NextRequest) {
   const clientRedditPosts = body.reddit_posts || undefined;
   const _debugLog: string[] = [];
 
-  // Stream NDJSON progress events
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (data: Record<string, unknown>) => {
-        try {
-          controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
-        } catch {
-          // Stream may have been closed by client
-        }
-      };
+  try {
+    const count = await detectSignalsV3(supabase, {
+      projectId,
+      keywords,
+      keywordTiers,
+      competitors,
+      subreddits: subNames,
+      subredditLimit: (config?.subreddit_limit as number) || 20,
+      productName: project.product_name,
+      productDescription: project.product_description,
+      productContext,
+      timeFilter: timeFilter as 'hour' | 'day' | 'week' | 'month' | 'year' | 'all',
+      maxResults: maxResults as number,
+      includeComments: includeComments as boolean,
+      browseSubreddits: true,
+      prefetchedPosts: clientRedditPosts as undefined,
+      skipCache: skipCache as boolean,
+      _debugLog,
+    });
 
-      try {
-        send({ type: 'progress', step: 'starting', message: 'Starting scan...' });
-
-        const count = await detectSignalsV3(supabase, {
-          projectId,
-          keywords,
-          keywordTiers,
-          competitors,
-          subreddits: subNames,
-          subredditLimit: (config?.subreddit_limit as number) || 20,
-          productName: project.product_name,
-          productDescription: project.product_description,
-          productContext,
-          timeFilter: timeFilter as 'hour' | 'day' | 'week' | 'month' | 'year' | 'all',
-          maxResults: maxResults as number,
-          includeComments: includeComments as boolean,
-          browseSubreddits: true,
-          prefetchedPosts: clientRedditPosts as undefined,
-          skipCache: skipCache as boolean,
-          _debugLog,
-          onProgress: (event) => send({ type: 'progress', ...event }),
-        });
-
-        console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
-        send({ type: 'done', count, _debug: _debugLog });
-      } catch (error) {
-        console.error('Scan error:', error);
-        send({ type: 'error', message: 'Scan failed' });
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'application/x-ndjson',
-      'Cache-Control': 'no-cache',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  });
+    console.log(`[Scan] Completed for project ${projectId}: ${count} signals`);
+    return NextResponse.json({ completed: true, count, _debug: _debugLog });
+  } catch (error) {
+    console.error('Scan error:', error);
+    return NextResponse.json({ error: 'Scan failed' }, { status: 500 });
+  }
 }

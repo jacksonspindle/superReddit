@@ -137,72 +137,27 @@ export default function OutreachSignalsPage() {
       // Skip cache on manual scan to always fetch fresh posts
       scanBody.skip_cache = true;
 
+      setScanProgress('Fetching and classifying posts...');
+
       const res = await fetch('/api/outreach/signals/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(scanBody),
       });
+      const json = await res.json();
+      console.log('[Signals] Scan response:', res.status, json);
 
-      // Handle non-streaming error responses
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({ error: 'Scan failed' }));
-        toast.error(json.error || 'Scan failed');
+      if (json.error) {
+        toast.error(json.error);
         setScanProgress(null);
         setScanning(false);
         return;
       }
 
-      // Read streaming NDJSON response
-      if (res.body) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let finalCount = 0;
-        let hadError = false;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const event = JSON.parse(line);
-              if (event.type === 'progress') {
-                setScanProgress(event.message);
-              } else if (event.type === 'done') {
-                finalCount = event.count;
-              } else if (event.type === 'error') {
-                toast.error(event.message);
-                hadError = true;
-              }
-            } catch {
-              // Skip malformed lines
-            }
-          }
-        }
-
-        if (!hadError) {
-          if (finalCount > 0) {
-            toast.success(`Found ${finalCount} new signals!`);
-          } else {
-            toast('No new signals found', { duration: 3000 });
-          }
-        }
+      if (json.count > 0) {
+        toast.success(`Found ${json.count} new signals!`);
       } else {
-        // Fallback for non-streaming response
-        const json = await res.json();
-        if (json.error) {
-          toast.error(json.error);
-        } else if (json.count > 0) {
-          toast.success(`Found ${json.count} new signals!`);
-        } else {
-          toast('No new signals found', { duration: 3000 });
-        }
+        toast('No new signals found', { duration: 3000 });
       }
 
       // Refresh signals list and analytics
