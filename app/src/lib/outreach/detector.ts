@@ -500,6 +500,8 @@ interface DetectV3Options extends DetectOptions {
   prefetchedPosts?: RedditPost[];
   /** Debug log array — push messages here for client-side debugging */
   _debugLog?: string[];
+  /** Skip L2 cache and always fetch fresh from APIs */
+  skipCache?: boolean;
   /** Streaming progress callback */
   onProgress?: (event: { step: string; message: string }) => void;
 }
@@ -559,6 +561,7 @@ export async function detectSignalsV3(
     includeComments = true,
     browseSubreddits = true,
     prefetchedPosts,
+    skipCache = false,
   } = options;
 
   const _debugLog = options._debugLog || [];
@@ -576,8 +579,8 @@ export async function detectSignalsV3(
   const cacheKey = buildCacheKey(subreddits, keywords, timeFilter, 'reddit');
   const commentCacheKey = buildCacheKey(subreddits, keywords, timeFilter, 'pullpush');
 
-  let cachedPosts = await getCachedSearch(supabase, cacheKey);
-  let cachedCommentPosts = await getCachedSearch(supabase, commentCacheKey);
+  let cachedPosts = skipCache ? null : await getCachedSearch(supabase, cacheKey);
+  let cachedCommentPosts = skipCache ? null : await getCachedSearch(supabase, commentCacheKey);
 
   if (cachedPosts && cachedPosts.length === 0) cachedPosts = null;
   if (cachedCommentPosts && cachedCommentPosts.length === 0) cachedCommentPosts = null;

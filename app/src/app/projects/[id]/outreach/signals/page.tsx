@@ -134,11 +134,23 @@ export default function OutreachSignalsPage() {
         console.error('[Signals] Config fetch failed:', e);
       }
 
+      // Skip cache on manual scan to always fetch fresh posts
+      scanBody.skip_cache = true;
+
       const res = await fetch('/api/outreach/signals/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(scanBody),
       });
+
+      // Handle non-streaming error responses
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({ error: 'Scan failed' }));
+        toast.error(json.error || 'Scan failed');
+        setScanProgress(null);
+        setScanning(false);
+        return;
+      }
 
       // Read streaming NDJSON response
       if (res.body) {

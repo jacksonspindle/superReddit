@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
   const timeFilter = body.time_filter || (config?.time_filter as string) || 'week';
   const maxResults = body.max_results || (config?.max_results as number) || 100;
   const includeComments = body.include_comments ?? (config?.include_comments as boolean) ?? true;
+  const skipCache = body.skip_cache ?? false;
 
   console.log(`[Scan] Starting for project ${projectId}`);
   console.log(`[Scan] Subreddits: ${subNames.join(', ')}`);
@@ -167,6 +168,7 @@ export async function POST(request: NextRequest) {
           includeComments: includeComments as boolean,
           browseSubreddits: true,
           prefetchedPosts: clientRedditPosts as undefined,
+          skipCache: skipCache as boolean,
           _debugLog,
           onProgress: (event) => send({ type: 'progress', ...event }),
         });
