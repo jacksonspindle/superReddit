@@ -150,8 +150,8 @@ export async function GET(request: NextRequest) {
           browseSubreddits: true,
         });
 
-        await markCompleted(supabase, entry.id, count);
-        totalSignals += count;
+        await markCompleted(supabase, entry.id, count.count);
+        totalSignals += count.count;
         processed++;
       } catch (err) {
         console.error(`Cron process error for project ${entry.project_id}:`, err);

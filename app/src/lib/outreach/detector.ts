@@ -543,10 +543,19 @@ function resolveKeywordTier(
  * 4. Full 4-dimension AI classification on filtered posts
  * 5. Intent-boosted scoring (buyer_intent, urgency, pain, competitor switching)
  */
+export interface DetectV3Result {
+  count: number;
+  totalFetched: number;
+  alreadyExisting: number;
+  newPosts: number;
+  filtered: number;
+  classified: number;
+}
+
 export async function detectSignalsV3(
   supabase: SupabaseClient,
   options: DetectV3Options
-): Promise<number> {
+): Promise<DetectV3Result> {
   const {
     projectId,
     keywords,
@@ -715,7 +724,7 @@ export async function detectSignalsV3(
   if (allPosts.size === 0) {
     dbg('[DetectorV3] No posts found from any source. Returning 0.');
     progress({ step: 'done', message: 'No posts found from any source' });
-    return 0;
+    return { count: 0, totalFetched: 0, alreadyExisting: 0, newPosts: 0, filtered: 0, classified: 0 };
   }
 
   // ---- Deduplicate against DB ----
@@ -750,7 +759,7 @@ export async function detectSignalsV3(
 
   if (newPosts.length === 0) {
     progress({ step: 'done', message: 'No new posts to analyze' });
-    return 0;
+    return { count: 0, totalFetched: allPosts.size, alreadyExisting: existingIds.size, newPosts: 0, filtered: 0, classified: 0 };
   }
 
   // ---- Two-Lane Pre-Filter: Heuristic Fast-Pass + AI Semantic Filter ----
@@ -819,7 +828,7 @@ export async function detectSignalsV3(
 
   if (filteredPosts.length === 0) {
     progress({ step: 'done', message: 'No relevant posts found after filtering' });
-    return 0;
+    return { count: 0, totalFetched: allPosts.size, alreadyExisting: existingIds.size, newPosts: newPosts.length, filtered: 0, classified: 0 };
   }
 
   progress({ step: 'classifying', message: `Classifying ${filteredPosts.length} posts with AI...` });
@@ -1081,7 +1090,14 @@ export async function detectSignalsV3(
     // competitor_mentions table may not exist yet
   }
 
-  return signals.length;
+  return {
+    count: signals.length,
+    totalFetched: allPosts.size,
+    alreadyExisting: existingIds.size,
+    newPosts: newPosts.length,
+    filtered: filteredPosts.length,
+    classified: v3Classifications.size,
+  };
 }
 
 /** Convert a time filter string to a Unix timestamp (seconds) for PullPush `after` param. */
